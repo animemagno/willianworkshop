@@ -42,27 +42,42 @@
     .dia-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #ddd}
     .dia-titulo{font-size:1.1rem;font-weight:bold;color:#2c3e50}
     .dia-fecha{font-size:.8rem;color:#7f8c8d}
+
     .ventas-dia-grid{display:flex;flex-direction:column;gap:10px}
-    .venta-item{display:grid;grid-template-columns:1fr 80px 100px 100px;gap:10px;padding:10px 12px;background:#fafafa;border-bottom:1px solid #ddd;align-items:center;font-size:.85rem}
+    .venta-item{display:grid;grid-template-columns:1fr 80px 100px 100px 100px;gap:10px;padding:10px 12px;background:#fafafa;border-bottom:1px solid #ddd;align-items:center;font-size:.85rem;cursor:pointer;transition:background .2s}
     .venta-item:nth-child(even){background:#f5f5f5}
+    .venta-item:hover{background:#e8f4fd}
     .venta-desc{line-height:1.2}
     .venta-cant{font-weight:600;color:#2c3e50}
     .venta-precio{font-weight:600;color:#27ae60}
     .venta-subtotal{font-weight:600;color:#2c3e50}
+    .venta-tipo{font-size:.7rem;padding:2px 6px;border-radius:3px;color:white;background:#3498db}
+
+    .venta-detail{margin-top:10px;padding:10px;background:white;border:1px solid #ddd;border-radius:6px;font-size:.8rem;display:none}
+    .venta-detail.show{display:block}
+    .venta-detail table{width:100%;border-collapse:collapse}
+    .venta-detail th,.venta-detail td{padding:6px;text-align:left;border-bottom:1px solid #eee}
+    .venta-detail th{background:#f2f2f2;font-weight:600}
+
+    .venta-actions{display:flex;gap:10px;margin-top:10px}
+    .venta-actions .btn{font-size:.8rem;padding:6px 10px}
+
     .empty-state{text-align:center;color:#7f8c8d;padding:40px 20px}
     .empty-state i{font-size:2.5rem;margin-bottom:10px;opacity:.5}
 
     .btn{padding:10px 15px;border:none;border-radius:4px;cursor:pointer;font-weight:600;transition:all .3s ease;font-size:.85rem;text-align:center;width:100%;margin-bottom:5px}
     @media(min-width:768px){.btn{width:auto;margin-bottom:0}}
+    .btn-warning{background-color:#f39c12;color:white}
+    .btn-warning:hover{background-color:#d35400}
+    .btn-danger{background-color:#e74c3c;color:white}
+    .btn-danger:hover{background-color:#c0392b}
     .btn-primary{background-color:#3498db;color:white}
     .btn-primary:hover{background-color:#2980b9}
-    .btn-info{background-color:#9b59b6;color:white}
-    .btn-info:hover{background-color:#8e44ad}
     .btn-container{display:flex;flex-direction:column;gap:5px;margin-top:15px}
     @media(min-width:768px){.btn-container{flex-direction:row;justify-content:flex-end}}
 
     @media (max-width: 768px) {
-      .venta-item{grid-template-columns:1fr 60px 80px 80px}
+      .venta-item{grid-template-columns:1fr 60px 80px 80px 80px}
       header h1{font-size:1.2rem}
       .container{padding:10px}
     }
