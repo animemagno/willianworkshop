@@ -13,8 +13,17 @@ const cantidadInput = document.getElementById("cantidad");
 const cartItems = document.getElementById("cart-items");
 const cartBadge = document.getElementById("cart-badge");
 const cartTotalElement = document.getElementById("cart-total");
+const fueraCantidad = document.getElementById("fuera-cantidad");
+const fueraSaldo = document.getElementById("fuera-saldo");
 const efectivoBtn = document.getElementById("efectivoBtn");
 const creditoBtn = document.getElementById("creditoBtn");
+const swapBtn = document.getElementById("swapBtn");
+const ventaWrapper = document.getElementById("ventaWrapper");
+const carritoContainer = document.getElementById("carritoContainer");
+const cartIcon = document.getElementById("cartIcon");
+const mobileMenuBtn = document.getElementById("mobileMenuBtn");
+const mobileMenu = document.getElementById("mobileMenu");
+const logoutBtn = document.getElementById("logoutBtn");
 
 // Agregar producto al carrito
 function agregarProducto(desc, precio, cantidad) {
@@ -32,7 +41,7 @@ function actualizarCarrito() {
   } else {
     cartItems.innerHTML = carrito.map((item, index) => `
       <div class="cart-item">
-        <div>${item.desc}</div>
+        <div class="product-desc">${item.desc}</div>
         <div>${item.cantidad}</div>
         <div>$${item.precio.toFixed(2)}</div>
         <div>$${item.subtotal.toFixed(2)}</div>
@@ -42,6 +51,8 @@ function actualizarCarrito() {
   }
   cartBadge.textContent = cantidadTotal;
   cartTotalElement.textContent = `$${total.toFixed(2)}`;
+  fueraCantidad.textContent = `Productos: ${cantidadTotal}`;
+  fueraSaldo.textContent = `Total: $${total.toFixed(2)}`;
 }
 
 // Eliminar producto
@@ -100,54 +111,3 @@ async function guardarVenta(tipo) {
   const venta = {
     equipo,
     cliente,
-    tipo,
-    items: carrito,
-    total,
-    cantidadTotal,
-    fecha: serverTimestamp()
-  };
-
-  try {
-    await addDoc(collection(db, "ventas"), venta);
-    alert("Venta guardada ✅");
-    imprimirTicket(tipo);
-    limpiarTodo();
-  } catch (e) {
-    console.error("Error al guardar:", e);
-    alert("Error al guardar venta.");
-  }
-}
-
-// Imprimir ticket (simulado)
-function imprimirTicket(tipo) {
-  const ticket = `
-Taller Wilian
-${tipo === "efectivo" ? "VENTA AL CONTADO" : "VENTA A CRÉDITO"}
-Equipo: ${equipoInput.value}
-Cliente: ${clienteInput.value}
-------------------------
-${carrito.map(i => `${i.desc} x${i.cantidad} $${i.subtotal.toFixed(2)}`).join("\n")}
-------------------------
-Total: $${total.toFixed(2)}
-Fecha: ${new Date().toLocaleString()}
-  `;
-  console.log("🖨️ Ticket:\n" + ticket);
-  // Aquí puedes usar jsPDF o enviar a impresora térmica
-}
-
-// Limpiar todo
-function limpiarTodo() {
-  carrito = [];
-  total = 0;
-  cantidadTotal = 0;
-  equipoInput.value = "";
-  clienteInput.value = "";
-  actualizarCarrito();
-}
-
-// Botones de pago
-efectivoBtn.addEventListener("click", () => guardarVenta("efectivo"));
-creditoBtn.addEventListener("click", () => guardarVenta("credito"));
-
-// Inicializar
-actualizarCarrito();
