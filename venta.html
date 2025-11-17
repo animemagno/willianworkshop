@@ -6,20 +6,18 @@
   <title>Nueva Venta - Taller Wilian</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
   <style>
+    /* ===== ESTILOS ORIGINALES DE ventas.html ===== */
     *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     html,body{height:100%}
     body{background:#eef2f5;color:#333;font-size:14px;display:flex;flex-direction:column}
 
-    /* 🔥 CONTENEDOR: igual que las demás páginas (con margen) */
     .main-wrapper{display:flex;flex-direction:column;min-height:100vh;padding:10px}
     .container{width:100%;max-width:100%;margin:0 auto;background:white;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.1);flex:1 1 auto;display:flex;flex-direction:column;padding:0}
 
-    /* 🔥 ENCABEZADO: ancho completo */
     header{background:linear-gradient(135deg,#3498db,#2c3e50);color:white;padding:12px 20px;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
     header h1{font-size:1.3rem;margin-bottom:4px}
     .header-actions{display:flex;align-items:center;gap:10px;position:relative}
 
-    /* Menú hamburguesa integrado */
     .menu-toggle{background:rgba(255,255,255,.2);border:none;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .3s}
     .menu-toggle:hover{background:rgba(255,255,255,.3)}
     .menu-toggle i{color:white;font-size:1.1rem}
@@ -37,7 +35,6 @@
 
     .section-title{display:flex;justify-content:space-between;align-items:center;font-size:1.2rem;color:#2c3e50;margin-bottom:15px;padding-bottom:8px;border-bottom:2px solid #3498db}
 
-    /* 🔥 SIMETRÍA: ancho completo en escritorio */
     .venta-wrapper{display:flex;gap:15px;align-items:flex-start;flex:1 1 auto;padding:0 20px}
     @media (max-width: 768px){.venta-wrapper{padding:0 10px}}
     .venta-form-container{flex:1 1 50%;display:flex;flex-direction:column}
@@ -58,7 +55,6 @@
     .search-dropdown-item{padding:10px;cursor:pointer;border-bottom:1px solid #ddd;transition:background-color .2s}
     .search-dropdown-item:hover{background-color:#3498db;color:white}
 
-    /* 🔥 LISTA para el carrito */
     .cart-container{background:#f8f9fa;border-radius:6px;padding:0;border:1px solid #e9ecef;display:flex;flex-direction:column;max-height:400px;overflow-y:auto}
     .cart-header{display:grid;grid-template-columns:1fr 80px 100px 100px 40px;gap:10px;padding:8px 12px;background:#2c3e50;color:white;border-radius:4px 4px 0 0;font-weight:600;font-size:.8rem}
     .cart-item{display:grid;grid-template-columns:1fr 80px 100px 100px 40px;gap:10px;padding:8px 12px;border-bottom:1px solid #ddd;align-items:center;font-size:.85rem}
@@ -82,7 +78,6 @@
     .swap-btn:hover{background:#7f8c8d}
     .totales-outside{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:white;border:1px solid #ddd;border-radius:4px;font-size:.9rem;font-weight:600;color:#2c3e50;margin-top:8px}
 
-    /* Móvil: carrito oculto por defecto */
     @media (max-width: 768px) {
         .venta-wrapper{flex-direction:column;padding:0 10px}
         .venta-wrapper.invertido{flex-direction:column}
@@ -91,203 +86,106 @@
         .venta-carrito-container.mostrar{display:flex}
         .swap-btn{display:none}
     }
-</style>
+  </style>
 </head>
 <body class="main-wrapper">
 
 <header>
-    <button class="menu-toggle" id="mobileMenuBtn"><i class="fas fa-bars"></i></button>
-    <h1>Taller Wilian</h1>
-    <div class="header-actions">
-        <button class="cart-icon" id="cartIcon"><i class="fas fa-shopping-cart"></i><span class="cart-badge" id="cartBadge">0</span></button>
-        <span class="cart-total-amount" id="cartTotal">$0.00</span>
-    </div>
+  <button class="menu-toggle" id="mobileMenuBtn"><i class="fas fa-bars"></i></button>
+  <h1>Taller Wilian</h1>
+  <div class="header-actions">
+    <button class="cart-icon" id="cartIcon"><i class="fas fa-shopping-cart"></i><span class="cart-badge" id="cart-badge">0</span></button>
+    <span class="cart-total-amount" id="cart-total">$0.00</span>
+  </div>
 </header>
 
 <div class="mobile-menu" id="mobileMenu">
-    <a href="index.html"><i class="fas fa-home"></i> Inicio</a>
-    <a href="venta.html" class="active"><i class="fas fa-cash-register"></i> Nueva Venta</a>
-    <a href="facturas.html"><i class="fas fa-file-invoice-dollar"></i> Facturas Pendientes</a>
-    <a href="historial.html"><i class="fas fa-history"></i> Historial de Ventas</a>
-    <a href="inventario.html"><i class="fas fa-boxes"></i> Inventario</a>
-    <a href="servicios.html"><i class="fas fa-tools"></i> Servicios</a>
-    <a href="entregas.html"><i class="fas fa-truck"></i> Entregas</a>
-    <a href="cuentas.html"><i class="fas fa-sticky-note"></i> Memos y Cuentas</a>
-    <a href="configuracion.html"><i class="fas fa-cog"></i> Configuración</a>
-    <a href="#" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
+  <a href="index.html"><i class="fas fa-home"></i> Inicio</a>
+  <a href="venta.html" class="active"><i class="fas fa-cash-register"></i> Nueva Venta</a>
+  <a href="facturas.html"><i class="fas fa-file-invoice-dollar"></i> Facturas Pendientes</a>
+  <a href="historial.html"><i class="fas fa-history"></i> Historial de Ventas</a>
+  <a href="inventario.html"><i class="fas fa-boxes"></i> Inventario</a>
+  <a href="servicios.html"><i class="fas fa-tools"></i> Servicios</a>
+  <a href="entregas.html"><i class="fas fa-truck"></i> Entregas</a>
+  <a href="cuentas.html"><i class="fas fa-sticky-note"></i> Memos y Cuentas</a>
+  <a href="configuracion.html"><i class="fas fa-cog"></i> Configuración</a>
+  <a href="#" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
 </div>
 
 <div class="container">
-    <div class="dashboard-section">
-        <div class="section-title">NUEVA VENTA <button class="swap-btn" id="swapBtn" title="Invertir lados"><i class="fas fa-exchange-alt"></i></button></div>
-        <div class="venta-wrapper" id="ventaWrapper">
-            <div class="venta-form-container">
-                <form id="ventaForm">
-                    <div class="equipo-ciudad-group">
-                        <div class="form-group"><label for="equipo">Equipo</label><input type="text" id="equipo" class="equipo-input" placeholder="123" maxlength="3"></div>
-                        <div class="form-group"><label for="cliente">Ciudad</label><input type="text" id="cliente" placeholder="Nombre de ciudad"></div>
-                    </div>
-                    <div class="producto-cantidad-group">
-                        <div class="form-group"><label for="buscar-producto">Buscar Producto</label><div class="search-container"><input type="text" id="buscar-producto" placeholder="Código o descripción"><div id="search-dropdown" class="search-dropdown"></div></div></div>
-                        <div class="form-group"><label for="cantidad">Cantidad</label><input type="number" id="cantidad" class="cantidad-input" placeholder="0" min="1" value="1"></div>
-                    </div>
-                    <div class="btn-container">
-                        <button type="button" class="btn btn-success" id="efectivoBtn">Efectivo</button>
-                        <button type="button" class="btn btn-warning" id="creditoBtn">Crédito</button>
-                    </div>
-                </form>
-            </div>
-
-            <div class="venta-carrito-container" id="carritoContainer">
-                <div class="cart-container">
-                    <div class="cart-header">
-                        <div>Descripción</div>
-                        <div>Cant</div>
-                        <div>Precio</div>
-                        <div>Subtotal</div>
-                        <div></div>
-                    </div>
-                    <div id="cart-items">
-                        <div class="empty-cart"><i class="fas fa-shopping-cart" style="font-size:2rem;margin-bottom:10px;opacity:.5;"></i><div>No hay productos agregados</div></div>
-                    </div>
-                </div>
-                <div class="totales-outside">
-                    <span id="fuera-cantidad">Productos: 0</span>
-                    <span id="fuera-saldo">Total: $0.00</span>
-                </div>
-            </div>
-        </div>
+  <div class="dashboard-section">
+    <div class="section-title">
+      NUEVA VENTA
+      <button class="swap-btn" id="swapBtn" title="Invertir lados"><i class="fas fa-exchange-alt"></i></button>
     </div>
+    <div class="venta-wrapper" id="ventaWrapper">
+      <div class="venta-form-container">
+        <form id="ventaForm">
+          <div class="equipo-ciudad-group">
+            <div class="form-group">
+              <label for="equipo">Equipo</label>
+              <input type="text" id="equipo" class="equipo-input" placeholder="123" maxlength="3">
+            </div>
+            <div class="form-group">
+              <label for="cliente">Ciudad</label>
+              <input type="text" id="cliente" placeholder="Nombre de ciudad">
+            </div>
+          </div>
+          <div class="producto-cantidad-group">
+            <div class="form-group">
+              <label for="buscar-producto">Buscar Producto</label>
+              <div class="search-container">
+                <input type="text" id="buscar-producto" placeholder="Código o descripción">
+                <div id="search-dropdown" class="search-dropdown"></div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="cantidad">Cantidad</label>
+              <input type="number" id="cantidad" class="cantidad-input" placeholder="0" min="1" value="1">
+            </div>
+          </div>
+          <div class="btn-container">
+            <button type="button" class="btn btn-success" id="efectivoBtn">Efectivo</button>
+            <button type="button" class="btn btn-warning" id="creditoBtn">Crédito</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="venta-carrito-container" id="carritoContainer">
+        <div class="cart-container">
+          <div class="cart-header">
+            <div>Descripción</div>
+            <div>Cant</div>
+            <div>Precio</div>
+            <div>Subtotal</div>
+            <div></div>
+          </div>
+          <div id="cart-items">
+            <div class="empty-cart">
+              <i class="fas fa-shopping-cart" style="font-size:2rem;margin-bottom:10px;opacity:.5;"></i>
+              <div>No hay productos agregados</div>
+            </div>
+          </div>
+        </div>
+        <div class="totales-outside">
+          <span id="fuera-cantidad">Productos: 0</span>
+          <span id="fuera-saldo">Total: $0.00</span>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded',function(){
-    const mobileMenuBtn=document.getElementById('mobileMenuBtn');
-    const mobileMenu=document.getElementById('mobileMenu');
-    const cartIcon=document.getElementById('cartIcon');
-    const swapBtn=document.getElementById('swapBtn');
-    const ventaWrapper=document.getElementById('ventaWrapper');
+<!-- ===== SCRIPTS ===== -->
+<!-- Firebase SDK -->
+<script type="module" src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+<script type="module" src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
 
-    mobileMenuBtn.addEventListener('click',()=>mobileMenu.classList.toggle('active'));
-    document.getElementById('logoutBtn').addEventListener('click',()=>{
-        localStorage.removeItem('usuarioLogueado');
-        window.location.href='login.html';
-    });
+<!-- Configuración de Firebase -->
+<script type="module" src="firebase-config.js"></script>
 
-    let cartItems=[];
-    let cartTotal=0;
-    let cartCantidad=0;
+<!-- Lógica de ventas -->
+<script type="module" src="ventas.js"></script>
 
-    function actualizarCarritoVista(){
-        const cartItemsDiv=document.getElementById('cart-items');
-        const cartBadge=document.getElementById('cartBadge');
-        const cartTotalElement=document.getElementById('cartTotal');
-        const fueraCantidad=document.getElementById('fuera-cantidad');
-        const fueraSaldo=document.getElementById('fuera-saldo');
-
-        if(cartItems.length===0){
-            cartItemsDiv.innerHTML='<div class="empty-cart"><i class="fas fa-shopping-cart" style="font-size:2rem;margin-bottom:10px;opacity:.5;"></i><div>No hay productos agregados</div></div>';
-        }else{
-            let html='';
-            cartItems.forEach((item,index)=>{
-                html+=`
-                <div class="cart-item">
-                    <div class="product-desc">${item.desc}</div>
-                    <div>${item.cantidad}</div>
-                    <div>$${item.precio.toFixed(2)}</div>
-                    <div>$${item.subtotal.toFixed(2)}</div>
-                    <div class="cart-actions"><button class="delete-item-btn" data-index="${index}" title="Eliminar"><i class="fas fa-trash"></i></button></div>
-                </div>`;
-            });
-            cartItemsDiv.innerHTML=html;
-            cartItemsDiv.scrollTop = cartItemsDiv.scrollHeight;
-        }
-
-        cartBadge.textContent=cartCantidad;
-        cartTotalElement.textContent=`$${cartTotal.toFixed(2)}`;
-        fueraCantidad.textContent=`Productos: ${cartCantidad}`;
-        fueraSaldo.textContent=`Total: $${cartTotal.toFixed(2)}`;
-    }
-
-    function agregarProducto(desc,precio,cantidad){
-        cartItems.push({desc,precio,cantidad,subtotal:precio*cantidad});
-        cartCantidad+=cantidad;
-        cartTotal+=precio*cantidad;
-        actualizarCarritoVista();
-    }
-
-    document.getElementById('buscar-producto').addEventListener('focus',function(){
-        const dropdown=document.getElementById('search-dropdown');
-        dropdown.innerHTML='<div class="search-dropdown-item">Prod-001 | Llanta 26" - $25.00</div><div class="search-dropdown-item">Prod-002 | Cadena 7v - $8.50</div><div class="search-dropdown-item">Prod-003 | Freno disco - $15.00</div>';
-        dropdown.style.display='block';
-    });
-
-    document.addEventListener('click',function(e){
-        if(!e.target.closest('.search-container')) document.getElementById('search-dropdown').style.display='none';
-    });
-
-    document.getElementById('search-dropdown').addEventListener('click',function(e){
-        if(e.target.classList.contains('search-dropdown-item')){
-            const partes=e.target.textContent.split('- $');
-            const desc=partes[0].trim();
-            const precio=parseFloat(partes[1]);
-            const cantidad=parseInt(document.getElementById('cantidad').value)||1;
-            agregarProducto(desc,precio,cantidad);
-            document.getElementById('buscar-producto').value='';
-            document.getElementById('cantidad').value='1';
-            this.style.display='none';
-        }
-    });
-
-    document.getElementById('cart-items').addEventListener('click',function(e){
-        if(e.target.closest('.delete-item-btn')){
-            const index=e.target.closest('.delete-item-btn').dataset.index;
-            const item=cartItems[index];
-            cartCantidad-=item.cantidad;
-            cartTotal-=item.subtotal;
-            cartItems.splice(index,1);
-            actualizarCarritoVista();
-        }
-    });
-
-    // Móvil: mostrar carrito en pantalla completa
-    if (window.innerWidth <= 768) {
-        cartIcon.addEventListener('click', () => {
-            const wrapper = document.createElement('div');
-            wrapper.id = 'carritoFullScreen';
-            wrapper.innerHTML = `
-                <div style="position:fixed;top:0;left:0;width:100%;height:100%;background:white;z-index:2000;padding:20px;display:flex;flex-direction:column;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-                        <h3>Carrito de Compras</h3>
-                        <button id="cerrarCarritoBtn" style="background:#e74c3c;color:white;border:none;border-radius:50%;width:36px;height:36px;font-size:1.2rem;cursor:pointer;"><i class="fas fa-times"></i></button>
-                    </div>
-                    <div id="carritoContenidoClone"></div>
-                </div>
-            `;
-            document.body.appendChild(wrapper);
-            const clone = document.getElementById('cart-items').cloneNode(true);
-            document.getElementById('carritoContenidoClone').appendChild(clone);
-
-            document.getElementById('cerrarCarritoBtn').addEventListener('click', () => {
-                document.body.removeChild(wrapper);
-            });
-        });
-    }
-
-    // Escritorio: invertir lados
-    if (window.innerWidth > 768) {
-        swapBtn.addEventListener('click', () => ventaWrapper.classList.toggle('invertido'));
-    } else {
-        swapBtn.style.display = 'none';
-    }
-
-    actualizarCarritoVista();
-});
-
-// 🔒 Autenticación al final
-if (!localStorage.getItem('usuarioLogueado')) {
-  window.location.href = 'login.html';
-}
-</script>
 </body>
 </html>
