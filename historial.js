@@ -1,6 +1,6 @@
 // historial.js
 import { db } from "./firebase-config.js";
-import { collection, query, orderBy, limit, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { collection, query, orderBy, limit, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const ventasContainer = document.getElementById("ventas-container");
 const emptyVentas = document.getElementById("empty-ventas");
@@ -11,12 +11,7 @@ const mobileMenu = document.getElementById("mobileMenu");
 const logoutBtn = document.getElementById("logoutBtn");
 
 // Modales
-const modalEditar = document.getElementById("modalEditar");
 const modalEliminar = document.getElementById("modalEliminar");
-const modalCliente = document.getElementById("modalCliente");
-const modalTipo = document.getElementById("modalTipo");
-const modalGuardar = document.getElementById("modalGuardar");
-const modalCancelar = document.getElementById("modalCancelar");
 const modalConfirmarEliminar = document.getElementById("modalConfirmarEliminar");
 const modalCancelarEliminar = document.getElementById("modalCancelarEliminar");
 
@@ -57,7 +52,7 @@ function renderVentas(lista) {
             <div class="venta-subtotal">$${v.total.toFixed(2)}</div>
             <div class="venta-tipo">${v.tipo}</div>
             <div class="venta-actions">
-              <button class="btn btn-warning" onclick="abrirEditar('${v.id}')">Editar</button>
+              <button class="btn btn-warning" onclick="editarVenta('${v.id}')">Editar</button>
               <button class="btn btn-danger" onclick="abrirEliminar('${v.id}')">Eliminar</button>
             </div>
           </div>
@@ -101,41 +96,22 @@ window.toggleDetail = (id) => {
   detail.classList.toggle("show");
 };
 
-// Abrir modal editar
-window.abrirEditar = (id) => {
-  idActual = id;
-  const v = ventas.find(x => x.id === id);
-  modalCliente.value = v.cliente;
-  modalTipo.value = v.tipo;
-  modalEditar.style.display = "flex";
+// EDITAR: redirige a venta.html con ID
+window.editarVenta = (id) => {
+  window.location.href = `venta.html?id=${id}`;
 };
 
-// Abrir modal eliminar
+// ELIMINAR: modal + confirmación
 window.abrirEliminar = (id) => {
   idActual = id;
   modalEliminar.style.display = "flex";
 };
 
-// Cerrar modales
+// Cerrar modal eliminar
 function cerrarModales() {
-  modalEditar.style.display = "none";
   modalEliminar.style.display = "none";
   idActual = null;
 }
-
-// Guardar edición
-modalGuardar.addEventListener("click", async () => {
-  const cliente = modalCliente.value.trim();
-  const tipo = modalTipo.value.trim().toLowerCase();
-  if (!cliente || !tipo) return;
-  try {
-    await updateDoc(doc(db, "ventas", idActual), { cliente, tipo });
-    cerrarModales();
-    cargarVentas();
-  } catch (e) {
-    alert("Error al actualizar");
-  }
-});
 
 // Confirmar eliminar
 modalConfirmarEliminar.addEventListener("click", async () => {
@@ -148,8 +124,6 @@ modalConfirmarEliminar.addEventListener("click", async () => {
   }
 });
 
-// Cancelar edición / eliminar
-modalCancelar.addEventListener("click", cerrarModales);
 modalCancelarEliminar.addEventListener("click", cerrarModales);
 
 // Filtrar por equipo
