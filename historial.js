@@ -56,6 +56,10 @@ function renderVentas(lista) {
             <div class="venta-precio">$${v.total.toFixed(2)}</div>
             <div class="venta-subtotal">$${v.total.toFixed(2)}</div>
             <div class="venta-tipo">${v.tipo}</div>
+            <div class="venta-actions">
+              <button class="btn btn-warning" onclick="abrirEditar('${v.id}')">Editar</button>
+              <button class="btn btn-danger" onclick="abrirEliminar('${v.id}')">Eliminar</button>
+            </div>
           </div>
           <div id="detail-${v.id}" class="venta-detail">
             <table>
@@ -73,10 +77,6 @@ function renderVentas(lista) {
                 `).join("")}
               </tbody>
             </table>
-            <div class="venta-actions">
-              <button class="btn btn-warning" onclick="abrirEditar('${v.id}')">Editar</button>
-              <button class="btn btn-danger" onclick="abrirEliminar('${v.id}')">Eliminar</button>
-            </div>
           </div>
         `).join("")}
       </div>
@@ -127,7 +127,7 @@ function cerrarModales() {
 modalGuardar.addEventListener("click", async () => {
   const cliente = modalCliente.value.trim();
   const tipo = modalTipo.value.trim().toLowerCase();
-  if (!cliente || !tipo) return alert("Completa todos los campos");
+  if (!cliente || !tipo) return;
   try {
     await updateDoc(doc(db, "ventas", idActual), { cliente, tipo });
     cerrarModales();
