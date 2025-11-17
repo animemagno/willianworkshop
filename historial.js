@@ -10,7 +10,18 @@ const mobileMenuBtn = document.getElementById("mobileMenuBtn");
 const mobileMenu = document.getElementById("mobileMenu");
 const logoutBtn = document.getElementById("logoutBtn");
 
+// Modales
+const modalEditar = document.getElementById("modalEditar");
+const modalEliminar = document.getElementById("modalEliminar");
+const modalCliente = document.getElementById("modalCliente");
+const modalTipo = document.getElementById("modalTipo");
+const modalGuardar = document.getElementById("modalGuardar");
+const modalCancelar = document.getElementById("modalCancelar");
+const modalConfirmarEliminar = document.getElementById("modalConfirmarEliminar");
+const modalCancelarEliminar = document.getElementById("modalCancelarEliminar");
+
 let ventas = [];
+let idActual = null;
 
 // Cargar ventas
 async function cargarVentas() {
@@ -63,8 +74,8 @@ function renderVentas(lista) {
               </tbody>
             </table>
             <div class="venta-actions">
-              <button class="btn btn-warning" onclick="editarVenta('${v.id}')">Editar</button>
-              <button class="btn btn-danger" onclick="eliminarVenta('${v.id}')">Eliminar</button>
+              <button class="btn btn-warning" onclick="abrirEditar('${v.id}')">Editar</button>
+              <button class="btn btn-danger" onclick="abrirEliminar('${v.id}')">Eliminar</button>
             </div>
           </div>
         `).join("")}
@@ -90,36 +101,56 @@ window.toggleDetail = (id) => {
   detail.classList.toggle("show");
 };
 
-// Editar venta (por ahora solo cambia cliente y tipo)
-window.editarVenta = async (id) => {
-  const venta = ventas.find(v => v.id === id);
-  const nuevoCliente = prompt("Nuevo nombre del cliente:", venta.cliente);
-  const nuevoTipo = prompt("Nuevo tipo (efectivo/credito):", venta.tipo);
-  if (nuevoCliente === null || nuevoTipo === null) return;
+// Abrir modal editar
+window.abrirEditar = (id) => {
+  idActual = id;
+  const v = ventas.find(x => x.id === id);
+  modalCliente.value = v.cliente;
+  modalTipo.value = v.tipo;
+  modalEditar.style.display = "flex";
+};
 
+// Abrir modal eliminar
+window.abrirEliminar = (id) => {
+  idActual = id;
+  modalEliminar.style.display = "flex";
+};
+
+// Cerrar modales
+function cerrarModales() {
+  modalEditar.style.display = "none";
+  modalEliminar.style.display = "none";
+  idActual = null;
+}
+
+// Guardar edición
+modalGuardar.addEventListener("click", async () => {
+  const cliente = modalCliente.value.trim();
+  const tipo = modalTipo.value.trim().toLowerCase();
+  if (!cliente || !tipo) return alert("Completa todos los campos");
   try {
-    await updateDoc(doc(db, "ventas", id), {
-      cliente: nuevoCliente.trim(),
-      tipo: nuevoTipo.trim().toLowerCase()
-    });
-    alert("Venta actualizada ✅");
+    await updateDoc(doc(db, "ventas", idActual), { cliente, tipo });
+    cerrarModales();
     cargarVentas();
   } catch (e) {
     alert("Error al actualizar");
   }
-};
+});
 
-// Eliminar venta
-window.eliminarVenta = async (id) => {
-  if (!confirm("¿Seguro de eliminar esta venta?")) return;
+// Confirmar eliminar
+modalConfirmarEliminar.addEventListener("click", async () => {
   try {
-    await deleteDoc(doc(db, "ventas", id));
-    alert("Venta eliminada ✅");
+    await deleteDoc(doc(db, "ventas", idActual));
+    cerrarModales();
     cargarVentas();
   } catch (e) {
     alert("Error al eliminar");
   }
-};
+});
+
+// Cancelar edición / eliminar
+modalCancelar.addEventListener("click", cerrarModales);
+modalCancelarEliminar.addEventListener("click", cerrarModales);
 
 // Filtrar por equipo
 filterInput.addEventListener("input", () => {
