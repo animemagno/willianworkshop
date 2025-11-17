@@ -7,29 +7,54 @@ let total = 0;
 let cantidadTotal = 0;
 let idFactura = null;
 
+// ===== REFERENCIAS =====
+const equipoInput = document.getElementById("equipo");
+const clienteInput = document.getElementById("cliente");
+const buscarProductoInput = document.getElementById("buscar-producto");
+const cantidadInput = document.getElementById("cantidad");
+const cartItems = document.getElementById("cart-items");
+const cartBadge = document.getElementById("cart-badge");
+const cartTotalElement = document.getElementById("cart-total");
+const fueraCantidad = document.getElementById("fuera-cantidad");
+const fueraSaldo = document.getElementById("fuera-saldo");
+const efectivoBtn = document.getElementById("efectivoBtn");
+const creditoBtn = document.getElementById("creditoBtn");
+const swapBtn = document.getElementById("swapBtn");
+const ventaWrapper = document.getElementById("ventaWrapper");
+const carritoContainer = document.getElementById("carritoContainer");
+const cartIcon = document.getElementById("cartIcon");
+const mobileMenuBtn = document.getElementById("mobileMenuBtn");
+const mobileMenu = document.getElementById("mobileMenu");
+const logoutBtn = document.getElementById("logoutBtn");
+const tituloVenta = document.getElementById("tituloVenta");
+
 // ===== MODALES =====
+const modalExito = document.getElementById("modalExito");
+const modalError = document.getElementById("modalError");
+const modalValida = document.getElementById("modalValida");
+const textoError = document.getElementById("textoError");
+const textoValida = document.getElementById("textoValida");
+
 function mostrarExito() {
-  document.getElementById("modalExito").style.display = "flex";
+  modalExito.style.display = "flex";
 }
 function cerrarExito() {
-  document.getElementById("modalExito").style.display = "none";
-  if (idFactura) {
-    window.location.href = "historial.html";
-  }
+  modalExito.style.display = "none";
+  if (idFactura) window.location.href = "historial.html";
 }
 function mostrarError(msg) {
-  document.getElementById("textoError").textContent = msg;
-  document.getElementById("modalError").style.display = "flex";
+  textoError.textContent = msg;
+  modalError.style.display = "flex";
 }
 function cerrarError() {
-  document.getElementById("modalError").style.display = "none";
+  modalError.style.display = "none";
 }
 function mostrarValida(msg) {
-  document.getElementById("textoValida").textContent = msg;
-  document.getElementById("modalValida").style.display = "flex";
+  textoValida.textContent = msg;
+  modalValida.style.display = "flex";
 }
 function cerrarValida() {
-  document.getElementById("modalValida").style.display = "none";
+  modalValida.style.display = "none";
 }
 
 // ===== CARRITO =====
@@ -42,12 +67,6 @@ function agregarProducto(desc, precio, cantidad) {
 }
 
 function actualizarCarrito() {
-  const cartItems = document.getElementById("cart-items");
-  const cartBadge = document.getElementById("cart-badge");
-  const cartTotalElement = document.getElementById("cart-total");
-  const fueraCantidad = document.getElementById("fuera-cantidad");
-  const fueraSaldo = document.getElementById("fuera-saldo");
-
   if (carrito.length === 0) {
     cartItems.innerHTML = `<div class="empty-cart"><i class="fas fa-shopping-cart"></i><div>No hay productos</div></div>`;
   } else {
@@ -113,7 +132,7 @@ document.getElementById("search-dropdown").addEventListener("click", (e) => {
   }
 });
 
-document.getElementById("buscar-producto").addEventListener("focus", () => {
+buscarProductoInput.addEventListener("focus", () => {
   const dropdown = document.getElementById("search-dropdown");
   dropdown.innerHTML = `
     <div class="search-dropdown-item" data-desc="Llanta 26&quot;" data-precio="25.00">Llanta 26" - $25.00</div>
@@ -203,6 +222,7 @@ Total: $${total.toFixed(2)}
 Fecha: ${new Date().toLocaleString()}
   `;
   console.log("🖨️ Ticket:\n" + ticket);
+  // Aquí puedes usar jsPDF o enviar a impresora térmica
 }
 
 function limpiarTodo() {
