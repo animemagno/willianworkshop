@@ -5,7 +5,7 @@ import { collection, addDoc, doc, getDoc, updateDoc, serverTimestamp } from "htt
 let carrito = [];
 let total = 0;
 let cantidadTotal = 0;
-let idFactura = null; // Si hay ID, estamos editando
+let idFactura = null;
 
 // Referencias
 const equipoInput = document.getElementById("equipo");
@@ -19,45 +19,31 @@ const fueraCantidad = document.getElementById("fuera-cantidad");
 const fueraSaldo = document.getElementById("fuera-saldo");
 const efectivoBtn = document.getElementById("efectivoBtn");
 const creditoBtn = document.getElementById("creditoBtn");
-const swapBtn = document.getElementById("swapBtn");
-const ventaWrapper = document.getElementById("ventaWrapper");
-const carritoContainer = document.getElementById("carritoContainer");
-const cartIcon = document.getElementById("cartIcon");
-const mobileMenuBtn = document.getElementById("mobileMenuBtn");
-const mobileMenu = document.getElementById("mobileMenu");
-const logoutBtn = document.getElementById("logoutBtn");
 const tituloVenta = document.getElementById("tituloVenta");
-
-// Modales
-const modalExito = document.getElementById("modalExito");
-const modalError = document.getElementById("modalError");
-const modalValida = document.getElementById("modalValida");
-const textoError = document.getElementById("textoError");
-const textoValida = document.getElementById("textoValida");
 
 // ===== MODALES =====
 function mostrarExito() {
-  modalExito.style.display = "flex";
+  document.getElementById("modalExito").style.display = "flex";
 }
 function cerrarExito() {
-  modalExito.style.display = "none";
+  document.getElementById("modalExito").style.display = "none";
   if (idFactura) {
     window.location.href = "historial.html";
   }
 }
 function mostrarError(msg) {
-  textoError.textContent = msg;
-  modalError.style.display = "flex";
+  document.getElementById("textoError").textContent = msg;
+  document.getElementById("modalError").style.display = "flex";
 }
 function cerrarError() {
-  modalError.style.display = "none";
+  document.getElementById("modalError").style.display = "none";
 }
 function mostrarValida(msg) {
-  textoValida.textContent = msg;
-  modalValida.style.display = "flex";
+  document.getElementById("textoValida").textContent = msg;
+  document.getElementById("modalValida").style.display = "flex";
 }
 function cerrarValida() {
-  modalValida.style.display = "none";
+  document.getElementById("modalValida").style.display = "none";
 }
 
 // ===== CARRITO =====
@@ -70,6 +56,12 @@ function agregarProducto(desc, precio, cantidad) {
 }
 
 function actualizarCarrito() {
+  const cartItems = document.getElementById("cart-items");
+  const cartBadge = document.getElementById("cart-badge");
+  const cartTotalElement = document.getElementById("cart-total");
+  const fueraCantidad = document.getElementById("fuera-cantidad");
+  const fueraSaldo = document.getElementById("fuera-saldo");
+
   if (carrito.length === 0) {
     cartItems.innerHTML = `<div class="empty-cart"><i class="fas fa-shopping-cart"></i><div>No hay productos</div></div>`;
   } else {
@@ -112,7 +104,7 @@ function cambiarPrecio(index, nuevoPrecio) {
 }
 
 // ===== EVENTOS =====
-cartItems.addEventListener("click", (e) => {
+document.addEventListener("click", (e) => {
   if (e.target.closest(".delete-item-btn")) {
     const index = e.target.closest(".delete-item-btn").dataset.index;
     const item = carrito[index];
@@ -121,16 +113,6 @@ cartItems.addEventListener("click", (e) => {
     carrito.splice(index, 1);
     actualizarCarrito();
   }
-});
-
-buscarProductoInput.addEventListener("focus", () => {
-  const dropdown = document.getElementById("search-dropdown");
-  dropdown.innerHTML = `
-    <div class="search-dropdown-item" data-desc="Llanta 26&quot;" data-precio="25.00">Llanta 26" - $25.00</div>
-    <div class="search-dropdown-item" data-desc="Cadena 7v" data-precio="8.50">Cadena 7v - $8.50</div>
-    <div class="search-dropdown-item" data-desc="Freno disco" data-precio="15.00">Freno disco - $15.00</div>
-  `;
-  dropdown.style.display = "block";
 });
 
 document.getElementById("search-dropdown").addEventListener("click", (e) => {
@@ -143,6 +125,16 @@ document.getElementById("search-dropdown").addEventListener("click", (e) => {
     cantidadInput.value = "1";
     e.target.parentElement.style.display = "none";
   }
+});
+
+document.getElementById("buscar-producto").addEventListener("focus", () => {
+  const dropdown = document.getElementById("search-dropdown");
+  dropdown.innerHTML = `
+    <div class="search-dropdown-item" data-desc="Llanta 26&quot;" data-precio="25.00">Llanta 26" - $25.00</div>
+    <div class="search-dropdown-item" data-desc="Cadena 7v" data-precio="8.50">Cadena 7v - $8.50</div>
+    <div class="search-dropdown-item" data-desc="Freno disco" data-precio="15.00">Freno disco - $15.00</div>
+  `;
+  dropdown.style.display = "block";
 });
 
 document.addEventListener("click", (e) => {
@@ -166,7 +158,7 @@ async function cargarFactura(id) {
     carrito = data.items.map(i => ({ ...i }));
     total = data.total;
     cantidadTotal = data.cantidadTotal;
-    tituloVenta.textContent = "EDITAR VENTA";
+    document.getElementById("tituloVenta").textContent = "EDITAR VENTA";
     actualizarCarrito();
   } catch (e) {
     mostrarError("Error al cargar la factura.");
@@ -235,20 +227,23 @@ function limpiarTodo() {
   equipoInput.value = "";
   clienteInput.value = "";
   idFactura = null;
-  tituloVenta.textContent = "NUEVA VENTA";
+  document.getElementById("tituloVenta").textContent = "NUEVA VENTA";
   actualizarCarrito();
 }
 
 // ===== BOTONES =====
-efectivoBtn.addEventListener("click", () => guardarVenta("efectivo"));
-creditoBtn.addEventListener("click", () => guardarVenta("credito"));
+document.getElementById("efectivoBtn").addEventListener("click", () => guardarVenta("efectivo"));
+document.getElementById("creditoBtn").addEventListener("click", () => guardarVenta("credito"));
 
 // ===== MÓVIL E INTERFAZ =====
-if (window.innerWidth > 768) {
-  swapBtn.addEventListener("click", () => ventaWrapper.classList.toggle("invertido"));
-} else {
-  swapBtn.style.display = "none";
-  cartIcon.addEventListener("click", () => {
+document.getElementById("swapBtn").addEventListener("click", () => {
+  if (window.innerWidth > 768) {
+    document.getElementById("ventaWrapper").classList.toggle("invertido");
+  }
+});
+
+document.getElementById("cartIcon").addEventListener("click", () => {
+  if (window.innerWidth <= 768) {
     const wrapper = document.createElement("div");
     wrapper.id = "carritoFullScreen";
     wrapper.innerHTML = `
@@ -266,12 +261,15 @@ if (window.innerWidth > 768) {
     document.getElementById("cerrarCarritoBtn").addEventListener("click", () => {
       document.body.removeChild(wrapper);
     });
-  });
-}
+  }
+});
 
 // ===== MENÚ Y AUTENTICACIÓN =====
-mobileMenuBtn.addEventListener("click", () => mobileMenu.classList.toggle("active"));
-logoutBtn.addEventListener("click", () => {
+document.getElementById("mobileMenuBtn").addEventListener("click", () => {
+  document.getElementById("mobileMenu").classList.toggle("active");
+});
+
+document.getElementById("logoutBtn").addEventListener("click", () => {
   localStorage.removeItem("usuarioLogueado");
   window.location.href = "login.html";
 });
