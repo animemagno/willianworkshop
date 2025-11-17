@@ -7,20 +7,6 @@ let total = 0;
 let cantidadTotal = 0;
 let idFactura = null;
 
-// Referencias
-const equipoInput = document.getElementById("equipo");
-const clienteInput = document.getElementById("cliente");
-const buscarProductoInput = document.getElementById("buscar-producto");
-const cantidadInput = document.getElementById("cantidad");
-const cartItems = document.getElementById("cart-items");
-const cartBadge = document.getElementById("cart-badge");
-const cartTotalElement = document.getElementById("cart-total");
-const fueraCantidad = document.getElementById("fuera-cantidad");
-const fueraSaldo = document.getElementById("fuera-saldo");
-const efectivoBtn = document.getElementById("efectivoBtn");
-const creditoBtn = document.getElementById("creditoBtn");
-const tituloVenta = document.getElementById("tituloVenta");
-
 // ===== MODALES =====
 function mostrarExito() {
   document.getElementById("modalExito").style.display = "flex";
@@ -217,7 +203,6 @@ Total: $${total.toFixed(2)}
 Fecha: ${new Date().toLocaleString()}
   `;
   console.log("🖨️ Ticket:\n" + ticket);
-  // Aquí puedes usar jsPDF o enviar a impresora térmica
 }
 
 function limpiarTodo() {
