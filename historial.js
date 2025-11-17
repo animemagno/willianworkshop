@@ -1,6 +1,6 @@
 // historial.js
 import { db } from "./firebase-config.js";
-import { collection, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { collection, query, orderBy, limit, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const ventasContainer = document.getElementById("ventas-container");
 const emptyVentas = document.getElementById("empty-ventas");
@@ -39,11 +39,33 @@ function renderVentas(lista) {
       </div>
       <div class="ventas-dia-grid">
         ${items.map(v => `
-          <div class="venta-item">
+          <div class="venta-item" onclick="toggleDetail('${v.id}')">
             <div class="venta-desc">${v.equipo} - ${v.cliente}</div>
             <div class="venta-cant">${v.cantidadTotal}</div>
             <div class="venta-precio">$${v.total.toFixed(2)}</div>
             <div class="venta-subtotal">$${v.total.toFixed(2)}</div>
+            <div class="venta-tipo">${v.tipo}</div>
+          </div>
+          <div id="detail-${v.id}" class="venta-detail">
+            <table>
+              <thead>
+                <tr><th>Producto</th><th>Cant</th><th>Precio</th><th>Subtotal</th></tr>
+              </thead>
+              <tbody>
+                ${v.items.map(i => `
+                  <tr>
+                    <td>${i.desc}</td>
+                    <td>${i.cantidad}</td>
+                    <td>$${i.precio.toFixed(2)}</td>
+                    <td>$${i.subtotal.toFixed(2)}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+            <div class="venta-actions">
+              <button class="btn btn-warning" onclick="editarVenta('${v.id}')">Editar</button>
+              <button class="btn btn-danger" onclick="eliminarVenta('${v.id}')">Eliminar</button>
+            </div>
           </div>
         `).join("")}
       </div>
@@ -51,7 +73,7 @@ function renderVentas(lista) {
   `).join("");
 }
 
-// Agrupar por día (formato DD/MM/YYYY)
+// Agrupar por día
 function agruparPorDia(lista) {
   return lista.reduce((acc, v) => {
     const dia = new Date(v.fecha?.seconds * 1000).toLocaleDateString("es-ES");
@@ -61,6 +83,43 @@ function agruparPorDia(lista) {
     return acc;
   }, {});
 }
+
+// Mostrar/ocultar detalle
+window.toggleDetail = (id) => {
+  const detail = document.getElementById(`detail-${id}`);
+  detail.classList.toggle("show");
+};
+
+// Editar venta (por ahora solo cambia cliente y tipo)
+window.editarVenta = async (id) => {
+  const venta = ventas.find(v => v.id === id);
+  const nuevoCliente = prompt("Nuevo nombre del cliente:", venta.cliente);
+  const nuevoTipo = prompt("Nuevo tipo (efectivo/credito):", venta.tipo);
+  if (nuevoCliente === null || nuevoTipo === null) return;
+
+  try {
+    await updateDoc(doc(db, "ventas", id), {
+      cliente: nuevoCliente.trim(),
+      tipo: nuevoTipo.trim().toLowerCase()
+    });
+    alert("Venta actualizada ✅");
+    cargarVentas();
+  } catch (e) {
+    alert("Error al actualizar");
+  }
+};
+
+// Eliminar venta
+window.eliminarVenta = async (id) => {
+  if (!confirm("¿Seguro de eliminar esta venta?")) return;
+  try {
+    await deleteDoc(doc(db, "ventas", id));
+    alert("Venta eliminada ✅");
+    cargarVentas();
+  } catch (e) {
+    alert("Error al eliminar");
+  }
+};
 
 // Filtrar por equipo
 filterInput.addEventListener("input", () => {
