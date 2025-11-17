@@ -111,3 +111,93 @@ async function guardarVenta(tipo) {
   const venta = {
     equipo,
     cliente,
+    tipo,
+    items: carrito,
+    total,
+    cantidadTotal,
+    fecha: serverTimestamp()
+  };
+
+  try {
+    await addDoc(collection(db, "ventas"), venta);
+    alert("Venta guardada ✅");
+    imprimirTicket(tipo);
+    limpiarTodo();
+  } catch (e) {
+    console.error("Error al guardar:", e);
+    alert("Error al guardar venta.");
+  }
+}
+
+// Imprimir ticket (simulado)
+function imprimirTicket(tipo) {
+  const ticket = `
+Taller Wilian
+${tipo === "efectivo" ? "VENTA AL CONTADO" : "VENTA A CRÉDITO"}
+Equipo: ${equipoInput.value}
+Cliente: ${clienteInput.value}
+------------------------
+${carrito.map(i => `${i.desc} x${i.cantidad} $${i.subtotal.toFixed(2)}`).join("\n")}
+------------------------
+Total: $${total.toFixed(2)}
+Fecha: ${new Date().toLocaleString()}
+  `;
+  console.log("🖨️ Ticket:\n" + ticket);
+  // Aquí puedes usar jsPDF o enviar a impresora térmica
+}
+
+// Limpiar todo
+function limpiarTodo() {
+  carrito = [];
+  total = 0;
+  cantidadTotal = 0;
+  equipoInput.value = "";
+  clienteInput.value = "";
+  actualizarCarrito();
+}
+
+// Botones de pago
+efectivoBtn.addEventListener("click", () => guardarVenta("efectivo"));
+creditoBtn.addEventListener("click", () => guardarVenta("credito"));
+
+// Invertir lados (solo escritorio)
+if (window.innerWidth > 768) {
+  swapBtn.addEventListener("click", () => ventaWrapper.classList.toggle("invertido"));
+} else {
+  swapBtn.style.display = "none";
+  // Mostrar carrito en pantalla completa al tocar el ícono
+  cartIcon.addEventListener("click", () => {
+    const wrapper = document.createElement("div");
+    wrapper.id = "carritoFullScreen";
+    wrapper.innerHTML = `
+      <div style="position:fixed;top:0;left:0;width:100%;height:100%;background:white;z-index:2000;padding:20px;display:flex;flex-direction:column;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+          <h3>Carrito de Compras</h3>
+          <button id="cerrarCarritoBtn" style="background:#e74c3c;color:white;border:none;border-radius:50%;width:36px;height:36px;font-size:1.2rem;cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <div id="carritoContenidoClone"></div>
+      </div>
+    `;
+    document.body.appendChild(wrapper);
+    const clone = document.getElementById("cart-items").cloneNode(true);
+    document.getElementById("carritoContenidoClone").appendChild(clone);
+    document.getElementById("cerrarCarritoBtn").addEventListener("click", () => {
+      document.body.removeChild(wrapper);
+    });
+  });
+}
+
+// Menú móvil
+mobileMenuBtn.addEventListener("click", () => mobileMenu.classList.toggle("active"));
+logoutBtn.addEventListener("click", () => {
+  localStorage.removeItem("usuarioLogueado");
+  window.location.href = "login.html";
+});
+
+// Autenticación básica
+if (!localStorage.getItem("usuarioLogueado")) {
+  window.location.href = "login.html";
+}
+
+// Inicializar
+actualizarCarrito();
