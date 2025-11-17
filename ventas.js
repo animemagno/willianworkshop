@@ -1,10 +1,11 @@
 // ventas.js
 import { db } from "./firebase-config.js";
-import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { collection, addDoc, doc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 let carrito = [];
 let total = 0;
 let cantidadTotal = 0;
+let idFactura = null; // Si hay ID, estamos editando
 
 // Referencias
 const equipoInput = document.getElementById("equipo");
@@ -25,6 +26,7 @@ const cartIcon = document.getElementById("cartIcon");
 const mobileMenuBtn = document.getElementById("mobileMenuBtn");
 const mobileMenu = document.getElementById("mobileMenu");
 const logoutBtn = document.getElementById("logoutBtn");
+const tituloVenta = document.getElementById("tituloVenta");
 
 // Modales
 const modalExito = document.getElementById("modalExito");
@@ -33,12 +35,15 @@ const modalValida = document.getElementById("modalValida");
 const textoError = document.getElementById("textoError");
 const textoValida = document.getElementById("textoValida");
 
-// ===== FUNCIONES MODALES =====
+// ===== MODALES =====
 function mostrarExito() {
   modalExito.style.display = "flex";
 }
 function cerrarExito() {
   modalExito.style.display = "none";
+  if (idFactura) {
+    window.location.href = "historial.html";
+  }
 }
 function mostrarError(msg) {
   textoError.textContent = msg;
@@ -71,8 +76,8 @@ function actualizarCarrito() {
     cartItems.innerHTML = carrito.map((item, index) => `
       <div class="cart-item">
         <div class="product-desc">${item.desc}</div>
-        <div>${item.cantidad}</div>
-        <div>$${item.precio.toFixed(2)}</div>
+        <div><input type="number" value="${item.cantidad}" min="1" style="width:50px" onchange="cambiarCantidad(${index}, this.value)"></div>
+        <div><input type="number" value="${item.precio.toFixed(2)}" min="0.01" step="0.01" style="width:70px" onchange="cambiarPrecio(${index}, this.value)"></div>
         <div>$${item.subtotal.toFixed(2)}</div>
         <div><button class="delete-item-btn" data-index="${index}"><i class="fas fa-trash"></i></button></div>
       </div>
@@ -82,6 +87,28 @@ function actualizarCarrito() {
   cartTotalElement.textContent = `$${total.toFixed(2)}`;
   fueraCantidad.textContent = `Productos: ${cantidadTotal}`;
   fueraSaldo.textContent = `Total: $${total.toFixed(2)}`;
+}
+
+function cambiarCantidad(index, nuevaCantidad) {
+  const cant = parseInt(nuevaCantidad) || 1;
+  const item = carrito[index];
+  total -= item.subtotal;
+  cantidadTotal -= item.cantidad;
+  item.cantidad = cant;
+  item.subtotal = item.precio * item.cantidad;
+  total += item.subtotal;
+  cantidadTotal += item.cantidad;
+  actualizarCarrito();
+}
+
+function cambiarPrecio(index, nuevoPrecio) {
+  const precio = parseFloat(nuevoPrecio) || 0;
+  const item = carrito[index];
+  total -= item.subtotal;
+  item.precio = precio;
+  item.subtotal = item.precio * item.cantidad;
+  total += item.subtotal;
+  actualizarCarrito();
 }
 
 // ===== EVENTOS =====
@@ -124,19 +151,40 @@ document.addEventListener("click", (e) => {
   }
 });
 
+// ===== CARGAR FACTURA SI HAY ID =====
+async function cargarFactura(id) {
+  try {
+    const docSnap = await getDoc(doc(db, "ventas", id));
+    if (!docSnap.exists()) {
+      mostrarError("Factura no encontrada.");
+      return;
+    }
+    const data = docSnap.data();
+    idFactura = id;
+    equipoInput.value = data.equipo;
+    clienteInput.value = data.cliente;
+    carrito = data.items.map(i => ({ ...i }));
+    total = data.total;
+    cantidadTotal = data.cantidadTotal;
+    tituloVenta.textContent = "EDITAR VENTA";
+    actualizarCarrito();
+  } catch (e) {
+    mostrarError("Error al cargar la factura.");
+  }
+}
+
 // ===== GUARDAR VENTA =====
 async function guardarVenta(tipo) {
   const equipo = equipoInput.value.trim();
-  const cliente = clienteInput.value.trim();
 
-  if (!equipo || !cliente || carrito.length === 0) {
-    mostrarValida("Completa equipo, cliente y agrega productos.");
+  if (!equipo || carrito.length === 0) {
+    mostrarValida("Ingresa un número de equipo y agrega productos.");
     return;
   }
 
   const venta = {
     equipo,
-    cliente,
+    cliente: clienteInput.value.trim(),
     tipo,
     items: carrito,
     total,
@@ -145,10 +193,18 @@ async function guardarVenta(tipo) {
   };
 
   try {
-    await addDoc(collection(db, "ventas"), venta);
-    imprimirTicket(tipo);
-    limpiarTodo();
-    mostrarExito();
+    if (idFactura) {
+      // ACTUALIZAR FACTURA EXISTENTE
+      await updateDoc(doc(db, "ventas", idFactura), venta);
+      imprimirTicket(tipo);
+      mostrarExito();
+    } else {
+      // NUEVA VENTA
+      await addDoc(collection(db, "ventas"), venta);
+      imprimirTicket(tipo);
+      limpiarTodo();
+      mostrarExito();
+    }
   } catch (e) {
     console.error("Error al guardar:", e);
     mostrarError("Error al guardar la venta.");
@@ -163,7 +219,7 @@ ${tipo === "efectivo" ? "VENTA AL CONTADO" : "VENTA A CRÉDITO"}
 Equipo: ${equipoInput.value}
 Cliente: ${clienteInput.value}
 ------------------------
-${carrito.map(i => `${i.desc} x${i.cantidad} $${i.subtotal.toFixed(2)}`).join("\n")}
+${carrito.map(i => `${i.desc} x${i.cantidad} $${i.precio.toFixed(2)} = $${i.subtotal.toFixed(2)}`).join("\n")}
 ------------------------
 Total: $${total.toFixed(2)}
 Fecha: ${new Date().toLocaleString()}
@@ -178,6 +234,8 @@ function limpiarTodo() {
   cantidadTotal = 0;
   equipoInput.value = "";
   clienteInput.value = "";
+  idFactura = null;
+  tituloVenta.textContent = "NUEVA VENTA";
   actualizarCarrito();
 }
 
@@ -223,4 +281,12 @@ if (!localStorage.getItem("usuarioLogueado")) {
 }
 
 // ===== INICIALIZAR =====
-actualizarCarrito();
+window.addEventListener("DOMContentLoaded", () => {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get("id");
+  if (id) {
+    cargarFactura(id);
+  } else {
+    actualizarCarrito();
+  }
+});
