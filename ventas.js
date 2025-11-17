@@ -5,9 +5,9 @@ import { collection, addDoc, doc, getDoc, updateDoc, serverTimestamp } from "htt
 let carrito = [];
 let total = 0;
 let cantidadTotal = 0;
-let idFactura = null;
+let idFactura = null; // Si hay ID, estamos editando
 
-// ===== REFERENCIAS =====
+// Referencias
 const equipoInput = document.getElementById("equipo");
 const clienteInput = document.getElementById("cliente");
 const buscarProductoInput = document.getElementById("buscar-producto");
@@ -28,19 +28,22 @@ const mobileMenu = document.getElementById("mobileMenu");
 const logoutBtn = document.getElementById("logoutBtn");
 const tituloVenta = document.getElementById("tituloVenta");
 
-// ===== MODALES =====
+// Modales
 const modalExito = document.getElementById("modalExito");
 const modalError = document.getElementById("modalError");
 const modalValida = document.getElementById("modalValida");
 const textoError = document.getElementById("textoError");
 const textoValida = document.getElementById("textoValida");
 
+// ===== MODALES =====
 function mostrarExito() {
   modalExito.style.display = "flex";
 }
 function cerrarExito() {
   modalExito.style.display = "none";
-  if (idFactura) window.location.href = "historial.html";
+  if (idFactura) {
+    window.location.href = "historial.html";
+  }
 }
 function mostrarError(msg) {
   textoError.textContent = msg;
@@ -109,7 +112,7 @@ function cambiarPrecio(index, nuevoPrecio) {
 }
 
 // ===== EVENTOS =====
-document.addEventListener("click", (e) => {
+cartItems.addEventListener("click", (e) => {
   if (e.target.closest(".delete-item-btn")) {
     const index = e.target.closest(".delete-item-btn").dataset.index;
     const item = carrito[index];
@@ -118,6 +121,16 @@ document.addEventListener("click", (e) => {
     carrito.splice(index, 1);
     actualizarCarrito();
   }
+});
+
+buscarProductoInput.addEventListener("focus", () => {
+  const dropdown = document.getElementById("search-dropdown");
+  dropdown.innerHTML = `
+    <div class="search-dropdown-item" data-desc="Llanta 26&quot;" data-precio="25.00">Llanta 26" - $25.00</div>
+    <div class="search-dropdown-item" data-desc="Cadena 7v" data-precio="8.50">Cadena 7v - $8.50</div>
+    <div class="search-dropdown-item" data-desc="Freno disco" data-precio="15.00">Freno disco - $15.00</div>
+  `;
+  dropdown.style.display = "block";
 });
 
 document.getElementById("search-dropdown").addEventListener("click", (e) => {
@@ -130,16 +143,6 @@ document.getElementById("search-dropdown").addEventListener("click", (e) => {
     cantidadInput.value = "1";
     e.target.parentElement.style.display = "none";
   }
-});
-
-buscarProductoInput.addEventListener("focus", () => {
-  const dropdown = document.getElementById("search-dropdown");
-  dropdown.innerHTML = `
-    <div class="search-dropdown-item" data-desc="Llanta 26&quot;" data-precio="25.00">Llanta 26" - $25.00</div>
-    <div class="search-dropdown-item" data-desc="Cadena 7v" data-precio="8.50">Cadena 7v - $8.50</div>
-    <div class="search-dropdown-item" data-desc="Freno disco" data-precio="15.00">Freno disco - $15.00</div>
-  `;
-  dropdown.style.display = "block";
 });
 
 document.addEventListener("click", (e) => {
@@ -163,7 +166,7 @@ async function cargarFactura(id) {
     carrito = data.items.map(i => ({ ...i }));
     total = data.total;
     cantidadTotal = data.cantidadTotal;
-    document.getElementById("tituloVenta").textContent = "EDITAR VENTA";
+    tituloVenta.textContent = "EDITAR VENTA";
     actualizarCarrito();
   } catch (e) {
     mostrarError("Error al cargar la factura.");
@@ -232,23 +235,20 @@ function limpiarTodo() {
   equipoInput.value = "";
   clienteInput.value = "";
   idFactura = null;
-  document.getElementById("tituloVenta").textContent = "NUEVA VENTA";
+  tituloVenta.textContent = "NUEVA VENTA";
   actualizarCarrito();
 }
 
 // ===== BOTONES =====
-document.getElementById("efectivoBtn").addEventListener("click", () => guardarVenta("efectivo"));
-document.getElementById("creditoBtn").addEventListener("click", () => guardarVenta("credito"));
+efectivoBtn.addEventListener("click", () => guardarVenta("efectivo"));
+creditoBtn.addEventListener("click", () => guardarVenta("credito"));
 
 // ===== MÓVIL E INTERFAZ =====
-document.getElementById("swapBtn").addEventListener("click", () => {
-  if (window.innerWidth > 768) {
-    document.getElementById("ventaWrapper").classList.toggle("invertido");
-  }
-});
-
-document.getElementById("cartIcon").addEventListener("click", () => {
-  if (window.innerWidth <= 768) {
+if (window.innerWidth > 768) {
+  swapBtn.addEventListener("click", () => ventaWrapper.classList.toggle("invertido"));
+} else {
+  swapBtn.style.display = "none";
+  cartIcon.addEventListener("click", () => {
     const wrapper = document.createElement("div");
     wrapper.id = "carritoFullScreen";
     wrapper.innerHTML = `
@@ -266,15 +266,12 @@ document.getElementById("cartIcon").addEventListener("click", () => {
     document.getElementById("cerrarCarritoBtn").addEventListener("click", () => {
       document.body.removeChild(wrapper);
     });
-  }
-});
+  });
+}
 
 // ===== MENÚ Y AUTENTICACIÓN =====
-document.getElementById("mobileMenuBtn").addEventListener("click", () => {
-  document.getElementById("mobileMenu").classList.toggle("active");
-});
-
-document.getElementById("logoutBtn").addEventListener("click", () => {
+mobileMenuBtn.addEventListener("click", () => mobileMenu.classList.toggle("active"));
+logoutBtn.addEventListener("click", () => {
   localStorage.removeItem("usuarioLogueado");
   window.location.href = "login.html";
 });
