@@ -6,6 +6,7 @@ let carrito = [];
 let total = 0;
 let cantidadTotal = 0;
 
+// Referencias
 const equipoInput = document.getElementById("equipo");
 const clienteInput = document.getElementById("cliente");
 const buscarProductoInput = document.getElementById("buscar-producto");
@@ -25,7 +26,36 @@ const mobileMenuBtn = document.getElementById("mobileMenuBtn");
 const mobileMenu = document.getElementById("mobileMenu");
 const logoutBtn = document.getElementById("logoutBtn");
 
-// Agregar producto al carrito
+// Modales
+const modalExito = document.getElementById("modalExito");
+const modalError = document.getElementById("modalError");
+const modalValida = document.getElementById("modalValida");
+const textoError = document.getElementById("textoError");
+const textoValida = document.getElementById("textoValida");
+
+// ===== FUNCIONES MODALES =====
+function mostrarExito() {
+  modalExito.style.display = "flex";
+}
+function cerrarExito() {
+  modalExito.style.display = "none";
+}
+function mostrarError(msg) {
+  textoError.textContent = msg;
+  modalError.style.display = "flex";
+}
+function cerrarError() {
+  modalError.style.display = "none";
+}
+function mostrarValida(msg) {
+  textoValida.textContent = msg;
+  modalValida.style.display = "flex";
+}
+function cerrarValida() {
+  modalValida.style.display = "none";
+}
+
+// ===== CARRITO =====
 function agregarProducto(desc, precio, cantidad) {
   const subtotal = precio * cantidad;
   carrito.push({ desc, precio, cantidad, subtotal });
@@ -34,7 +64,6 @@ function agregarProducto(desc, precio, cantidad) {
   actualizarCarrito();
 }
 
-// Actualizar vista del carrito
 function actualizarCarrito() {
   if (carrito.length === 0) {
     cartItems.innerHTML = `<div class="empty-cart"><i class="fas fa-shopping-cart"></i><div>No hay productos</div></div>`;
@@ -55,7 +84,7 @@ function actualizarCarrito() {
   fueraSaldo.textContent = `Total: $${total.toFixed(2)}`;
 }
 
-// Eliminar producto
+// ===== EVENTOS =====
 cartItems.addEventListener("click", (e) => {
   if (e.target.closest(".delete-item-btn")) {
     const index = e.target.closest(".delete-item-btn").dataset.index;
@@ -67,7 +96,6 @@ cartItems.addEventListener("click", (e) => {
   }
 });
 
-// Búsqueda simulada
 buscarProductoInput.addEventListener("focus", () => {
   const dropdown = document.getElementById("search-dropdown");
   dropdown.innerHTML = `
@@ -78,7 +106,6 @@ buscarProductoInput.addEventListener("focus", () => {
   dropdown.style.display = "block";
 });
 
-// Seleccionar producto
 document.getElementById("search-dropdown").addEventListener("click", (e) => {
   if (e.target.classList.contains("search-dropdown-item")) {
     const desc = e.target.dataset.desc;
@@ -91,20 +118,19 @@ document.getElementById("search-dropdown").addEventListener("click", (e) => {
   }
 });
 
-// Cerrar dropdown al hacer clic fuera
 document.addEventListener("click", (e) => {
   if (!e.target.closest(".search-container")) {
     document.getElementById("search-dropdown").style.display = "none";
   }
 });
 
-// Guardar venta
+// ===== GUARDAR VENTA =====
 async function guardarVenta(tipo) {
   const equipo = equipoInput.value.trim();
   const cliente = clienteInput.value.trim();
 
   if (!equipo || !cliente || carrito.length === 0) {
-    alert("Completa equipo, cliente y agrega productos.");
+    mostrarValida("Completa equipo, cliente y agrega productos.");
     return;
   }
 
@@ -120,16 +146,16 @@ async function guardarVenta(tipo) {
 
   try {
     await addDoc(collection(db, "ventas"), venta);
-    alert("Venta guardada ✅");
     imprimirTicket(tipo);
     limpiarTodo();
+    mostrarExito();
   } catch (e) {
     console.error("Error al guardar:", e);
-    alert("Error al guardar venta.");
+    mostrarError("Error al guardar la venta.");
   }
 }
 
-// Imprimir ticket (simulado)
+// ===== IMPRIMIR Y LIMPIAR =====
 function imprimirTicket(tipo) {
   const ticket = `
 Taller Wilian
@@ -146,7 +172,6 @@ Fecha: ${new Date().toLocaleString()}
   // Aquí puedes usar jsPDF o enviar a impresora térmica
 }
 
-// Limpiar todo
 function limpiarTodo() {
   carrito = [];
   total = 0;
@@ -156,16 +181,15 @@ function limpiarTodo() {
   actualizarCarrito();
 }
 
-// Botones de pago
+// ===== BOTONES =====
 efectivoBtn.addEventListener("click", () => guardarVenta("efectivo"));
 creditoBtn.addEventListener("click", () => guardarVenta("credito"));
 
-// Invertir lados (solo escritorio)
+// ===== MÓVIL E INTERFAZ =====
 if (window.innerWidth > 768) {
   swapBtn.addEventListener("click", () => ventaWrapper.classList.toggle("invertido"));
 } else {
   swapBtn.style.display = "none";
-  // Mostrar carrito en pantalla completa al tocar el ícono
   cartIcon.addEventListener("click", () => {
     const wrapper = document.createElement("div");
     wrapper.id = "carritoFullScreen";
@@ -187,17 +211,16 @@ if (window.innerWidth > 768) {
   });
 }
 
-// Menú móvil
+// ===== MENÚ Y AUTENTICACIÓN =====
 mobileMenuBtn.addEventListener("click", () => mobileMenu.classList.toggle("active"));
 logoutBtn.addEventListener("click", () => {
   localStorage.removeItem("usuarioLogueado");
   window.location.href = "login.html";
 });
 
-// Autenticación básica
 if (!localStorage.getItem("usuarioLogueado")) {
   window.location.href = "login.html";
 }
 
-// Inicializar
+// ===== INICIALIZAR =====
 actualizarCarrito();
