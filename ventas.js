@@ -5,7 +5,7 @@ import { collection, addDoc, doc, getDoc, updateDoc, serverTimestamp } from "htt
 let carrito = [];
 let total = 0;
 let cantidadTotal = 0;
-let idFactura = null;          // si hay ID es edición
+let idFactura = null; // si hay ID es edición
 
 // ---------- referencias ----------
 const equipoInput   = document.getElementById("equipo");
@@ -135,7 +135,16 @@ async function cargarFactura(id) {
     carrito      = data.items.map(x => ({ ...x }));
     total        = data.total;
     cantidadTotal= data.cantidadTotal;
+
+    // Cambiar interfaz a "modo edición"
     tituloVenta.textContent = "EDITAR VENTA";
+    efectivoBtn.textContent = "Actualizar";
+    creditoBtn.textContent  = "Cancelar";
+    efectivoBtn.classList.remove("btn-success");
+    efectivoBtn.classList.add("btn-primary");
+    creditoBtn.classList.remove("btn-warning");
+    creditoBtn.classList.add("btn-danger");
+
     actualizarCarrito();
   } catch (e) { mostrarError("Error al cargar la factura."); }
 }
@@ -148,11 +157,11 @@ async function guardarVenta(tipo) {
   const venta = {
     equipo: eq,
     cliente: clienteInput.value.trim(),
-    tipo,
+    tipo: tipoOriginal, // mantiene el tipo original (efectivo/crédito)
     items: carrito,
     total,
     cantidadTotal,
-    fecha: idFactura ? undefined : serverTimestamp()   // mantiene fecha original si es edición
+    fecha: idFactura ? undefined : serverTimestamp()   // si es edición no toca la fecha
   };
   try {
     if (idFactura) {
@@ -160,7 +169,7 @@ async function guardarVenta(tipo) {
     } else {
       await addDoc(collection(db, "ventas"), venta);
     }
-    imprimirTicket(tipo);
+    imprimirTicket(tipoOriginal);
     limpiarTodo();
     mostrarExito();
   } catch (e) {
@@ -184,12 +193,33 @@ function limpiarTodo() {
   carrito = []; total = 0; cantidadTotal = 0;
   equipoInput.value = ""; clienteInput.value = ""; idFactura = null;
   tituloVenta.textContent = "NUEVA VENTA";
+  efectivoBtn.textContent = "Efectivo";
+  creditoBtn.textContent  = "Crédito";
+  efectivoBtn.classList.add("btn-success");
+  efectivoBtn.classList.remove("btn-primary");
+  creditoBtn.classList.add("btn-warning");
+  creditoBtn.classList.remove("btn-danger");
   actualizarCarrito();
 }
 
 // ---------- botones ----------
-efectivoBtn.addEventListener("click", () => guardarVenta("efectivo"));
-creditoBtn.addEventListener("click",  () => guardarVenta("credito"));
+let tipoOriginal = "efectivo"; // por defecto
+efectivoBtn.addEventListener("click", () => {
+  if (idFactura) { // Estamos editando
+    tipoOriginal = "efectivo";
+    guardarVenta("efectivo");
+  } else { // Venta nueva
+    guardarVenta("efectivo");
+  }
+});
+creditoBtn.addEventListener("click", () => {
+  if (idFactura) { // Botón Cancelar en edición
+    window.location.href = "historial.html";
+  } else { // Venta nueva a crédito
+    tipoOriginal = "credito";
+    guardarVenta("credito");
+  }
+});
 
 // ---------- interfaz móvil ----------
 if (window.innerWidth > 768) {
