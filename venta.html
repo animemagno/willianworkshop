@@ -6,7 +6,7 @@
   <title>Nueva Venta - Taller Wilian</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
   <style>
-    /* ===== ESTILOS ORIGINALES (IGUALES) ===== */
+    /* ------ base ------ */
     *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     html,body{height:100%}
     body{background:#eef2f5;color:#333;font-size:14px;display:flex;flex-direction:column}
@@ -45,8 +45,10 @@
     .search-dropdown{position:absolute;background:white;border:1px solid #ddd;border-radius:4px;max-height:200px;overflow-y:auto;width:100%;z-index:1000;box-shadow:0 2px 4px rgba(0,0,0,.1);font-size:.8rem;display:none}
     .search-dropdown-item{padding:10px;cursor:pointer;border-bottom:1px solid #ddd;transition:background-color .2s}
     .search-dropdown-item:hover{background-color:#3498db;color:white}
-    .cart-container{background:#f8f9fa;border-radius:6px;padding:0;border:1px solid #e9ecef;display:flex;flex-direction:column;max-height:400px;overflow-y:auto}
-    .cart-header{display:grid;grid-template-columns:1fr 80px 100px 100px 40px;gap:10px;padding:8px 12px;background:#2c3e50;color:white;border-radius:4px 4px 0 0;font-weight:600;font-size:.8rem}
+    /* --- carrito siempre alto completo --- */
+    .cart-container{background:#f8f9fa;border-radius:6px;padding:0;border:1px solid #e9ecef;display:flex;flex-direction:column;height:100%;max-height:none}
+    .cart-header{display:grid;grid-template-columns:1fr 80px 100px 100px 40px;gap:10px;padding:8px 12px;background:#2c3e50;color:white;border-radius:4px 4px 0 0;font-weight:600;font-size:.8rem;flex-shrink:0}
+    .cart-list{flex:1 1 auto;overflow-y:auto;display:flex;flex-direction:column}
     .cart-item{display:grid;grid-template-columns:1fr 80px 100px 100px 40px;gap:10px;padding:8px 12px;border-bottom:1px solid #ddd;align-items:center;font-size:.85rem}
     .cart-item:nth-child(even){background:#fafafa}
     .product-desc{line-height:1.2}
@@ -54,8 +56,8 @@
     .delete-item-btn{background:#e74c3c;color:white;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.7rem;transition:all .2s ease}
     .delete-item-btn:hover{background:#c0392b;transform:scale(1.1)}
     .delete-item-btn i{pointer-events:none}
-    .cart-total{background:#ecf0f1;padding:12px;border-radius:0 0 4px 4px;text-align:right;font-weight:bold;font-size:1.1rem;border-top:2px solid #3498db;margin-top:auto}
-    .empty-cart{text-align:center;color:#7f8c8d;font-size:.9rem;padding:30px;background:white;border-radius:4px;border:2px dashed #ddd}
+    .cart-total{background:#ecf0f1;padding:12px;border-radius:0 0 4px 4px;text-align:right;font-weight:bold;font-size:1.1rem;border-top:2px solid #3498db;flex-shrink:0}
+    .empty-cart{text-align:center;color:#7f8c8d;font-size:.9rem;padding:30px;background:white;border-radius:4px;border:2px dashed #ddd;margin:auto}
     .btn{padding:10px 15px;border:none;border-radius:4px;cursor:pointer;font-weight:600;transition:all .3s ease;font-size:.85rem;text-align:center;width:100%;margin-bottom:5px}
     @media(min-width:768px){.btn{width:auto;margin-bottom:0}}
     .btn-success{background-color:#27ae60;color:white}
@@ -66,7 +68,7 @@
     @media(min-width:768px){.btn-container{flex-direction:row;justify-content:flex-end}}
     .swap-btn{background:#95a5a6;color:white;border:none;border-radius:50%;width:36px;height:36px;font-size:1rem;cursor:pointer;transition:background .3s;align-self:center;margin:0 10px}
     .swap-btn:hover{background:#7f8c8d}
-    .totales-outside{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:white;border:1px solid #ddd;border-radius:4px;font-size:.9rem;font-weight:600;color:#2c3e50;margin-top:8px}
+    .totales-outside{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:white;border:1px solid #ddd;border-radius:4px;font-size:.9rem;font-weight:600;color:#2c3e50;margin-top:8px;flex-shrink:0}
 
     @media (max-width: 768px) {
       .venta-wrapper{flex-direction:column;padding:0 10px}
@@ -76,6 +78,15 @@
       .venta-carrito-container.mostrar{display:flex}
       .swap-btn{display:none}
     }
+
+    /* ===== mini-historial del día ===== */
+    .mini-historial{margin-top:20px}
+    .mini-historial h3{font-size:1rem;margin-bottom:10px;color:#2c3e50}
+    .mini-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+    .mini-card{background:#fff;border:2px solid #3498db;border-radius:6px;padding:10px;text-align:center;cursor:pointer;transition:all .3s ease}
+    .mini-card:hover{transform:translateY(-2px);box-shadow:0 4px 8px rgba(0,0,0,.15)}
+    .mini-equipo{font-size:1.1rem;font-weight:bold;color:#2c3e50}
+    .mini-total{font-size:.9rem;font-weight:bold;color:#27ae60;margin-top:4px}
 
     /* ===== MODALES PROPIOS ===== */
     .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);z-index:2000;display:none;align-items:center;justify-content:center}
@@ -116,6 +127,7 @@
       <button class="swap-btn" id="swapBtn" title="Invertir lados"><i class="fas fa-exchange-alt"></i></button>
     </div>
     <div class="venta-wrapper" id="ventaWrapper">
+      <!-- FORMULARIO -->
       <div class="venta-form-container">
         <form id="ventaForm">
           <div class="equipo-ciudad-group">
@@ -146,8 +158,15 @@
             <button type="button" class="btn btn-warning" id="creditoBtn">Crédito</button>
           </div>
         </form>
+
+        <!-- MINI-HISTORIAL DEL DÍA -->
+        <div class="mini-historial">
+          <h3>Movimientos de hoy</h3>
+          <div class="mini-grid" id="miniGrid"></div>
+        </div>
       </div>
 
+      <!-- CARRITO -->
       <div class="venta-carrito-container" id="carritoContainer">
         <div class="cart-container">
           <div class="cart-header">
@@ -157,11 +176,14 @@
             <div>Subtotal</div>
             <div></div>
           </div>
-          <div id="cart-items">
+          <div id="cart-items" class="cart-list">
             <div class="empty-cart">
               <i class="fas fa-shopping-cart" style="font-size:2rem;margin-bottom:10px;opacity:.5;"></i>
               <div>No hay productos agregados</div>
             </div>
+          </div>
+          <div class="cart-total">
+            <span>Total: </span><span id="cart-total">$0.00</span>
           </div>
         </div>
         <div class="totales-outside">
@@ -173,45 +195,15 @@
   </div>
 </div>
 
-<!-- ===== MODALES PROPIOS ===== -->
-<!-- Éxito -->
-<div id="modalExito" class="modal-overlay">
-  <div class="modal-box">
-    <h3>✅ Venta guardada</h3>
-    <p>La venta se registró correctamente.</p>
-    <div class="modal-buttons">
-      <button class="btn btn-primary" onclick="cerrarExito()">Aceptar</button>
-    </div>
-  </div>
-</div>
+<!-- MODALES -->
+<div id="modalExito" class="modal-overlay"><div class="modal-box"><h3>✅ Venta guardada</h3><p>La venta se registró correctamente.</p><div class="modal-buttons"><button class="btn btn-primary" onclick="cerrarExito()">Aceptar</button></div></div></div>
+<div id="modalError" class="modal-overlay"><div class="modal-box"><h3>❌ Error</h3><p id="textoError">Ocurrió un error al guardar la venta.</p><div class="modal-buttons"><button class="btn btn-primary" onclick="cerrarError()">Aceptar</button></div></div></div>
+<div id="modalValida" class="modal-overlay"><div class="modal-box"><h3>⚠️ Faltan datos</h3><p id="textoValida">Ingresa un número de equipo y agrega productos.</p><div class="modal-buttons"><button class="btn btn-primary" onclick="cerrarValida()">Aceptar</button></div></div></div>
 
-<!-- Error -->
-<div id="modalError" class="modal-overlay">
-  <div class="modal-box">
-    <h3>❌ Error</h3>
-    <p id="textoError">Ocurrió un error al guardar la venta.</p>
-    <div class="modal-buttons">
-      <button class="btn btn-primary" onclick="cerrarError()">Aceptar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Validación -->
-<div id="modalValida" class="modal-overlay">
-  <div class="modal-box">
-    <h3>⚠️ Faltan datos</h3>
-    <p id="textoValida">Ingresa un número de equipo y agrega productos.</p>
-    <div class="modal-buttons">
-      <button class="btn btn-primary" onclick="cerrarValida()">Aceptar</button>
-    </div>
-  </div>
-</div>
-
-<!-- ===== SCRIPTS ===== -->
+<!-- SCRIPTS -->
 <script type="module" src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
 <script type="module" src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
 <script type="module" src="firebase-config.js"></script>
 <script type="module" src="ventas.js"></script>
-
 </body>
 </html>
