@@ -166,7 +166,7 @@ async function cargarFactura(id) {
   } catch (e) { mostrarError("Error al cargar la factura."); }
 }
 
-/* ---------- guardar / actualizar (CORREGIDO: siempre envía 'tipo') ---------- */
+/* ---------- guardar / actualizar (CON DETALLE DE ERROR) ---------- */
 async function guardarVenta(tipoBoton) {
   const eq = equipoInput.value.trim();
   if (!eq || carrito.length === 0) {
@@ -177,7 +177,7 @@ async function guardarVenta(tipoBoton) {
   const venta = {
     equipo: eq,
     cliente: clienteInput.value.trim(),
-    tipo: tipoOriginal,               // <-- siempre presente
+    tipo: tipoOriginal,
     items: carrito,
     total,
     cantidadTotal,
@@ -194,8 +194,9 @@ async function guardarVenta(tipoBoton) {
     limpiarTodo();
     mostrarExito();
   } catch (e) {
-    console.error("Error al guardar:", e);
-    mostrarError("Error al guardar la venta.");
+    /* ➜ mostramos el mensaje real que lanza Firebase */
+    console.error("Error completo:", e);
+    mostrarError("Error al guardar: " + (e.message || e.code || "Inténtalo de nuevo."));
   }
 }
 function imprimirTicket(tipo) {
