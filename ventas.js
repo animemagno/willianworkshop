@@ -166,7 +166,7 @@ async function cargarFactura(id) {
   } catch (e) { mostrarError("Error al cargar la factura."); }
 }
 
-/* ---------- guardar / actualizar (CON DETALLE DE ERROR) ---------- */
+/* ---------- guardar / actualizar (SIN fecha en ediciones) ---------- */
 async function guardarVenta(tipoBoton) {
   const eq = equipoInput.value.trim();
   if (!eq || carrito.length === 0) {
@@ -174,15 +174,18 @@ async function guardarVenta(tipoBoton) {
     return;
   }
 
+  // objeto base SIEMPRE con tipo
   const venta = {
     equipo: eq,
     cliente: clienteInput.value.trim(),
     tipo: tipoOriginal,
     items: carrito,
     total,
-    cantidadTotal,
-    fecha: idFactura ? undefined : serverTimestamp()
+    cantidadTotal
   };
+
+  // solo añadimos fecha si es venta nueva
+  if (!idFactura) venta.fecha = serverTimestamp();
 
   try {
     if (idFactura) {
@@ -194,7 +197,7 @@ async function guardarVenta(tipoBoton) {
     limpiarTodo();
     mostrarExito();
   } catch (e) {
-    /* ➜ mostramos el mensaje real que lanza Firebase */
+    /* mostramos el mensaje real que lanza Firebase */
     console.error("Error completo:", e);
     mostrarError("Error al guardar: " + (e.message || e.code || "Inténtalo de nuevo."));
   }
