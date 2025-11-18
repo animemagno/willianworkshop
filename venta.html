@@ -6,7 +6,7 @@
   <title>Nueva Venta - Taller Wilian</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
   <style>
-    /* ------ base ------ */
+    /* ---------- base ---------- */
     *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     html,body{height:100%}
     body{background:#eef2f5;color:#333;font-size:14px;display:flex;flex-direction:column}
@@ -28,10 +28,10 @@
     .mobile-menu a:hover{background:#f2f2f2}
     .dashboard-section{background:white;border-radius:8px;padding:20px;box-shadow:0 2px 4px rgba(0,0,0,.1);border:1px solid #e0e0e0;margin-bottom:20px;flex:1 1 auto;display:flex;flex-direction:column}
     .section-title{display:flex;justify-content:space-between;align-items:center;font-size:1.2rem;color:#2c3e50;margin-bottom:15px;padding-bottom:8px;border-bottom:2px solid #3498db}
-    .venta-wrapper{display:flex;gap:15px;align-items:flex-start;flex:1 1 auto;padding:0 20px}
-    @media (max-width: 768px){.venta-wrapper{padding:0 10px}}
+    .venta-wrapper{display:flex;gap:15px;align-items:flex-start;flex:1 1 auto;padding:0 20px;min-height:0}
+    @media (max-width: 768px){.venta-wrapper{padding:0 10px;flex-direction:column}}
     .venta-form-container{flex:1 1 50%;display:flex;flex-direction:column}
-    .venta-carrito-container{flex:1 1 50%;display:flex;flex-direction:column}
+    .venta-carrito-container{flex:1 1 50%;display:flex;flex-direction:column;height:100%;min-height:0}
     .venta-wrapper.invertido{flex-direction:row-reverse}
     .form-group{margin-bottom:15px}
     .form-group label{display:block;margin-bottom:5px;font-weight:600;color:#333;font-size:.9rem}
@@ -45,10 +45,10 @@
     .search-dropdown{position:absolute;background:white;border:1px solid #ddd;border-radius:4px;max-height:200px;overflow-y:auto;width:100%;z-index:1000;box-shadow:0 2px 4px rgba(0,0,0,.1);font-size:.8rem;display:none}
     .search-dropdown-item{padding:10px;cursor:pointer;border-bottom:1px solid #ddd;transition:background-color .2s}
     .search-dropdown-item:hover{background-color:#3498db;color:white}
-    /* --- carrito siempre alto completo --- */
-    .cart-container{background:#f8f9fa;border-radius:6px;padding:0;border:1px solid #e9ecef;display:flex;flex-direction:column;height:100%;max-height:none}
+    /* --- carrito fijo a la pantalla --- */
+    .cart-container{background:#f8f9fa;border-radius:6px;padding:0;border:1px solid #e9ecef;display:flex;flex-direction:column;height:100%;max-height:70vh}
     .cart-header{display:grid;grid-template-columns:1fr 80px 100px 100px 40px;gap:10px;padding:8px 12px;background:#2c3e50;color:white;border-radius:4px 4px 0 0;font-weight:600;font-size:.8rem;flex-shrink:0}
-    .cart-list{flex:1 1 auto;overflow-y:auto;display:flex;flex-direction:column}
+    .cart-list{flex:1 1 auto;overflow-y:auto;display:flex;flex-direction:column;scroll-behavior:smooth}
     .cart-item{display:grid;grid-template-columns:1fr 80px 100px 100px 40px;gap:10px;padding:8px 12px;border-bottom:1px solid #ddd;align-items:center;font-size:.85rem}
     .cart-item:nth-child(even){background:#fafafa}
     .product-desc{line-height:1.2}
@@ -68,7 +68,7 @@
     @media(min-width:768px){.btn-container{flex-direction:row;justify-content:flex-end}}
     .swap-btn{background:#95a5a6;color:white;border:none;border-radius:50%;width:36px;height:36px;font-size:1rem;cursor:pointer;transition:background .3s;align-self:center;margin:0 10px}
     .swap-btn:hover{background:#7f8c8d}
-    .totales-outside{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:white;border:1px solid #ddd;border-radius:4px;font-size:.9rem;font-weight:600;color:#2c3e50;margin-top:8px;flex-shrink:0}
+    .totales-outside{display:none}
 
     @media (max-width: 768px) {
       .venta-wrapper{flex-direction:column;padding:0 10px}
@@ -127,7 +127,7 @@
       <button class="swap-btn" id="swapBtn" title="Invertir lados"><i class="fas fa-exchange-alt"></i></button>
     </div>
     <div class="venta-wrapper" id="ventaWrapper">
-      <!-- FORMULARIO -->
+      <!-- FORMULARIO + MINI-HISTORIAL -->
       <div class="venta-form-container">
         <form id="ventaForm">
           <div class="equipo-ciudad-group">
@@ -185,10 +185,6 @@
           <div class="cart-total">
             <span>Total: </span><span id="cart-total">$0.00</span>
           </div>
-        </div>
-        <div class="totales-outside">
-          <span id="fuera-cantidad">Productos: 0</span>
-          <span id="fuera-saldo">Total: $0.00</span>
         </div>
       </div>
     </div>
