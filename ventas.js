@@ -67,7 +67,7 @@ function agregarProducto(desc, precio, cantidad) {
   carrito.push({ desc, precio, cantidad, subtotal: sub });
   total += sub;
   cantidadTotal += cantidad;
-  actualizarCarrito(true); // <-- indicador: viene de agregar
+  actualizarCarrito(true); // indicador: viene de agregar
 }
 function actualizarCarrito(desdeAgregar = false) {
   if (carrito.length === 0) {
@@ -166,20 +166,24 @@ async function cargarFactura(id) {
   } catch (e) { mostrarError("Error al cargar la factura."); }
 }
 
-/* ---------- guardar / actualizar ---------- */
-async function guardarVenta(tipo) {
+/* ---------- guardar / actualizar (CORREGIDO: siempre envía 'tipo') ---------- */
+async function guardarVenta(tipoBoton) {
   const eq = equipoInput.value.trim();
-  if (!eq || carrito.length === 0) { mostrarValida("Ingresa equipo y agrega productos."); return; }
+  if (!eq || carrito.length === 0) {
+    mostrarValida("Ingresa equipo y agrega productos.");
+    return;
+  }
 
   const venta = {
     equipo: eq,
     cliente: clienteInput.value.trim(),
-    tipo: tipoOriginal,
+    tipo: tipoOriginal,               // <-- siempre presente
     items: carrito,
     total,
     cantidadTotal,
     fecha: idFactura ? undefined : serverTimestamp()
   };
+
   try {
     if (idFactura) {
       await updateDoc(doc(db, "ventas", idFactura), venta);
@@ -190,7 +194,7 @@ async function guardarVenta(tipo) {
     limpiarTodo();
     mostrarExito();
   } catch (e) {
-    console.error(e);
+    console.error("Error al guardar:", e);
     mostrarError("Error al guardar la venta.");
   }
 }
