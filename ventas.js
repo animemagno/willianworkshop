@@ -1,13 +1,27 @@
 // ventas.js
 import { db } from "./firebase-config.js";
-import { collection, addDoc, doc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import {
+  collection,
+  addDoc,
+  doc,
+  getDoc,
+  updateDoc,
+  serverTimestamp,
+  query,
+  where,
+  orderBy,
+  getDocs
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+/* ---------- estado ---------- */
 let carrito = [];
 let total = 0;
 let cantidadTotal = 0;
-let idFactura = null; // si hay ID es edición
+let idFactura = null;              // si existe → edición
+let tipoOriginal = "efectivo";     // tipo de venta original
+let ultimoElementoAgregado = null; // para scroll inteligente
 
-// ---------- referencias ----------
+/* ---------- referencias ---------- */
 const equipoInput   = document.getElementById("equipo");
 const clienteInput  = document.getElementById("cliente");
 const buscarInput   = document.getElementById("buscar-producto");
@@ -15,8 +29,6 @@ const cantInput     = document.getElementById("cantidad");
 const cartItems     = document.getElementById("cart-items");
 const cartBadge     = document.getElementById("cart-badge");
 const cartTotalTxt  = document.getElementById("cart-total");
-const fueraCant     = document.getElementById("fuera-cantidad");
-const fueraTotal    = document.getElementById("fuera-saldo");
 const efectivoBtn   = document.getElementById("efectivoBtn");
 const creditoBtn    = document.getElementById("creditoBtn");
 const swapBtn       = document.getElementById("swapBtn");
@@ -24,8 +36,9 @@ const wrapper       = document.getElementById("ventaWrapper");
 const carritoDiv    = document.getElementById("carritoContainer");
 const cartIcon      = document.getElementById("cartIcon");
 const tituloVenta   = document.getElementById("tituloVenta");
+const miniGrid      = document.getElementById("miniGrid");
 
-// ---------- modales ----------
+/* ---------- modales ---------- */
 const modalExito   = document.getElementById("modalExito");
 const modalError   = document.getElementById("modalError");
 const modalValida  = document.getElementById("modalValida");
@@ -48,31 +61,34 @@ function mostrarValida(msg) {
 }
 function cerrarValida() { modalValida.style.display = "none"; }
 
-// ---------- carrito ----------
+/* ---------- carrito ---------- */
 function agregarProducto(desc, precio, cantidad) {
   const sub = precio * cantidad;
   carrito.push({ desc, precio, cantidad, subtotal: sub });
   total += sub;
   cantidadTotal += cantidad;
-  actualizarCarrito();
+  actualizarCarrito(true); // <-- indicador: viene de agregar
 }
-function actualizarCarrito() {
+function actualizarCarrito(desdeAgregar = false) {
   if (carrito.length === 0) {
     cartItems.innerHTML = `<div class="empty-cart"><i class="fas fa-shopping-cart"></i><div>No hay productos</div></div>`;
   } else {
     cartItems.innerHTML = carrito.map((it, i) => `
-      <div class="cart-item">
+      <div class="cart-item" data-index="${i}">
         <div class="product-desc">${it.desc}</div>
         <div><input type="number" value="${it.cantidad}" min="1" style="width:50px" onchange="cambiarCantidad(${i},this.value)"></div>
         <div><input type="number" value="${it.precio.toFixed(2)}" min="0.01" step="0.01" style="width:70px" onchange="cambiarPrecio(${i},this.value)"></div>
         <div>$${it.subtotal.toFixed(2)}</div>
         <div><button class="delete-item-btn" data-i="${i}"><i class="fas fa-trash"></i></button></div>
       </div>`).join("");
+    // scroll solo si se agregó producto nuevo
+    if (desdeAgregar) {
+      const nuevo = cartItems.querySelector('.cart-item:last-child');
+      if (nuevo) nuevo.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
   }
   cartBadge.textContent  = cantidadTotal;
   cartTotalTxt.textContent = `$${total.toFixed(2)}`;
-  fueraCant.textContent  = `Productos: ${cantidadTotal}`;
-  fueraTotal.textContent = `Total: $${total.toFixed(2)}`;
 }
 window.cambiarCantidad = (i, v) => {
   const nueva = parseInt(v) || 1;
@@ -80,7 +96,7 @@ window.cambiarCantidad = (i, v) => {
   total -= it.subtotal; cantidadTotal -= it.cantidad;
   it.cantidad = nueva; it.subtotal = it.precio * it.cantidad;
   total += it.subtotal; cantidadTotal += it.cantidad;
-  actualizarCarrito();
+  actualizarCarrito(false);
 };
 window.cambiarPrecio = (i, v) => {
   const nuevo = parseFloat(v) || 0;
@@ -88,7 +104,7 @@ window.cambiarPrecio = (i, v) => {
   total -= it.subtotal;
   it.precio = nuevo; it.subtotal = it.precio * it.cantidad;
   total += it.subtotal;
-  actualizarCarrito();
+  actualizarCarrito(false);
 };
 cartItems.addEventListener("click", e => {
   if (e.target.closest(".delete-item-btn")) {
@@ -96,11 +112,11 @@ cartItems.addEventListener("click", e => {
     const it = carrito[i];
     total -= it.subtotal; cantidadTotal -= it.cantidad;
     carrito.splice(i, 1);
-    actualizarCarrito();
+    actualizarCarrito(false);
   }
 });
 
-// ---------- búsqueda rápida ----------
+/* ---------- búsqueda rápida ---------- */
 buscarInput.addEventListener("focus", () => {
   const dd = document.getElementById("search-dropdown");
   dd.innerHTML = `
@@ -123,33 +139,34 @@ document.addEventListener("click", e => {
   if (!e.target.closest(".search-container")) document.getElementById("search-dropdown").style.display = "none";
 });
 
-// ---------- carga de factura para edición ----------
+/* ---------- cargar factura para edición ---------- */
 async function cargarFactura(id) {
   try {
     const snap = await getDoc(doc(db, "ventas", id));
     if (!snap.exists()) { mostrarError("Factura no encontrada."); return; }
     const data = snap.data();
-    idFactura = id;
+    idFactura   = id;
+    tipoOriginal= data.tipo;
     equipoInput.value  = data.equipo;
     clienteInput.value = data.cliente;
     carrito      = data.items.map(x => ({ ...x }));
     total        = data.total;
     cantidadTotal= data.cantidadTotal;
 
-    // Cambiar interfaz a "modo edición"
+    // cambiar UI a modo edición
     tituloVenta.textContent = "EDITAR VENTA";
     efectivoBtn.textContent = "Actualizar";
     creditoBtn.textContent  = "Cancelar";
-    efectivoBtn.classList.remove("btn-success");
+    efectivoBtn.classList.remove("btn-success","btn-warning");
     efectivoBtn.classList.add("btn-primary");
-    creditoBtn.classList.remove("btn-warning");
+    creditoBtn.classList.remove("btn-success","btn-warning");
     creditoBtn.classList.add("btn-danger");
 
-    actualizarCarrito();
+    actualizarCarrito(false);
   } catch (e) { mostrarError("Error al cargar la factura."); }
 }
 
-// ---------- guardar venta / actualizar ----------
+/* ---------- guardar / actualizar ---------- */
 async function guardarVenta(tipo) {
   const eq = equipoInput.value.trim();
   if (!eq || carrito.length === 0) { mostrarValida("Ingresa equipo y agrega productos."); return; }
@@ -157,11 +174,11 @@ async function guardarVenta(tipo) {
   const venta = {
     equipo: eq,
     cliente: clienteInput.value.trim(),
-    tipo: tipoOriginal, // mantiene el tipo original (efectivo/crédito)
+    tipo: tipoOriginal,
     items: carrito,
     total,
     cantidadTotal,
-    fecha: idFactura ? undefined : serverTimestamp()   // si es edición no toca la fecha
+    fecha: idFactura ? undefined : serverTimestamp()
   };
   try {
     if (idFactura) {
@@ -195,33 +212,45 @@ function limpiarTodo() {
   tituloVenta.textContent = "NUEVA VENTA";
   efectivoBtn.textContent = "Efectivo";
   creditoBtn.textContent  = "Crédito";
-  efectivoBtn.classList.add("btn-success");
-  efectivoBtn.classList.remove("btn-primary");
-  creditoBtn.classList.add("btn-warning");
-  creditoBtn.classList.remove("btn-danger");
-  actualizarCarrito();
+  efectivoBtn.classList.add("btn-success"); efectivoBtn.classList.remove("btn-primary");
+  creditoBtn.classList.add("btn-warning");  creditoBtn.classList.remove("btn-danger");
+  actualizarCarrito(false);
 }
 
-// ---------- botones ----------
-let tipoOriginal = "efectivo"; // por defecto
-efectivoBtn.addEventListener("click", () => {
-  if (idFactura) { // Estamos editando
-    tipoOriginal = "efectivo";
-    guardarVenta("efectivo");
-  } else { // Venta nueva
-    guardarVenta("efectivo");
+/* ---------- mini-historial del día ---------- */
+async function cargarMiniHistorial() {
+  const hoy = new Date();
+  const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0);
+  const fin    = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59);
+
+  const q = query(
+    collection(db, "ventas"),
+    where("fecha", ">=", inicio),
+    where("fecha", "<=", fin),
+    orderBy("fecha", "desc")
+  );
+  const snap = await getDocs(q);
+  const lista = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  if (lista.length === 0) {
+    miniGrid.innerHTML = "<p style='color:#7f8c8d;font-size:.9rem'>Sin movimientos hoy</p>";
+    return;
   }
-});
+  miniGrid.innerHTML = lista.map(v => `
+    <div class="mini-card" onclick="window.location.href='venta.html?id=${v.id}'" title="Ver / editar">
+      <div class="mini-equipo">${v.equipo}</div>
+      <div class="mini-total">$${v.total.toFixed(2)}</div>
+    </div>`).join("");
+}
+
+/* ---------- botones ---------- */
+efectivoBtn.addEventListener("click", () => guardarVenta("efectivo"));
 creditoBtn.addEventListener("click", () => {
-  if (idFactura) { // Botón Cancelar en edición
-    window.location.href = "historial.html";
-  } else { // Venta nueva a crédito
-    tipoOriginal = "credito";
-    guardarVenta("credito");
-  }
+  if (idFactura) window.location.href = "historial.html"; // Cancelar edición
+  else guardarVenta("credito");
 });
 
-// ---------- interfaz móvil ----------
+/* ---------- interfaz móvil ---------- */
 if (window.innerWidth > 768) {
   swapBtn.addEventListener("click", () => wrapper.classList.toggle("invertido"));
 } else {
@@ -239,7 +268,7 @@ if (window.innerWidth > 768) {
   });
 }
 
-// ---------- menú y login ----------
+/* ---------- menú y login ---------- */
 document.getElementById("mobileMenuBtn").addEventListener("click", () => document.getElementById("mobileMenu").classList.toggle("active"));
 document.getElementById("logoutBtn").addEventListener("click", () => {
   localStorage.removeItem("usuarioLogueado");
@@ -247,10 +276,11 @@ document.getElementById("logoutBtn").addEventListener("click", () => {
 });
 if (!localStorage.getItem("usuarioLogueado")) window.location.href = "login.html";
 
-// ---------- arranque ----------
+/* ---------- arranque ---------- */
 window.addEventListener("DOMContentLoaded", () => {
   const params = new URLSearchParams(window.location.search);
   const id = params.get("id");
   if (id) cargarFactura(id);
-  else actualizarCarrito();
+  else actualizarCarrito(false);
+  cargarMiniHistorial();
 });
