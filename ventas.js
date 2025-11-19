@@ -31,6 +31,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const cartItems     = document.getElementById("cart-items");
   const cartBadge     = document.getElementById("cart-badge");
   const cartTotalTxt  = document.getElementById("cart-total");
+  const cartResumen   = document.getElementById("cart-resumen");
   const efectivoBtn   = document.getElementById("efectivoBtn");
   const creditoBtn    = document.getElementById("creditoBtn");
   const swapBtn       = document.getElementById("swapBtn");
@@ -40,13 +41,16 @@ window.addEventListener('DOMContentLoaded', () => {
   const miniGrid      = document.getElementById("miniGrid");
   const detalleBox    = document.getElementById("detalleBox");
 
-  const modalExito   = document.getElementById("modalExito");
-  const modalError   = document.getElementById("modalError");
-  const txtError     = document.getElementById("textoError");
+  const modalExito    = document.getElementById("modalExito");
+  const modalError    = document.getElementById("modalError");
+  const modalDetalle  = document.getElementById("modalDetalle");
+  const detalleEquipoContent = document.getElementById("detalleEquipoContent");
+  const txtError      = document.getElementById("textoError");
 
   /* ---------- funciones de cierre ---------- */
   window.cerrarExito = () => modalExito.style.display = 'none';
   window.cerrarError = () => modalError.style.display = 'none';
+  window.cerrarDetalle = () => modalDetalle.style.display = 'none';
 
   /* ---------- carrito ---------- */
   function agregarProducto(desc, precio, cantidad) {
@@ -56,6 +60,7 @@ window.addEventListener('DOMContentLoaded', () => {
     cantidadTotal += cantidad;
     actualizarCarrito(true);
   }
+
   function actualizarCarrito(desdeAgregar = false) {
     if (carrito.length === 0) {
       cartItems.innerHTML = `<div class="empty-cart"><i class="fas fa-shopping-cart"></i><div>No hay productos</div></div>`;
@@ -75,7 +80,9 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     cartBadge.textContent  = cantidadTotal;
     cartTotalTxt.textContent = `$${total.toFixed(2)}`;
+    cartResumen.textContent = `Productos: ${cantidadTotal} | Total: `;
   }
+
   window.cambiarCantidad = (i, v) => {
     const nueva = parseInt(v) || 1;
     const it = carrito[i];
@@ -84,6 +91,7 @@ window.addEventListener('DOMContentLoaded', () => {
     total += it.subtotal; cantidadTotal += it.cantidad;
     actualizarCarrito(false);
   };
+
   window.cambiarPrecio = (i, v) => {
     const nuevo = parseFloat(v) || 0;
     const it = carrito[i];
@@ -92,6 +100,7 @@ window.addEventListener('DOMContentLoaded', () => {
     total += it.subtotal;
     actualizarCarrito(false);
   };
+
   cartItems.addEventListener("click", e => {
     if (e.target.closest(".delete-item-btn")) {
       const i = e.target.closest(".delete-item-btn").dataset.i;
@@ -111,6 +120,7 @@ window.addEventListener('DOMContentLoaded', () => {
       <div class="search-dropdown-item" data-d="Freno disco" data-p="15.00">Freno disco - $15.00</div>`;
     dd.style.display = "block";
   });
+
   document.getElementById("search-dropdown").addEventListener("click", e => {
     if (e.target.classList.contains("search-dropdown-item")) {
       const desc = e.target.dataset.d;
@@ -121,6 +131,7 @@ window.addEventListener('DOMContentLoaded', () => {
       e.target.parentElement.style.display = "none";
     }
   });
+
   document.addEventListener("click", e => {
     if (!e.target.closest(".search-container")) document.getElementById("search-dropdown").style.display = "none";
   });
@@ -183,6 +194,7 @@ window.addEventListener('DOMContentLoaded', () => {
       mostrarError("Error al guardar: " + (e.message || e.code || "Inténtalo de nuevo."));
     }
   }
+
   function imprimirTicket(tipo) {
     const ticket = `Taller Wilian
 ${tipo === "efectivo" ? "VENTA AL CONTADO" : "VENTA A CRÉDITO"}
@@ -195,6 +207,7 @@ Total: $${total.toFixed(2)}
 Fecha: ${new Date().toLocaleString()}`;
     console.log("🖨️ Ticket:\n" + ticket);
   }
+
   function limpiarTodo() {
     carrito = []; total = 0; cantidadTotal = 0;
     equipoInput.value = ""; clienteInput.value = ""; idFactura = null;
@@ -228,24 +241,31 @@ Fecha: ${new Date().toLocaleString()}`;
     });
 
     miniGrid.innerHTML = Object.entries(grupos).map(([eq, g]) => `
-      <div class="mini-card" onclick="mostrarDetalle('${g.ids[0]}')" title="Clic para ver detalle">
+      <div class="mini-card" onclick="mostrarDetalleEquipo('${g.ids[0]}')" title="Clic para ver detalle">
         <div class="mini-equipo">${eq}</div>
         <div class="mini-total">$${g.total.toFixed(2)}</div>
       </div>`).join("");
   }
 
-  /* muestra detalle sin ir a editar */
-  window.mostrarDetalle = async id => {
+  /* muestra detalle en MODAL sin ir a editar */
+  window.mostrarDetalleEquipo = async id => {
     try {
       const snap = await getDoc(doc(db, "ventas", id));
       if (!snap.exists()) return;
       const v = snap.data();
-      let html = `<h4>Factura #${id.slice(-6)}</h4><p><strong>Equipo:</strong> ${v.equipo}<br><strong>Cliente:</strong> ${v.cliente}<br><strong>Total:</strong> $${v.total.toFixed(2)}<br><strong>Tipo:</strong> ${v.tipo}</p><table style="width:100%;font-size:.8rem"><thead><tr><th>Producto</th><th>Cant</th><th>P.U.</th><th>Subt.</th></tr></thead><tbody>`;
+      let html = `<h4>Factura #${id.slice(-6)}</h4>
+        <p><strong>Equipo:</strong> ${v.equipo}<br>
+        <strong>Cliente:</strong> ${v.cliente}<br>
+        <strong>Total:</strong> $${v.total.toFixed(2)}<br>
+        <strong>Tipo:</strong> ${v.tipo}</p>
+        <table style="width:100%;font-size:.8rem">
+          <thead><tr><th>Producto</th><th>Cant</th><th>P.U.</th><th>Subt.</th></tr></thead>
+          <tbody>`;
       v.items.forEach(i => html+=`<tr><td>${i.desc}</td><td>${i.cantidad}</td><td>$${i.precio.toFixed(2)}</td><td>$${i.subtotal.toFixed(2)}</td></tr>`);
-      html += `</tbody></table><br><button class="btn btn-primary" onclick="window.location.href='venta.html?id=${id}'">Editar</button>`;
-      detalleBox.innerHTML = html;
-      detalleBox.style.display = 'block';
-      detalleBox.scrollIntoView({behavior:'smooth'});
+      html += `</tbody></table><br>
+        <button class="btn btn-primary" onclick="window.location.href='venta.html?id=${id}'">Editar</button>`;
+      detalleEquipoContent.innerHTML = html;
+      modalDetalle.style.display = "flex";
     } catch (e) { console.error(e); }
   };
 
