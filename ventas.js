@@ -17,9 +17,8 @@ import {
 let carrito = [];
 let total = 0;
 let cantidadTotal = 0;
-let idFactura = null;              // si existe → edición
-let tipoOriginal = "efectivo";     // tipo de venta original
-let ultimoElementoAgregado = null; // para scroll inteligente
+let idFactura = null;
+let tipoOriginal = "efectivo";
 
 /* ---------- referencias ---------- */
 const equipoInput   = document.getElementById("equipo");
@@ -37,7 +36,8 @@ const carritoDiv    = document.getElementById("carritoContainer");
 const cartIcon      = document.getElementById("cartIcon");
 const tituloVenta   = document.getElementById("tituloVenta");
 const miniGrid      = document.getElementById("miniGrid");
-const detalleBox    = document.getElementById("detalleBox");   // panel de detalle
+const detalleBox    = document.getElementById("detalleBox");
+const abonarBtn     = document.getElementById("abonarBtn");   // botón ABONAR
 
 /* ---------- modales ---------- */
 const modalExito   = document.getElementById("modalExito");
@@ -50,9 +50,7 @@ const txtValida    = document.getElementById("textoValida");
 function mostrarExito() { modalExito.style.display = "flex"; }
 function cerrarExito() {
   modalExito.style.display = "none";
-  // 1) NO redirigimos al historial cuando es venta nueva
-  //    (solo limpiamos formulario y quedamos en la misma pantalla)
-  if (!idFactura) limpiarTodo();
+  if (!idFactura) limpiarTodo();   // solo limpia si es venta nueva
 }
 function mostrarError(msg) {
   txtError.textContent = msg;
@@ -221,7 +219,7 @@ function limpiarTodo() {
   actualizarCarrito(false);
 }
 
-/* ---------- mini-historial ---------- */
+/* ---------- mini-historial del DÍA (agrupado por equipo) ---------- */
 async function cargarMiniHistorial() {
   const hoy = new Date();
   const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0);
@@ -234,10 +232,18 @@ async function cargarMiniHistorial() {
     miniGrid.innerHTML = "<p style='color:#7f8c8d;font-size:.9rem'>Sin movimientos hoy</p>";
     return;
   }
-  miniGrid.innerHTML = lista.map(v => `
-    <div class="mini-card" onclick="mostrarDetalle('${v.id}')" title="Ver detalle">
-      <div class="mini-equipo">${v.equipo}</div>
-      <div class="mini-total">$${v.total.toFixed(2)}</div>
+  // agrupamos por equipo
+  const grupos = {};
+  lista.forEach(v => {
+    if (!grupos[v.equipo]) grupos[v.equipo] = { ids: [], total: 0 };
+    grupos[v.equipo].ids.push(v.id);
+    grupos[v.equipo].total += v.total;
+  });
+
+  miniGrid.innerHTML = Object.entries(grupos).map(([eq, g]) => `
+    <div class="mini-card" ondblclick="mostrarDetalle('${g.ids[0]}')" title="Doble clic para ver detalle">
+      <div class="mini-equipo">${eq}</div>
+      <div class="mini-total">$${g.total.toFixed(2)}</div>
     </div>`).join("");
 }
 
@@ -256,44 +262,17 @@ window.mostrarDetalle = async id => {
   } catch (e) { console.error(e); }
 };
 
-/* ---------- botones ---------- */
-efectivoBtn.addEventListener("click", () => guardarVenta("efectivo"));
-creditoBtn.addEventListener("click", () => {
-  if (idFactura) { /* cancelar edición -> limpiar y quedarse */
-    limpiarTodo();
-    return;
-  }
-  guardarVenta("credito");
+/* ---------- botón ABONAR ---------- */
+efectivoBtn.insertAdjacentHTML('afterend', `
+  <button type="button" id="abonarBtn" class="btn btn-info" style="margin-top:10px;width:100%;">
+    <i class="fas fa-dollar-sign"></i> ABONAR
+  </button>`);
+document.getElementById('abonarBtn').addEventListener('click', () => {
+  window.location.href = 'facturas.html';
 });
-
-/* ---------- móvil ---------- */
-if (window.innerWidth > 768) {
-  swapBtn.addEventListener("click", () => wrapper.classList.toggle("invertido"));
-} else {
-  swapBtn.style.display = "none";
-  cartIcon.addEventListener("click", () => {
-    const wrap = document.createElement("div");
-    wrap.id = "carritoFullScreen";
-    wrap.innerHTML = `<div style="position:fixed;top:0;left:0;width:100%;height:100%;background:white;z-index:2000;padding:20px;display:flex;flex-direction:column;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-        <h3>Carrito</h3><button id="cerrarCarritoBtn" style="background:#e74c3c;color:white;border:none;border-radius:50%;width:36px;height:36px;font-size:1.2rem;cursor:pointer;"><i class="fas fa-times"></i></button>
-      </div><div id="carritoContenidoClone"></div></div>`;
-    document.body.appendChild(wrap);
-    document.getElementById("carritoContenidoClone").appendChild(cartItems.cloneNode(true));
-    document.getElementById("cerrarCarritoBtn").addEventListener("click", () => document.body.removeChild(wrap));
-  });
-}
-
-/* ---------- menú y login ---------- */
-document.getElementById("mobileMenuBtn").addEventListener("click", () => document.getElementById("mobileMenu").classList.toggle("active"));
-document.getElementById("logoutBtn").addEventListener("click", () => {
-  localStorage.removeItem("usuarioLogueado");
-  window.location.href = "login.html";
-});
-if (!localStorage.getItem("usuarioLogueado")) window.location.href = "login.html";
 
 /* ---------- arranque ---------- */
-window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("DOMContentDown", () => {
   const params = new URLSearchParams(window.location.search);
   const id = params.get("id");
   if (id) cargarFactura(id);
@@ -301,9 +280,13 @@ window.addEventListener("DOMContentLoaded", () => {
   cargarMiniHistorial();
 });
 
-/* ---------- CIERRE DE MODALES ---------- */
+/* ---------- CIERRES DE MODALES ---------- */
 document.querySelectorAll('.modal-overlay').forEach(modal => {
   modal.addEventListener('click', e => {
     if (e.target === modal) modal.style.display = 'none';
   });
+});
+// Cierra modal al pulsar botón interno
+document.querySelectorAll('.modal-box .btn-primary').forEach(btn => {
+  btn.addEventListener('click', () => btn.closest('.modal-overlay').style.display = 'none');
 });
