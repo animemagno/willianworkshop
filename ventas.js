@@ -20,9 +20,6 @@ let cantidadTotal = 0;
 let idFactura = null;
 let tipoOriginal = "efectivo";
 
-/* ---------- FUNCIONES AUXILIARES ---------- */
-const cerrarModal = m => m.style.display = 'none';
-
 /* ---------- EJECUCIÓN DESPUÉS DE QUE EXISTA EL DOM ---------- */
 window.addEventListener('DOMContentLoaded', () => {
 
@@ -42,7 +39,6 @@ window.addEventListener('DOMContentLoaded', () => {
   const tituloVenta   = document.getElementById("tituloVenta");
   const miniGrid      = document.getElementById("miniGrid");
   const detalleBox    = document.getElementById("detalleBox");
-  const abonarBtn     = document.getElementById("abonarBtn");
 
   const modalExito   = document.getElementById("modalExito");
   const modalError   = document.getElementById("modalError");
@@ -249,7 +245,22 @@ Fecha: ${new Date().toLocaleString()}`;
     } catch (e) { console.error(e); }
   };
 
-  /* ---------- botones ---------- */
+  /* ---------- COLOCAR BOTÓN ABONAR A LA DERECHA DE EFECTIVO/CRÉDITO ---------- */
+  // movemos el botón ABONAR al lado derecho
+  const btnContainer = document.querySelector('.btn-container');
+  btnContainer.style.display = 'flex';
+  btnContainer.style.justifyContent = 'space-between';
+  btnContainer.style.gap = '10px';
+  // creamos el botón
+  const abonarBtn = document.createElement('button');
+  abonarBtn.type = 'button';
+  abonarBtn.id = 'abonarBtn';
+  abonarBtn.className = 'btn btn-info';
+  abonarBtn.innerHTML = '<i class="fas fa-dollar-sign"></i> ABONAR';
+  abonarBtn.style.width = 'auto';
+  btnContainer.appendChild(abonarBtn);
+
+  /* ---------- eventos de botones ---------- */
   efectivoBtn.addEventListener("click", () => guardarVenta("efectivo"));
   creditoBtn.addEventListener("click", () => {
     if (idFactura) { limpiarTodo(); return; } // cancelar edición
