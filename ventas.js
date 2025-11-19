@@ -31,7 +31,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const cartItems     = document.getElementById("cart-items");
   const cartBadge     = document.getElementById("cart-badge");
   const cartTotalTxt  = document.getElementById("cart-total");
-  const cartResumen   = document.getElementById("cart-resumen"); // 🔧
+  const cartResumen   = document.getElementById("cart-resumen");
   const efectivoBtn   = document.getElementById("efectivoBtn");
   const creditoBtn    = document.getElementById("creditoBtn");
   const swapBtn       = document.getElementById("swapBtn");
@@ -43,14 +43,14 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const modalExito    = document.getElementById("modalExito");
   const modalError    = document.getElementById("modalError");
-  const modalDetalle  = document.getElementById("modalDetalle"); // 🔧
-  const detalleEquipoContent = document.getElementById("detalleEquipoContent"); // 🔧
+  const modalDetalle  = document.getElementById("modalDetalle");
+  const detalleEquipoContent = document.getElementById("detalleEquipoContent");
   const txtError      = document.getElementById("textoError");
 
   /* ---------- funciones de cierre ---------- */
   window.cerrarExito = () => modalExito.style.display = 'none';
   window.cerrarError = () => modalError.style.display = 'none';
-  window.cerrarDetalle = () => modalDetalle.style.display = 'none'; // 🔧
+  window.cerrarDetalle = () => modalDetalle.style.display = 'none';
 
   /* ---------- carrito ---------- */
   function agregarProducto(desc, precio, cantidad) {
@@ -80,7 +80,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     cartBadge.textContent  = cantidadTotal;
     cartTotalTxt.textContent = `$${total.toFixed(2)}`;
-    cartResumen.textContent = `Productos: ${cantidadTotal} | Total: `; // 🔧
+    cartResumen.textContent = `Productos: ${cantidadTotal} | Total: `;
   }
 
   window.cambiarCantidad = (i, v) => {
@@ -187,7 +187,6 @@ window.addEventListener('DOMContentLoaded', () => {
       imprimirTicket(tipoOriginal);
       limpiarTodo();
       mostrarExito();
-      // ➜ actualizamos el mini-historial al instante
       await cargarMiniHistorial();
     } catch (e) {
       console.error("Error completo:", e);
@@ -217,6 +216,8 @@ Fecha: ${new Date().toLocaleString()}`;
     efectivoBtn.classList.add("btn-success"); efectivoBtn.classList.remove("btn-primary");
     creditoBtn.classList.add("btn-warning");  creditoBtn.classList.remove("btn-danger");
     actualizarCarrito(false);
+    // 🔧 Limpiar URL para que al recargar no vuelva a aparecer la factura cancelada
+    window.history.replaceState({}, document.title, window.location.pathname);
   }
 
   /* ---------- mini-historial del DÍA (agrupado por equipo) ---------- */
@@ -232,7 +233,6 @@ Fecha: ${new Date().toLocaleString()}`;
       miniGrid.innerHTML = "<p style='color:#7f8c8d;font-size:.9rem'>Sin movimientos hoy</p>";
       return;
     }
-    // agrupamos por equipo
     const grupos = {};
     lista.forEach(v => {
       if (!grupos[v.equipo]) grupos[v.equipo] = { ids: [], total: 0 };
@@ -247,23 +247,23 @@ Fecha: ${new Date().toLocaleString()}`;
       </div>`).join("");
   }
 
-  /* 🔧 muestra detalle en MODAL sin ir a editar */
+  /* 🔧 muestra detalle en MODAL sin ir a editar y en tabla limpia */
   window.mostrarDetalleEquipo = async id => {
     try {
       const snap = await getDoc(doc(db, "ventas", id));
       if (!snap.exists()) return;
       const v = snap.data();
-      let html = `<h4>Factura #${id.slice(-6)}</h4>
-        <p><strong>Equipo:</strong> ${v.equipo}<br>
-        <strong>Cliente:</strong> ${v.cliente}<br>
-        <strong>Total:</strong> $${v.total.toFixed(2)}<br>
-        <strong>Tipo:</strong> ${v.tipo}</p>
-        <table style="width:100%;font-size:.8rem">
-          <thead><tr><th>Producto</th><th>Cant</th><th>P.U.</th><th>Subt.</th></tr></thead>
+      let html = `<table class="venta-detail-table" style="width:100%;font-size:.8rem;border-collapse:collapse">
+        <tr><th style="background:#ecf0f1;padding:6px">Equipo</th><td style="padding:6px">${v.equipo}</td></tr>
+        <tr><th style="background:#ecf0f1;padding:6px">Cliente</th><td style="padding:6px">${v.cliente}</td></tr>
+        <tr><th style="background:#ecf0f1;padding:6px">Total</th><td style="padding:6px">$${v.total.toFixed(2)}</td></tr>
+        <tr><th style="background:#ecf0f1;padding:6px">Tipo</th><td style="padding:6px">${v.tipo}</td></tr>
+        </table>
+        <table style="width:100%;font-size:.8rem;border-collapse:collapse;margin-top:10px">
+          <thead><tr style="background:#2c3e50;color:white"><th>Producto</th><th>Cant</th><th>P.U.</th><th>Subt.</th></tr></thead>
           <tbody>`;
-      v.items.forEach(i => html+=`<tr><td>${i.desc}</td><td>${i.cantidad}</td><td>$${i.precio.toFixed(2)}</td><td>$${i.subtotal.toFixed(2)}</td></tr>`);
-      html += `</tbody></table><br>
-        <button class="btn btn-primary" onclick="window.location.href='venta.html?id=${id}'">Editar</button>`;
+      v.items.forEach(i => html+=`<tr><td style="padding:4px">${i.desc}</td><td style="padding:4px">${i.cantidad}</td><td style="padding:4px">$${i.precio.toFixed(2)}</td><td style="padding:4px">$${i.subtotal.toFixed(2)}</td></tr>`);
+      html += `</tbody></table>`;
       detalleEquipoContent.innerHTML = html;
       modalDetalle.style.display = "flex";
     } catch (e) { console.error(e); }
