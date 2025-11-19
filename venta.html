@@ -17,10 +17,11 @@
     .menu-toggle{background:rgba(255,255,255,.2);border:none;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .3s}
     .menu-toggle:hover{background:rgba(255,255,255,.3)}
     .menu-toggle i{color:white;font-size:1.1rem}
-    .cart-icon{background:rgba(255,255,255,.2);border:none;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .3s ease;position:relative}
+    .cart-icon{background:rgba(255,255,255,.2);border:none;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .3s ease;position:relative;display:none} /* Oculto en escritorio */
     .cart-icon:hover{background:rgba(255,255,255,.3);transform:scale(1.1)}
     .cart-icon i{color:white;font-size:1.1rem}
     .cart-badge{position:absolute;top:-5px;right:-5px;background:#e74c3c;color:white;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:bold;pointer-events:none}
+    @media (max-width: 768px){.cart-icon{display:flex}} /* Visible solo en móvil */
     .mobile-menu{display:none;position:absolute;top:55px;left:10px;background:white;border:1px solid #ddd;border-radius:6px;box-shadow:0 4px 10px rgba(0,0,0,.15);z-index:999;flex-direction:column;padding:8px 0;min-width:180px}
     .mobile-menu.active{display:flex}
     .mobile-menu a{color:#333;text-decoration:none;padding:10px 15px;font-size:1rem;transition:background .2s}
@@ -30,7 +31,7 @@
     .venta-wrapper{display:flex;gap:15px;align-items:flex-start;flex:1 1 auto;padding:0 20px;min-height:0}
     @media (max-width: 768px){.venta-wrapper{padding:0 10px;flex-direction:column}}
     .venta-form-container{flex:1 1 50%;display:flex;flex-direction:column}
-    .venta-carrito-container{flex:1 1 50%;display:flex;flex-direction:column;height:100%;min-height:0}
+    .venta-carrito-container{flex:1 1 50%;display:flex;flex-direction:column;height:100vh;position:sticky;top:0} /* Altura fija de pantalla */
     .venta-wrapper.invertido{flex-direction:row-reverse}
     .form-group{margin-bottom:15px}
     .form-group label{display:block;margin-bottom:5px;font-weight:600;color:#333;font-size:.9rem}
@@ -44,7 +45,7 @@
     .search-dropdown{position:absolute;background:white;border:1px solid #ddd;border-radius:4px;max-height:200px;overflow-y:auto;width:100%;z-index:1000;box-shadow:0 2px 4px rgba(0,0,0,.1);font-size:.8rem;display:none}
     .search-dropdown-item{padding:10px;cursor:pointer;border-bottom:1px solid #ddd;transition:background-color .2s}
     .search-dropdown-item:hover{background-color:#3498db;color:white}
-    .cart-container{background:#f8f9fa;border-radius:6px;padding:0;border:1px solid #e9ecef;display:flex;flex-direction:column;height:100%;max-height:70vh}
+    .cart-container{background:#f8f9fa;border-radius:6px;padding:0;border:1px solid #e9ecef;display:flex;flex-direction:olumn;height:100vh} /* Altura fija */
     .cart-header{display:grid;grid-template-columns:1fr 80px 100px 100px 40px;gap:10px;padding:8px 12px;background:#2c3e50;color:white;border-radius:4px 4px 0 0;font-weight:600;font-size:.8rem;flex-shrink:0}
     .cart-list{flex:1 1 auto;overflow-y:auto;display:flex;flex-direction:column;scroll-behavior:smooth}
     .cart-item{display:grid;grid-template-columns:1fr 80px 100px 100px 40px;gap:10px;padding:8px 12px;border-bottom:1px solid #ddd;align-items:center;font-size:.85rem}
@@ -193,7 +194,7 @@
             </div>
           </div>
           <div class="cart-total">
-            <span>Total: </span><span id="cart-total">$0.00</span>
+            <span id="cart-resumen">Productos: 0 | Total: </span><span id="cart-total">$0.00</span>
           </div>
         </div>
       </div>
@@ -204,6 +205,17 @@
 <!-- MODALES -->
 <div id="modalExito" class="modal-overlay"><div class="modal-box"><h3>✅ Venta guardada</h3><p>La venta se registró correctamente.</p><div class="modal-buttons"><button class="btn btn-primary" onclick="cerrarExito()">Aceptar</button></div></div></div>
 <div id="modalError" class="modal-overlay"><div class="modal-box"><h3>❌ Error</h3><p id="textoError">Ocurrió un error al guardar la venta.</p><div class="modal-buttons"><button class="btn btn-primary" onclick="cerrarError()">Aceptar</button></div></div></div>
+
+<!-- MODAL DETALLE EQUIPO -->
+<div id="modalDetalle" class="modal-overlay">
+  <div class="modal-box">
+    <h3>Detalle del equipo</h3>
+    <div id="detalleEquipoContent"></div>
+    <div class="modal-buttons">
+      <button class="btn btn-primary" onclick="cerrarDetalle()">Cerrar</button>
+    </div>
+  </div>
+</div>
 
 <!-- SCRIPTS -->
 <script type="module" src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
