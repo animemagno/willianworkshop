@@ -42,9 +42,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const modalExito   = document.getElementById("modalExito");
   const modalError   = document.getElementById("modalError");
-  const modalValida  = document.getElementById("modalValida");
   const txtError     = document.getElementById("textoError");
-  const txtValida    = document.getElementById("textoValida");
 
   /* ---------- carrito ---------- */
   function agregarProducto(desc, precio, cantidad) {
@@ -148,11 +146,11 @@ window.addEventListener('DOMContentLoaded', () => {
     } catch (e) { mostrarError("Error al cargar la factura."); }
   }
 
-  /* ---------- guardar / actualizar ---------- */
+  /* ---------- guardar / actualizar + RECARGA DE MINI-HISTORIAL ---------- */
   async function guardarVenta(tipoBoton) {
     const eq = equipoInput.value.trim();
     if (!eq || carrito.length === 0) {
-      mostrarValida("Ingresa equipo y agrega productos.");
+      mostrarError("Ingresa equipo y agrega productos.");
       return;
     }
     const venta = {
@@ -174,6 +172,8 @@ window.addEventListener('DOMContentLoaded', () => {
       imprimirTicket(tipoOriginal);
       limpiarTodo();
       mostrarExito();
+      // ➜ actualizamos el mini-historial al instante
+      await cargarMiniHistorial();
     } catch (e) {
       console.error("Error completo:", e);
       mostrarError("Error al guardar: " + (e.message || e.code || "Inténtalo de nuevo."));
