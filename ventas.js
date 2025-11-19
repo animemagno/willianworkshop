@@ -224,7 +224,7 @@ Fecha: ${new Date().toLocaleString()}`;
     });
 
     miniGrid.innerHTML = Object.entries(grupos).map(([eq, g]) => `
-      <div class="mini-card" ondblclick="mostrarDetalle('${g.ids[0]}')" title="Doble clic para ver detalle">
+      <div class="mini-card" onclick="mostrarDetalle('${g.ids[0]}')" title="Clic para ver detalle">
         <div class="mini-equipo">${eq}</div>
         <div class="mini-total">$${g.total.toFixed(2)}</div>
       </div>`).join("");
@@ -256,7 +256,7 @@ Fecha: ${new Date().toLocaleString()}`;
   abonarBtn.type = 'button';
   abonarBtn.id = 'abonarBtn';
   abonarBtn.className = 'btn btn-info';
-  abonarBtn.innerHTML = '<i class="fas fa-dollar-sign"></i> ABONAR';
+  abonarBtn.textContent = 'ABONAR';
   abonarBtn.style.width = 'auto';
   btnContainer.insertBefore(abonarBtn, efectivoBtn); // lo ponemos ANTES de Efectivo
 
