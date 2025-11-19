@@ -17,9 +17,9 @@ import {
 let carrito = [];
 let total = 0;
 let cantidadTotal = 0;
-let idFactura = null;
-let tipoOriginal = "efectivo";
-let ultimoElementoAgregado = null;
+let idFactura = null;              // si existe → edición
+let tipoOriginal = "efectivo";     // tipo de venta original
+let ultimoElementoAgregado = null; // para scroll inteligente
 
 /* ---------- referencias ---------- */
 const equipoInput   = document.getElementById("equipo");
@@ -37,6 +37,7 @@ const carritoDiv    = document.getElementById("carritoContainer");
 const cartIcon      = document.getElementById("cartIcon");
 const tituloVenta   = document.getElementById("tituloVenta");
 const miniGrid      = document.getElementById("miniGrid");
+const detalleBox    = document.getElementById("detalleBox");   // panel de detalle
 
 /* ---------- modales ---------- */
 const modalExito   = document.getElementById("modalExito");
@@ -49,7 +50,9 @@ const txtValida    = document.getElementById("textoValida");
 function mostrarExito() { modalExito.style.display = "flex"; }
 function cerrarExito() {
   modalExito.style.display = "none";
-  if (idFactura) window.location.href = "historial.html";
+  // 1) NO redirigimos al historial cuando es venta nueva
+  //    (solo limpiamos formulario y quedamos en la misma pantalla)
+  if (!idFactura) limpiarTodo();
 }
 function mostrarError(msg) {
   txtError.textContent = msg;
@@ -179,7 +182,6 @@ async function guardarVenta(tipoBoton) {
     total,
     cantidadTotal
   };
-  // fecha solo en ventas nuevas
   if (!idFactura) venta.fecha = serverTimestamp();
 
   try {
@@ -227,22 +229,41 @@ async function cargarMiniHistorial() {
   const q = query(collection(db, "ventas"), where("fecha", ">=", inicio), where("fecha", "<=", fin), orderBy("fecha", "desc"));
   const snap = await getDocs(q);
   const lista = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
   if (lista.length === 0) {
     miniGrid.innerHTML = "<p style='color:#7f8c8d;font-size:.9rem'>Sin movimientos hoy</p>";
     return;
   }
   miniGrid.innerHTML = lista.map(v => `
-    <div class="mini-card" onclick="window.location.href='venta.html?id=${v.id}'" title="Ver / editar">
+    <div class="mini-card" onclick="mostrarDetalle('${v.id}')" title="Ver detalle">
       <div class="mini-equipo">${v.equipo}</div>
       <div class="mini-total">$${v.total.toFixed(2)}</div>
     </div>`).join("");
 }
 
+/* muestra detalle sin ir a editar */
+window.mostrarDetalle = async id => {
+  try {
+    const snap = await getDoc(doc(db, "ventas", id));
+    if (!snap.exists()) return;
+    const v = snap.data();
+    let html = `<h4>Factura #${id.slice(-6)}</h4><p><strong>Equipo:</strong> ${v.equipo}<br><strong>Cliente:</strong> ${v.cliente}<br><strong>Total:</strong> $${v.total.toFixed(2)}<br><strong>Tipo:</strong> ${v.tipo}</p><table style="width:100%;font-size:.8rem"><thead><tr><th>Producto</th><th>Cant</th><th>P.U.</th><th>Subt.</th></tr></thead><tbody>`;
+    v.items.forEach(i => html+=`<tr><td>${i.desc}</td><td>${i.cantidad}</td><td>$${i.precio.toFixed(2)}</td><td>$${i.subtotal.toFixed(2)}</td></tr>`);
+    html += `</tbody></table><br><button class="btn btn-primary" onclick="window.location.href='venta.html?id=${id}'">Editar</button>`;
+    detalleBox.innerHTML = html;
+    detalleBox.style.display = 'block';
+    detalleBox.scrollIntoView({behavior:'smooth'});
+  } catch (e) { console.error(e); }
+};
+
 /* ---------- botones ---------- */
 efectivoBtn.addEventListener("click", () => guardarVenta("efectivo"));
 creditoBtn.addEventListener("click", () => {
-  if (idFactura) window.location.href = "historial.html";
-  else guardarVenta("credito");
+  if (idFactura) { /* cancelar edición -> limpiar y quedarse */
+    limpiarTodo();
+    return;
+  }
+  guardarVenta("credito");
 });
 
 /* ---------- móvil ---------- */
@@ -280,7 +301,7 @@ window.addEventListener("DOMContentLoaded", () => {
   cargarMiniHistorial();
 });
 
-/* ---------- CIERRE DE MODALES CON CLICK FUERA O BOTÓN ---------- */
+/* ---------- CIERRE DE MODALES ---------- */
 document.querySelectorAll('.modal-overlay').forEach(modal => {
   modal.addEventListener('click', e => {
     if (e.target === modal) modal.style.display = 'none';
