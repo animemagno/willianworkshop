@@ -46,6 +46,11 @@ window.addEventListener('DOMContentLoaded', () => {
   const txtError     = document.getElementById("textoError");
   const txtValida    = document.getElementById("textoValida");
 
+  /* ---------- funciones de cierre ---------- */
+  window.cerrarExito = () => modalExito.style.display = 'none';
+  window.cerrarError = () => modalError.style.display = 'none';
+  window.cerrarValida = () => modalValida.style.display = 'none';
+
   /* ---------- carrito ---------- */
   function agregarProducto(desc, precio, cantidad) {
     const sub = precio * cantidad;
@@ -282,7 +287,7 @@ Fecha: ${new Date().toLocaleString()}`;
       wrap.id = "carritoFullScreen";
       wrap.innerHTML = `<div style="position:fixed;top:0;left:0;width:100%;height:100%;background:white;z-index:2000;padding:20px;display:flex;flex-direction:column;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-          <h3>Carrito</h3><button id="cerrarCarritoBtn" style="background:#e74c3c;color:white;border:none;border-radius:50%;width:36px;height:36px;font-size:1.2rem;cursor:pointer;"><i class="fas fa-times"></i></button>
+          <h3>Carrito</h3><button id="cerrarCarritoBtn" style="background:#e74c3c;color:white;border:none;border-radius:50%;width=36px;height:36px;font-size:1.2rem;cursor:pointer;"><i class="fas fa-times"></i></button>
         </div><div id="carritoContenidoClone"></div></div>`;
       document.body.appendChild(wrap);
       document.getElementById("carritoContenidoClone").appendChild(cartItems.cloneNode(true));
