@@ -42,7 +42,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const modalExito   = document.getElementById("modalExito");
   const modalError   = document.getElementById("modalError");
+  const modalValida  = document.getElementById("modalValida");
   const txtError     = document.getElementById("textoError");
+  const txtValida    = document.getElementById("textoValida");
 
   /* ---------- carrito ---------- */
   function agregarProducto(desc, precio, cantidad) {
@@ -310,7 +312,7 @@ Fecha: ${new Date().toLocaleString()}`;
     });
   });
   document.querySelectorAll('.modal-box .btn-primary').forEach(btn => {
-    btn.addEventListener('click', () => btn.closest('.modal-overlay').style.display = 'none');
+    btn.addEventListener('click', () => btn.closest('.modal-overlay').style.display = 'none';
   });
 
 });   // ← FIN del DOMContentLoaded
