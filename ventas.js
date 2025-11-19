@@ -42,14 +42,11 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const modalExito   = document.getElementById("modalExito");
   const modalError   = document.getElementById("modalError");
-  const modalValida  = document.getElementById("modalValida");
   const txtError     = document.getElementById("textoError");
-  const txtValida    = document.getElementById("textoValida");
 
   /* ---------- funciones de cierre ---------- */
   window.cerrarExito = () => modalExito.style.display = 'none';
   window.cerrarError = () => modalError.style.display = 'none';
-  window.cerrarValida = () => modalValida.style.display = 'none';
 
   /* ---------- carrito ---------- */
   function agregarProducto(desc, precio, cantidad) {
@@ -252,28 +249,13 @@ Fecha: ${new Date().toLocaleString()}`;
     } catch (e) { console.error(e); }
   };
 
-  /* ---------- COLOCAR BOTÓN ABONAR A LA IZQUIERDA DE EFECTIVO/CRÉDITO ---------- */
-  // movemos el botón ABONAR al lado izquierdo
-  const btnContainer = document.querySelector('.btn-container');
-  btnContainer.style.display = 'flex';
-  btnContainer.style.justifyContent = 'space-between';
-  btnContainer.style.gap = '10px';
-  // creamos el botón
-  const abonarBtn = document.createElement('button');
-  abonarBtn.type = 'button';
-  abonarBtn.id = 'abonarBtn';
-  abonarBtn.className = 'btn btn-info';
-  abonarBtn.textContent = 'ABONAR';
-  abonarBtn.style.width = 'auto';
-  btnContainer.insertBefore(abonarBtn, efectivoBtn); // lo ponemos ANTES de Efectivo
-
   /* ---------- eventos de botones ---------- */
   efectivoBtn.addEventListener("click", () => guardarVenta("efectivo"));
   creditoBtn.addEventListener("click", () => {
     if (idFactura) { limpiarTodo(); return; } // cancelar edición
     guardarVenta("credito");
   });
-  abonarBtn.addEventListener('click', () => {
+  document.getElementById("abonarBtn").addEventListener('click', () => {
     window.location.href = 'facturas.html';
   });
 
@@ -287,7 +269,7 @@ Fecha: ${new Date().toLocaleString()}`;
       wrap.id = "carritoFullScreen";
       wrap.innerHTML = `<div style="position:fixed;top:0;left:0;width:100%;height:100%;background:white;z-index:2000;padding:20px;display:flex;flex-direction:column;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-          <h3>Carrito</h3><button id="cerrarCarritoBtn" style="background:#e74c3c;color:white;border:none;border-radius:50%;width=36px;height:36px;font-size:1.2rem;cursor:pointer;"><i class="fas fa-times"></i></button>
+          <h3>Carrito</h3><button id="cerrarCarritoBtn" style="background:#e74c3c;color:white;border:none;border-radius:50%;width:36px;height:36px;font-size:1.2rem;cursor:pointer;"><i class="fas fa-times"></i></button>
         </div><div id="carritoContenidoClone"></div></div>`;
       document.body.appendChild(wrap);
       document.getElementById("carritoContenidoClone").appendChild(cartItems.cloneNode(true));
@@ -317,7 +299,7 @@ Fecha: ${new Date().toLocaleString()}`;
     });
   });
   document.querySelectorAll('.modal-box .btn-primary').forEach(btn => {
-    btn.addEventListener('click', () => btn.closest('.modal-overlay').style.display = 'none';
+    btn.addEventListener('click', () => btn.closest('.modal-overlay').style.display = 'none');
   });
 
 });   // ← FIN del DOMContentLoaded
