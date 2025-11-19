@@ -6,7 +6,6 @@
   <title>Nueva Venta - Taller Wilian</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
   <style>
-    /* ---------- base ---------- */
     *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     html,body{height:100%}
     body{background:#eef2f5;color:#333;font-size:14px;display:flex;flex-direction:column}
@@ -64,6 +63,8 @@
     .btn-success:hover{background-color:#219a52}
     .btn-warning{background-color:#f39c12;color:white}
     .btn-warning:hover{background-color:#d35400}
+    .btn-info{background-color:#17a2b8;color:white}
+    .btn-info:hover{background-color:#138496}
     .btn-container{display:flex;flex-direction:column;gap:5px;margin-top:15px}
     @media(min-width:768px){.btn-container{flex-direction:row;justify-content:flex-end}}
     .swap-btn{background:#95a5a6;color:white;border:none;border-radius:50%;width:36px;height:36px;font-size:1rem;cursor:pointer;transition:background .3s;align-self:center;margin:0 10px}
@@ -79,14 +80,21 @@
       .swap-btn{display:none}
     }
 
-    /* ===== mini-historial del día ===== */
+    /* ===== mini-historial del DÍA (tarjetas pequeñas) ===== */
     .mini-historial{margin-top:20px}
     .mini-historial h3{font-size:1rem;margin-bottom:10px;color:#2c3e50}
-    .mini-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
-    .mini-card{background:#fff;border:2px solid #3498db;border-radius:6px;padding:10px;text-align:center;cursor:pointer;transition:all .3s ease}
+    .mini-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px}
+    .mini-card{background:#fff;border:2px solid #3498db;border-radius:6px;padding:8px;text-align:center;cursor:pointer;transition:all .3s ease;font-size:.8rem}
     .mini-card:hover{transform:translateY(-2px);box-shadow:0 4px 8px rgba(0,0,0,.15)}
-    .mini-equipo{font-size:1.1rem;font-weight:bold;color:#2c3e50}
-    .mini-total{font-size:.9rem;font-weight:bold;color:#27ae60;margin-top:4px}
+    .mini-equipo{font-weight:bold;color:#2c3e50;margin-bottom:4px}
+    .mini-total{font-weight:bold;color:#27ae60}
+
+    /* panel de detalle sin salir de la pantalla */
+    #detalleBox{background:#f8f9fa;border:1px solid #ddd;border-radius:6px;padding:12px;margin-top:10px;display:none;font-size:.85rem}
+    #detalleBox h4{margin-bottom:8px;color:#2c3e50}
+    #detalleBox table{width:100%;border-collapse:collapse;margin-top:8px}
+    #detalleBox th,#detalleBox td{padding:4px 6px;text-align:left;border-bottom:1px solid #eee;font-size:.75rem}
+    #detalleBox th{background:#ecf0f1;font-weight:600}
 
     /* ===== MODALES PROPIOS ===== */
     .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);z-index:2000;display:none;align-items:center;justify-content:center}
@@ -159,10 +167,17 @@
           </div>
         </form>
 
+        <!-- BOTÓN ABONAR -->
+        <button type="button" id="abonarBtn" class="btn btn-info" style="margin-top:10px;width:100%;">
+          <i class="fas fa-dollar-sign"></i> ABONAR
+        </button>
+
         <!-- MINI-HISTORIAL DEL DÍA -->
         <div class="mini-historial">
           <h3>Movimientos de hoy</h3>
           <div class="mini-grid" id="miniGrid"></div>
+          <!-- Panel de detalle sin salir de la pantalla -->
+          <div id="detalleBox" class="mini-historial" style="display:none;margin-top:10px;"></div>
         </div>
       </div>
 
