@@ -245,8 +245,8 @@ Fecha: ${new Date().toLocaleString()}`;
     } catch (e) { console.error(e); }
   };
 
-  /* ---------- COLOCAR BOTÓN ABONAR A LA DERECHA DE EFECTIVO/CRÉDITO ---------- */
-  // movemos el botón ABONAR al lado derecho
+  /* ---------- COLOCAR BOTÓN ABONAR A LA IZQUIERDA DE EFECTIVO/CRÉDITO ---------- */
+  // movemos el botón ABONAR al lado izquierdo
   const btnContainer = document.querySelector('.btn-container');
   btnContainer.style.display = 'flex';
   btnContainer.style.justifyContent = 'space-between';
@@ -258,7 +258,7 @@ Fecha: ${new Date().toLocaleString()}`;
   abonarBtn.className = 'btn btn-info';
   abonarBtn.innerHTML = '<i class="fas fa-dollar-sign"></i> ABONAR';
   abonarBtn.style.width = 'auto';
-  btnContainer.appendChild(abonarBtn);
+  btnContainer.insertBefore(abonarBtn, efectivoBtn); // lo ponemos ANTES de Efectivo
 
   /* ---------- eventos de botones ---------- */
   efectivoBtn.addEventListener("click", () => guardarVenta("efectivo"));
