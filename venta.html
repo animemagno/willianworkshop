@@ -17,7 +17,7 @@
     .menu-toggle{background:rgba(255,255,255,.2);border:none;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .3s}
     .menu-toggle:hover{background:rgba(255,255,255,.3)}
     .menu-toggle i{color:white;font-size:1.1rem}
-    .cart-icon{background:rgba(255,255,255,.2);border:none;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .3s ease;position:relative}
+    .cart-icon{background:rgba(255,255,255,.2);border:none;border-radius:50%;width=36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .3s ease;position:relative}
     .cart-icon:hover{background:rgba(255,255,255,.3);transform:scale(1.1)}
     .cart-icon i{color:white;font-size:1.1rem}
     .cart-badge{position:absolute;top:-5px;right:-5px;background:#e74c3c;color:white;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:bold;pointer-events:none}
@@ -65,8 +65,7 @@
     .btn-warning:hover{background-color:#d35400}
     .btn-info{background-color:#17a2b8;color:white}
     .btn-info:hover{background-color:#138496}
-    .btn-container{display:flex;flex-direction:column;gap:5px;margin-top:15px}
-    @media(min-width:768px){.btn-container{flex-direction:row;justify-content:flex-end}}
+    .btn-container{display:flex;flex-direction:row;justify-content:space-between;gap:10px;margin-top:15px}
     .swap-btn{background:#95a5a6;color:white;border:none;border-radius:50%;width:36px;height:36px;font-size:1rem;cursor:pointer;transition:background .3s;align-self:center;margin:0 10px}
     .swap-btn:hover{background:#7f8c8d}
     .totales-outside{display:none}
@@ -161,16 +160,13 @@
               <input type="number" id="cantidad" class="cantidad-input" placeholder="0" min="1" value="1">
             </div>
           </div>
+          <!-- BOTONES: ABONAR a la izquierda, Efectivo/Crédito a la derecha -->
           <div class="btn-container">
+            <button type="button" id="abonarBtn" class="btn btn-info">ABONAR</button>
             <button type="button" class="btn btn-success" id="efectivoBtn">Efectivo</button>
             <button type="button" class="btn btn-warning" id="creditoBtn">Crédito</button>
           </div>
         </form>
-
-        <!-- BOTÓN ABONAR -->
-        <button type="button" id="abonarBtn" class="btn btn-info" style="margin-top:10px;width:100%;">
-          <i class="fas fa-dollar-sign"></i> ABONAR
-        </button>
 
         <!-- MINI-HISTORIAL DEL DÍA -->
         <div class="mini-historial">
@@ -209,7 +205,6 @@
 <!-- MODALES -->
 <div id="modalExito" class="modal-overlay"><div class="modal-box"><h3>✅ Venta guardada</h3><p>La venta se registró correctamente.</p><div class="modal-buttons"><button class="btn btn-primary" onclick="cerrarExito()">Aceptar</button></div></div></div>
 <div id="modalError" class="modal-overlay"><div class="modal-box"><h3>❌ Error</h3><p id="textoError">Ocurrió un error al guardar la venta.</p><div class="modal-buttons"><button class="btn btn-primary" onclick="cerrarError()">Aceptar</button></div></div></div>
-<div id="modalValida" class="modal-overlay"><div class="modal-box"><h3>⚠️ Faltan datos</h3><p id="textoValida">Ingresa un número de equipo y agrega productos.</p><div class="modal-buttons"><button class="btn btn-primary" onclick="cerrarValida()">Aceptar</button></div></div></div>
 
 <!-- SCRIPTS -->
 <script type="module" src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
