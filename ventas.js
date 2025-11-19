@@ -31,7 +31,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const cartItems     = document.getElementById("cart-items");
   const cartBadge     = document.getElementById("cart-badge");
   const cartTotalTxt  = document.getElementById("cart-total");
-  const cartResumen   = document.getElementById("cart-resumen");
+  const cartResumen   = document.getElementById("cart-resumen"); // 🔧
   const efectivoBtn   = document.getElementById("efectivoBtn");
   const creditoBtn    = document.getElementById("creditoBtn");
   const swapBtn       = document.getElementById("swapBtn");
@@ -43,14 +43,14 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const modalExito    = document.getElementById("modalExito");
   const modalError    = document.getElementById("modalError");
-  const modalDetalle  = document.getElementById("modalDetalle");
-  const detalleEquipoContent = document.getElementById("detalleEquipoContent");
+  const modalDetalle  = document.getElementById("modalDetalle"); // 🔧
+  const detalleEquipoContent = document.getElementById("detalleEquipoContent"); // 🔧
   const txtError      = document.getElementById("textoError");
 
   /* ---------- funciones de cierre ---------- */
   window.cerrarExito = () => modalExito.style.display = 'none';
   window.cerrarError = () => modalError.style.display = 'none';
-  window.cerrarDetalle = () => modalDetalle.style.display = 'none';
+  window.cerrarDetalle = () => modalDetalle.style.display = 'none'; // 🔧
 
   /* ---------- carrito ---------- */
   function agregarProducto(desc, precio, cantidad) {
@@ -80,7 +80,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     cartBadge.textContent  = cantidadTotal;
     cartTotalTxt.textContent = `$${total.toFixed(2)}`;
-    cartResumen.textContent = `Productos: ${cantidadTotal} | Total: `;
+    cartResumen.textContent = `Productos: ${cantidadTotal} | Total: `; // 🔧
   }
 
   window.cambiarCantidad = (i, v) => {
@@ -247,7 +247,7 @@ Fecha: ${new Date().toLocaleString()}`;
       </div>`).join("");
   }
 
-  /* muestra detalle en MODAL sin ir a editar */
+  /* 🔧 muestra detalle en MODAL sin ir a editar */
   window.mostrarDetalleEquipo = async id => {
     try {
       const snap = await getDoc(doc(db, "ventas", id));
