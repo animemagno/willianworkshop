@@ -17,9 +17,9 @@ import {
 let carrito = [];
 let total = 0;
 let cantidadTotal = 0;
-let idFactura = null;              // si existe → edición
-let tipoOriginal = "efectivo";     // tipo de venta original
-let ultimoElementoAgregado = null; // para scroll inteligente
+let idFactura = null;
+let tipoOriginal = "efectivo";
+let ultimoElementoAgregado = null;
 
 /* ---------- referencias ---------- */
 const equipoInput   = document.getElementById("equipo");
@@ -45,6 +45,7 @@ const modalValida  = document.getElementById("modalValida");
 const txtError     = document.getElementById("textoError");
 const txtValida    = document.getElementById("textoValida");
 
+/* ---------- funciones de cierre ---------- */
 function mostrarExito() { modalExito.style.display = "flex"; }
 function cerrarExito() {
   modalExito.style.display = "none";
@@ -67,7 +68,7 @@ function agregarProducto(desc, precio, cantidad) {
   carrito.push({ desc, precio, cantidad, subtotal: sub });
   total += sub;
   cantidadTotal += cantidad;
-  actualizarCarrito(true); // indicador: viene de agregar
+  actualizarCarrito(true);
 }
 function actualizarCarrito(desdeAgregar = false) {
   if (carrito.length === 0) {
@@ -81,7 +82,6 @@ function actualizarCarrito(desdeAgregar = false) {
         <div>$${it.subtotal.toFixed(2)}</div>
         <div><button class="delete-item-btn" data-i="${i}"><i class="fas fa-trash"></i></button></div>
       </div>`).join("");
-    // scroll solo si se agregó producto nuevo
     if (desdeAgregar) {
       const nuevo = cartItems.querySelector('.cart-item:last-child');
       if (nuevo) nuevo.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -116,7 +116,7 @@ cartItems.addEventListener("click", e => {
   }
 });
 
-/* ---------- búsqueda rápida ---------- */
+/* ---------- búsqueda ---------- */
 buscarInput.addEventListener("focus", () => {
   const dd = document.getElementById("search-dropdown");
   dd.innerHTML = `
@@ -139,7 +139,7 @@ document.addEventListener("click", e => {
   if (!e.target.closest(".search-container")) document.getElementById("search-dropdown").style.display = "none";
 });
 
-/* ---------- cargar factura para edición ---------- */
+/* ---------- edición ---------- */
 async function cargarFactura(id) {
   try {
     const snap = await getDoc(doc(db, "ventas", id));
@@ -153,7 +153,6 @@ async function cargarFactura(id) {
     total        = data.total;
     cantidadTotal= data.cantidadTotal;
 
-    // cambiar UI a modo edición
     tituloVenta.textContent = "EDITAR VENTA";
     efectivoBtn.textContent = "Actualizar";
     creditoBtn.textContent  = "Cancelar";
@@ -161,20 +160,17 @@ async function cargarFactura(id) {
     efectivoBtn.classList.add("btn-primary");
     creditoBtn.classList.remove("btn-success","btn-warning");
     creditoBtn.classList.add("btn-danger");
-
     actualizarCarrito(false);
   } catch (e) { mostrarError("Error al cargar la factura."); }
 }
 
-/* ---------- guardar / actualizar (SIN fecha en ediciones) ---------- */
+/* ---------- guardar / actualizar ---------- */
 async function guardarVenta(tipoBoton) {
   const eq = equipoInput.value.trim();
   if (!eq || carrito.length === 0) {
     mostrarValida("Ingresa equipo y agrega productos.");
     return;
   }
-
-  // objeto base SIEMPRE con tipo
   const venta = {
     equipo: eq,
     cliente: clienteInput.value.trim(),
@@ -183,8 +179,7 @@ async function guardarVenta(tipoBoton) {
     total,
     cantidadTotal
   };
-
-  // solo añadimos fecha si es venta nueva
+  // fecha solo en ventas nuevas
   if (!idFactura) venta.fecha = serverTimestamp();
 
   try {
@@ -197,7 +192,6 @@ async function guardarVenta(tipoBoton) {
     limpiarTodo();
     mostrarExito();
   } catch (e) {
-    /* mostramos el mensaje real que lanza Firebase */
     console.error("Error completo:", e);
     mostrarError("Error al guardar: " + (e.message || e.code || "Inténtalo de nuevo."));
   }
@@ -225,21 +219,14 @@ function limpiarTodo() {
   actualizarCarrito(false);
 }
 
-/* ---------- mini-historial del día ---------- */
+/* ---------- mini-historial ---------- */
 async function cargarMiniHistorial() {
   const hoy = new Date();
   const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0);
   const fin    = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59);
-
-  const q = query(
-    collection(db, "ventas"),
-    where("fecha", ">=", inicio),
-    where("fecha", "<=", fin),
-    orderBy("fecha", "desc")
-  );
+  const q = query(collection(db, "ventas"), where("fecha", ">=", inicio), where("fecha", "<=", fin), orderBy("fecha", "desc"));
   const snap = await getDocs(q);
   const lista = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
   if (lista.length === 0) {
     miniGrid.innerHTML = "<p style='color:#7f8c8d;font-size:.9rem'>Sin movimientos hoy</p>";
     return;
@@ -254,11 +241,11 @@ async function cargarMiniHistorial() {
 /* ---------- botones ---------- */
 efectivoBtn.addEventListener("click", () => guardarVenta("efectivo"));
 creditoBtn.addEventListener("click", () => {
-  if (idFactura) window.location.href = "historial.html"; // Cancelar edición
+  if (idFactura) window.location.href = "historial.html";
   else guardarVenta("credito");
 });
 
-/* ---------- interfaz móvil ---------- */
+/* ---------- móvil ---------- */
 if (window.innerWidth > 768) {
   swapBtn.addEventListener("click", () => wrapper.classList.toggle("invertido"));
 } else {
@@ -291,4 +278,11 @@ window.addEventListener("DOMContentLoaded", () => {
   if (id) cargarFactura(id);
   else actualizarCarrito(false);
   cargarMiniHistorial();
+});
+
+/* ---------- CIERRE DE MODALES CON CLICK FUERA O BOTÓN ---------- */
+document.querySelectorAll('.modal-overlay').forEach(modal => {
+  modal.addEventListener('click', e => {
+    if (e.target === modal) modal.style.display = 'none';
+  });
 });
