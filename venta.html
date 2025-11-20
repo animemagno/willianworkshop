@@ -26,12 +26,12 @@
     .mobile-menu.active{display:flex}
     .mobile-menu a{color:#333;text-decoration:none;padding:10px 15px;font-size:1rem;transition:background .2s}
     .mobile-menu a:hover{background:#f2f2f2}
-    .dashboard-section{background:white;border-radius:8px;padding:20px;box-shadow:0 2px 4px rgba(0,0,0,.1);border:1px solid #e0e0e0;margin-bottom:20px;flex:1 1 auto;display:flex;flex-direction:column}
+    .dashboard-section{background:white;border-radius:8px;padding:20px;box-shadow:0 2px 4px rgba(0,0,0,.1);border:1px solid #e0e0e0;margin-bottom:20px;flex:1 1 auto;display:flex;flex-direction:column;height:calc(100vh - 120px)}
     .section-title{display:flex;justify-content:space-between;align-items:center;font-size:1.2rem;color:#2c3e50;margin-bottom:15px;padding-bottom:8px;border-bottom:2px solid #3498db}
-    .venta-wrapper{display:flex;gap:15px;align-items:flex-start;flex:1 1 auto;padding:0 20px;min-height:0}
-    @media (max-width: 768px){.venta-wrapper{padding:0 10px;flex-direction:column}}
-    .venta-form-container{flex:1 1 50%;display:flex;flex-direction:column}
-    .venta-carrito-container{flex:1 1 50%;display:flex;flex-direction:column;max-height:70vh;position:sticky;top:0}
+    .venta-wrapper{display:flex;gap:15px;align-items:stretch;flex:1 1 auto;padding:0 20px;height:100%}
+    @media (max-width: 768px){.venta-wrapper{padding:0 10px;flex-direction:column;height:auto}}
+    .venta-form-container{flex:1 1 50%;display:flex;flex-direction:column;min-height:0}
+    .venta-carrito-container{flex:1 1 50%;display:flex;flex-direction:column;min-height:0;position:sticky;top:0}
     .venta-wrapper.invertido{flex-direction:row-reverse}
     .form-group{margin-bottom:15px}
     .form-group label{display:block;margin-bottom:5px;font-weight:600;color:#333;font-size:.9rem}
@@ -47,7 +47,7 @@
     .search-dropdown-item:hover{background-color:#3498db;color:white}
     .cart-container{background:#f8f9fa;border-radius:6px;padding:0;border:1px solid #e9ecef;display:flex;flex-direction:column;height:100%}
     .cart-header{display:grid;grid-template-columns:1fr 80px 100px 100px 40px;gap:10px;padding:8px 12px;background:#2c3e50;color:white;border-radius:4px 4px 0 0;font-weight:600;font-size:.8rem;flex-shrink:0}
-    .cart-list{flex:1 1 auto;overflow-y:auto;display:flex;flex-direction:column;max-height:50vh}
+    .cart-list{flex:1 1 auto;overflow-y:auto;display:flex;flex-direction:column}
     .cart-item{display:grid;grid-template-columns:1fr 80px 100px 100px 40px;gap:10px;padding:8px 12px;border-bottom:1px solid #ddd;align-items:center;font-size:.85rem}
     .cart-item:nth-child(even){background:#fafafa}
     .product-desc{line-height:1.2}
@@ -72,19 +72,20 @@
     .totales-outside{display:none}
 
     @media (max-width: 768px) {
-      .venta-wrapper{flex-direction:column;padding:0 10px}
+      .venta-wrapper{flex-direction:column;padding:0 10px;height:auto}
       .venta-wrapper.invertido{flex-direction:column}
       .venta-form-container, .venta-carrito-container{width:100%}
-      .venta-carrito-container{display:none}
+      .venta-carrito-container{display:none;height:60vh}
       .venta-carrito-container.mostrar{display:flex}
       .swap-btn{display:none}
       .btn-container{flex-direction:column}
       .btn-derecha{justify-content:space-between}
+      .dashboard-section{height:auto;min-height:80vh}
     }
 
-    .mini-historial{margin-top:20px}
+    .mini-historial{margin-top:20px;flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
     .mini-historial h3{font-size:1rem;margin-bottom:10px;color:#2c3e50}
-    .mini-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px}
+    .mini-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;overflow-y:auto;max-height:200px}
     .mini-card{background:#fff;border:2px solid #3498db;border-radius:6px;padding:8px;text-align:center;cursor:pointer;transition:all .3s ease;font-size:.8rem}
     .mini-card:hover{transform:translateY(-2px);box-shadow:0 4px 8px rgba(0,0,0,.15)}
     .mini-equipo{font-weight:bold;color:#2c3e50;margin-bottom:4px}
