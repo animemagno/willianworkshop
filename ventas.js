@@ -340,39 +340,43 @@ Fecha: ${new Date().toLocaleString()}`;
 
       if (facturas.length === 0) return;
 
-      let html = `<h4 style="margin-bottom:15px;color:#2c3e50;">Facturas del Equipo: ${equipo}</h4>`;
+      let html = `<h4 style="margin-bottom:15px;color:#2c3e50;text-align:center;">Facturas del Equipo: ${equipo}</h4>`;
       
       facturas.forEach((v, index) => {
         const fecha = v.fechaTimestamp ? 
           new Date(v.fechaTimestamp.seconds * 1000).toLocaleString() : "Fecha no disponible";
         
         html += `
-          <div style="margin-bottom:20px;padding:10px;border:1px solid #ddd;border-radius:6px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-              <strong>Factura ${index + 1}</strong>
-              <span style="font-size:.8rem;color:#7f8c8d;">${fecha}</span>
+          <div style="margin-bottom:20px;padding:15px;border:1px solid #ddd;border-radius:6px;background:#f8f9fa;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #ccc;">
+              <strong style="color:#2c3e50;">Factura ${index + 1}</strong>
+              <span style="font-size:.75rem;color:#7f8c8d;">${fecha}</span>
             </div>
             <table style="width:100%;font-size:.8rem;border-collapse:collapse;margin-bottom:10px;">
               <tr>
-                <td style="padding:4px;font-weight:bold;">Cliente:</td>
+                <td style="padding:4px;font-weight:bold;width:80px;">Cliente:</td>
                 <td style="padding:4px;">${v.cliente}</td>
               </tr>
               <tr>
                 <td style="padding:4px;font-weight:bold;">Tipo:</td>
-                <td style="padding:4px;">${v.tipo}</td>
+                <td style="padding:4px;">
+                  <span style="padding:2px 6px;border-radius:3px;color:white;background:${v.tipo === 'credito' ? '#f39c12' : '#3498db'};font-size:.7rem;">
+                    ${v.tipo}
+                  </span>
+                </td>
               </tr>
               <tr>
                 <td style="padding:4px;font-weight:bold;">Total:</td>
                 <td style="padding:4px;font-weight:bold;color:#27ae60;">$${v.total.toFixed(2)}</td>
               </tr>
             </table>
-            <table style="width:100%;font-size:.75rem;border-collapse:collapse;">
+            <table style="width:100%;font-size:.75rem;border-collapse:collapse;margin-bottom:10px;">
               <thead>
                 <tr style="background:#2c3e50;color:white">
-                  <th style="padding:4px;">Producto</th>
-                  <th style="padding:4px;">Cant</th>
-                  <th style="padding:4px;">P.U.</th>
-                  <th style="padding:4px;">Subt.</th>
+                  <th style="padding:6px;text-align:left;">Producto</th>
+                  <th style="padding:6px;text-align:center;">Cant</th>
+                  <th style="padding:6px;text-align:right;">P.U.</th>
+                  <th style="padding:6px;text-align:right;">Subt.</th>
                 </tr>
               </thead>
               <tbody>`;
@@ -380,10 +384,10 @@ Fecha: ${new Date().toLocaleString()}`;
         v.items.forEach(i => {
           html += `
             <tr>
-              <td style="padding:4px;border-bottom:1px solid #eee;">${i.desc}</td>
-              <td style="padding:4px;border-bottom:1px solid #eee;">${i.cantidad}</td>
-              <td style="padding:4px;border-bottom:1px solid #eee;">$${i.precio.toFixed(2)}</td>
-              <td style="padding:4px;border-bottom:1px solid #eee;">$${i.subtotal.toFixed(2)}</td>
+              <td style="padding:6px;border-bottom:1px solid #eee;">${i.desc}</td>
+              <td style="padding:6px;border-bottom:1px solid #eee;text-align:center;">${i.cantidad}</td>
+              <td style="padding:6px;border-bottom:1px solid #eee;text-align:right;">$${i.precio.toFixed(2)}</td>
+              <td style="padding:6px;border-bottom:1px solid #eee;text-align:right;">$${i.subtotal.toFixed(2)}</td>
             </tr>`;
         });
         
@@ -391,7 +395,9 @@ Fecha: ${new Date().toLocaleString()}`;
               </tbody>
             </table>
             <div style="text-align:right;margin-top:10px;">
-              <button class="btn btn-warning" style="font-size:.7rem;padding:4px 8px;" onclick="editarFactura('${v.id}')">Editar</button>
+              <button class="btn btn-warning" style="font-size:.7rem;padding:6px 12px;" onclick="editarFactura('${v.id}')">
+                <i class="fas fa-edit"></i> Editar
+              </button>
             </div>
           </div>`;
       });
@@ -399,8 +405,8 @@ Fecha: ${new Date().toLocaleString()}`;
       // Total general del equipo
       const totalGeneral = facturas.reduce((sum, v) => sum + v.total, 0);
       html += `
-        <div style="margin-top:15px;padding:10px;background:#ecf0f1;border-radius:4px;text-align:center;">
-          <strong>Total General del Equipo: $${totalGeneral.toFixed(2)}</strong>
+        <div style="margin-top:15px;padding:12px;background:#2c3e50;color:white;border-radius:4px;text-align:center;">
+          <strong>Total General del Equipo ${equipo}: $${totalGeneral.toFixed(2)}</strong>
         </div>`;
 
       detalleEquipoContent.innerHTML = html;
