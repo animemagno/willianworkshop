@@ -26,8 +26,10 @@
     .historial-wrapper{padding:0 20px}
     @media (max-width: 768px){.historial-wrapper{padding:0 10px}}
     .form-group{margin-bottom:15px}
-    .form-group input{width:100%;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:.9rem;background:white;color:#333}
-    .form-group input:focus{outline:none;border-color:#3498db}
+    .form-group input,.form-group select{width:100%;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:.9rem;background:white;color:#333}
+    .form-group input:focus,.form-group select:focus{outline:none;border-color:#3498db}
+    .filtros-avanzados{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px}
+    @media (max-width: 768px){.filtros-avanzados{grid-template-columns:1fr}}
     .dias-container{display:flex;flex-direction:column;gap:20px}
     .dia-group{background:#f8f9fa;border:1px solid #e0e0e0;border-radius:8px;padding:15px}
     .dia-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #ddd}
@@ -42,6 +44,7 @@
     .venta-precio{font-weight:600;color:#27ae60}
     .venta-subtotal{font-weight:600;color:#2c3e50}
     .venta-tipo{font-size:.7rem;padding:2px 6px;border-radius:3px;color:white;background:#3498db}
+    .venta-tipo.credito{background:#f39c12}
     .venta-actions{display:flex;gap:6px;justify-content:flex-end}
     .venta-actions .btn{font-size:.75rem;padding:5px 8px}
     .venta-detail{margin-top:10px;padding:10px;background:white;border:1px solid #ddd;border-radius:6px;font-size:.8rem;display:none}
@@ -59,6 +62,8 @@
     .btn-danger:hover{background-color:#c0392b}
     .btn-primary{background-color:#3498db;color:white}
     .btn-primary:hover{background-color:#2980b9}
+    .btn-info{background-color:#17a2b8;color:white}
+    .btn-info:hover{background-color:#138496}
     .btn-container{display:flex;flex-direction:column;gap:5px;margin-top:15px}
     @media(min-width:768px){.btn-container{flex-direction:row;justify-content:flex-end}}
 
@@ -94,13 +99,30 @@
 <div class="container">
   <div class="dashboard-section">
     <div class="section-title">
-      <h2>HISTORIAL DE VENTAS (Últimas 500)</h2>
+      <h2>HISTORIAL DE VENTAS</h2>
       <button class="btn btn-info btn-imprimir" id="print-historial-btn"><i class="fas fa-print"></i> IMPRIMIR HISTORIAL</button>
     </div>
 
     <div class="historial-wrapper">
       <div class="form-group">
-        <input type="text" id="filter-historial" placeholder="Filtrar por número de equipo...">
+        <input type="text" id="filter-equipo" placeholder="Buscar por equipo...">
+      </div>
+
+      <div class="filtros-avanzados">
+        <div class="form-group">
+          <input type="text" id="filter-producto" placeholder="Buscar producto vendido...">
+        </div>
+        <div class="form-group">
+          <select id="filter-tipo">
+            <option value="">Todos los tipos</option>
+            <option value="efectivo">Efectivo</option>
+            <option value="credito">Crédito</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <input type="date" id="filter-fecha">
       </div>
 
       <div id="ventas-container" class="dias-container">
@@ -116,21 +138,6 @@
 </div>
 
 <!-- ===== MODALES ===== -->
-<!-- Editar -->
-<div id="modalEditar" class="modal-overlay">
-  <div class="modal-box">
-    <h3>Editar Venta</h3>
-    <label>Cliente</label>
-    <input type="text" id="modalCliente" placeholder="Nombre del cliente">
-    <label>Tipo</label>
-    <input type="text" id="modalTipo" placeholder="efectivo o credito">
-    <div class="modal-buttons">
-      <button class="btn btn-primary" id="modalGuardar">Guardar</button>
-      <button class="btn btn-danger" id="modalCancelar">Cancelar</button>
-    </div>
-  </div>
-</div>
-
 <!-- Eliminar -->
 <div id="modalEliminar" class="modal-overlay">
   <div class="modal-box">
