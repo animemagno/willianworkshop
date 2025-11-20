@@ -31,7 +31,7 @@
     .venta-wrapper{display:flex;gap:15px;align-items:flex-start;flex:1 1 auto;padding:0 20px;min-height:0}
     @media (max-width: 768px){.venta-wrapper{padding:0 10px;flex-direction:column}}
     .venta-form-container{flex:1 1 50%;display:flex;flex-direction:column}
-    .venta-carrito-container{flex:1 1 50%;display:flex;flex-direction:column;height:100vh;position:sticky;top:0;order:-1} /* 🔧 Izquierda por defecto */
+    .venta-carrito-container{flex:1 1 50%;display:flex;flex-direction:column;height:100vh;position:sticky;top:0;order:-1}
     .venta-wrapper.invertido{flex-direction:row-reverse}
     .form-group{margin-bottom:15px}
     .form-group label{display:block;margin-bottom:5px;font-weight:600;color:#333;font-size:.9rem}
@@ -45,7 +45,7 @@
     .search-dropdown{position:absolute;background:white;border:1px solid #ddd;border-radius:4px;max-height:200px;overflow-y:auto;width:100%;z-index:1000;box-shadow:0 2px 4px rgba(0,0,0,.1);font-size:.8rem;display:none}
     .search-dropdown-item{padding:10px;cursor:pointer;border-bottom:1px solid #ddd;transition:background-color .2s}
     .search-dropdown-item:hover{background-color:#3498db;color:white}
-    .cart-container{background:#f8f9fa;border-radius:6px;padding:0;border:1px solid #e9ecef;display:flex;flex-direction:column;height:100vh} /* 🔧 Altura completa */
+    .cart-container{background:#f8f9fa;border-radius:6px;padding:0;border:1px solid #e9ecef;display:flex;flex-direction:column;height:100vh}
     .cart-header{display:grid;grid-template-columns:1fr 80px 100px 100px 40px;gap:10px;padding:8px 12px;background:#2c3e50;color:white;border-radius:4px 4px 0 0;font-weight:600;font-size:.8rem;flex-shrink:0}
     .cart-list{flex:1 1 auto;overflow-y:auto;display:flex;flex-direction:column;scroll-behavior:smooth}
     .cart-item{display:grid;grid-template-columns:1fr 80px 100px 100px 40px;gap:10px;padding:8px 12px;border-bottom:1px solid #ddd;align-items:center;font-size:.85rem}
@@ -79,7 +79,6 @@
       .swap-btn{display:none}
     }
 
-    /* ===== mini-historial del DÍA (tarjetas pequeñas) ===== */
     .mini-historial{margin-top:20px}
     .mini-historial h3{font-size:1rem;margin-bottom:10px;color:#2c3e50}
     .mini-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px}
@@ -88,14 +87,12 @@
     .mini-equipo{font-weight:bold;color:#2c3e50;margin-bottom:4px}
     .mini-total{font-weight:bold;color:#27ae60}
 
-    /* panel de detalle sin salir de la pantalla */
     #detalleBox{background:#f8f9fa;border:1px solid #ddd;border-radius:6px;padding:12px;margin-top:10px;display:none;font-size:.85rem}
     #detalleBox h4{margin-bottom:8px;color:#2c3e50}
     #detalleBox table{width:100%;border-collapse:collapse;margin-top:8px}
     #detalleBox th,#detalleBox td{padding:4px 6px;text-align:left;border-bottom:1px solid #eee;font-size:.75rem}
     #detalleBox th{background:#ecf0f1;font-weight:600}
 
-    /* ===== MODALES PROPIOS ===== */
     .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);z-index:2000;display:none;align-items:center;justify-content:center}
     .modal-box{background:white;border-radius:8px;padding:25px 20px;max-width:400px;width:90%;box-shadow:0 5px 15px rgba(0,0,0,.2);text-align:center}
     .modal-box h3{margin-bottom:15px;color:#2c3e50}
@@ -134,13 +131,12 @@
       <button class="swap-btn" id="swapBtn" title="Invertir lados"><i class="fas fa-exchange-alt"></i></button>
     </div>
     <div class="venta-wrapper" id="ventaWrapper">
-      <!-- FORMULARIO + MINI-HISTORIAL -->
       <div class="venta-form-container">
         <form id="ventaForm">
           <div class="equipo-ciudad-group">
             <div class="form-group">
               <label for="equipo">Equipo</label>
-              <input type="text" id="equipo" class="equipo-input" placeholder="123" maxlength="3">
+              <input type="text" id="equipo" class="equipo-input" placeholder="123" maxlength="3" required>
             </div>
             <div class="form-group">
               <label for="cliente">Ciudad (opcional si es local)</label>
@@ -160,7 +156,6 @@
               <input type="number" id="cantidad" class="cantidad-input" placeholder="0" min="1" value="1">
             </div>
           </div>
-          <!-- BOTONES: ABONAR a la izquierda, Efectivo/Crédito a la derecha -->
           <div class="btn-container">
             <button type="button" id="abonarBtn" class="btn btn-info">ABONAR</button>
             <button type="button" class="btn btn-success" id="efectivoBtn">Efectivo</button>
@@ -168,16 +163,13 @@
           </div>
         </form>
 
-        <!-- MINI-HISTORIAL DEL DÍA -->
         <div class="mini-historial">
           <h3>Movimientos de hoy</h3>
           <div class="mini-grid" id="miniGrid"></div>
-          <!-- Panel de detalle sin salir de la pantalla -->
           <div id="detalleBox" class="mini-historial" style="display:none;margin-top:10px;"></div>
         </div>
       </div>
 
-      <!-- CARRITO -->
       <div class="venta-carrito-container" id="carritoContainer">
         <div class="cart-container">
           <div class="cart-header">
@@ -206,7 +198,7 @@
 <div id="modalExito" class="modal-overlay"><div class="modal-box"><h3>✅ Venta guardada</h3><p>La venta se registró correctamente.</p><div class="modal-buttons"><button class="btn btn-primary" onclick="cerrarExito()">Aceptar</button></div></div></div>
 <div id="modalError" class="modal-overlay"><div class="modal-box"><h3>❌ Error</h3><p id="textoError">Ocurrió un error al guardar la venta.</p><div class="modal-buttons"><button class="btn btn-primary" onclick="cerrarError()">Aceptar</button></div></div></div>
 
-<!-- 🔧 MODAL DETALLE EQUIPO -->
+<!-- MODAL DETALLE EQUIPO -->
 <div id="modalDetalle" class="modal-overlay">
   <div class="modal-box">
     <h3>Detalle del equipo</h3>
@@ -217,7 +209,18 @@
   </div>
 </div>
 
-<!-- SCRIPTS -->
+<!-- MODAL CONFIRMAR ELIMINAR ITEM -->
+<div id="modalConfirmarEliminar" class="modal-overlay">
+  <div class="modal-box">
+    <h3>¿Eliminar producto?</h3>
+    <p>Esta acción no se puede deshacer.</p>
+    <div class="modal-buttons">
+      <button class="btn btn-danger" id="confirmarEliminarBtn">Sí, eliminar</button>
+      <button class="btn btn-primary" onclick="cerrarConfirmarEliminar()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <script type="module" src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
 <script type="module" src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
 <script type="module" src="firebase-config.js"></script>
