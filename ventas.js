@@ -286,60 +286,133 @@ Fecha: ${new Date().toLocaleString()}`;
                    where("fecha", "<=", fin), 
                    orderBy("fecha", "desc"));
     const snap = await getDocs(q);
-    const lista = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const lista = snap.docs.map(d => ({ 
+      id: d.id, 
+      ...d.data(),
+      fechaTimestamp: d.data().fecha
+    }));
 
     if (lista.length === 0) {
       miniGrid.innerHTML = "<p style='color:#7f8c8d;font-size:.9rem'>Sin movimientos hoy</p>";
       return;
     }
     
+    // Agrupar por equipo pero mantener todas las facturas individuales
     const grupos = {};
     lista.forEach(v => {
       if (!grupos[v.equipo]) {
-        grupos[v.equipo] = { 
-          ids: [], 
-          total: 0,
-          cliente: v.cliente,
-          ciudad: v.ciudad,
-          esLocal: v.esLocal
-        };
+        grupos[v.equipo] = [];
       }
-      grupos[v.equipo].ids.push(v.id);
-      grupos[v.equipo].total += v.total;
+      grupos[v.equipo].push(v);
     });
 
-    miniGrid.innerHTML = Object.entries(grupos).map(([eq, g]) => `
-      <div class="mini-card" onclick="mostrarDetalleEquipo('${g.ids[0]}')" title="Clic para ver detalle">
-        <div class="mini-equipo">${eq}</div>
-        <div class="mini-total">$${g.total.toFixed(2)}</div>
-        ${!g.esLocal && g.ciudad ? `<div class="mini-ciudad">${g.ciudad}</div>` : ''}
-      </div>`).join("");
+    miniGrid.innerHTML = Object.entries(grupos).map(([eq, facturas]) => {
+      const totalEquipo = facturas.reduce((sum, v) => sum + v.total, 0);
+      const esLocal = facturas[0].esLocal;
+      const ciudad = facturas[0].ciudad;
+      
+      return `
+        <div class="mini-card" onclick="mostrarDetalleEquipo('${eq}')" title="Clic para ver todas las facturas de este equipo">
+          <div class="mini-equipo">${eq}</div>
+          <div class="mini-total">$${totalEquipo.toFixed(2)}</div>
+          <div class="mini-cantidad">${facturas.length} factura${facturas.length > 1 ? 's' : ''}</div>
+          ${!esLocal && ciudad ? `<div class="mini-ciudad">${ciudad}</div>` : ''}
+        </div>`;
+    }).join("");
   }
 
-  window.mostrarDetalleEquipo = async id => {
+  window.mostrarDetalleEquipo = async (equipo) => {
     try {
-      const snap = await getDoc(doc(db, "ventas", id));
-      if (!snap.exists()) return;
-      const v = snap.data();
-      const fecha = v.fecha ? new Date(v.fecha.seconds * 1000).toLocaleString() : "Fecha no disponible";
+      const hoy = new Date();
+      const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0);
+      const fin    = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59);
+      const q = query(collection(db, "ventas"), 
+                     where("fecha", ">=", inicio), 
+                     where("fecha", "<=", fin), 
+                     where("equipo", "==", equipo),
+                     orderBy("fecha", "desc"));
+      const snap = await getDocs(q);
+      const facturas = snap.docs.map(d => ({ 
+        id: d.id, 
+        ...d.data(),
+        fechaTimestamp: d.data().fecha
+      }));
+
+      if (facturas.length === 0) return;
+
+      let html = `<h4 style="margin-bottom:15px;color:#2c3e50;">Facturas del Equipo: ${equipo}</h4>`;
       
-      let html = `<table class="venta-detail-table" style="width:100%;font-size:.8rem;border-collapse:collapse">
-        <tr><th style="background:#ecf0f1;padding:6px">Equipo</th><td style="padding:6px">${v.equipo}</td></tr>
-        <tr><th style="background:#ecf0f1;padding:6px">Cliente</th><td style="padding:6px">${v.cliente}</td></tr>
-        <tr><th style="background:#ecf0f1;padding:6px">Total</th><td style="padding:6px">$${v.total.toFixed(2)}</td></tr>
-        <tr><th style="background:#ecf0f1;padding:6px">Tipo</th><td style="padding:6px">${v.tipo}</td></tr>
-        <tr><th style="background:#ecf0f1;padding:6px">Fecha</th><td style="padding:6px">${fecha}</td></tr>
-        </table>
-        <table style="width:100%;font-size:.8rem;border-collapse:collapse;margin-top:10px">
-          <thead><tr style="background:#2c3e50;color:white"><th>Producto</th><th>Cant</th><th>P.U.</th><th>Subt.</th></tr></thead>
-          <tbody>`;
-      v.items.forEach(i => html+=`<tr><td style="padding:4px">${i.desc}</td><td style="padding:4px">${i.cantidad}</td><td style="padding:4px">$${i.precio.toFixed(2)}</td><td style="padding:4px">$${i.subtotal.toFixed(2)}</td></tr>`);
-      html += `</tbody></table>`;
+      facturas.forEach((v, index) => {
+        const fecha = v.fechaTimestamp ? 
+          new Date(v.fechaTimestamp.seconds * 1000).toLocaleString() : "Fecha no disponible";
+        
+        html += `
+          <div style="margin-bottom:20px;padding:10px;border:1px solid #ddd;border-radius:6px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+              <strong>Factura ${index + 1}</strong>
+              <span style="font-size:.8rem;color:#7f8c8d;">${fecha}</span>
+            </div>
+            <table style="width:100%;font-size:.8rem;border-collapse:collapse;margin-bottom:10px;">
+              <tr>
+                <td style="padding:4px;font-weight:bold;">Cliente:</td>
+                <td style="padding:4px;">${v.cliente}</td>
+              </tr>
+              <tr>
+                <td style="padding:4px;font-weight:bold;">Tipo:</td>
+                <td style="padding:4px;">${v.tipo}</td>
+              </tr>
+              <tr>
+                <td style="padding:4px;font-weight:bold;">Total:</td>
+                <td style="padding:4px;font-weight:bold;color:#27ae60;">$${v.total.toFixed(2)}</td>
+              </tr>
+            </table>
+            <table style="width:100%;font-size:.75rem;border-collapse:collapse;">
+              <thead>
+                <tr style="background:#2c3e50;color:white">
+                  <th style="padding:4px;">Producto</th>
+                  <th style="padding:4px;">Cant</th>
+                  <th style="padding:4px;">P.U.</th>
+                  <th style="padding:4px;">Subt.</th>
+                </tr>
+              </thead>
+              <tbody>`;
+        
+        v.items.forEach(i => {
+          html += `
+            <tr>
+              <td style="padding:4px;border-bottom:1px solid #eee;">${i.desc}</td>
+              <td style="padding:4px;border-bottom:1px solid #eee;">${i.cantidad}</td>
+              <td style="padding:4px;border-bottom:1px solid #eee;">$${i.precio.toFixed(2)}</td>
+              <td style="padding:4px;border-bottom:1px solid #eee;">$${i.subtotal.toFixed(2)}</td>
+            </tr>`;
+        });
+        
+        html += `
+              </tbody>
+            </table>
+            <div style="text-align:right;margin-top:10px;">
+              <button class="btn btn-warning" style="font-size:.7rem;padding:4px 8px;" onclick="editarFactura('${v.id}')">Editar</button>
+            </div>
+          </div>`;
+      });
+
+      // Total general del equipo
+      const totalGeneral = facturas.reduce((sum, v) => sum + v.total, 0);
+      html += `
+        <div style="margin-top:15px;padding:10px;background:#ecf0f1;border-radius:4px;text-align:center;">
+          <strong>Total General del Equipo: $${totalGeneral.toFixed(2)}</strong>
+        </div>`;
+
       detalleEquipoContent.innerHTML = html;
       modalDetalle.style.display = "flex";
     } catch (e) { 
       console.error("Error cargando detalle:", e); 
     }
+  };
+
+  window.editarFactura = (id) => {
+    modalDetalle.style.display = 'none';
+    window.location.href = `venta.html?id=${id}`;
   };
 
   /* ---------- eventos de botones ---------- */
