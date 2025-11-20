@@ -19,6 +19,7 @@ let total = 0;
 let cantidadTotal = 0;
 let idFactura = null;
 let tipoOriginal = "efectivo";
+let itemAEliminar = null;
 
 /* ---------- EJECUCIÓN DESPUÉS DE QUE EXISTA EL DOM ---------- */
 window.addEventListener('DOMContentLoaded', () => {
@@ -44,6 +45,8 @@ window.addEventListener('DOMContentLoaded', () => {
   const modalExito    = document.getElementById("modalExito");
   const modalError    = document.getElementById("modalError");
   const modalDetalle  = document.getElementById("modalDetalle");
+  const modalConfirmarEliminar = document.getElementById("modalConfirmarEliminar");
+  const confirmarEliminarBtn = document.getElementById("confirmarEliminarBtn");
   const detalleEquipoContent = document.getElementById("detalleEquipoContent");
   const txtError      = document.getElementById("textoError");
 
@@ -51,6 +54,23 @@ window.addEventListener('DOMContentLoaded', () => {
   window.cerrarExito = () => modalExito.style.display = 'none';
   window.cerrarError = () => modalError.style.display = 'none';
   window.cerrarDetalle = () => modalDetalle.style.display = 'none';
+  window.cerrarConfirmarEliminar = () => {
+    modalConfirmarEliminar.style.display = 'none';
+    itemAEliminar = null;
+  };
+
+  /* ---------- confirmar eliminación ---------- */
+  confirmarEliminarBtn.addEventListener("click", () => {
+    if (itemAEliminar !== null) {
+      const it = carrito[itemAEliminar];
+      total -= it.subtotal; 
+      cantidadTotal -= it.cantidad;
+      carrito.splice(itemAEliminar, 1);
+      actualizarCarrito(false);
+      itemAEliminar = null;
+    }
+    modalConfirmarEliminar.style.display = 'none';
+  });
 
   /* ---------- carrito ---------- */
   function agregarProducto(desc, precio, cantidad) {
@@ -71,7 +91,7 @@ window.addEventListener('DOMContentLoaded', () => {
           <div><input type="number" value="${it.cantidad}" min="1" style="width:50px" onchange="cambiarCantidad(${i},this.value)"></div>
           <div><input type="number" value="${it.precio.toFixed(2)}" min="0.01" step="0.01" style="width:70px" onchange="cambiarPrecio(${i},this.value)"></div>
           <div>$${it.subtotal.toFixed(2)}</div>
-          <div><button class="delete-item-btn" data-i="${i}"><i class="fas fa-trash"></i></button></div>
+          <div><button class="delete-item-btn" onclick="abrirConfirmarEliminar(${i})"><i class="fas fa-trash"></i></button></div>
         </div>`).join("");
       if (desdeAgregar) {
         const nuevo = cartItems.querySelector('.cart-item:last-child');
@@ -83,12 +103,20 @@ window.addEventListener('DOMContentLoaded', () => {
     cartResumen.textContent = `Productos: ${cantidadTotal} | Total: `;
   }
 
+  window.abrirConfirmarEliminar = (i) => {
+    itemAEliminar = i;
+    modalConfirmarEliminar.style.display = 'flex';
+  };
+
   window.cambiarCantidad = (i, v) => {
     const nueva = parseInt(v) || 1;
     const it = carrito[i];
-    total -= it.subtotal; cantidadTotal -= it.cantidad;
-    it.cantidad = nueva; it.subtotal = it.precio * it.cantidad;
-    total += it.subtotal; cantidadTotal += it.cantidad;
+    total -= it.subtotal; 
+    cantidadTotal -= it.cantidad;
+    it.cantidad = nueva; 
+    it.subtotal = it.precio * it.cantidad;
+    total += it.subtotal; 
+    cantidadTotal += it.cantidad;
     actualizarCarrito(false);
   };
 
@@ -96,20 +124,11 @@ window.addEventListener('DOMContentLoaded', () => {
     const nuevo = parseFloat(v) || 0;
     const it = carrito[i];
     total -= it.subtotal;
-    it.precio = nuevo; it.subtotal = it.precio * it.cantidad;
+    it.precio = nuevo; 
+    it.subtotal = it.precio * it.cantidad;
     total += it.subtotal;
     actualizarCarrito(false);
   };
-
-  cartItems.addEventListener("click", e => {
-    if (e.target.closest(".delete-item-btn")) {
-      const i = e.target.closest(".delete-item-btn").dataset.i;
-      const it = carrito[i];
-      total -= it.subtotal; cantidadTotal -= it.cantidad;
-      carrito.splice(i, 1);
-      actualizarCarrito(false);
-    }
-  });
 
   /* ---------- búsqueda ---------- */
   buscarInput.addEventListener("focus", () => {
@@ -127,25 +146,31 @@ window.addEventListener('DOMContentLoaded', () => {
       const precio = parseFloat(e.target.dataset.p);
       const cant = parseInt(cantInput.value) || 1;
       agregarProducto(desc, precio, cant);
-      buscarInput.value = ""; cantInput.value = "1";
+      buscarInput.value = ""; 
+      cantInput.value = "1";
       e.target.parentElement.style.display = "none";
     }
   });
 
   document.addEventListener("click", e => {
-    if (!e.target.closest(".search-container")) document.getElementById("search-dropdown").style.display = "none";
+    if (!e.target.closest(".search-container")) {
+      document.getElementById("search-dropdown").style.display = "none";
+    }
   });
 
   /* ---------- edición ---------- */
   async function cargarFactura(id) {
     try {
       const snap = await getDoc(doc(db, "ventas", id));
-      if (!snap.exists()) { mostrarError("Factura no encontrada."); return; }
+      if (!snap.exists()) { 
+        mostrarError("Factura no encontrada."); 
+        return; 
+      }
       const data = snap.data();
       idFactura   = id;
       tipoOriginal= data.tipo;
       equipoInput.value  = data.equipo;
-      clienteInput.value = data.cliente;
+      clienteInput.value = data.cliente || "";
       carrito      = data.items.map(x => ({ ...x }));
       total        = data.total;
       cantidadTotal= data.cantidadTotal;
@@ -158,25 +183,41 @@ window.addEventListener('DOMContentLoaded', () => {
       creditoBtn.classList.remove("btn-success","btn-warning");
       creditoBtn.classList.add("btn-danger");
       actualizarCarrito(false);
-    } catch (e) { mostrarError("Error al cargar la factura."); }
+    } catch (e) { 
+      mostrarError("Error al cargar la factura."); 
+    }
   }
 
-  /* ---------- guardar / actualizar + RECARGA DE MINI-HISTORIAL ---------- */
+  /* ---------- guardar / actualizar ---------- */
   async function guardarVenta(tipoBoton) {
     const eq = equipoInput.value.trim();
-    if (!eq || carrito.length === 0) {
-      mostrarError("Ingresa equipo y agrega productos.");
+    if (!eq) {
+      mostrarError("Ingresa el número de equipo.");
       return;
     }
+    if (carrito.length === 0) {
+      mostrarError("Agrega al menos un producto al carrito.");
+      return;
+    }
+
+    // Lógica de ciudad: vacío = local, con valor = otra ciudad
+    const cliente = clienteInput.value.trim();
+    const esLocal = cliente === "";
+
     const venta = {
       equipo: eq,
-      cliente: clienteInput.value.trim(),
+      cliente: esLocal ? "LOCAL" : cliente,
+      ciudad: cliente,
+      esLocal: esLocal,
       tipo: tipoOriginal,
       items: carrito,
       total,
       cantidadTotal
     };
-    if (!idFactura) venta.fecha = serverTimestamp();
+
+    if (!idFactura) {
+      venta.fecha = serverTimestamp();
+    }
 
     try {
       if (idFactura) {
@@ -184,7 +225,7 @@ window.addEventListener('DOMContentLoaded', () => {
       } else {
         await addDoc(collection(db, "ventas"), venta);
       }
-      imprimirTicket(tipoOriginal);
+      imprimirTicket(tipoOriginal, esLocal);
       limpiarTodo();
       mostrarExito();
       await cargarMiniHistorial();
@@ -194,11 +235,12 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function imprimirTicket(tipo) {
+  function imprimirTicket(tipo, esLocal) {
+    const ubicacion = esLocal ? "LOCAL" : clienteInput.value;
     const ticket = `Taller Wilian
 ${tipo === "efectivo" ? "VENTA AL CONTADO" : "VENTA A CRÉDITO"}
 Equipo: ${equipoInput.value}
-Cliente: ${clienteInput.value}
+Ubicación: ${ubicacion}
 ------------------------
 ${carrito.map(it => `${it.desc} x${it.cantidad} $${it.precio.toFixed(2)} = $${it.subtotal.toFixed(2)}`).join("\n")}
 ------------------------
@@ -208,24 +250,41 @@ Fecha: ${new Date().toLocaleString()}`;
   }
 
   function limpiarTodo() {
-    carrito = []; total = 0; cantidadTotal = 0;
-    equipoInput.value = ""; clienteInput.value = ""; idFactura = null;
+    carrito = []; 
+    total = 0; 
+    cantidadTotal = 0;
+    equipoInput.value = ""; 
+    clienteInput.value = ""; 
+    idFactura = null;
     tituloVenta.textContent = "NUEVA VENTA";
     efectivoBtn.textContent = "Efectivo";
     creditoBtn.textContent  = "Crédito";
-    efectivoBtn.classList.add("btn-success"); efectivoBtn.classList.remove("btn-primary");
-    creditoBtn.classList.add("btn-warning");  creditoBtn.classList.remove("btn-danger");
+    efectivoBtn.classList.add("btn-success"); 
+    efectivoBtn.classList.remove("btn-primary");
+    creditoBtn.classList.add("btn-warning");  
+    creditoBtn.classList.remove("btn-danger");
     actualizarCarrito(false);
-    // 🔧 Limpiar URL para que al recargar no vuelva a aparecer la factura cancelada
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
-  /* ---------- mini-historial del DÍA (agrupado por equipo) ---------- */
+  function mostrarExito() {
+    modalExito.style.display = 'flex';
+  }
+
+  function mostrarError(mensaje) {
+    txtError.textContent = mensaje;
+    modalError.style.display = 'flex';
+  }
+
+  /* ---------- mini-historial del DÍA ---------- */
   async function cargarMiniHistorial() {
     const hoy = new Date();
     const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0);
     const fin    = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59);
-    const q = query(collection(db, "ventas"), where("fecha", ">=", inicio), where("fecha", "<=", fin), orderBy("fecha", "desc"));
+    const q = query(collection(db, "ventas"), 
+                   where("fecha", ">=", inicio), 
+                   where("fecha", "<=", fin), 
+                   orderBy("fecha", "desc"));
     const snap = await getDocs(q);
     const lista = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
@@ -233,9 +292,17 @@ Fecha: ${new Date().toLocaleString()}`;
       miniGrid.innerHTML = "<p style='color:#7f8c8d;font-size:.9rem'>Sin movimientos hoy</p>";
       return;
     }
+    
     const grupos = {};
     lista.forEach(v => {
-      if (!grupos[v.equipo]) grupos[v.equipo] = { ids: [], total: 0 };
+      if (!grupos[v.equipo]) {
+        grupos[v.equipo] = { 
+          ids: [], 
+          total: 0,
+          cliente: v.cliente,
+          tipo: v.tipo
+        };
+      }
       grupos[v.equipo].ids.push(v.id);
       grupos[v.equipo].total += v.total;
     });
@@ -244,20 +311,23 @@ Fecha: ${new Date().toLocaleString()}`;
       <div class="mini-card" onclick="mostrarDetalleEquipo('${g.ids[0]}')" title="Clic para ver detalle">
         <div class="mini-equipo">${eq}</div>
         <div class="mini-total">$${g.total.toFixed(2)}</div>
+        <small>${g.tipo === "credito" ? "Crédito" : "Efectivo"}</small>
       </div>`).join("");
   }
 
-  /* 🔧 muestra detalle en MODAL sin ir a editar y en tabla limpia */
   window.mostrarDetalleEquipo = async id => {
     try {
       const snap = await getDoc(doc(db, "ventas", id));
       if (!snap.exists()) return;
       const v = snap.data();
+      const fecha = v.fecha ? new Date(v.fecha.seconds * 1000).toLocaleString() : "Fecha no disponible";
+      
       let html = `<table class="venta-detail-table" style="width:100%;font-size:.8rem;border-collapse:collapse">
         <tr><th style="background:#ecf0f1;padding:6px">Equipo</th><td style="padding:6px">${v.equipo}</td></tr>
         <tr><th style="background:#ecf0f1;padding:6px">Cliente</th><td style="padding:6px">${v.cliente}</td></tr>
         <tr><th style="background:#ecf0f1;padding:6px">Total</th><td style="padding:6px">$${v.total.toFixed(2)}</td></tr>
         <tr><th style="background:#ecf0f1;padding:6px">Tipo</th><td style="padding:6px">${v.tipo}</td></tr>
+        <tr><th style="background:#ecf0f1;padding:6px">Fecha</th><td style="padding:6px">${fecha}</td></tr>
         </table>
         <table style="width:100%;font-size:.8rem;border-collapse:collapse;margin-top:10px">
           <thead><tr style="background:#2c3e50;color:white"><th>Producto</th><th>Cant</th><th>P.U.</th><th>Subt.</th></tr></thead>
@@ -266,15 +336,26 @@ Fecha: ${new Date().toLocaleString()}`;
       html += `</tbody></table>`;
       detalleEquipoContent.innerHTML = html;
       modalDetalle.style.display = "flex";
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      console.error("Error cargando detalle:", e); 
+    }
   };
 
   /* ---------- eventos de botones ---------- */
-  efectivoBtn.addEventListener("click", () => guardarVenta("efectivo"));
+  efectivoBtn.addEventListener("click", () => {
+    tipoOriginal = "efectivo";
+    guardarVenta("efectivo");
+  });
+  
   creditoBtn.addEventListener("click", () => {
-    if (idFactura) { limpiarTodo(); return; } // cancelar edición
+    if (idFactura) { 
+      limpiarTodo(); 
+      return; 
+    }
+    tipoOriginal = "credito";
     guardarVenta("credito");
   });
+  
   document.getElementById("abonarBtn").addEventListener('click', () => {
     window.location.href = 'facturas.html';
   });
@@ -322,4 +403,4 @@ Fecha: ${new Date().toLocaleString()}`;
     btn.addEventListener('click', () => btn.closest('.modal-overlay').style.display = 'none');
   });
 
-});   // ← FIN del DOMContentLoaded
+});
