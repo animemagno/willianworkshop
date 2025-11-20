@@ -315,7 +315,6 @@ Fecha: ${new Date().toLocaleString()}`;
         <div class="mini-card" onclick="mostrarDetalleEquipo('${eq}')" title="Clic para ver todas las facturas de este equipo">
           <div class="mini-equipo">${eq}</div>
           <div class="mini-total">$${totalEquipo.toFixed(2)}</div>
-          <div class="mini-cantidad">${facturas.length} factura${facturas.length > 1 ? 's' : ''}</div>
           ${!esLocal && ciudad ? `<div class="mini-ciudad">${ciudad}</div>` : ''}
         </div>`;
     }).join("");
