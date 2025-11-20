@@ -31,7 +31,7 @@
     .venta-wrapper{display:flex;gap:15px;align-items:flex-start;flex:1 1 auto;padding:0 20px;min-height:0}
     @media (max-width: 768px){.venta-wrapper{padding:0 10px;flex-direction:column}}
     .venta-form-container{flex:1 1 50%;display:flex;flex-direction:column}
-    .venta-carrito-container{flex:1 1 50%;display:flex;flex-direction:column;height:100vh;position:sticky;top:0;order:-1}
+    .venta-carrito-container{flex:1 1 50%;display:flex;flex-direction:column;max-height:70vh;position:sticky;top:0}
     .venta-wrapper.invertido{flex-direction:row-reverse}
     .form-group{margin-bottom:15px}
     .form-group label{display:block;margin-bottom:5px;font-weight:600;color:#333;font-size:.9rem}
@@ -45,9 +45,9 @@
     .search-dropdown{position:absolute;background:white;border:1px solid #ddd;border-radius:4px;max-height:200px;overflow-y:auto;width:100%;z-index:1000;box-shadow:0 2px 4px rgba(0,0,0,.1);font-size:.8rem;display:none}
     .search-dropdown-item{padding:10px;cursor:pointer;border-bottom:1px solid #ddd;transition:background-color .2s}
     .search-dropdown-item:hover{background-color:#3498db;color:white}
-    .cart-container{background:#f8f9fa;border-radius:6px;padding:0;border:1px solid #e9ecef;display:flex;flex-direction:column;height:100vh}
+    .cart-container{background:#f8f9fa;border-radius:6px;padding:0;border:1px solid #e9ecef;display:flex;flex-direction:column;height:100%}
     .cart-header{display:grid;grid-template-columns:1fr 80px 100px 100px 40px;gap:10px;padding:8px 12px;background:#2c3e50;color:white;border-radius:4px 4px 0 0;font-weight:600;font-size:.8rem;flex-shrink:0}
-    .cart-list{flex:1 1 auto;overflow-y:auto;display:flex;flex-direction:column;scroll-behavior:smooth}
+    .cart-list{flex:1 1 auto;overflow-y:auto;display:flex;flex-direction:column;max-height:50vh}
     .cart-item{display:grid;grid-template-columns:1fr 80px 100px 100px 40px;gap:10px;padding:8px 12px;border-bottom:1px solid #ddd;align-items:center;font-size:.85rem}
     .cart-item:nth-child(even){background:#fafafa}
     .product-desc{line-height:1.2}
@@ -65,7 +65,8 @@
     .btn-warning:hover{background-color:#d35400}
     .btn-info{background-color:#17a2b8;color:white}
     .btn-info:hover{background-color:#138496}
-    .btn-container{display:flex;flex-direction:row;justify-content:space-between;gap:10px;margin-top:15px}
+    .btn-container{display:flex;justify-content:space-between;gap:10px;margin-top:15px}
+    .btn-derecha{display:flex;gap:10px}
     .swap-btn{background:#95a5a6;color:white;border:none;border-radius:50%;width:36px;height:36px;font-size:1rem;cursor:pointer;transition:background .3s;align-self:center;margin:0 10px}
     .swap-btn:hover{background:#7f8c8d}
     .totales-outside{display:none}
@@ -77,6 +78,8 @@
       .venta-carrito-container{display:none}
       .venta-carrito-container.mostrar{display:flex}
       .swap-btn{display:none}
+      .btn-container{flex-direction:column}
+      .btn-derecha{justify-content:space-between}
     }
 
     .mini-historial{margin-top:20px}
@@ -85,7 +88,8 @@
     .mini-card{background:#fff;border:2px solid #3498db;border-radius:6px;padding:8px;text-align:center;cursor:pointer;transition:all .3s ease;font-size:.8rem}
     .mini-card:hover{transform:translateY(-2px);box-shadow:0 4px 8px rgba(0,0,0,.15)}
     .mini-equipo{font-weight:bold;color:#2c3e50;margin-bottom:4px}
-    .mini-total{font-weight:bold;color:#27ae60}
+    .mini-total{font-weight:bold;color:#27ae60;margin-bottom:2px}
+    .mini-ciudad{font-size:.7rem;color:#7f8c8d}
 
     #detalleBox{background:#f8f9fa;border:1px solid #ddd;border-radius:6px;padding:12px;margin-top:10px;display:none;font-size:.85rem}
     #detalleBox h4{margin-bottom:8px;color:#2c3e50}
@@ -107,7 +111,6 @@
   <h1>Taller Wilian</h1>
   <div class="header-actions">
     <button class="cart-icon" id="cartIcon"><i class="fas fa-shopping-cart"></i><span class="cart-badge" id="cart-badge">0</span></button>
-    <span class="cart-total-amount" id="cart-total">$0.00</span>
   </div>
 </header>
 
@@ -158,8 +161,10 @@
           </div>
           <div class="btn-container">
             <button type="button" id="abonarBtn" class="btn btn-info">ABONAR</button>
-            <button type="button" class="btn btn-success" id="efectivoBtn">Efectivo</button>
-            <button type="button" class="btn btn-warning" id="creditoBtn">Crédito</button>
+            <div class="btn-derecha">
+              <button type="button" class="btn btn-success" id="efectivoBtn">Efectivo</button>
+              <button type="button" class="btn btn-warning" id="creditoBtn">Crédito</button>
+            </div>
           </div>
         </form>
 
