@@ -300,7 +300,8 @@ Fecha: ${new Date().toLocaleString()}`;
           ids: [], 
           total: 0,
           cliente: v.cliente,
-          tipo: v.tipo
+          ciudad: v.ciudad,
+          esLocal: v.esLocal
         };
       }
       grupos[v.equipo].ids.push(v.id);
@@ -311,7 +312,7 @@ Fecha: ${new Date().toLocaleString()}`;
       <div class="mini-card" onclick="mostrarDetalleEquipo('${g.ids[0]}')" title="Clic para ver detalle">
         <div class="mini-equipo">${eq}</div>
         <div class="mini-total">$${g.total.toFixed(2)}</div>
-        <small>${g.tipo === "credito" ? "Crédito" : "Efectivo"}</small>
+        ${!g.esLocal && g.ciudad ? `<div class="mini-ciudad">${g.ciudad}</div>` : ''}
       </div>`).join("");
   }
 
