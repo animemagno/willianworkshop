@@ -487,50 +487,57 @@ Fecha: ${new Date().toLocaleString()}`;
 
   /* ---------- mini-historial del DÍA ---------- */
   async function cargarMiniHistorial() {
-    const hoy = new Date();
-    const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0);
-    const fin    = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59);
-    const q = query(collection(db, "ventas"), 
-                   where("fecha", ">=", inicio), 
-                   where("fecha", "<=", fin), 
-                   orderBy("fecha", "desc"));
-    const snap = await getDocs(q);
-    const lista = snap.docs.map(d => ({ 
-      id: d.id, 
-      ...d.data(),
-      fechaTimestamp: d.data().fecha
-    }));
+    try {
+      const hoy = new Date();
+      const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0);
+      const fin    = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59);
+      const q = query(collection(db, "ventas"), 
+                     where("fecha", ">=", inicio), 
+                     where("fecha", "<=", fin), 
+                     orderBy("fecha", "desc"));
+      const snap = await getDocs(q);
+      const lista = snap.docs.map(d => ({ 
+        id: d.id, 
+        ...d.data(),
+        fechaTimestamp: d.data().fecha
+      }));
 
-    if (lista.length === 0) {
-      miniGrid.innerHTML = "<p style='color:#7f8c8d;font-size:.9rem'>Sin movimientos hoy</p>";
-      return;
-    }
-    
-    // Agrupar por equipo pero mantener todas las facturas individuales
-    const grupos = {};
-    lista.forEach(v => {
-      if (!grupos[v.equipo]) {
-        grupos[v.equipo] = [];
+      if (lista.length === 0) {
+        miniGrid.innerHTML = "<p style='color:#7f8c8d;font-size:.9rem'>Sin movimientos hoy</p>";
+        return;
       }
-      grupos[v.equipo].push(v);
-    });
-
-    miniGrid.innerHTML = Object.entries(grupos).map(([eq, facturas]) => {
-      const totalEquipo = facturas.reduce((sum, v) => sum + v.total, 0);
-      const esLocal = facturas[0].esLocal;
-      const ciudad = facturas[0].ciudad;
       
-      return `
-        <div class="mini-card" onclick="mostrarDetalleEquipo('${eq}')" title="Clic para ver todas las facturas de este equipo">
-          <div class="mini-equipo">${eq}</div>
-          <div class="mini-total">$${totalEquipo.toFixed(2)}</div>
-          ${!esLocal && ciudad ? `<div class="mini-ciudad">${ciudad}</div>` : ''}
-        </div>`;
-    }).join("");
+      // Agrupar por equipo pero mantener todas las facturas individuales
+      const grupos = {};
+      lista.forEach(v => {
+        if (!grupos[v.equipo]) {
+          grupos[v.equipo] = [];
+        }
+        grupos[v.equipo].push(v);
+      });
+
+      miniGrid.innerHTML = Object.entries(grupos).map(([eq, facturas]) => {
+        const totalEquipo = facturas.reduce((sum, v) => sum + v.total, 0);
+        const esLocal = facturas[0].esLocal;
+        const ciudad = facturas[0].ciudad;
+        
+        return `
+          <div class="mini-card" onclick="mostrarDetalleEquipo('${eq}')" title="Clic para ver todas las facturas de este equipo">
+            <div class="mini-equipo">${eq}</div>
+            <div class="mini-total">$${totalEquipo.toFixed(2)}</div>
+            ${!esLocal && ciudad ? `<div class="mini-ciudad">${ciudad}</div>` : ''}
+          </div>`;
+      }).join("");
+    } catch (error) {
+      console.error("Error cargando mini historial:", error);
+      miniGrid.innerHTML = "<p style='color:#e74c3c;font-size:.9rem'>Error al cargar movimientos</p>";
+    }
   }
 
   window.mostrarDetalleEquipo = async (equipo) => {
     try {
+      console.log("Mostrando detalle para equipo:", equipo);
+      
       const hoy = new Date();
       const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0);
       const fin    = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59);
@@ -546,7 +553,11 @@ Fecha: ${new Date().toLocaleString()}`;
         fechaTimestamp: d.data().fecha
       }));
 
-      if (facturas.length === 0) return;
+      if (facturas.length === 0) {
+        detalleEquipoContent.innerHTML = "<p>No se encontraron facturas para este equipo hoy.</p>";
+        modalDetalle.style.display = "flex";
+        return;
+      }
 
       let html = `<h4 style="margin-bottom:15px;color:#2c3e50;text-align:center;">Facturas del Equipo: ${equipo}</h4>`;
       
@@ -620,7 +631,9 @@ Fecha: ${new Date().toLocaleString()}`;
       detalleEquipoContent.innerHTML = html;
       modalDetalle.style.display = "flex";
     } catch (e) { 
-      console.error("Error cargando detalle:", e); 
+      console.error("Error cargando detalle:", e);
+      detalleEquipoContent.innerHTML = `<p style="color:#e74c3c">Error al cargar los detalles: ${e.message}</p>`;
+      modalDetalle.style.display = "flex";
     }
   };
 
