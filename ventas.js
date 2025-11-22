@@ -22,6 +22,27 @@ let idFactura = null;
 let tipoOriginal = "efectivo";
 let itemAEliminar = null;
 
+/* ---------- NOTIFICACIÓN DE PRODUCTO AGREGADO ---------- */
+function mostrarNotificacionProducto(desc, precio, cantidad) {
+    const notificacion = document.getElementById("notificacionProducto");
+    const nombreElement = document.getElementById("notificacionNombre");
+    const detallesElement = document.getElementById("notificacionDetalles");
+    
+    if (!notificacion || !nombreElement || !detallesElement) return;
+    
+    // Actualizar contenido
+    nombreElement.textContent = desc;
+    detallesElement.textContent = `Cantidad: ${cantidad} - $${precio.toFixed(2)} c/u`;
+    
+    // Mostrar notificación
+    notificacion.classList.add("mostrar");
+    
+    // Ocultar después de 1 segundo
+    setTimeout(() => {
+        notificacion.classList.remove("mostrar");
+    }, 1000);
+}
+
 /* ---------- GUARDADO AUTOMÁTICO ---------- */
 const VENTA_GUARDADA_KEY = 'ventaEnProgreso';
 
@@ -239,6 +260,10 @@ window.addEventListener('DOMContentLoaded', async () => {
     total += sub;
     cantidadTotal += cantidad;
     actualizarCarrito(true);
+    
+    // MOSTRAR NOTIFICACIÓN
+    mostrarNotificacionProducto(desc, precio, cantidad);
+    
     guardarVentaAutomaticamente(); // GUARDAR AUTOMÁTICAMENTE
   }
 
