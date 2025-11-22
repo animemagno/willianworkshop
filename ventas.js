@@ -21,6 +21,8 @@ let cantidadTotal = 0;
 let idFactura = null;
 let tipoOriginal = "efectivo";
 let itemAEliminar = null;
+let abonoInicial = 0;
+let saldoPendiente = 0;
 
 /* ---------- NOTIFICACIÓN DE PRODUCTO AGREGADO ---------- */
 function mostrarNotificacionProducto(desc, precio, cantidad) {
@@ -43,6 +45,79 @@ function mostrarNotificacionProducto(desc, precio, cantidad) {
     }, 1000);
 }
 
+/* ---------- MODALES ABONO INICIAL ---------- */
+function mostrarModalAbonoInicial() {
+    document.getElementById("modalAbonoInicial").style.display = 'flex';
+}
+
+function cerrarAbonoInicial() {
+    document.getElementById("modalAbonoInicial").style.display = 'none';
+}
+
+function mostrarModalMontoAbono() {
+    const modal = document.getElementById("modalMontoAbono");
+    document.getElementById("abonoTotal").textContent = `$${total.toFixed(2)}`;
+    document.getElementById("montoAbono").value = "";
+    document.getElementById("abonoMonto").textContent = "$0.00";
+    document.getElementById("abonoSaldo").textContent = `$${total.toFixed(2)}`;
+    modal.style.display = 'flex';
+    
+    // Enfocar el input
+    setTimeout(() => {
+        document.getElementById("montoAbono").focus();
+    }, 300);
+}
+
+function cerrarMontoAbono() {
+    document.getElementById("modalMontoAbono").style.display = 'none';
+}
+
+function actualizarCalculoAbono() {
+    const montoInput = document.getElementById("montoAbono");
+    const monto = parseFloat(montoInput.value) || 0;
+    const maxMonto = total;
+    
+    // Validar que no sea mayor al total
+    if (monto > maxMonto) {
+        montoInput.value = maxMonto.toFixed(2);
+        monto = maxMonto;
+    }
+    
+    abonoInicial = monto;
+    saldoPendiente = total - monto;
+    
+    document.getElementById("abonoMonto").textContent = `$${abonoInicial.toFixed(2)}`;
+    document.getElementById("abonoSaldo").textContent = `$${saldoPendiente.toFixed(2)}`;
+}
+
+function confirmarAbonoInicial() {
+    const monto = parseFloat(document.getElementById("montoAbono").value) || 0;
+    
+    if (monto <= 0) {
+        alert("Ingrese un monto válido para el abono");
+        return;
+    }
+    
+    if (monto > total) {
+        alert("El abono no puede ser mayor al total de la venta");
+        return;
+    }
+    
+    cerrarMontoAbono();
+    cerrarAbonoInicial();
+    guardarVentaCredito(true);
+}
+
+function guardarVentaCredito(conAbono = false) {
+    if (!conAbono) {
+        abonoInicial = 0;
+        saldoPendiente = total;
+    }
+    
+    tipoOriginal = "credito";
+    guardarVenta("credito");
+}
+
 /* ---------- GUARDADO AUTOMÁTICO ---------- */
 const VENTA_GUARDADA_KEY = 'ventaEnProgreso';
 
@@ -60,7 +135,9 @@ function guardarVentaAutomaticamente() {
         total: total,
         cantidadTotal: cantidadTotal,
         fechaGuardado: new Date().toISOString(),
-        idFactura: idFactura // Para ediciones
+        idFactura: idFactura, // Para ediciones
+        abonoInicial: abonoInicial,
+        saldoPendiente: saldoPendiente
     };
     
     console.log("Guardando venta automáticamente:", ventaData);
@@ -171,6 +248,8 @@ function aplicarVentaGuardada(ventaData) {
         carrito = ventaData.carrito;
         total = ventaData.total || 0;
         cantidadTotal = ventaData.cantidadTotal || 0;
+        abonoInicial = ventaData.abonoInicial || 0;
+        saldoPendiente = ventaData.saldoPendiente || total;
         
         // Actualizar la interfaz
         if (window.actualizarCarrito) {
@@ -223,9 +302,16 @@ window.addEventListener('DOMContentLoaded', async () => {
   const modalError    = document.getElementById("modalError");
   const modalDetalle  = document.getElementById("modalDetalle");
   const modalConfirmarEliminar = document.getElementById("modalConfirmarEliminar");
+  const modalAbonoInicial = document.getElementById("modalAbonoInicial");
+  const modalMontoAbono = document.getElementById("modalMontoAbono");
   const confirmarEliminarBtn = document.getElementById("confirmarEliminarBtn");
   const detalleEquipoContent = document.getElementById("detalleEquipoContent");
   const txtError      = document.getElementById("textoError");
+  const txtExito      = document.getElementById("textoExito");
+  const btnConAbono   = document.getElementById("btnConAbono");
+  const btnSinAbono   = document.getElementById("btnSinAbono");
+  const montoAbonoInput = document.getElementById("montoAbono");
+  const confirmarAbonoBtn = document.getElementById("confirmarAbonoBtn");
 
   /* ---------- Cargar venta guardada al iniciar ---------- */
   await cargarVentaGuardada();
@@ -234,10 +320,33 @@ window.addEventListener('DOMContentLoaded', async () => {
   window.cerrarExito = () => modalExito.style.display = 'none';
   window.cerrarError = () => modalError.style.display = 'none';
   window.cerrarDetalle = () => modalDetalle.style.display = 'none';
+  window.cerrarAbonoInicial = () => modalAbonoInicial.style.display = 'none';
+  window.cerrarMontoAbono = () => modalMontoAbono.style.display = 'none';
   window.cerrarConfirmarEliminar = () => {
     modalConfirmarEliminar.style.display = 'none';
     itemAEliminar = null;
   };
+
+  /* ---------- eventos modales abono ---------- */
+  btnConAbono.addEventListener("click", () => {
+    cerrarAbonoInicial();
+    mostrarModalMontoAbono();
+  });
+
+  btnSinAbono.addEventListener("click", () => {
+    cerrarAbonoInicial();
+    guardarVentaCredito(false);
+  });
+
+  montoAbonoInput.addEventListener("input", actualizarCalculoAbono);
+  confirmarAbonoBtn.addEventListener("click", confirmarAbonoInicial);
+
+  // Cerrar modales al hacer clic fuera
+  document.querySelectorAll('.modal-overlay').forEach(modal => {
+    modal.addEventListener('click', e => {
+      if (e.target === modal) modal.style.display = 'none';
+    });
+  });
 
   /* ---------- confirmar eliminación ---------- */
   confirmarEliminarBtn.addEventListener("click", () => {
@@ -374,6 +483,8 @@ window.addEventListener('DOMContentLoaded', async () => {
       carrito      = data.items.map(x => ({ ...x }));
       total        = data.total;
       cantidadTotal= data.cantidadTotal;
+      abonoInicial = data.abonoInicial || 0;
+      saldoPendiente = data.saldoPendiente || total;
 
       tituloVenta.textContent = "EDITAR VENTA";
       efectivoBtn.textContent = "Actualizar";
@@ -420,7 +531,9 @@ window.addEventListener('DOMContentLoaded', async () => {
       tipo: tipoOriginal,
       items: carrito,
       total,
-      cantidadTotal
+      cantidadTotal,
+      abonoInicial: abonoInicial,
+      saldoPendiente: saldoPendiente
     };
 
     if (!idFactura) {
@@ -446,22 +559,43 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   function imprimirTicket(tipo, esLocal) {
     const ubicacion = esLocal ? "LOCAL" : clienteInput.value;
-    const ticket = `Taller Wilian
+    let ticket = `Taller Wilian
 ${tipo === "efectivo" ? "VENTA AL CONTADO" : "VENTA A CRÉDITO"}
 Equipo: ${equipoInput.value}
 Ubicación: ${ubicacion}
 ------------------------
 ${carrito.map(it => `${it.desc} x${it.cantidad} $${it.precio.toFixed(2)} = $${it.subtotal.toFixed(2)}`).join("\n")}
 ------------------------
-Total: $${total.toFixed(2)}
+Total: $${total.toFixed(2)}`;
+    
+    // Agregar información de abono si es crédito con abono
+    if (tipo === "credito" && abonoInicial > 0) {
+      ticket += `
+Abono inicial: $${abonoInicial.toFixed(2)}
+Saldo pendiente: $${saldoPendiente.toFixed(2)}`;
+    }
+    
+    ticket += `
 Fecha: ${new Date().toLocaleString()}`;
+    
     console.log("🖨️ Ticket:\n" + ticket);
+    
+    // Actualizar mensaje de éxito
+    if (tipo === "credito" && abonoInicial > 0) {
+      txtExito.textContent = `Venta a crédito guardada. Abono: $${abonoInicial.toFixed(2)} - Saldo: $${saldoPendiente.toFixed(2)}`;
+    } else if (tipo === "credito") {
+      txtExito.textContent = `Venta a crédito guardada. Saldo pendiente: $${saldoPendiente.toFixed(2)}`;
+    } else {
+      txtExito.textContent = "La venta se registró correctamente.";
+    }
   }
 
   function limpiarTodo() {
     carrito = []; 
     total = 0; 
     cantidadTotal = 0;
+    abonoInicial = 0;
+    saldoPendiente = 0;
     equipoInput.value = ""; 
     clienteInput.value = ""; 
     idFactura = null;
@@ -491,6 +625,7 @@ Fecha: ${new Date().toLocaleString()}`;
       const hoy = new Date();
       const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0);
       const fin    = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59);
+      
       const q = query(collection(db, "ventas"), 
                      where("fecha", ">=", inicio), 
                      where("fecha", "<=", fin), 
@@ -541,12 +676,15 @@ Fecha: ${new Date().toLocaleString()}`;
       const hoy = new Date();
       const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0);
       const fin    = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59);
+      
+      // CONSULTA CON ÍNDICE - ahora debería funcionar
       const q = query(collection(db, "ventas"), 
                      where("fecha", ">=", inicio), 
                      where("fecha", "<=", fin), 
                      where("equipo", "==", equipo),
                      orderBy("fecha", "desc"));
       const snap = await getDocs(q);
+      
       const facturas = snap.docs.map(d => ({ 
         id: d.id, 
         ...d.data(),
@@ -564,6 +702,17 @@ Fecha: ${new Date().toLocaleString()}`;
       facturas.forEach((v, index) => {
         const fecha = v.fechaTimestamp ? 
           new Date(v.fechaTimestamp.seconds * 1000).toLocaleString() : "Fecha no disponible";
+        
+        // Información de abono si es crédito
+        const infoAbono = v.tipo === 'credito' && v.abonoInicial > 0 ? 
+          `<tr>
+            <td style="padding:4px;font-weight:bold;">Abono:</td>
+            <td style="padding:4px;color:#27ae60;">$${v.abonoInicial.toFixed(2)}</td>
+          </tr>
+          <tr>
+            <td style="padding:4px;font-weight:bold;">Saldo:</td>
+            <td style="padding:4px;color:#e74c3c;">$${v.saldoPendiente.toFixed(2)}</td>
+          </tr>` : '';
         
         html += `
           <div style="margin-bottom:20px;padding:15px;border:1px solid #ddd;border-radius:6px;background:#f8f9fa;">
@@ -588,6 +737,7 @@ Fecha: ${new Date().toLocaleString()}`;
                 <td style="padding:4px;font-weight:bold;">Total:</td>
                 <td style="padding:4px;font-weight:bold;color:#27ae60;">$${v.total.toFixed(2)}</td>
               </tr>
+              ${infoAbono}
             </table>
             <table style="width:100%;font-size:.75rem;border-collapse:collapse;margin-bottom:10px;">
               <thead>
@@ -632,7 +782,12 @@ Fecha: ${new Date().toLocaleString()}`;
       modalDetalle.style.display = "flex";
     } catch (e) { 
       console.error("Error cargando detalle:", e);
-      detalleEquipoContent.innerHTML = `<p style="color:#e74c3c">Error al cargar los detalles: ${e.message}</p>`;
+      detalleEquipoContent.innerHTML = `
+        <p style="color:#e74c3c; text-align: center; padding: 20px;">
+          ⚠️ Error al cargar detalles<br>
+          <small>${e.message}</small>
+        </p>
+      `;
       modalDetalle.style.display = "flex";
     }
   };
@@ -645,6 +800,8 @@ Fecha: ${new Date().toLocaleString()}`;
   /* ---------- eventos de botones ---------- */
   efectivoBtn.addEventListener("click", () => {
     tipoOriginal = "efectivo";
+    abonoInicial = 0;
+    saldoPendiente = total;
     guardarVenta("efectivo");
   });
   
@@ -654,8 +811,7 @@ Fecha: ${new Date().toLocaleString()}`;
       limpiarTodo(); 
       return; 
     }
-    tipoOriginal = "credito";
-    guardarVenta("credito");
+    mostrarModalAbonoInicial();
   });
   
   document.getElementById("abonarBtn").addEventListener('click', () => {
@@ -694,15 +850,5 @@ Fecha: ${new Date().toLocaleString()}`;
   if (id) cargarFactura(id);
   else actualizarCarrito(false);
   cargarMiniHistorial();
-
-  /* ---------- CIERRES DE MODALES ---------- */
-  document.querySelectorAll('.modal-overlay').forEach(modal => {
-    modal.addEventListener('click', e => {
-      if (e.target === modal) modal.style.display = 'none';
-    });
-  });
-  document.querySelectorAll('.modal-box .btn-primary').forEach(btn => {
-    btn.addEventListener('click', () => btn.closest('.modal-overlay').style.display = 'none');
-  });
 
 });
