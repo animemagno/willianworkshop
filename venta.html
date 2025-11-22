@@ -71,6 +71,50 @@
     .swap-btn:hover{background:#7f8c8d}
     .totales-outside{display:none}
 
+    /* NOTIFICACIÓN DE PRODUCTO AGREGADO */
+    .notificacion-producto {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(39, 174, 96, 0.95);
+        color: white;
+        padding: 25px 30px;
+        border-radius: 12px;
+        font-size: 1.3rem;
+        font-weight: bold;
+        text-align: center;
+        z-index: 10000;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        border: 3px solid white;
+        min-width: 280px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+    }
+
+    .notificacion-producto.mostrar {
+        opacity: 1;
+    }
+
+    .notificacion-producto .icono {
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+        display: block;
+    }
+
+    .notificacion-producto .producto-nombre {
+        font-size: 1.2rem;
+        margin-bottom: 8px;
+        font-weight: 600;
+    }
+
+    .notificacion-producto .producto-detalles {
+        font-size: 1rem;
+        opacity: 0.9;
+        font-weight: normal;
+    }
+
     @media (max-width: 768px) {
       .venta-wrapper{flex-direction:column;padding:0 10px;height:auto}
       .venta-wrapper.invertido{flex-direction:column}
@@ -81,6 +125,20 @@
       .btn-container{flex-direction:column}
       .btn-derecha{justify-content:space-between}
       .dashboard-section{height:auto;min-height:80vh}
+
+      .notificacion-producto {
+          padding: 20px 25px;
+          font-size: 1.1rem;
+          min-width: 250px;
+      }
+
+      .notificacion-producto .icono {
+          font-size: 2rem;
+      }
+
+      .notificacion-producto .producto-nombre {
+          font-size: 1.1rem;
+      }
     }
 
     .mini-historial{margin-top:20px;flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
@@ -106,6 +164,13 @@
   </style>
 </head>
 <body class="main-wrapper">
+
+<!-- NOTIFICACIÓN DE PRODUCTO AGREGADO -->
+<div id="notificacionProducto" class="notificacion-producto">
+    <i class="icono fas fa-check-circle"></i>
+    <div class="producto-nombre" id="notificacionNombre">Producto</div>
+    <div class="producto-detalles" id="notificacionDetalles">Cantidad: 1 - $0.00</div>
+</div>
 
 <header>
   <button class="menu-toggle" id="mobileMenuBtn"><i class="fas fa-bars"></i></button>
