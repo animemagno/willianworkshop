@@ -27,18 +27,26 @@ const VENTA_GUARDADA_KEY = 'ventaEnProgreso';
 
 // Guardar venta automáticamente
 function guardarVentaAutomaticamente() {
+    console.log("🔵 GUARDANDO VENTA AUTOMÁTICAMENTE...");
+    
+    const equipoInput = document.getElementById("equipo");
+    const clienteInput = document.getElementById("cliente");
+    
     const ventaData = {
-        equipo: document.getElementById("equipo")?.value || "",
-        cliente: document.getElementById("cliente")?.value || "",
+        equipo: equipoInput?.value || "",
+        cliente: clienteInput?.value || "",
         carrito: carrito,
         total: total,
         cantidadTotal: cantidadTotal,
         fechaGuardado: new Date().toISOString(),
-        idFactura: idFactura // Para ediciones
+        idFactura: idFactura
     };
+    
+    console.log("📦 Datos a guardar:", ventaData);
     
     // Guardar en localStorage (funciona sin internet)
     localStorage.setItem(VENTA_GUARDADA_KEY, JSON.stringify(ventaData));
+    console.log("✅ Guardado en localStorage");
     
     // Guardar en Firebase (si hay conexión)
     guardarVentaEnFirebase(ventaData);
@@ -48,7 +56,10 @@ function guardarVentaAutomaticamente() {
 async function guardarVentaEnFirebase(ventaData) {
     try {
         const usuario = localStorage.getItem('usuarioLogueado');
-        if (!usuario) return;
+        if (!usuario) {
+            console.log("❌ No hay usuario logueado, no se guarda en Firebase");
+            return;
+        }
         
         const docRef = doc(db, "ventasTemporales", usuario);
         await setDoc(docRef, {
@@ -56,32 +67,42 @@ async function guardarVentaEnFirebase(ventaData) {
             usuario: usuario,
             ultimaActualizacion: serverTimestamp()
         });
+        console.log("✅ Guardado en Firebase");
     } catch (error) {
-        console.log("Error guardando en Firebase (puede ser normal sin internet):", error);
+        console.log("❌ Error guardando en Firebase:", error);
     }
 }
 
 // Cargar venta guardada al iniciar
 async function cargarVentaGuardada() {
+    console.log("🟡 INICIANDO CARGA DE VENTA GUARDADA...");
+    
     // Primero intentar desde localStorage (más rápido)
     const ventaLocal = localStorage.getItem(VENTA_GUARDADA_KEY);
+    console.log("📂 Ventas en localStorage:", ventaLocal ? "SÍ" : "NO");
     
     if (ventaLocal) {
         const ventaData = JSON.parse(ventaLocal);
         const fechaGuardado = new Date(ventaData.fechaGuardado);
         const hoy = new Date();
         
+        console.log("📅 Fecha guardada:", fechaGuardado.toLocaleString());
+        console.log("📅 Hoy:", hoy.toLocaleString());
+        console.log("🔍 Mismo día?:", fechaGuardado.toDateString() === hoy.toDateString());
+        
         // Solo cargar si es del mismo día
         if (fechaGuardado.toDateString() === hoy.toDateString()) {
+            console.log("🔄 Aplicando venta guardada desde localStorage...");
             aplicarVentaGuardada(ventaData);
             return true;
         } else {
-            // Limpiar venta de días anteriores
+            console.log("🗑️ Limpiando venta de días anteriores...");
             limpiarVentaGuardada();
         }
     }
     
     // Si no hay en localStorage, intentar desde Firebase
+    console.log("🌐 Intentando cargar desde Firebase...");
     return await cargarVentaDesdeFirebase();
 }
 
@@ -89,56 +110,87 @@ async function cargarVentaGuardada() {
 async function cargarVentaDesdeFirebase() {
     try {
         const usuario = localStorage.getItem('usuarioLogueado');
-        if (!usuario) return false;
+        if (!usuario) {
+            console.log("❌ No hay usuario para cargar desde Firebase");
+            return false;
+        }
         
+        console.log("👤 Usuario:", usuario);
         const docRef = doc(db, "ventasTemporales", usuario);
         const docSnap = await getDoc(docRef);
+        
+        console.log("📄 Documento en Firebase:", docSnap.exists() ? "EXISTE" : "NO EXISTE");
         
         if (docSnap.exists()) {
             const ventaData = docSnap.data();
             const fechaGuardado = ventaData.fechaGuardado ? new Date(ventaData.fechaGuardado) : new Date();
             const hoy = new Date();
             
+            console.log("📅 Fecha Firebase:", fechaGuardado.toLocaleString());
+            console.log("📅 Hoy:", hoy.toLocaleString());
+            console.log("🔍 Mismo día?:", fechaGuardado.toDateString() === hoy.toDateString());
+            
             // Solo cargar si es del mismo día
             if (fechaGuardado.toDateString() === hoy.toDateString()) {
+                console.log("🔄 Aplicando venta guardada desde Firebase...");
                 aplicarVentaGuardada(ventaData);
                 return true;
             } else {
+                console.log("🗑️ Limpiando venta antigua de Firebase...");
                 limpiarVentaGuardada();
             }
         }
     } catch (error) {
-        console.log("Error cargando desde Firebase:", error);
+        console.log("❌ Error cargando desde Firebase:", error);
     }
     return false;
 }
 
 // Aplicar los datos de la venta guardada
 function aplicarVentaGuardada(ventaData) {
-    if (ventaData.equipo && document.getElementById("equipo")) {
-        document.getElementById("equipo").value = ventaData.equipo;
+    console.log("🎯 APLICANDO VENTA GUARDADA:", ventaData);
+    
+    const equipoInput = document.getElementById("equipo");
+    const clienteInput = document.getElementById("cliente");
+    
+    if (ventaData.equipo && equipoInput) {
+        equipoInput.value = ventaData.equipo;
+        console.log("🔢 Equipo aplicado:", ventaData.equipo);
     }
     
-    if (ventaData.cliente && document.getElementById("cliente")) {
-        document.getElementById("cliente").value = ventaData.cliente;
+    if (ventaData.cliente && clienteInput) {
+        clienteInput.value = ventaData.cliente;
+        console.log("🏙️ Ciudad aplicada:", ventaData.cliente);
     }
     
     if (ventaData.carrito && ventaData.carrito.length > 0) {
         carrito = ventaData.carrito;
         total = ventaData.total || 0;
         cantidadTotal = ventaData.cantidadTotal || 0;
-        actualizarCarrito(false);
         
-        console.log("Venta recuperada automáticamente");
+        console.log("🛒 Carrito aplicado:", carrito.length, "productos");
+        console.log("💰 Total aplicado:", total);
+        console.log("📦 Cantidad total aplicada:", cantidadTotal);
+        
+        // Llamar a actualizarCarrito después de un pequeño delay para asegurar que el DOM esté listo
+        setTimeout(() => {
+            actualizarCarrito(false);
+            console.log("✅ Venta recuperada y aplicada completamente");
+        }, 100);
+        
+    } else {
+        console.log("❌ No hay productos en el carrito guardado");
     }
     
     if (ventaData.idFactura) {
         idFactura = ventaData.idFactura;
+        console.log("📝 ID Factura aplicado:", idFactura);
     }
 }
 
 // Limpiar venta guardada
 function limpiarVentaGuardada() {
+    console.log("🧹 LIMPIANDO VENTA GUARDADA...");
     localStorage.removeItem(VENTA_GUARDADA_KEY);
     const usuario = localStorage.getItem('usuarioLogueado');
     if (usuario) {
@@ -146,10 +198,12 @@ function limpiarVentaGuardada() {
         const docRef = doc(db, "ventasTemporales", usuario);
         setDoc(docRef, {}).catch(() => {});
     }
+    console.log("✅ Venta guardada limpiada");
 }
 
 /* ---------- EJECUCIÓN DESPUÉS DE QUE EXISTA EL DOM ---------- */
 window.addEventListener('DOMContentLoaded', async () => {
+  console.log("🚀 DOM CARGADO - INICIANDO VENTAS.JS");
 
   /* ---------- referencias ---------- */
   const equipoInput   = document.getElementById("equipo");
@@ -177,7 +231,13 @@ window.addEventListener('DOMContentLoaded', async () => {
   const detalleEquipoContent = document.getElementById("detalleEquipoContent");
   const txtError      = document.getElementById("textoError");
 
+  console.log("🔍 Elementos del DOM encontrados:");
+  console.log("- Equipo input:", !!equipoInput);
+  console.log("- Cliente input:", !!clienteInput);
+  console.log("- Cart items:", !!cartItems);
+
   /* ---------- Cargar venta guardada al iniciar ---------- */
+  console.log("🔄 CARGANDO VENTA GUARDADA...");
   await cargarVentaGuardada();
 
   /* ---------- funciones de cierre ---------- */
@@ -191,6 +251,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   /* ---------- confirmar eliminación ---------- */
   confirmarEliminarBtn.addEventListener("click", () => {
+    console.log("🗑️ Confirmando eliminación de producto...");
     if (itemAEliminar !== null) {
       const it = carrito[itemAEliminar];
       total -= it.subtotal; 
@@ -198,24 +259,28 @@ window.addEventListener('DOMContentLoaded', async () => {
       carrito.splice(itemAEliminar, 1);
       actualizarCarrito(false);
       itemAEliminar = null;
-      guardarVentaAutomaticamente(); // GUARDAR AUTOMÁTICAMENTE
+      guardarVentaAutomaticamente();
     }
     modalConfirmarEliminar.style.display = 'none';
   });
 
   /* ---------- carrito ---------- */
   function agregarProducto(desc, precio, cantidad) {
+    console.log("➕ AGREGANDO PRODUCTO:", desc, precio, cantidad);
     const sub = precio * cantidad;
     carrito.push({ desc, precio, cantidad, subtotal: sub });
     total += sub;
     cantidadTotal += cantidad;
     actualizarCarrito(true);
-    guardarVentaAutomaticamente(); // GUARDAR AUTOMÁTICAMENTE
+    guardarVentaAutomaticamente();
   }
 
   function actualizarCarrito(desdeAgregar = false) {
+    console.log("🛒 ACTUALIZANDO CARRITO. Productos:", carrito.length);
+    
     if (carrito.length === 0) {
       cartItems.innerHTML = `<div class="empty-cart"><i class="fas fa-shopping-cart"></i><div>No hay productos</div></div>`;
+      console.log("🛒 Carrito vacío - mostrando mensaje");
     } else {
       cartItems.innerHTML = carrito.map((it, i) => `
         <div class="cart-item" data-index="${i}">
@@ -225,22 +290,29 @@ window.addEventListener('DOMContentLoaded', async () => {
           <div>$${it.subtotal.toFixed(2)}</div>
           <div><button class="delete-item-btn" onclick="abrirConfirmarEliminar(${i})"><i class="fas fa-trash"></i></button></div>
         </div>`).join("");
+      
       if (desdeAgregar) {
         const nuevo = cartItems.querySelector('.cart-item:last-child');
         if (nuevo) nuevo.scrollIntoView({ behavior: 'smooth', block: 'end' });
       }
+      console.log("🛒 Carrito actualizado con", carrito.length, "productos");
     }
+    
     cartBadge.textContent  = cantidadTotal;
     cartTotalTxt.textContent = `$${total.toFixed(2)}`;
     cartResumen.textContent = `Productos: ${cantidadTotal} | Total: `;
+    
+    console.log("📊 Resumen actualizado - Productos:", cantidadTotal, "Total:", total);
   }
 
   window.abrirConfirmarEliminar = (i) => {
+    console.log("❓ Abriendo confirmación para eliminar producto índice:", i);
     itemAEliminar = i;
     modalConfirmarEliminar.style.display = 'flex';
   };
 
   window.cambiarCantidad = (i, v) => {
+    console.log("🔢 Cambiando cantidad del producto", i, "a", v);
     const nueva = parseInt(v) || 1;
     const it = carrito[i];
     total -= it.subtotal; 
@@ -250,10 +322,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     total += it.subtotal; 
     cantidadTotal += it.cantidad;
     actualizarCarrito(false);
-    guardarVentaAutomaticamente(); // GUARDAR AUTOMÁTICAMENTE
+    guardarVentaAutomaticamente();
   };
 
   window.cambiarPrecio = (i, v) => {
+    console.log("💰 Cambiando precio del producto", i, "a", v);
     const nuevo = parseFloat(v) || 0;
     const it = carrito[i];
     total -= it.subtotal;
@@ -261,7 +334,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     it.subtotal = it.precio * it.cantidad;
     total += it.subtotal;
     actualizarCarrito(false);
-    guardarVentaAutomaticamente(); // GUARDAR AUTOMÁTICAMENTE
+    guardarVentaAutomaticamente();
   };
 
   /* ---------- búsqueda ---------- */
@@ -294,16 +367,19 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   /* ---------- Guardar automáticamente cuando cambian los campos de equipo y cliente ---------- */
   equipoInput.addEventListener("input", () => {
+    console.log("✏️ Equipo cambiado, guardando...");
     guardarVentaAutomaticamente();
   });
 
   clienteInput.addEventListener("input", () => {
+    console.log("✏️ Cliente cambiado, guardando...");
     guardarVentaAutomaticamente();
   });
 
   /* ---------- edición ---------- */
   async function cargarFactura(id) {
     try {
+      console.log("📝 Cargando factura para edición:", id);
       const snap = await getDoc(doc(db, "ventas", id));
       if (!snap.exists()) { 
         mostrarError("Factura no encontrada."); 
@@ -326,7 +402,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       creditoBtn.classList.remove("btn-success","btn-warning");
       creditoBtn.classList.add("btn-danger");
       actualizarCarrito(false);
-      guardarVentaAutomaticamente(); // GUARDAR AL CARGAR EDICIÓN
+      guardarVentaAutomaticamente();
     } catch (e) { 
       mostrarError("Error al cargar la factura."); 
     }
@@ -334,6 +410,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   /* ---------- guardar / actualizar ---------- */
   async function guardarVenta(tipoBoton) {
+    console.log("💾 GUARDANDO VENTA FINAL...");
     const eq = equipoInput.value.trim();
     if (!eq) {
       mostrarError("Ingresa el número de equipo.");
@@ -377,7 +454,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         await addDoc(collection(db, "ventas"), venta);
       }
       imprimirTicket(tipoOriginal, esLocal);
-      limpiarVentaGuardada(); // LIMPIAR AL COMPLETAR VENTA
+      limpiarVentaGuardada();
       limpiarTodo();
       mostrarExito();
       await cargarMiniHistorial();
@@ -402,6 +479,7 @@ Fecha: ${new Date().toLocaleString()}`;
   }
 
   function limpiarTodo() {
+    console.log("🧹 LIMPIANDO TODO...");
     carrito = []; 
     total = 0; 
     cantidadTotal = 0;
@@ -580,7 +658,7 @@ Fecha: ${new Date().toLocaleString()}`;
   
   creditoBtn.addEventListener("click", () => {
     if (idFactura) { 
-      limpiarVentaGuardada(); // LIMPIAR AL CANCELAR EDICIÓN
+      limpiarVentaGuardada();
       limpiarTodo(); 
       return; 
     }
