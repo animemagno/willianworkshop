@@ -23,12 +23,29 @@ class SistemaInventario {
     }
 
     async init() {
+        // Configuración inicial similar a ventas.js
+        this.setupMenuMobile();
+        this.setupTabs();
         await this.cargarProductos();
         this.setupEventListeners();
-        this.setupTabs();
     }
 
-    // ========== CONFIGURACIÓN DE PESTAÑAS ==========
+    // ========== CONFIGURACIÓN INICIAL (similar a ventas.js) ==========
+    setupMenuMobile() {
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const mobileMenu = document.getElementById('mobileMenu');
+        const logoutBtn = document.getElementById('logoutBtn');
+
+        mobileMenuBtn.addEventListener('click', () => {
+            mobileMenu.classList.toggle('active');
+        });
+
+        logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('usuarioLogueado');
+            window.location.href = 'login.html';
+        });
+    }
+
     setupTabs() {
         const tabButtons = document.querySelectorAll('.tab-btn');
         const tabContents = document.querySelectorAll('.tab-content');
@@ -50,17 +67,6 @@ class SistemaInventario {
 
     // ========== EVENT LISTENERS ==========
     setupEventListeners() {
-        // Menú móvil
-        document.getElementById('mobileMenuBtn').addEventListener('click', () => {
-            document.getElementById('mobileMenu').classList.toggle('active');
-        });
-
-        // Cerrar sesión
-        document.getElementById('logoutBtn').addEventListener('click', () => {
-            localStorage.removeItem('usuarioLogueado');
-            window.location.href = 'login.html';
-        });
-
         // Búsqueda en tiempo real
         document.getElementById('buscar-producto').addEventListener('input', (e) => {
             this.filtrarProductos(e.target.value);
@@ -744,7 +750,7 @@ class SistemaInventario {
 let inventario;
 
 document.addEventListener('DOMContentLoaded', async function() {
-    // Verificar autenticación
+    // Verificar autenticación (igual que en otros archivos)
     if (!localStorage.getItem('usuarioLogueado')) {
         window.location.href = 'login.html';
         return;
