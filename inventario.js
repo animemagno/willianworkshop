@@ -1,12 +1,26 @@
-// inventario.js - Sistema completo de inventario
+// inventario.js - Sistema completo de inventario con Firebase
 console.log("✅ inventario.js cargando...");
+
+import { db } from './firebase-config.js';
+import { 
+    collection, 
+    addDoc, 
+    updateDoc, 
+    deleteDoc, 
+    doc, 
+    getDocs, 
+    query, 
+    where,
+    getDoc,
+    setDoc
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 class SistemaInventario {
     constructor() {
         this.productos = [];
         this.proveedores = [];
         this.datosExcel = [];
-        console.log("✅ SistemaInventario inicializado");
+        console.log("✅ SistemaInventario inicializado con Firebase");
     }
 
     async init() {
@@ -223,33 +237,40 @@ class SistemaInventario {
         }
     }
 
-    // ========== OPERACIONES CRUD PRODUCTOS ==========
+    // ========== OPERACIONES CRUD PRODUCTOS CON FIREBASE ==========
     async cargarProductos() {
         try {
-            console.log("📦 Cargando productos...");
+            console.log("📦 Cargando productos desde Firebase...");
+            const tbody = document.getElementById('inventario-body');
             
-            // Cargar desde localStorage o inicializar vacío
-            const productosGuardados = localStorage.getItem('inventarioProductos');
-            if (productosGuardados) {
-                this.productos = JSON.parse(productosGuardados);
-            } else {
-                this.productos = []; // Lista vacía, sin datos de muestra
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="empty-cart">
+                            <i class="fas fa-spinner fa-spin" style="font-size:2rem;margin-bottom:10px;"></i>
+                            <div>Cargando inventario...</div>
+                        </td>
+                    </tr>
+                `;
             }
-            
-            this.mostrarProductos();
-            console.log("✅ Productos cargados:", this.productos.length);
-            
-        } catch (error) {
-            console.error("❌ Error cargando productos:", error);
-            this.mostrarError("Error al cargar el inventario");
-        }
-    }
 
-    guardarProductosEnLocalStorage() {
-        try {
-            localStorage.setItem('inventarioProductos', JSON.stringify(this.productos));
+            const querySnapshot = await getDocs(collection(db, "inventario"));
+            this.productos = [];
+            
+            querySnapshot.forEach((doc) => {
+                const producto = {
+                    id: doc.id,
+                    ...doc.data()
+                };
+                this.productos.push(producto);
+            });
+
+            console.log(`✅ ${this.productos.length} productos cargados desde Firebase`);
+            this.mostrarProductos();
+            
         } catch (error) {
-            console.error("Error guardando en localStorage:", error);
+            console.error("❌ Error cargando productos desde Firebase:", error);
+            this.mostrarError("Error al cargar el inventario desde la base de datos");
         }
     }
 
@@ -284,7 +305,7 @@ class SistemaInventario {
                     <tr>
                         <td class="${claseCodigo}"><strong>${codigoDisplay}</strong></td>
                         <td>${producto.descInventario}</td>
-                        <td>${producto.descFactura || producto.descInventario}</td>
+                        <td>${producto.descFactura}</td>
                         <td>$${producto.precioCosto?.toFixed(2) || '0.00'}</td>
                         <td>$${producto.precioVenta?.toFixed(2) || '0.00'}</td>
                         <td class="${claseStock}">${producto.existencia}</td>
@@ -325,7 +346,7 @@ class SistemaInventario {
             const filtrados = this.productos.filter(producto =>
                 (producto.codigo && producto.codigo.toLowerCase().includes(terminoLower)) ||
                 producto.descInventario.toLowerCase().includes(terminoLower) ||
-                (producto.descFactura && producto.descFactura.toLowerCase().includes(terminoLower)) ||
+                producto.descFactura.toLowerCase().includes(terminoLower) ||
                 (producto.proveedor && producto.proveedor.toLowerCase().includes(terminoLower))
             );
 
@@ -340,22 +361,27 @@ class SistemaInventario {
             const formData = new FormData(document.getElementById('form-nuevo-producto'));
             
             const producto = {
-                id: 'prod-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9), // ID único
-                codigo: formData.get('codigo') || '',
-                codigosProveedor: formData.get('codigos-proveedor') ? 
-                    formData.get('codigos-proveedor').split(',').map(cod => cod.trim()).filter(cod => cod) : [],
-                descInventario: formData.get('desc-inventario'),
-                descFactura: formData.get('desc-factura') || formData.get('desc-inventario'),
+                codigo: (formData.get('codigo') || '').trim(),
+                codigosProveedor: (formData.get('codigos-proveedor') || '').trim(),
+                descInventario: formData.get('desc-inventario').trim(),
+                descFactura: formData.get('desc-factura').trim(),
                 precioCosto: parseFloat(formData.get('precio-costo')) || 0,
                 precioVenta: parseFloat(formData.get('precio-venta')) || 0,
                 existencia: parseInt(formData.get('existencia')) || 0,
                 stockMinimo: parseInt(formData.get('stock-minimo')) || 0,
-                proveedor: formData.get('proveedor') || '',
-                categoria: formData.get('categoria') || '',
-                fechaCreacion: new Date().toISOString()
+                proveedor: (formData.get('proveedor') || '').trim(),
+                categoria: (formData.get('categoria') || '').trim(),
+                fechaCreacion: new Date().toISOString(),
+                fechaActualizacion: new Date().toISOString()
             };
 
-            // Solo validar duplicados si tiene código
+            // Validar campos requeridos
+            if (!producto.descInventario || !producto.descFactura) {
+                this.mostrarError('Las descripciones son obligatorias');
+                return;
+            }
+
+            // Validar duplicados si tiene código
             if (producto.codigo) {
                 const existe = this.productos.some(p => p.codigo === producto.codigo);
                 if (existe) {
@@ -364,22 +390,29 @@ class SistemaInventario {
                 }
             }
 
-            // Agregar a la lista
+            console.log("💾 Guardando producto en Firebase:", producto);
+
+            // Guardar en Firebase
+            const docRef = await addDoc(collection(db, "inventario"), producto);
+            console.log("✅ Producto guardado con ID:", docRef.id);
+
+            // Actualizar lista local
+            producto.id = docRef.id;
             this.productos.push(producto);
-            this.guardarProductosEnLocalStorage();
             
             this.mostrarExito('Producto agregado correctamente');
             document.getElementById('form-nuevo-producto').reset();
             this.mostrarProductos();
             
         } catch (error) {
-            console.error('Error guardando producto:', error);
-            this.mostrarError('Error al guardar el producto');
+            console.error('❌ Error guardando producto en Firebase:', error);
+            this.mostrarError('Error al guardar el producto: ' + error.message);
         }
     }
 
     async editarProducto(id) {
         try {
+            console.log("✏️ Editando producto:", id);
             const producto = this.productos.find(p => p.id === id);
             if (!producto) {
                 this.mostrarError('Producto no encontrado');
@@ -389,10 +422,9 @@ class SistemaInventario {
             // Llenar formulario de edición
             document.getElementById('edit-id').value = producto.id;
             document.getElementById('edit-codigo').value = producto.codigo || '';
-            document.getElementById('edit-codigos-proveedor').value = 
-                producto.codigosProveedor ? producto.codigosProveedor.join(', ') : '';
+            document.getElementById('edit-codigos-proveedor').value = producto.codigosProveedor || '';
             document.getElementById('edit-desc-inventario').value = producto.descInventario;
-            document.getElementById('edit-desc-factura').value = producto.descFactura || producto.descInventario;
+            document.getElementById('edit-desc-factura').value = producto.descFactura;
             document.getElementById('edit-precio-costo').value = producto.precioCosto;
             document.getElementById('edit-precio-venta').value = producto.precioVenta;
             document.getElementById('edit-existencia').value = producto.existencia;
@@ -403,7 +435,7 @@ class SistemaInventario {
             document.getElementById('modalEditarProducto').style.display = 'flex';
 
         } catch (error) {
-            console.error('Error editando producto:', error);
+            console.error('❌ Error editando producto:', error);
             this.mostrarError('Error al cargar producto para editar');
         }
     }
@@ -414,24 +446,35 @@ class SistemaInventario {
             const formData = new FormData(document.getElementById('form-editar-producto'));
             
             const updates = {
-                codigo: formData.get('edit-codigo') || '',
-                codigosProveedor: formData.get('edit-codigos-proveedor') ? 
-                    formData.get('edit-codigos-proveedor').split(',').map(cod => cod.trim()).filter(cod => cod) : [],
-                descInventario: formData.get('edit-desc-inventario'),
-                descFactura: formData.get('edit-desc-factura') || formData.get('edit-desc-inventario'),
+                codigo: (formData.get('edit-codigo') || '').trim(),
+                codigosProveedor: (formData.get('edit-codigos-proveedor') || '').trim(),
+                descInventario: formData.get('edit-desc-inventario').trim(),
+                descFactura: formData.get('edit-desc-factura').trim(),
                 precioCosto: parseFloat(formData.get('edit-precio-costo')) || 0,
                 precioVenta: parseFloat(formData.get('edit-precio-venta')) || 0,
                 existencia: parseInt(formData.get('edit-existencia')) || 0,
                 stockMinimo: parseInt(formData.get('edit-stock-minimo')) || 0,
-                proveedor: formData.get('edit-proveedor') || '',
+                proveedor: (formData.get('edit-proveedor') || '').trim(),
                 fechaActualizacion: new Date().toISOString()
             };
 
-            // Actualizar en lista
+            console.log("🔄 Actualizando producto en Firebase:", id, updates);
+
+            // Validar campos requeridos
+            if (!updates.descInventario || !updates.descFactura) {
+                this.mostrarError('Las descripciones son obligatorias');
+                return;
+            }
+
+            // Actualizar en Firebase
+            const productoRef = doc(db, "inventario", id);
+            await updateDoc(productoRef, updates);
+
+            // Actualizar en lista local
             const index = this.productos.findIndex(p => p.id === id);
             if (index !== -1) {
                 this.productos[index] = { ...this.productos[index], ...updates };
-                this.guardarProductosEnLocalStorage();
+                console.log("✅ Producto actualizado en índice:", index);
             }
 
             this.mostrarExito('Producto actualizado correctamente');
@@ -439,25 +482,46 @@ class SistemaInventario {
             this.mostrarProductos();
 
         } catch (error) {
-            console.error('Error actualizando producto:', error);
-            this.mostrarError('Error al actualizar el producto');
+            console.error('❌ Error actualizando producto en Firebase:', error);
+            this.mostrarError('Error al actualizar el producto: ' + error.message);
         }
     }
 
     async eliminarProducto(id) {
-        if (!confirm('¿Estás seguro de que quieres eliminar este producto?')) {
-            return;
-        }
-
         try {
-            // Eliminar de lista
+            console.log("🗑️ Intentando eliminar producto:", id);
+            
+            // Verificar que el producto existe
+            const producto = this.productos.find(p => p.id === id);
+            if (!producto) {
+                console.error("❌ Producto no encontrado para eliminar:", id);
+                this.mostrarError('Producto no encontrado');
+                return;
+            }
+
+            const nombreProducto = producto.descInventario || 'Producto';
+            const confirmacion = confirm(`¿Estás seguro de que quieres eliminar "${nombreProducto}"?\n\nEsta acción no se puede deshacer.`);
+            
+            if (!confirmacion) {
+                console.log("❌ Eliminación cancelada por el usuario");
+                return;
+            }
+
+            console.log("✅ Confirmación recibida, eliminando producto de Firebase...");
+
+            // Eliminar de Firebase
+            await deleteDoc(doc(db, "inventario", id));
+
+            // Eliminar de lista local
             this.productos = this.productos.filter(p => p.id !== id);
-            this.guardarProductosEnLocalStorage();
-            this.mostrarExito('Producto eliminado correctamente');
+
+            this.mostrarExito(`"${nombreProducto}" eliminado correctamente`);
             this.mostrarProductos();
+            console.log("✅ Producto eliminado exitosamente de Firebase");
+
         } catch (error) {
-            console.error('Error eliminando producto:', error);
-            this.mostrarError('Error al eliminar el producto');
+            console.error('❌ Error eliminando producto de Firebase:', error);
+            this.mostrarError('Error al eliminar el producto: ' + error.message);
         }
     }
 
@@ -472,25 +536,22 @@ class SistemaInventario {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
                     
-                    // Buscar hoja "inventario noviembre" o tomar la primera
-                    let worksheet = workbook.Sheets['inventario noviembre'];
-                    if (!worksheet) {
-                        const firstSheetName = workbook.SheetNames[0];
-                        worksheet = workbook.Sheets[firstSheetName];
-                        console.log("📋 Usando hoja:", firstSheetName);
-                    } else {
-                        console.log("📋 Usando hoja: inventario noviembre");
-                    }
+                    // Tomar la primera hoja
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
                     
+                    // Convertir a JSON manteniendo celdas vacías
                     const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
                         header: 1, 
-                        defval: ""
+                        defval: "",
+                        blankrows: true
                     });
                     
+                    console.log("📋 Datos procesados del Excel:", jsonData);
                     this.mostrarPreviewExcel(jsonData);
                     
                 } catch (error) {
-                    console.error('Error procesando Excel:', error);
+                    console.error('❌ Error procesando Excel:', error);
                     this.mostrarError('Error al procesar el archivo Excel: ' + error.message);
                 }
             };
@@ -528,17 +589,17 @@ class SistemaInventario {
                 html += '<tr>';
                 
                 // Procesar cada celda manteniendo la posición correcta
-                for (let i = 0; i < Math.max(fila.length, 6); i++) { // 6 columnas para ambas descripciones
+                for (let i = 0; i < Math.max(fila.length, 5); i++) {
                     const celda = fila[i] !== undefined ? fila[i] : '';
                     
                     if (index === 0) {
                         // Encabezados
-                        const encabezados = ['Código', 'Descripción Inventario', 'Descripción Factura', 'Precio Costo', 'Precio Venta', 'Existencia'];
+                        const encabezados = ['Código', 'Descripción', 'Precio Costo', 'Precio Venta', 'Existencia'];
                         html += `<th style="border:1px solid #ddd; padding:5px; background:#f2f2f2;">${encabezados[i] || `Col ${i+1}`}</th>`;
                     } else {
-                        // Datos
+                        // Datos - RESPETAR CELDAS VACÍAS
                         const estilo = i === 0 && !celda ? 'background:#fff3cd; color:#856404; font-style:italic;' : '';
-                        const displayCelda = i === 0 && !celda ? 'SIN CÓDIGO' : celda;
+                        const displayCelda = celda === '' ? '<span style="color:#999; font-style:italic;">vacío</span>' : celda;
                         html += `<td style="border:1px solid #ddd; padding:5px; ${estilo}">${displayCelda}</td>`;
                         
                         // Contar productos sin código
@@ -562,7 +623,7 @@ class SistemaInventario {
                     <div class="excel-advertencia">
                         <i class="fas fa-exclamation-triangle"></i>
                         <strong>Nota:</strong> Se encontraron ${productosSinCodigo} productos sin código. 
-                        Se mantendrán vacíos para identificarlos fácilmente.
+                        Se mantendrán <strong>VACÍOS</strong> exactamente como en el archivo Excel.
                     </div>
                 `;
             }
@@ -583,7 +644,7 @@ class SistemaInventario {
                 return;
             }
 
-            const datos = this.datosExcel.slice(1);
+            const datos = this.datosExcel.slice(1); // Excluir encabezados
             
             let productosCargados = 0;
             let productosActualizados = 0;
@@ -591,16 +652,15 @@ class SistemaInventario {
             let errores = 0;
 
             for (const fila of datos) {
-                if (fila.length === 0) continue;
+                if (fila.length === 0 || !fila[1]) continue; // Saltar filas vacías o sin descripción
 
                 try {
-                    // [0: Código, 1: Descripción Inventario, 2: Descripción Factura, 3: Precio Costo, 4: Precio Venta, 5: Existencia]
-                    const codigo = fila[0]?.toString().trim() || '';
-                    const descInventario = fila[1]?.toString().trim() || '';
-                    const descFactura = fila[2]?.toString().trim() || descInventario; // Si no hay segunda descripción, usar la primera
+                    // [0: Código, 1: Descripción, 2: Precio Costo, 3: Precio Venta, 4: Existencia]
+                    const codigo = fila[0]?.toString().trim() || ''; // RESPETAR VACÍOS
+                    const descripcion = fila[1]?.toString().trim() || '';
                     
-                    if (!descInventario) {
-                        continue;
+                    if (!descripcion) {
+                        continue; // Saltar si no hay descripción
                     }
 
                     // Contar productos sin código
@@ -608,63 +668,64 @@ class SistemaInventario {
                         productosSinCodigo++;
                     }
 
-                    const producto = {
-                        id: 'excel-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
-                        codigo: codigo,
-                        codigosProveedor: codigo ? [codigo] : [],
-                        descInventario: descInventario,
-                        descFactura: descFactura,
-                        precioCosto: this.parseNumero(fila[3]) || 0,
-                        precioVenta: this.parseNumero(fila[4]) || 0,
-                        existencia: this.parseNumero(fila[5], true) || 0,
-                        stockMinimo: 0,
-                        proveedor: '',
-                        categoria: '',
-                        fechaCreacion: new Date().toISOString()
+                    const productoData = {
+                        codigo: codigo, // Mantener vacío si viene vacío
+                        descInventario: descripcion,
+                        descFactura: descripcion,
+                        precioCosto: this.parseNumero(fila[2]) || 0,
+                        precioVenta: this.parseNumero(fila[3]) || 0,
+                        existencia: this.parseNumero(fila[4], true) || 0,
+                        stockMinimo: this.parseNumero(fila[5], true) || 0,
+                        proveedor: (fila[6]?.toString().trim() || ''),
+                        fechaCreacion: new Date().toISOString(),
+                        fechaActualizacion: new Date().toISOString()
                     };
 
                     // Buscar producto existente
                     let productoExistente = null;
                     if (codigo) {
-                        productoExistente = this.productos.find(p => p.codigo === producto.codigo);
+                        // Buscar por código
+                        productoExistente = this.productos.find(p => p.codigo === productoData.codigo);
                     } else {
+                        // Buscar por descripción (solo para productos sin código)
                         productoExistente = this.productos.find(p => 
-                            !p.codigo && p.descInventario.toLowerCase() === descInventario.toLowerCase()
+                            !p.codigo && p.descInventario.toLowerCase() === descripcion.toLowerCase()
                         );
                     }
                     
                     if (productoExistente) {
-                        // Actualizar producto existente
+                        // Actualizar producto existente en Firebase
+                        const productoRef = doc(db, "inventario", productoExistente.id);
+                        await updateDoc(productoRef, {
+                            ...productoData,
+                            fechaActualizacion: new Date().toISOString()
+                        });
+                        
+                        // Actualizar en lista local
                         const index = this.productos.findIndex(p => p.id === productoExistente.id);
                         if (index !== -1) {
-                            this.productos[index] = { 
-                                ...this.productos[index],
-                                descInventario: producto.descInventario,
-                                descFactura: producto.descFactura,
-                                precioCosto: producto.precioCosto,
-                                precioVenta: producto.precioVenta,
-                                existencia: producto.existencia
-                            };
+                            this.productos[index] = { ...this.productos[index], ...productoData };
                         }
                         productosActualizados++;
                     } else {
-                        // Crear nuevo producto
-                        this.productos.push(producto);
+                        // Crear nuevo producto en Firebase
+                        const docRef = await addDoc(collection(db, "inventario"), productoData);
+                        
+                        // Agregar a lista local
+                        productoData.id = docRef.id;
+                        this.productos.push(productoData);
                         productosCargados++;
                     }
 
                 } catch (error) {
-                    console.error('Error procesando fila:', fila, error);
+                    console.error('❌ Error procesando fila:', fila, error);
                     errores++;
                 }
             }
 
-            // Guardar cambios
-            this.guardarProductosEnLocalStorage();
-
             let mensaje = `Carga completada: ${productosCargados} nuevos, ${productosActualizados} actualizados`;
             if (productosSinCodigo > 0) {
-                mensaje += `, ${productosSinCodigo} sin código`;
+                mensaje += `, ${productosSinCodigo} sin código (mantenidos vacíos)`;
             }
             if (errores > 0) {
                 mensaje += `, ${errores} errores`;
@@ -677,7 +738,7 @@ class SistemaInventario {
             this.mostrarProductos();
 
         } catch (error) {
-            console.error('Error en carga masiva:', error);
+            console.error('❌ Error en carga masiva:', error);
             this.mostrarError('Error durante la carga masiva: ' + error.message);
         }
     }
@@ -685,7 +746,13 @@ class SistemaInventario {
     parseNumero(valor, esEntero = false) {
         if (valor === null || valor === undefined || valor === '') return 0;
         
+        // Si ya es número, retornarlo
+        if (typeof valor === 'number') return esEntero ? Math.round(valor) : valor;
+        
         let strValor = valor.toString().trim();
+        if (strValor === '') return 0;
+        
+        // Limpiar caracteres no numéricos excepto punto decimal y signo negativo
         strValor = strValor.replace(/[^\d.-]/g, '');
         
         const numero = parseFloat(strValor);
@@ -697,9 +764,10 @@ class SistemaInventario {
     descargarPlantillaExcel() {
         try {
             const plantilla = [
-                ['Código', 'Descripción Inventario', 'Descripción Factura', 'Precio Costo', 'Precio Venta', 'Existencia', 'Stock Mínimo', 'Proveedor'],
-                ['TM001', 'Tulio Rin Ancho 2 Pulgadas', 'TULIO RIN ANCHO DE DOS PULGADAS', '18.40', '25.00', '50', '10', 'Todo Motor'],
-                ['', 'Producto sin código', 'PRODUCTO SIN CÓDIGO', '15.00', '20.00', '25', '5', 'Proveedor X']
+                ['Código', 'Descripción', 'Precio Costo', 'Precio Venta', 'Existencia', 'Stock Mínimo', 'Proveedor'],
+                ['TM001', 'Tulio Rin Ancho 2 Pulgadas', '18.40', '25.00', '50', '10', 'Todo Motor'],
+                ['TM002', 'Cadena 7 Velocidades', '8.50', '12.00', '30', '5', 'Todo Motor'],
+                ['', 'Producto sin código (se mantendrá VACÍO)', '15.00', '20.00', '25', '5', 'Proveedor X']
             ];
 
             const worksheet = XLSX.utils.aoa_to_sheet(plantilla);
@@ -707,8 +775,10 @@ class SistemaInventario {
             XLSX.utils.book_append_sheet(workbook, worksheet, 'Plantilla Inventario');
             
             XLSX.writeFile(workbook, 'plantilla_inventario.xlsx');
+            this.mostrarExito('Plantilla descargada correctamente');
         } catch (error) {
-            console.error("Error en descargarPlantillaExcel:", error);
+            console.error("❌ Error en descargarPlantillaExcel:", error);
+            this.mostrarError('Error al descargar la plantilla');
         }
     }
 
@@ -727,9 +797,6 @@ class SistemaInventario {
                     break;
                 case 'valorizacion':
                     contenido = this.generarReporteValorizacion();
-                    break;
-                case 'sin-codigo':
-                    contenido = this.generarReporteSinCodigo();
                     break;
             }
 
@@ -822,50 +889,6 @@ class SistemaInventario {
                     <td>${producto.stockMinimo}</td>
                     <td>${diferencia}</td>
                     <td>${estado}</td>
-                </tr>
-            `;
-        });
-
-        html += `</tbody></table>`;
-        return html;
-    }
-
-    generarReporteSinCodigo() {
-        const productosSinCodigo = this.productos.filter(producto => !producto.codigo);
-
-        if (productosSinCodigo.length === 0) {
-            return '<div class="empty-cart">No hay productos sin código</div>';
-        }
-
-        let html = `
-            <h4 style="margin:10px; color:#856404;">Productos sin Código</h4>
-            <table class="inventario-table">
-                <thead>
-                    <tr>
-                        <th>Descripción</th>
-                        <th>Precio Costo</th>
-                        <th>Precio Venta</th>
-                        <th>Existencia</th>
-                        <th>Proveedor</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-
-        productosSinCodigo.forEach(producto => {
-            html += `
-                <tr>
-                    <td>${producto.descInventario}</td>
-                    <td>$${producto.precioCosto?.toFixed(2) || '0.00'}</td>
-                    <td>$${producto.precioVenta?.toFixed(2) || '0.00'}</td>
-                    <td>${producto.existencia}</td>
-                    <td>${producto.proveedor || ''}</td>
-                    <td>
-                        <button class="icon-btn btn-edit" onclick="inventario.editarProducto('${producto.id}')" title="Agregar código">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                    </td>
                 </tr>
             `;
         });
