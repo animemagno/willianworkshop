@@ -371,7 +371,7 @@ class SistemaInventario {
         }
     }
 
-    // ========== GESTIÓN DE EXCEL ==========
+    // ========== GESTIÓN DE EXCEL (MEJORADA) ==========
     procesarArchivoExcel(file) {
         const reader = new FileReader();
         
@@ -388,7 +388,12 @@ class SistemaInventario {
                     worksheet = workbook.Sheets[firstSheetName];
                 }
                 
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                // Usar sheet_to_json con header: 1 para obtener arrays
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+                    header: 1, 
+                    defval: "" // Valor por defecto para celdas vacías
+                });
+                
                 this.mostrarPreviewExcel(jsonData);
                 
             } catch (error) {
@@ -407,22 +412,38 @@ class SistemaInventario {
     mostrarPreviewExcel(data) {
         const preview = document.getElementById('excel-preview');
         const previewContent = document.getElementById('excel-preview-content');
+        const advertenciasDiv = document.getElementById('excel-advertencias');
         
         // Limitar a 10 filas para preview
         const previewData = data.slice(0, 11);
         this.datosExcel = data;
 
         let html = '<table style="width:100%; border-collapse:collapse; font-size:12px;">';
+        let productosSinCodigo = 0;
+        let advertenciasHTML = '';
         
         previewData.forEach((fila, index) => {
             html += '<tr>';
-            fila.forEach((celda, cellIndex) => {
+            
+            // Procesar cada celda manteniendo la posición correcta
+            for (let i = 0; i < Math.max(fila.length, 5); i++) {
+                const celda = fila[i] !== undefined ? fila[i] : '';
+                
                 if (index === 0) {
-                    html += `<th style="border:1px solid #ddd; padding:5px; background:#f2f2f2;">${celda || ''}</th>`;
+                    // Encabezados
+                    const encabezados = ['Código', 'Descripción', 'Precio Costo', 'Precio Venta', 'Existencia'];
+                    html += `<th style="border:1px solid #ddd; padding:5px; background:#f2f2f2;">${encabezados[i] || `Col ${i+1}`}</th>`;
                 } else {
-                    html += `<td style="border:1px solid #ddd; padding:5px;">${celda || ''}</td>`;
+                    // Datos
+                    const estilo = i === 0 && !celda ? 'background:#fff3cd; color:#856404;' : '';
+                    html += `<td style="border:1px solid #ddd; padding:5px; ${estilo}">${celda}</td>`;
+                    
+                    // Contar productos sin código
+                    if (i === 0 && index > 0 && !celda) {
+                        productosSinCodigo++;
+                    }
                 }
-            });
+            }
             html += '</tr>';
         });
         
@@ -432,6 +453,18 @@ class SistemaInventario {
             html += `<p style="color:#666; margin-top:10px;">... y ${data.length - 10} filas más</p>`;
         }
         
+        // Mostrar advertencias sobre productos sin código
+        if (productosSinCodigo > 0) {
+            advertenciasHTML = `
+                <div class="excel-advertencia">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Advertencia:</strong> Se encontraron ${productosSinCodigo} productos sin código. 
+                    Se generarán códigos automáticamente para estos productos.
+                </div>
+            `;
+        }
+        
+        advertenciasDiv.innerHTML = advertenciasHTML;
         previewContent.innerHTML = html;
         preview.style.display = 'block';
     }
@@ -448,39 +481,53 @@ class SistemaInventario {
             
             let productosCargados = 0;
             let productosActualizados = 0;
+            let productosSinCodigo = 0;
             let errores = 0;
 
             for (const fila of datos) {
                 if (fila.length === 0) continue;
 
                 try {
-                    // Mapear columnas según el Excel
-                    // Asumimos: [Código, Descripción, Precio Costo, Precio Venta, Existencia, ...]
-                    const codigo = fila[0]?.toString().trim();
-                    const descripcion = fila[1]?.toString().trim();
+                    // Mapear columnas manteniendo posiciones fijas
+                    // [0: Código, 1: Descripción, 2: Precio Costo, 3: Precio Venta, 4: Existencia]
+                    let codigo = fila[0]?.toString().trim() || '';
+                    const descripcion = fila[1]?.toString().trim() || '';
                     
-                    if (!codigo || !descripcion) continue;
+                    // Si no hay código, generar uno automático
+                    if (!codigo) {
+                        codigo = `AUTO-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+                        productosSinCodigo++;
+                    }
+
+                    if (!descripcion) {
+                        console.log('Fila sin descripción, omitiendo:', fila);
+                        continue;
+                    }
 
                     const producto = {
                         codigo: codigo,
-                        codigosProveedor: [codigo],
+                        codigosProveedor: codigo.startsWith('AUTO-') ? [] : [codigo],
                         descInventario: descripcion,
                         descFactura: descripcion,
-                        precioCosto: parseFloat(fila[2]) || 0,
-                        precioVenta: parseFloat(fila[3]) || 0,
-                        existencia: parseInt(fila[4]) || 0,
+                        precioCosto: this.parseNumero(fila[2]) || 0,
+                        precioVenta: this.parseNumero(fila[3]) || 0,
+                        existencia: this.parseNumero(fila[4], true) || 0,
                         stockMinimo: 0,
                         proveedor: '',
                         categoria: '',
                         fechaCreacion: serverTimestamp(),
-                        fechaActualizacion: serverTimestamp()
+                        fechaActualizacion: serverTimestamp(),
+                        codigoAutomatico: codigo.startsWith('AUTO-')
                     };
 
-                    // Verificar si existe
-                    const productoExistente = this.productos.find(p => p.codigo === producto.codigo);
+                    // Verificar si existe (solo si no es código automático)
+                    let productoExistente = null;
+                    if (!codigo.startsWith('AUTO-')) {
+                        productoExistente = this.productos.find(p => p.codigo === producto.codigo);
+                    }
                     
                     if (productoExistente) {
-                        // Actualizar
+                        // Actualizar producto existente
                         await updateDoc(doc(db, "inventario", productoExistente.id), {
                             descInventario: producto.descInventario,
                             descFactura: producto.descFactura,
@@ -491,7 +538,7 @@ class SistemaInventario {
                         });
                         productosActualizados++;
                     } else {
-                        // Crear nuevo
+                        // Crear nuevo producto
                         await addDoc(collection(db, "inventario"), producto);
                         productosCargados++;
                     }
@@ -502,9 +549,15 @@ class SistemaInventario {
                 }
             }
 
-            this.mostrarExito(
-                `Carga completada: ${productosCargados} nuevos, ${productosActualizados} actualizados, ${errores} errores`
-            );
+            let mensaje = `Carga completada: ${productosCargados} nuevos, ${productosActualizados} actualizados`;
+            if (productosSinCodigo > 0) {
+                mensaje += `, ${productosSinCodigo} con código automático`;
+            }
+            if (errores > 0) {
+                mensaje += `, ${errores} errores`;
+            }
+
+            this.mostrarExito(mensaje);
             
             document.getElementById('excel-preview').style.display = 'none';
             this.datosExcel = [];
@@ -512,15 +565,34 @@ class SistemaInventario {
 
         } catch (error) {
             console.error('Error en carga masiva:', error);
-            this.mostrarError('Error durante la carga masiva');
+            this.mostrarError('Error durante la carga masiva: ' + error.message);
         }
+    }
+
+    // Función mejorada para parsear números
+    parseNumero(valor, esEntero = false) {
+        if (valor === null || valor === undefined || valor === '') return 0;
+        
+        // Convertir a string y limpiar
+        let strValor = valor.toString().trim();
+        
+        // Remover caracteres no numéricos excepto punto decimal
+        strValor = strValor.replace(/[^\d.-]/g, '');
+        
+        // Convertir a número
+        const numero = parseFloat(strValor);
+        
+        if (isNaN(numero)) return 0;
+        
+        return esEntero ? Math.round(numero) : numero;
     }
 
     descargarPlantillaExcel() {
         const plantilla = [
             ['Código', 'Descripción', 'Precio Costo', 'Precio Venta', 'Existencia', 'Stock Mínimo', 'Proveedor'],
             ['TM001', 'Tulio Rin Ancho 2 Pulgadas', '18.40', '25.00', '50', '10', 'Todo Motor'],
-            ['TM002', 'Cadena 7 Velocidades', '8.50', '12.00', '30', '5', 'Todo Motor']
+            ['TM002', 'Cadena 7 Velocidades', '8.50', '12.00', '30', '5', 'Todo Motor'],
+            ['', 'Producto sin código (se generará automático)', '15.00', '20.00', '25', '5', 'Proveedor X']
         ];
 
         const worksheet = XLSX.utils.aoa_to_sheet(plantilla);
