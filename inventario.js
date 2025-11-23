@@ -594,7 +594,7 @@ class SistemaInventario {
                     
                     if (index === 0) {
                         // Encabezados
-                        const encabezados = ['Código', 'Descripción', 'Precio Costo', 'Precio Venta', 'Existencia'];
+                        const encabezados = ['Código', 'Descripción Inventario', 'Descripción Factura', 'Precio Costo', 'Precio Venta', 'Existencia'];
                         html += `<th style="border:1px solid #ddd; padding:5px; background:#f2f2f2;">${encabezados[i] || `Col ${i+1}`}</th>`;
                     } else {
                         // Datos - RESPETAR CELDAS VACÍAS
@@ -655,12 +655,13 @@ class SistemaInventario {
                 if (fila.length === 0 || !fila[1]) continue; // Saltar filas vacías o sin descripción
 
                 try {
-                    // [0: Código, 1: Descripción, 2: Precio Costo, 3: Precio Venta, 4: Existencia]
+                    // [0: Código, 1: Descripción Inventario, 2: Descripción Factura, 3: Precio Costo, 4: Precio Venta, 5: Existencia]
                     const codigo = fila[0]?.toString().trim() || ''; // RESPETAR VACÍOS
-                    const descripcion = fila[1]?.toString().trim() || '';
+                    const descInventario = fila[1]?.toString().trim() || '';
+                    const descFactura = fila[2]?.toString().trim() || descInventario; // Si no hay descripción factura, usar la de inventario
                     
-                    if (!descripcion) {
-                        continue; // Saltar si no hay descripción
+                    if (!descInventario) {
+                        continue; // Saltar si no hay descripción inventario
                     }
 
                     // Contar productos sin código
@@ -670,13 +671,13 @@ class SistemaInventario {
 
                     const productoData = {
                         codigo: codigo, // Mantener vacío si viene vacío
-                        descInventario: descripcion,
-                        descFactura: descripcion,
-                        precioCosto: this.parseNumero(fila[2]) || 0,
-                        precioVenta: this.parseNumero(fila[3]) || 0,
-                        existencia: this.parseNumero(fila[4], true) || 0,
-                        stockMinimo: this.parseNumero(fila[5], true) || 0,
-                        proveedor: (fila[6]?.toString().trim() || ''),
+                        descInventario: descInventario,
+                        descFactura: descFactura, // Mantener campo separado
+                        precioCosto: this.parseNumero(fila[3]) || 0,
+                        precioVenta: this.parseNumero(fila[4]) || 0,
+                        existencia: this.parseNumero(fila[5], true) || 0,
+                        stockMinimo: this.parseNumero(fila[6], true) || 0,
+                        proveedor: (fila[7]?.toString().trim() || ''),
                         fechaCreacion: new Date().toISOString(),
                         fechaActualizacion: new Date().toISOString()
                     };
@@ -689,7 +690,7 @@ class SistemaInventario {
                     } else {
                         // Buscar por descripción (solo para productos sin código)
                         productoExistente = this.productos.find(p => 
-                            !p.codigo && p.descInventario.toLowerCase() === descripcion.toLowerCase()
+                            !p.codigo && p.descInventario.toLowerCase() === descInventario.toLowerCase()
                         );
                     }
                     
@@ -764,10 +765,10 @@ class SistemaInventario {
     descargarPlantillaExcel() {
         try {
             const plantilla = [
-                ['Código', 'Descripción', 'Precio Costo', 'Precio Venta', 'Existencia', 'Stock Mínimo', 'Proveedor'],
-                ['TM001', 'Tulio Rin Ancho 2 Pulgadas', '18.40', '25.00', '50', '10', 'Todo Motor'],
-                ['TM002', 'Cadena 7 Velocidades', '8.50', '12.00', '30', '5', 'Todo Motor'],
-                ['', 'Producto sin código (se mantendrá VACÍO)', '15.00', '20.00', '25', '5', 'Proveedor X']
+                ['Código', 'Descripción Inventario', 'Descripción Factura', 'Precio Costo', 'Precio Venta', 'Existencia', 'Stock Mínimo', 'Proveedor'],
+                ['TM001', 'Tulio Rin Ancho 2 Pulgadas', 'TULIO RIN ANCHO DE DOS PULGADAS', '18.40', '25.00', '50', '10', 'Todo Motor'],
+                ['TM002', 'Cadena 7 Velocidades', 'CADENA 7V', '8.50', '12.00', '30', '5', 'Todo Motor'],
+                ['', 'Producto sin código', 'PRODUCTO SIN CÓDIGO', '15.00', '20.00', '25', '5', 'Proveedor X']
             ];
 
             const worksheet = XLSX.utils.aoa_to_sheet(plantilla);
@@ -817,7 +818,8 @@ class SistemaInventario {
                 <thead>
                     <tr>
                         <th>Código</th>
-                        <th>Descripción</th>
+                        <th>Descripción Inventario</th>
+                        <th>Descripción Factura</th>
                         <th>Existencia</th>
                         <th>Stock Mínimo</th>
                         <th>Estado</th>
@@ -837,6 +839,7 @@ class SistemaInventario {
                 <tr>
                     <td class="${claseCodigo}">${codigoDisplay}</td>
                     <td>${producto.descInventario}</td>
+                    <td>${producto.descFactura}</td>
                     <td class="${clase}">${producto.existencia}</td>
                     <td>${producto.stockMinimo || 0}</td>
                     <td>${estado}</td>
@@ -864,7 +867,8 @@ class SistemaInventario {
                 <thead>
                     <tr>
                         <th>Código</th>
-                        <th>Descripción</th>
+                        <th>Descripción Inventario</th>
+                        <th>Descripción Factura</th>
                         <th>Existencia</th>
                         <th>Stock Mínimo</th>
                         <th>Diferencia</th>
@@ -885,6 +889,7 @@ class SistemaInventario {
                 <tr>
                     <td class="${claseCodigo}">${codigoDisplay}</td>
                     <td>${producto.descInventario}</td>
+                    <td>${producto.descFactura}</td>
                     <td class="${clase}">${producto.existencia}</td>
                     <td>${producto.stockMinimo}</td>
                     <td>${diferencia}</td>
@@ -922,7 +927,8 @@ class SistemaInventario {
                 <thead>
                     <tr>
                         <th>Código</th>
-                        <th>Descripción</th>
+                        <th>Descripción Inventario</th>
+                        <th>Descripción Factura</th>
                         <th>Existencia</th>
                         <th>Costo Unit.</th>
                         <th>Valor en Costo</th>
@@ -943,6 +949,7 @@ class SistemaInventario {
                 <tr>
                     <td class="${claseCodigo}">${codigoDisplay}</td>
                     <td>${producto.descInventario}</td>
+                    <td>${producto.descFactura}</td>
                     <td>${producto.existencia}</td>
                     <td>$${producto.precioCosto.toFixed(2)}</td>
                     <td>$${valorCosto.toFixed(2)}</td>
