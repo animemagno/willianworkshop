@@ -1,899 +1,378 @@
-// inventario.js - Sistema completo de inventario
-import { db } from "./firebase-config.js";
-import {
-  collection,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  doc,
-  getDocs,
-  getDoc,
-  query,
-  where,
-  orderBy,
-  serverTimestamp
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Inventario - Taller Wilian</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <!-- SheetJS para Excel -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
+    html,body{height:100%}
+    body{background:#eef2f5;color:#333;font-size:14px;display:flex;flex-direction:column}
 
-class SistemaInventario {
-    constructor() {
-        this.productos = [];
-        this.proveedores = [];
-        this.datosExcel = [];
-        this.init();
+    .main-wrapper{display:flex;flex-direction:column;min-height:100vh;padding:10px}
+    .container{width:100%;max-width:100%;margin:0 auto;background:white;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.1);flex:1 1 auto;display:flex;flex-direction:column;padding:0}
+
+    header{background:linear-gradient(135deg,#3498db,#2c3e50);color:white;padding:12px 20px;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+    header h1{font-size:1.3rem;margin-bottom:4px}
+    .header-actions{display:flex;align-items:center;gap:10px;position:relative}
+
+    .menu-toggle{background:rgba(255,255,255,.2);border:none;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .3s}
+    .menu-toggle:hover{background:rgba(255,255,255,.3)}
+    .menu-toggle i{color:white;font-size:1.1rem}
+
+    .mobile-menu{display:none;position:absolute;top:55px;left:10px;background:white;border:1px solid #ddd;border-radius:6px;box-shadow:0 4px 10px rgba(0,0,0,.15);z-index:999;flex-direction:column;padding:8px 0;min-width:180px}
+    .mobile-menu.active{display:flex}
+    .mobile-menu a{color:#333;text-decoration:none;padding:10px 15px;font-size:1rem;transition:background .2s}
+    .mobile-menu a:hover{background:#f2f2f2}
+
+    .dashboard-section{background:white;border-radius:8px;padding:20px;box-shadow:0 2px 4px rgba(0,0,0,.1);border:1px solid #e0e0e0;margin-bottom:20px;flex:1 1 auto;display:flex;flex-direction:column}
+
+    .section-title{display:flex;justify-content:space-between;align-items:center;font-size:1.2rem;color:#2c3e50;margin-bottom:15px;padding-bottom:8px;border-bottom:2px solid #3498db}
+
+    /* 🔥 SIMETRÍA: ancho completo */
+    .inventario-wrapper{padding:0 20px}
+    @media (max-width: 768px){.inventario-wrapper{padding:0 10px}}
+
+    /* Pestañas */
+    .tabs-container{display:flex;flex-direction:column;margin-bottom:20px}
+    .tabs-header{display:flex;border-bottom:2px solid #3498db;margin-bottom:15px;overflow-x:auto}
+    .tab-btn{padding:12px 20px;background:#f8f9fa;border:none;border-bottom:2px solid transparent;cursor:pointer;font-weight:600;color:#666;transition:all .3s ease;font-size:.9rem;white-space:nowrap}
+    .tab-btn.active{background:white;color:#3498db;border-bottom:2px solid #3498db}
+    .tab-btn:hover{background:#e9ecef;color:#3498db}
+    .tab-content{display:none}
+    .tab-content.active{display:block}
+
+    /* Controles superiores */
+    .inventario-actions{display:flex;flex-direction:column;gap:10px;margin-bottom:15px}
+    @media(min-width:768px){.inventario-actions{flex-direction:row;justify-content:space-between;align-items:center}}
+
+    .form-group{margin-bottom:15px}
+    .form-group label{display:block;margin-bottom:5px;font-weight:600;color:#333;font-size:.9rem}
+    .form-group input, .form-group select, .form-group textarea{width:100%;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:.9rem;background:white;color:#333}
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus{outline:none;border-color:#3498db}
+
+    /* Botones */
+    .btn{padding:10px 15px;border:none;border-radius:4px;cursor:pointer;font-weight:600;transition:all .3s ease;font-size:.85rem;text-align:center;width:100%;margin-bottom:5px}
+    @media(min-width:768px){.btn{width:auto;margin-bottom:0}}
+    .btn-success{background-color:#27ae60;color:white}
+    .btn-success:hover{background-color:#219a52}
+    .btn-primary{background-color:#3498db;color:white}
+    .btn-primary:hover{background-color:#2980b9}
+    .btn-warning{background-color:#f39c12;color:white}
+    .btn-warning:hover{background-color:#d35400}
+    .btn-info{background-color:#17a2b8;color:white}
+    .btn-info:hover{background-color:#138496}
+    .btn-danger{background-color:#e74c3c;color:white}
+    .btn-danger:hover{background-color:#c0392b}
+    .btn-container{display:flex;flex-direction:column;gap:5px;margin-top:15px}
+    @media(min-width:768px){.btn-container{flex-direction:row;justify-content:flex-end}}
+    
+    /* Icon buttons */
+    .icon-btn{background:none;border:none;cursor:pointer;padding:6px;border-radius:4px;transition:all .3s ease;margin:0 2px;display:inline-flex;align-items:center;justify-content:center;width:32px;height:28px}
+    .btn-edit{background-color:#27ae60;color:white}
+    .btn-edit:hover{background-color:#219a52}
+    .btn-delete{background-color:#e74c3c;color:white}
+    .btn-delete:hover{background-color:#c0392b}
+
+    /* Tabla de inventario */
+    .inventario-table-container{overflow-x:auto;border:1px solid #e0e0e0;border-radius:6px}
+    .inventario-table{width:100%;border-collapse:collapse;font-size:.8rem;min-width:1000px}
+    .inventario-table th,.inventario-table td{padding:12px 10px;text-align:left;border-bottom:1px solid #ddd}
+    .inventario-table th{background-color:#2c3e50;color:white;font-weight:600}
+    .inventario-table tbody tr:hover{background-color:#f8f9fa}
+    .stock-bajo{background-color:#fff3cd !important;color:#856404;font-weight:bold}
+    .stock-critico{background-color:#f8d7da !important;color:#721c24;font-weight:bold}
+    .stock-normal{color:#27ae60;font-weight:bold}
+    .codigo-vacio{background-color:#fff3cd !important;color:#856404;font-style:italic;font-weight:bold}
+
+    /* Carga de Excel */
+    .excel-upload-area{border:2px dashed #3498db;border-radius:8px;padding:30px;text-align:center;background:#f8f9fa;cursor:pointer;transition:all .3s ease;margin-bottom:15px}
+    .excel-upload-area:hover{background:#e8f4fd;border-color:#2980b9}
+    .excel-upload-area i{font-size:2rem;color:#3498db;margin-bottom:10px}
+    .excel-preview{max-height:300px;overflow-y:auto;margin-top:15px;border:1px solid #ddd;border-radius:4px;padding:10px;background:white}
+    .excel-advertencia{background:#fff3cd;border:1px solid #ffeaa7;border-radius:4px;padding:10px;margin:10px 0;color:#856404;font-size:.8rem}
+
+    /* Modal */
+    .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);z-index:2000;display:none;align-items:center;justify-content:center;padding:20px}
+    .modal-box{background:white;border-radius:8px;padding:25px 20px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 5px 15px rgba(0,0,0,.2)}
+    .modal-box h3{margin-bottom:15px;color:#2c3e50;text-align:center;font-size:1.3rem}
+    .modal-buttons{display:flex;gap:10px;justify-content:flex-end;margin-top:15px;flex-wrap:wrap}
+    .modal-buttons .btn{width:auto;min-width:120px}
+
+    .empty-cart{text-align:center;color:#7f8c8d;font-size:.9rem;padding:30px;background:white;border-radius:4px;border:2px dashed #ddd}
+
+    /* Móvil: ajustes */
+    @media (max-width: 768px) {
+        .inventario-table-container{overflow-x:auto}
+        .inventario-table{font-size:.75rem;min-width:800px}
+        header h1{font-size:1.2rem}
+        .container{padding:10px}
+        .modal-box{padding:20px 15px}
     }
+  </style>
+</head>
+<body class="main-wrapper">
 
-    async init() {
-        // Configuración inicial similar a ventas.js
-        this.setupMenuMobile();
-        this.setupTabs();
-        await this.cargarProductos();
-        this.setupEventListeners();
-    }
+<header>
+    <button class="menu-toggle" id="mobileMenuBtn"><i class="fas fa-bars"></i></button>
+    <h1>Taller Willian</h1>
+    <div class="header-actions">
+        <!-- Sin carrito -->
+    </div>
+</header>
 
-    // ========== CONFIGURACIÓN INICIAL (similar a ventas.js) ==========
-    setupMenuMobile() {
-        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-        const mobileMenu = document.getElementById('mobileMenu');
-        const logoutBtn = document.getElementById('logoutBtn');
+<div class="mobile-menu" id="mobileMenu">
+    <a href="index.html"><i class="fas fa-home"></i> Inicio</a>
+    <a href="venta.html"><i class="fas fa-cash-register"></i> Nueva Venta</a>
+    <a href="facturas.html"><i class="fas fa-file-invoice-dollar"></i> Facturas Pendientes</a>
+    <a href="historial.html"><i class="fas fa-history"></i> Historial de Ventas</a>
+    <a href="inventario.html" class="active"><i class="fas fa-boxes"></i> Inventario</a>
+    <a href="servicios.html"><i class="fas fa-tools"></i> Servicios</a>
+    <a href="entregas.html"><i class="fas fa-truck"></i> Entregas</a>
+    <a href="cuentas.html"><i class="fas fa-sticky-note"></i> Memos y Cuentas</a>
+    <a href="configuracion.html"><i class="fas fa-cog"></i> Configuración</a>
+    <a href="#" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
+</div>
 
-        mobileMenuBtn.addEventListener('click', () => {
-            mobileMenu.classList.toggle('active');
-        });
+<div class="container">
+    <div class="dashboard-section">
+        <div class="section-title">INVENTARIO</div>
 
-        logoutBtn.addEventListener('click', () => {
-            localStorage.removeItem('usuarioLogueado');
-            window.location.href = 'login.html';
-        });
-    }
-
-    setupTabs() {
-        const tabButtons = document.querySelectorAll('.tab-btn');
-        const tabContents = document.querySelectorAll('.tab-content');
-
-        tabButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const tabId = button.getAttribute('data-tab');
-                
-                // Remover activo de todos
-                tabButtons.forEach(btn => btn.classList.remove('active'));
-                tabContents.forEach(content => content.classList.remove('active'));
-                
-                // Activar actual
-                button.classList.add('active');
-                document.getElementById(`tab-${tabId}`).classList.add('active');
-            });
-        });
-    }
-
-    // ========== EVENT LISTENERS ==========
-    setupEventListeners() {
-        // Búsqueda en tiempo real
-        document.getElementById('buscar-producto').addEventListener('input', (e) => {
-            this.filtrarProductos(e.target.value);
-        });
-
-        // Formulario nuevo producto
-        document.getElementById('form-nuevo-producto').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.guardarNuevoProducto();
-        });
-
-        // Limpiar formulario
-        document.getElementById('limpiar-form-btn').addEventListener('click', () => {
-            document.getElementById('form-nuevo-producto').reset();
-        });
-
-        // Formulario editar producto
-        document.getElementById('form-editar-producto').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.actualizarProducto();
-        });
-
-        // Actualizar inventario
-        document.getElementById('actualizar-inventario-btn').addEventListener('click', () => {
-            this.cargarProductos();
-        });
-
-        // Carga de Excel
-        this.setupExcelUpload();
-        
-        // Reportes
-        this.setupReportes();
-    }
-
-    // ========== GESTIÓN DE EXCEL ==========
-    setupExcelUpload() {
-        const dropArea = document.getElementById('excel-drop-area');
-        const fileInput = document.getElementById('excel-file');
-        const preview = document.getElementById('excel-preview');
-        const previewContent = document.getElementById('excel-preview-content');
-
-        // Click en área de drop
-        dropArea.addEventListener('click', () => {
-            fileInput.click();
-        });
-
-        // Drag and drop
-        dropArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropArea.style.background = '#e8f4fd';
-        });
-
-        dropArea.addEventListener('dragleave', () => {
-            dropArea.style.background = '#f8f9fa';
-        });
-
-        dropArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropArea.style.background = '#f8f9fa';
-            const files = e.dataTransfer.files;
-            if (files.length) {
-                this.procesarArchivoExcel(files[0]);
-            }
-        });
-
-        // Cambio de archivo
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length) {
-                this.procesarArchivoExcel(e.target.files[0]);
-            }
-        });
-
-        // Descargar plantilla
-        document.getElementById('descargar-plantilla-btn').addEventListener('click', () => {
-            this.descargarPlantillaExcel();
-        });
-
-        // Confirmar carga
-        document.getElementById('confirmar-carga-btn').addEventListener('click', () => {
-            this.confirmarCargaExcel();
-        });
-
-        // Cancelar carga
-        document.getElementById('cancelar-carga-btn').addEventListener('click', () => {
-            preview.style.display = 'none';
-            this.datosExcel = [];
-        });
-    }
-
-    // ========== REPORTES ==========
-    setupReportes() {
-        document.getElementById('generar-reporte-btn').addEventListener('click', () => {
-            this.generarReporte();
-        });
-
-        document.getElementById('imprimir-reporte-btn').addEventListener('click', () => {
-            this.imprimirReporte();
-        });
-    }
-
-    // ========== OPERACIONES CRUD PRODUCTOS ==========
-    async cargarProductos() {
-        try {
-            const querySnapshot = await getDocs(collection(db, "inventario"));
-            this.productos = querySnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            
-            this.mostrarProductos();
-        } catch (error) {
-            console.error("Error cargando productos:", error);
-            this.mostrarError("Error al cargar el inventario");
-        }
-    }
-
-    mostrarProductos(productosFiltrados = null) {
-        const productos = productosFiltrados || this.productos;
-        const tbody = document.getElementById('inventario-body');
-        
-        if (productos.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="9" class="empty-cart">
-                        <i class="fas fa-boxes" style="font-size:2rem;margin-bottom:10px;opacity:.5;"></i>
-                        <div>No hay productos en inventario</div>
-                    </td>
-                </tr>
-            `;
-            return;
-        }
-
-        tbody.innerHTML = productos.map(producto => {
-            const claseStock = this.obtenerClaseStock(producto.existencia, producto.stockMinimo);
-            const claseCodigo = !producto.codigo ? 'codigo-vacio' : '';
-            const codigosProveedor = producto.codigosProveedor ? 
-                producto.codigosProveedor.join(', ') : '';
-            
-            const codigoDisplay = producto.codigo || '<span style="color:#856404; font-style:italic;">SIN CÓDIGO</span>';
-
-            return `
-                <tr>
-                    <td class="${claseCodigo}"><strong>${codigoDisplay}</strong></td>
-                    <td>${producto.descInventario}</td>
-                    <td>${producto.descFactura}</td>
-                    <td>$${producto.precioCosto?.toFixed(2) || '0.00'}</td>
-                    <td>$${producto.precioVenta?.toFixed(2) || '0.00'}</td>
-                    <td class="${claseStock}">${producto.existencia}</td>
-                    <td>${producto.stockMinimo || 0}</td>
-                    <td>${producto.proveedor || ''}</td>
-                    <td>
-                        <button class="icon-btn btn-edit" onclick="inventario.editarProducto('${producto.id}')" title="Editar">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="icon-btn btn-delete" onclick="inventario.eliminarProducto('${producto.id}')" title="Eliminar">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-    }
-
-    obtenerClaseStock(existencia, stockMinimo) {
-        if (!stockMinimo) return 'stock-normal';
-        if (existencia <= 0) return 'stock-critico';
-        if (existencia <= stockMinimo) return 'stock-bajo';
-        return 'stock-normal';
-    }
-
-    filtrarProductos(termino) {
-        if (!termino) {
-            this.mostrarProductos();
-            return;
-        }
-
-        const terminoLower = termino.toLowerCase();
-        const filtrados = this.productos.filter(producto =>
-            (producto.codigo && producto.codigo.toLowerCase().includes(terminoLower)) ||
-            producto.descInventario.toLowerCase().includes(terminoLower) ||
-            producto.descFactura.toLowerCase().includes(terminoLower) ||
-            (producto.codigosProveedor && producto.codigosProveedor.some(codigo => 
-                codigo.toLowerCase().includes(terminoLower)
-            )) ||
-            (producto.proveedor && producto.proveedor.toLowerCase().includes(terminoLower))
-        );
-
-        this.mostrarProductos(filtrados);
-    }
-
-    async guardarNuevoProducto() {
-        try {
-            const formData = new FormData(document.getElementById('form-nuevo-producto'));
-            
-            // Procesar códigos de proveedor
-            const codigosProveedor = formData.get('codigos-proveedor') ?
-                formData.get('codigos-proveedor').split(',').map(cod => cod.trim()).filter(cod => cod) : [];
-
-            const producto = {
-                codigo: formData.get('codigo') || '', // Permite código vacío
-                codigosProveedor: codigosProveedor,
-                descInventario: formData.get('desc-inventario'),
-                descFactura: formData.get('desc-factura'),
-                precioCosto: parseFloat(formData.get('precio-costo')) || 0,
-                precioVenta: parseFloat(formData.get('precio-venta')) || 0,
-                existencia: parseInt(formData.get('existencia')) || 0,
-                stockMinimo: parseInt(formData.get('stock-minimo')) || 0,
-                proveedor: formData.get('proveedor') || '',
-                categoria: formData.get('categoria') || '',
-                fechaCreacion: serverTimestamp(),
-                fechaActualizacion: serverTimestamp()
-            };
-
-            // Solo validar duplicados si tiene código
-            if (producto.codigo) {
-                const existe = this.productos.some(p => p.codigo === producto.codigo);
-                if (existe) {
-                    this.mostrarError('Ya existe un producto con este código');
-                    return;
-                }
-            }
-
-            await addDoc(collection(db, "inventario"), producto);
-            
-            this.mostrarExito('Producto agregado correctamente');
-            document.getElementById('form-nuevo-producto').reset();
-            await this.cargarProductos();
-            
-        } catch (error) {
-            console.error('Error guardando producto:', error);
-            this.mostrarError('Error al guardar el producto');
-        }
-    }
-
-    async editarProducto(id) {
-        try {
-            const producto = this.productos.find(p => p.id === id);
-            if (!producto) return;
-
-            // Llenar formulario de edición
-            document.getElementById('edit-id').value = producto.id;
-            document.getElementById('edit-codigo').value = producto.codigo || '';
-            document.getElementById('edit-codigos-proveedor').value = 
-                producto.codigosProveedor ? producto.codigosProveedor.join(', ') : '';
-            document.getElementById('edit-desc-inventario').value = producto.descInventario;
-            document.getElementById('edit-desc-factura').value = producto.descFactura;
-            document.getElementById('edit-precio-costo').value = producto.precioCosto;
-            document.getElementById('edit-precio-venta').value = producto.precioVenta;
-            document.getElementById('edit-existencia').value = producto.existencia;
-            document.getElementById('edit-stock-minimo').value = producto.stockMinimo || 0;
-            document.getElementById('edit-proveedor').value = producto.proveedor || '';
-
-            // Mostrar modal
-            document.getElementById('modalEditarProducto').style.display = 'flex';
-
-        } catch (error) {
-            console.error('Error editando producto:', error);
-            this.mostrarError('Error al cargar producto para editar');
-        }
-    }
-
-    async actualizarProducto() {
-        try {
-            const id = document.getElementById('edit-id').value;
-            const formData = new FormData(document.getElementById('form-editar-producto'));
-            
-            const codigosProveedor = formData.get('edit-codigos-proveedor') ?
-                formData.get('edit-codigos-proveedor').split(',').map(cod => cod.trim()).filter(cod => cod) : [];
-
-            const updates = {
-                codigo: formData.get('edit-codigo') || '', // Permite código vacío
-                codigosProveedor: codigosProveedor,
-                descInventario: formData.get('edit-desc-inventario'),
-                descFactura: formData.get('edit-desc-factura'),
-                precioCosto: parseFloat(formData.get('edit-precio-costo')) || 0,
-                precioVenta: parseFloat(formData.get('edit-precio-venta')) || 0,
-                existencia: parseInt(formData.get('edit-existencia')) || 0,
-                stockMinimo: parseInt(formData.get('edit-stock-minimo')) || 0,
-                proveedor: formData.get('edit-proveedor') || '',
-                fechaActualizacion: serverTimestamp()
-            };
-
-            await updateDoc(doc(db, "inventario", id), updates);
-            
-            this.mostrarExito('Producto actualizado correctamente');
-            this.cerrarModalEditar();
-            await this.cargarProductos();
-
-        } catch (error) {
-            console.error('Error actualizando producto:', error);
-            this.mostrarError('Error al actualizar el producto');
-        }
-    }
-
-    async eliminarProducto(id) {
-        if (!confirm('¿Estás seguro de que quieres eliminar este producto?')) {
-            return;
-        }
-
-        try {
-            await deleteDoc(doc(db, "inventario", id));
-            this.mostrarExito('Producto eliminado correctamente');
-            await this.cargarProductos();
-        } catch (error) {
-            console.error('Error eliminando producto:', error);
-            this.mostrarError('Error al eliminar el producto');
-        }
-    }
-
-    // ========== GESTIÓN DE EXCEL (MEJORADA) ==========
-    procesarArchivoExcel(file) {
-        const reader = new FileReader();
-        
-        reader.onload = (e) => {
-            try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                
-                // Intentar encontrar la hoja "inventario noviembre"
-                let worksheet = workbook.Sheets['inventario noviembre'];
-                if (!worksheet) {
-                    // Si no existe, tomar la primera hoja
-                    const firstSheetName = workbook.SheetNames[0];
-                    worksheet = workbook.Sheets[firstSheetName];
-                }
-                
-                // Usar sheet_to_json con header: 1 para obtener arrays
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
-                    header: 1, 
-                    defval: "" // Valor por defecto para celdas vacías
-                });
-                
-                this.mostrarPreviewExcel(jsonData);
-                
-            } catch (error) {
-                console.error('Error procesando Excel:', error);
-                this.mostrarError('Error al procesar el archivo Excel');
-            }
-        };
-        
-        reader.onerror = () => {
-            this.mostrarError('Error al leer el archivo');
-        };
-        
-        reader.readAsArrayBuffer(file);
-    }
-
-    mostrarPreviewExcel(data) {
-        const preview = document.getElementById('excel-preview');
-        const previewContent = document.getElementById('excel-preview-content');
-        const advertenciasDiv = document.getElementById('excel-advertencias');
-        
-        // Limitar a 10 filas para preview
-        const previewData = data.slice(0, 11);
-        this.datosExcel = data;
-
-        let html = '<table style="width:100%; border-collapse:collapse; font-size:12px;">';
-        let productosSinCodigo = 0;
-        let advertenciasHTML = '';
-        
-        previewData.forEach((fila, index) => {
-            html += '<tr>';
-            
-            // Procesar cada celda manteniendo la posición correcta
-            for (let i = 0; i < Math.max(fila.length, 5); i++) {
-                const celda = fila[i] !== undefined ? fila[i] : '';
-                
-                if (index === 0) {
-                    // Encabezados
-                    const encabezados = ['Código', 'Descripción', 'Precio Costo', 'Precio Venta', 'Existencia'];
-                    html += `<th style="border:1px solid #ddd; padding:5px; background:#f2f2f2;">${encabezados[i] || `Col ${i+1}`}</th>`;
-                } else {
-                    // Datos
-                    const estilo = i === 0 && !celda ? 'background:#fff3cd; color:#856404; font-style:italic;' : '';
-                    const displayCelda = i === 0 && !celda ? 'SIN CÓDIGO' : celda;
-                    html += `<td style="border:1px solid #ddd; padding:5px; ${estilo}">${displayCelda}</td>`;
-                    
-                    // Contar productos sin código
-                    if (i === 0 && index > 0 && !celda) {
-                        productosSinCodigo++;
-                    }
-                }
-            }
-            html += '</tr>';
-        });
-        
-        html += '</table>';
-        
-        if (data.length > 10) {
-            html += `<p style="color:#666; margin-top:10px;">... y ${data.length - 10} filas más</p>`;
-        }
-        
-        // Mostrar advertencias sobre productos sin código
-        if (productosSinCodigo > 0) {
-            advertenciasHTML = `
-                <div class="excel-advertencia">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <strong>Nota:</strong> Se encontraron ${productosSinCodigo} productos sin código. 
-                    Se mantendrán vacíos para identificarlos fácilmente.
+        <!-- 🔥 Contenedor con ancho completo -->
+        <div class="inventario-wrapper">
+            <!-- Pestañas -->
+            <div class="tabs-container">
+                <div class="tabs-header">
+                    <button class="tab-btn active" data-tab="lista">LISTA DE PRODUCTOS</button>
+                    <button class="tab-btn" data-tab="cargar-excel">CARGAR EXCEL</button>
+                    <button class="tab-btn" data-tab="nuevo-producto">NUEVO PRODUCTO</button>
+                    <button class="tab-btn" data-tab="reportes">REPORTES</button>
                 </div>
-            `;
-        }
-        
-        advertenciasDiv.innerHTML = advertenciasHTML;
-        previewContent.innerHTML = html;
-        preview.style.display = 'block';
-    }
 
-    async confirmarCargaExcel() {
-        try {
-            if (this.datosExcel.length < 2) {
-                this.mostrarError('El archivo no contiene datos válidos');
-                return;
-            }
+                <!-- PESTAÑA LISTA DE PRODUCTOS -->
+                <div class="tab-content active" id="tab-lista">
+                    <div class="inventario-actions">
+                        <div>
+                            <button class="btn btn-success" id="actualizar-inventario-btn">
+                                <i class="fas fa-sync-alt"></i> ACTUALIZAR
+                            </button>
+                        </div>
+                        <div class="form-group">
+                            <input type="text" id="buscar-producto" placeholder="Buscar producto...">
+                        </div>
+                    </div>
 
-            const encabezados = this.datosExcel[0];
-            const datos = this.datosExcel.slice(1);
-            
-            let productosCargados = 0;
-            let productosActualizados = 0;
-            let productosSinCodigo = 0;
-            let errores = 0;
-
-            for (const fila of datos) {
-                if (fila.length === 0) continue;
-
-                try {
-                    // Mapear columnas manteniendo posiciones fijas
-                    // [0: Código, 1: Descripción, 2: Precio Costo, 3: Precio Venta, 4: Existencia]
-                    const codigo = fila[0]?.toString().trim() || ''; // Permite código vacío
-                    const descripcion = fila[1]?.toString().trim() || '';
-                    
-                    if (!descripcion) {
-                        console.log('Fila sin descripción, omitiendo:', fila);
-                        continue;
-                    }
-
-                    // Contar productos sin código
-                    if (!codigo) {
-                        productosSinCodigo++;
-                    }
-
-                    const producto = {
-                        codigo: codigo, // Puede estar vacío
-                        codigosProveedor: codigo ? [codigo] : [], // Solo agregar si tiene código
-                        descInventario: descripcion,
-                        descFactura: descripcion,
-                        precioCosto: this.parseNumero(fila[2]) || 0,
-                        precioVenta: this.parseNumero(fila[3]) || 0,
-                        existencia: this.parseNumero(fila[4], true) || 0,
-                        stockMinimo: 0,
-                        proveedor: '',
-                        categoria: '',
-                        fechaCreacion: serverTimestamp(),
-                        fechaActualizacion: serverTimestamp()
-                    };
-
-                    // Buscar producto existente por código (solo si tiene código)
-                    let productoExistente = null;
-                    if (codigo) {
-                        productoExistente = this.productos.find(p => p.codigo === producto.codigo);
-                    } else {
-                        // Si no tiene código, buscar por descripción exacta
-                        productoExistente = this.productos.find(p => 
-                            !p.codigo && p.descInventario.toLowerCase() === descripcion.toLowerCase()
-                        );
-                    }
-                    
-                    if (productoExistente) {
-                        // Actualizar producto existente
-                        await updateDoc(doc(db, "inventario", productoExistente.id), {
-                            descInventario: producto.descInventario,
-                            descFactura: producto.descFactura,
-                            precioCosto: producto.precioCosto,
-                            precioVenta: producto.precioVenta,
-                            existencia: producto.existencia,
-                            fechaActualizacion: serverTimestamp()
-                        });
-                        productosActualizados++;
-                    } else {
-                        // Crear nuevo producto
-                        await addDoc(collection(db, "inventario"), producto);
-                        productosCargados++;
-                    }
-
-                } catch (error) {
-                    console.error('Error procesando fila:', fila, error);
-                    errores++;
-                }
-            }
-
-            let mensaje = `Carga completada: ${productosCargados} nuevos, ${productosActualizados} actualizados`;
-            if (productosSinCodigo > 0) {
-                mensaje += `, ${productosSinCodigo} sin código`;
-            }
-            if (errores > 0) {
-                mensaje += `, ${errores} errores`;
-            }
-
-            this.mostrarExito(mensaje);
-            
-            document.getElementById('excel-preview').style.display = 'none';
-            this.datosExcel = [];
-            await this.cargarProductos();
-
-        } catch (error) {
-            console.error('Error en carga masiva:', error);
-            this.mostrarError('Error durante la carga masiva: ' + error.message);
-        }
-    }
-
-    // Función mejorada para parsear números
-    parseNumero(valor, esEntero = false) {
-        if (valor === null || valor === undefined || valor === '') return 0;
-        
-        // Convertir a string y limpiar
-        let strValor = valor.toString().trim();
-        
-        // Remover caracteres no numéricos excepto punto decimal
-        strValor = strValor.replace(/[^\d.-]/g, '');
-        
-        // Convertir a número
-        const numero = parseFloat(strValor);
-        
-        if (isNaN(numero)) return 0;
-        
-        return esEntero ? Math.round(numero) : numero;
-    }
-
-    descargarPlantillaExcel() {
-        const plantilla = [
-            ['Código', 'Descripción', 'Precio Costo', 'Precio Venta', 'Existencia', 'Stock Mínimo', 'Proveedor'],
-            ['TM001', 'Tulio Rin Ancho 2 Pulgadas', '18.40', '25.00', '50', '10', 'Todo Motor'],
-            ['TM002', 'Cadena 7 Velocidades', '8.50', '12.00', '30', '5', 'Todo Motor'],
-            ['', 'Producto sin código (se mantendrá vacío)', '15.00', '20.00', '25', '5', 'Proveedor X'],
-            ['PROV-123', 'Mismo producto, código diferente', '12.00', '18.00', '40', '8', 'Otro Proveedor']
-        ];
-
-        const worksheet = XLSX.utils.aoa_to_sheet(plantilla);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Plantilla Inventario');
-        
-        XLSX.writeFile(workbook, 'plantilla_inventario.xlsx');
-    }
-
-    // ========== REPORTES ==========
-    async generarReporte() {
-        const tipoReporte = document.getElementById('tipo-reporte').value;
-        const fechaInicio = document.getElementById('fecha-inicio').value;
-        const fechaFin = document.getElementById('fecha-fin').value;
-        
-        let contenido = '';
-
-        switch (tipoReporte) {
-            case 'stock':
-                contenido = this.generarReporteStock();
-                break;
-            case 'bajo-stock':
-                contenido = this.generarReporteBajoStock();
-                break;
-            case 'valorizacion':
-                contenido = this.generarReporteValorizacion();
-                break;
-            case 'sin-codigo':
-                contenido = this.generarReporteSinCodigo();
-                break;
-        }
-
-        const reporteContenido = document.getElementById('reporte-contenido');
-        reporteContenido.innerHTML = contenido;
-        reporteContenido.style.display = 'block';
-    }
-
-    generarReporteStock() {
-        let html = `
-            <h4 style="margin:10px; color:#2c3e50;">Reporte de Stock Actual</h4>
-            <table class="inventario-table">
-                <thead>
-                    <tr>
-                        <th>Código</th>
-                        <th>Descripción</th>
-                        <th>Existencia</th>
-                        <th>Stock Mínimo</th>
-                        <th>Estado</th>
-                        <th>Proveedor</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-
-        this.productos.forEach(producto => {
-            const estado = this.obtenerEstadoStock(producto.existencia, producto.stockMinimo);
-            const clase = this.obtenerClaseStock(producto.existencia, producto.stockMinimo);
-            const claseCodigo = !producto.codigo ? 'codigo-vacio' : '';
-            const codigoDisplay = producto.codigo || 'SIN CÓDIGO';
-            
-            html += `
-                <tr>
-                    <td class="${claseCodigo}">${codigoDisplay}</td>
-                    <td>${producto.descInventario}</td>
-                    <td class="${clase}">${producto.existencia}</td>
-                    <td>${producto.stockMinimo || 0}</td>
-                    <td>${estado}</td>
-                    <td>${producto.proveedor || ''}</td>
-                </tr>
-            `;
-        });
-
-        html += `</tbody></table>`;
-        return html;
-    }
-
-    generarReporteBajoStock() {
-        const productosBajoStock = this.productos.filter(producto => 
-            producto.stockMinimo && producto.existencia <= producto.stockMinimo
-        );
-
-        if (productosBajoStock.length === 0) {
-            return '<div class="empty-cart">No hay productos con stock bajo</div>';
-        }
-
-        let html = `
-            <h4 style="margin:10px; color:#e74c3c;">Productos con Stock Bajo/Crítico</h4>
-            <table class="inventario-table">
-                <thead>
-                    <tr>
-                        <th>Código</th>
-                        <th>Descripción</th>
-                        <th>Existencia</th>
-                        <th>Stock Mínimo</th>
-                        <th>Diferencia</th>
-                        <th>Estado</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-
-        productosBajoStock.forEach(producto => {
-            const diferencia = producto.existencia - producto.stockMinimo;
-            const estado = this.obtenerEstadoStock(producto.existencia, producto.stockMinimo);
-            const clase = this.obtenerClaseStock(producto.existencia, producto.stockMinimo);
-            const claseCodigo = !producto.codigo ? 'codigo-vacio' : '';
-            const codigoDisplay = producto.codigo || 'SIN CÓDIGO';
-            
-            html += `
-                <tr>
-                    <td class="${claseCodigo}">${codigoDisplay}</td>
-                    <td>${producto.descInventario}</td>
-                    <td class="${clase}">${producto.existencia}</td>
-                    <td>${producto.stockMinimo}</td>
-                    <td>${diferencia}</td>
-                    <td>${estado}</td>
-                </tr>
-            `;
-        });
-
-        html += `</tbody></table>`;
-        return html;
-    }
-
-    generarReporteSinCodigo() {
-        const productosSinCodigo = this.productos.filter(producto => !producto.codigo);
-
-        if (productosSinCodigo.length === 0) {
-            return '<div class="empty-cart">No hay productos sin código</div>';
-        }
-
-        let html = `
-            <h4 style="margin:10px; color:#856404;">Productos sin Código</h4>
-            <table class="inventario-table">
-                <thead>
-                    <tr>
-                        <th>Descripción</th>
-                        <th>Precio Costo</th>
-                        <th>Precio Venta</th>
-                        <th>Existencia</th>
-                        <th>Proveedor</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-
-        productosSinCodigo.forEach(producto => {
-            html += `
-                <tr>
-                    <td>${producto.descInventario}</td>
-                    <td>$${producto.precioCosto?.toFixed(2) || '0.00'}</td>
-                    <td>$${producto.precioVenta?.toFixed(2) || '0.00'}</td>
-                    <td>${producto.existencia}</td>
-                    <td>${producto.proveedor || ''}</td>
-                    <td>
-                        <button class="icon-btn btn-edit" onclick="inventario.editarProducto('${producto.id}')" title="Agregar código">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                    </td>
-                </tr>
-            `;
-        });
-
-        html += `</tbody></table>`;
-        return html;
-    }
-
-    generarReporteValorizacion() {
-        const totalValorizacion = this.productos.reduce((sum, producto) => 
-            sum + (producto.existencia * producto.precioCosto), 0
-        );
-
-        const totalValorVenta = this.productos.reduce((sum, producto) => 
-            sum + (producto.existencia * producto.precioVenta), 0
-        );
-
-        let html = `
-            <h4 style="margin:10px; color:#27ae60;">Valorización de Inventario</h4>
-            <div style="padding:15px; background:#f8f9fa; border-radius:6px; margin-bottom:15px;">
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                    <strong>Valor total en costo:</strong>
-                    <span style="color:#2c3e50; font-weight:bold;">$${totalValorizacion.toFixed(2)}</span>
+                    <div class="inventario-table-container">
+                        <table class="inventario-table">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Descripción Inventario</th>
+                                    <th>Descripción Factura</th>
+                                    <th>Precio Costo</th>
+                                    <th>Precio Venta</th>
+                                    <th>Existencia</th>
+                                    <th>Stock Mínimo</th>
+                                    <th>Proveedor</th>
+                                    <th width="100">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventario-body">
+                                <tr>
+                                    <td colspan="9" class="empty-cart">
+                                        <i class="fas fa-boxes" style="font-size:2rem;margin-bottom:10px;opacity:.5;"></i>
+                                        <div>No hay productos en inventario</div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-                <div style="display:flex; justify-content:space-between;">
-                    <strong>Valor total en venta:</strong>
-                    <span style="color:#27ae60; font-weight:bold;">$${totalValorVenta.toFixed(2)}</span>
+
+                <!-- PESTAÑA CARGAR EXCEL -->
+                <div class="tab-content" id="tab-cargar-excel">
+                    <h3>Cargar Inventario desde Excel</h3>
+                    <div class="excel-upload-area" id="excel-drop-area">
+                        <i class="fas fa-file-excel"></i>
+                        <p>Haz clic aquí o arrastra tu archivo Excel</p>
+                        <p><small>Formato esperado: Código, Descripción, Precio Costo, Precio Venta, Existencia</small></p>
+                        <p><small><strong>Nota:</strong> Los productos sin código se mostrarán vacíos para identificarlos fácilmente</small></p>
+                        <input type="file" id="excel-file" accept=".xlsx, .xls" style="display: none;">
+                    </div>
+                    
+                    <div class="btn-container">
+                        <button class="btn btn-primary" id="descargar-plantilla-btn">
+                            <i class="fas fa-download"></i> DESCARGAR PLANTILLA
+                        </button>
+                    </div>
+
+                    <div id="excel-preview" class="excel-preview" style="display: none;">
+                        <h4>Vista previa de datos</h4>
+                        <div id="excel-advertencias"></div>
+                        <div id="excel-preview-content"></div>
+                        <div class="btn-container">
+                            <button class="btn btn-success" id="confirmar-carga-btn">
+                                <i class="fas fa-check"></i> CONFIRMAR CARGA
+                            </button>
+                            <button class="btn btn-danger" id="cancelar-carga-btn">
+                                <i class="fas fa-times"></i> CANCELAR
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PESTAÑA NUEVO PRODUCTO -->
+                <div class="tab-content" id="tab-nuevo-producto">
+                    <form id="form-nuevo-producto">
+                        <div class="form-group">
+                            <label for="codigo">Código (opcional)</label>
+                            <input type="text" id="codigo" placeholder="Dejar vacío si no tiene código">
+                        </div>
+                        <div class="form-group">
+                            <label for="codigos-proveedor">Códigos de Proveedor (separados por coma)</label>
+                            <input type="text" id="codigos-proveedor" placeholder="COD1, COD2, COD3">
+                        </div>
+                        <div class="form-group">
+                            <label for="desc-inventario">Descripción según Inventario *</label>
+                            <input type="text" id="desc-inventario" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="desc-factura">Descripción según Factura *</label>
+                            <input type="text" id="desc-factura" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="precio-costo">Precio Costo *</label>
+                            <input type="number" id="precio-costo" step="0.01" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="precio-venta">Precio Venta *</label>
+                            <input type="number" id="precio-venta" step="0.01" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="existencia">Existencia *</label>
+                            <input type="number" id="existencia" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="stock-minimo">Stock Mínimo</label>
+                            <input type="number" id="stock-minimo" min="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="proveedor">Proveedor</label>
+                            <input type="text" id="proveedor">
+                        </div>
+                        <div class="form-group">
+                            <label for="categoria">Categoría</label>
+                            <input type="text" id="categoria">
+                        </div>
+                        <div class="btn-container">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save"></i> GUARDAR PRODUCTO
+                            </button>
+                            <button type="button" class="btn btn-danger" id="limpiar-form-btn">
+                                <i class="fas fa-broom"></i> LIMPIAR
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- PESTAÑA REPORTES -->
+                <div class="tab-content" id="tab-reportes">
+                    <div class="inventario-actions">
+                        <div class="form-group">
+                            <label for="fecha-inicio">Fecha Inicio</label>
+                            <input type="date" id="fecha-inicio">
+                        </div>
+                        <div class="form-group">
+                            <label for="fecha-fin">Fecha Fin</label>
+                            <input type="date" id="fecha-fin">
+                        </div>
+                        <div class="form-group">
+                            <label for="tipo-reporte">Tipo de Reporte</label>
+                            <select id="tipo-reporte">
+                                <option value="stock">Stock Actual</option>
+                                <option value="bajo-stock">Productos con Stock Bajo</option>
+                                <option value="valorizacion">Valorización de Inventario</option>
+                                <option value="sin-codigo">Productos sin Código</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="btn-container">
+                        <button class="btn btn-info" id="generar-reporte-btn">
+                            <i class="fas fa-chart-bar"></i> GENERAR REPORTE
+                        </button>
+                        <button class="btn btn-primary" id="imprimir-reporte-btn">
+                            <i class="fas fa-print"></i> IMPRIMIR
+                        </button>
+                    </div>
+
+                    <div id="reporte-contenido" class="inventario-table-container" style="margin-top: 20px; display: none;">
+                        <!-- Aquí se mostrará el reporte -->
+                    </div>
                 </div>
             </div>
-            <table class="inventario-table">
-                <thead>
-                    <tr>
-                        <th>Código</th>
-                        <th>Descripción</th>
-                        <th>Existencia</th>
-                        <th>Costo Unit.</th>
-                        <th>Valor en Costo</th>
-                        <th>Precio Venta</th>
-                        <th>Valor en Venta</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
+        </div>
+    </div>
+</div>
 
-        this.productos.forEach(producto => {
-            const valorCosto = producto.existencia * producto.precioCosto;
-            const valorVenta = producto.existencia * producto.precioVenta;
-            const claseCodigo = !producto.codigo ? 'codigo-vacio' : '';
-            const codigoDisplay = producto.codigo || 'SIN CÓDIGO';
-            
-            html += `
-                <tr>
-                    <td class="${claseCodigo}">${codigoDisplay}</td>
-                    <td>${producto.descInventario}</td>
-                    <td>${producto.existencia}</td>
-                    <td>$${producto.precioCosto.toFixed(2)}</td>
-                    <td>$${valorCosto.toFixed(2)}</td>
-                    <td>$${producto.precioVenta.toFixed(2)}</td>
-                    <td>$${valorVenta.toFixed(2)}</td>
-                </tr>
-            `;
-        });
+<!-- MODAL EDITAR PRODUCTO -->
+<div id="modalEditarProducto" class="modal-overlay">
+    <div class="modal-box">
+        <h3>EDITAR PRODUCTO</h3>
+        <form id="form-editar-producto">
+            <input type="hidden" id="edit-id">
+            <div class="form-group">
+                <label for="edit-codigo">Código (opcional)</label>
+                <input type="text" id="edit-codigo" placeholder="Dejar vacío si no tiene código">
+            </div>
+            <div class="form-group">
+                <label for="edit-codigos-proveedor">Códigos de Proveedor</label>
+                <input type="text" id="edit-codigos-proveedor">
+            </div>
+            <div class="form-group">
+                <label for="edit-desc-inventario">Descripción Inventario</label>
+                <input type="text" id="edit-desc-inventario" required>
+            </div>
+            <div class="form-group">
+                <label for="edit-desc-factura">Descripción Factura</label>
+                <input type="text" id="edit-desc-factura" required>
+            </div>
+            <div class="form-group">
+                <label for="edit-precio-costo">Precio Costo</label>
+                <input type="number" id="edit-precio-costo" step="0.01" required>
+            </div>
+            <div class="form-group">
+                <label for="edit-precio-venta">Precio Venta</label>
+                <input type="number" id="edit-precio-venta" step="0.01" required>
+            </div>
+            <div class="form-group">
+                <label for="edit-existencia">Existencia</label>
+                <input type="number" id="edit-existencia" required>
+            </div>
+            <div class="form-group">
+                <label for="edit-stock-minimo">Stock Mínimo</label>
+                <input type="number" id="edit-stock-minimo">
+            </div>
+            <div class="form-group">
+                <label for="edit-proveedor">Proveedor</label>
+                <input type="text" id="edit-proveedor">
+            </div>
+            <div class="modal-buttons">
+                <button type="submit" class="btn btn-success">GUARDAR CAMBIOS</button>
+                <button type="button" class="btn btn-danger" onclick="cerrarModalEditar()">CANCELAR</button>
+            </div>
+        </form>
+    </div>
+</div>
 
-        html += `</tbody></table>`;
-        return html;
-    }
+<!-- Firebase -->
+<script type="module" src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+<script type="module" src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
+<script type="module" src="firebase-config.js"></script>
+<script type="module" src="inventario.js"></script>
 
-    obtenerEstadoStock(existencia, stockMinimo) {
-        if (!stockMinimo) return 'Sin mínimo';
-        if (existencia <= 0) return 'AGOTADO';
-        if (existencia <= stockMinimo) return 'BAJO STOCK';
-        return 'NORMAL';
-    }
-
-    imprimirReporte() {
-        const contenido = document.getElementById('reporte-contenido').innerHTML;
-        const ventana = window.open('', '_blank', 'width=800,height=600');
-        
-        ventana.document.write(`
-            <html>
-                <head>
-                    <title>Reporte de Inventario - Taller Wilian</title>
-                    <style>
-                        body { font-family: Arial, sans-serif; margin: 20px; }
-                        table { width: 100%; border-collapse: collapse; }
-                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                        th { background-color: #2c3e50; color: white; }
-                        .stock-bajo { background-color: #fff3cd; }
-                        .stock-critico { background-color: #f8d7da; }
-                        .codigo-vacio { background-color: #fff3cd; color: #856404; font-style: italic; }
-                        @media print { body { margin: 0; } }
-                    </style>
-                </head>
-                <body>
-                    <h1>Taller Wilian - Reporte de Inventario</h1>
-                    <p>Generado: ${new Date().toLocaleString()}</p>
-                    ${contenido}
-                </body>
-            </html>
-        `);
-        
-        ventana.document.close();
-        ventana.print();
-    }
-
-    // ========== UTILIDADES ==========
-    cerrarModalEditar() {
-        document.getElementById('modalEditarProducto').style.display = 'none';
-    }
-
-    mostrarExito(mensaje) {
-        alert(`✅ ${mensaje}`);
-    }
-
-    mostrarError(mensaje) {
-        alert(`❌ ${mensaje}`);
-    }
-}
-
-// ========== INICIALIZACIÓN ==========
-let inventario;
-
-document.addEventListener('DOMContentLoaded', async function() {
-    // Verificar autenticación (igual que en otros archivos)
-    if (!localStorage.getItem('usuarioLogueado')) {
-        window.location.href = 'login.html';
-        return;
-    }
-
-    inventario = new SistemaInventario();
-});
-
-// Hacer funciones disponibles globalmente
-window.cerrarModalEditar = () => inventario.cerrarModalEditar();
+</body>
+</html>
