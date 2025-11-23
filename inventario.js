@@ -1,11 +1,6 @@
 // inventario.js - Sistema completo de inventario
 console.log("✅ inventario.js cargando...");
 
-// Verificar si Firebase está disponible
-if (typeof firebase === 'undefined') {
-    console.error("❌ Firebase no está cargado");
-}
-
 class SistemaInventario {
     constructor() {
         this.productos = [];
@@ -257,6 +252,17 @@ class SistemaInventario {
                     existencia: 25,
                     stockMinimo: 5,
                     proveedor: 'Proveedor X'
+                },
+                {
+                    id: '3', 
+                    codigo: 'TM003',
+                    descInventario: 'Cadena 7 Velocidades',
+                    descFactura: 'CADENA 7V',
+                    precioCosto: 8.50,
+                    precioVenta: 12.00,
+                    existencia: 30,
+                    stockMinimo: 5,
+                    proveedor: 'Todo Motor'
                 }
             ];
             
@@ -392,8 +398,12 @@ class SistemaInventario {
 
     async editarProducto(id) {
         try {
+            console.log("✏️ Editando producto:", id);
             const producto = this.productos.find(p => p.id === id);
-            if (!producto) return;
+            if (!producto) {
+                this.mostrarError('Producto no encontrado');
+                return;
+            }
 
             // Llenar formulario de edición
             document.getElementById('edit-id').value = producto.id;
@@ -431,10 +441,17 @@ class SistemaInventario {
                 proveedor: formData.get('edit-proveedor') || ''
             };
 
+            console.log("🔄 Actualizando producto:", id, updates);
+
             // Actualizar en lista local (en producción, actualizar en Firebase)
             const index = this.productos.findIndex(p => p.id === id);
             if (index !== -1) {
                 this.productos[index] = { ...this.productos[index], ...updates };
+                console.log("✅ Producto actualizado en índice:", index);
+            } else {
+                console.error("❌ Producto no encontrado para actualizar:", id);
+                this.mostrarError('Producto no encontrado');
+                return;
             }
 
             this.mostrarExito('Producto actualizado correctamente');
@@ -448,18 +465,46 @@ class SistemaInventario {
     }
 
     async eliminarProducto(id) {
-        if (!confirm('¿Estás seguro de que quieres eliminar este producto?')) {
-            return;
-        }
-
         try {
+            console.log("🗑️ Intentando eliminar producto:", id);
+            
+            // Verificar que el producto existe
+            const producto = this.productos.find(p => p.id === id);
+            if (!producto) {
+                console.error("❌ Producto no encontrado para eliminar:", id);
+                this.mostrarError('Producto no encontrado');
+                return;
+            }
+
+            const nombreProducto = producto.descInventario || 'Producto';
+            const confirmacion = confirm(`¿Estás seguro de que quieres eliminar "${nombreProducto}"?`);
+            
+            if (!confirmacion) {
+                console.log("❌ Eliminación cancelada por el usuario");
+                return;
+            }
+
+            console.log("✅ Confirmación recibida, eliminando producto...");
+
             // Eliminar de lista local (en producción, eliminar de Firebase)
+            const productosAntes = this.productos.length;
             this.productos = this.productos.filter(p => p.id !== id);
-            this.mostrarExito('Producto eliminado correctamente');
-            this.mostrarProductos();
+            const productosDespues = this.productos.length;
+
+            console.log(`📊 Productos antes: ${productosAntes}, después: ${productosDespues}`);
+
+            if (productosDespues < productosAntes) {
+                this.mostrarExito(`"${nombreProducto}" eliminado correctamente`);
+                this.mostrarProductos();
+                console.log("✅ Producto eliminado exitosamente");
+            } else {
+                console.error("❌ No se pudo eliminar el producto - filtro no funcionó");
+                this.mostrarError('Error al eliminar el producto');
+            }
+
         } catch (error) {
-            console.error('Error eliminando producto:', error);
-            this.mostrarError('Error al eliminar el producto');
+            console.error('❌ Error eliminando producto:', error);
+            this.mostrarError('Error al eliminar el producto: ' + error.message);
         }
     }
 
