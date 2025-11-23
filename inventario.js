@@ -227,44 +227,14 @@ class SistemaInventario {
     async cargarProductos() {
         try {
             console.log("📦 Cargando productos...");
-            const tbody = document.getElementById('inventario-body');
             
-            // Simular datos de prueba (eliminar cuando Firebase funcione)
-            this.productos = [
-                {
-                    id: '1',
-                    codigo: 'TM001',
-                    descInventario: 'Tulio Rin Ancho 2 Pulgadas',
-                    descFactura: 'TULIO RIN ANCHO DE DOS PULGADAS',
-                    precioCosto: 18.40,
-                    precioVenta: 25.00,
-                    existencia: 50,
-                    stockMinimo: 10,
-                    proveedor: 'Todo Motor'
-                },
-                {
-                    id: '2',
-                    codigo: '',
-                    descInventario: 'Producto sin código',
-                    descFactura: 'PRODUCTO SIN CÓDIGO',
-                    precioCosto: 15.00,
-                    precioVenta: 20.00,
-                    existencia: 25,
-                    stockMinimo: 5,
-                    proveedor: 'Proveedor X'
-                },
-                {
-                    id: '3', 
-                    codigo: 'TM003',
-                    descInventario: 'Cadena 7 Velocidades',
-                    descFactura: 'CADENA 7V',
-                    precioCosto: 8.50,
-                    precioVenta: 12.00,
-                    existencia: 30,
-                    stockMinimo: 5,
-                    proveedor: 'Todo Motor'
-                }
-            ];
+            // Cargar desde localStorage o inicializar vacío
+            const productosGuardados = localStorage.getItem('inventarioProductos');
+            if (productosGuardados) {
+                this.productos = JSON.parse(productosGuardados);
+            } else {
+                this.productos = []; // Lista vacía, sin datos de muestra
+            }
             
             this.mostrarProductos();
             console.log("✅ Productos cargados:", this.productos.length);
@@ -272,6 +242,14 @@ class SistemaInventario {
         } catch (error) {
             console.error("❌ Error cargando productos:", error);
             this.mostrarError("Error al cargar el inventario");
+        }
+    }
+
+    guardarProductosEnLocalStorage() {
+        try {
+            localStorage.setItem('inventarioProductos', JSON.stringify(this.productos));
+        } catch (error) {
+            console.error("Error guardando en localStorage:", error);
         }
     }
 
@@ -306,7 +284,7 @@ class SistemaInventario {
                     <tr>
                         <td class="${claseCodigo}"><strong>${codigoDisplay}</strong></td>
                         <td>${producto.descInventario}</td>
-                        <td>${producto.descFactura}</td>
+                        <td>${producto.descFactura || producto.descInventario}</td>
                         <td>$${producto.precioCosto?.toFixed(2) || '0.00'}</td>
                         <td>$${producto.precioVenta?.toFixed(2) || '0.00'}</td>
                         <td class="${claseStock}">${producto.existencia}</td>
@@ -347,7 +325,7 @@ class SistemaInventario {
             const filtrados = this.productos.filter(producto =>
                 (producto.codigo && producto.codigo.toLowerCase().includes(terminoLower)) ||
                 producto.descInventario.toLowerCase().includes(terminoLower) ||
-                producto.descFactura.toLowerCase().includes(terminoLower) ||
+                (producto.descFactura && producto.descFactura.toLowerCase().includes(terminoLower)) ||
                 (producto.proveedor && producto.proveedor.toLowerCase().includes(terminoLower))
             );
 
@@ -362,15 +340,19 @@ class SistemaInventario {
             const formData = new FormData(document.getElementById('form-nuevo-producto'));
             
             const producto = {
+                id: 'prod-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9), // ID único
                 codigo: formData.get('codigo') || '',
+                codigosProveedor: formData.get('codigos-proveedor') ? 
+                    formData.get('codigos-proveedor').split(',').map(cod => cod.trim()).filter(cod => cod) : [],
                 descInventario: formData.get('desc-inventario'),
-                descFactura: formData.get('desc-factura'),
+                descFactura: formData.get('desc-factura') || formData.get('desc-inventario'),
                 precioCosto: parseFloat(formData.get('precio-costo')) || 0,
                 precioVenta: parseFloat(formData.get('precio-venta')) || 0,
                 existencia: parseInt(formData.get('existencia')) || 0,
                 stockMinimo: parseInt(formData.get('stock-minimo')) || 0,
                 proveedor: formData.get('proveedor') || '',
-                categoria: formData.get('categoria') || ''
+                categoria: formData.get('categoria') || '',
+                fechaCreacion: new Date().toISOString()
             };
 
             // Solo validar duplicados si tiene código
@@ -382,9 +364,9 @@ class SistemaInventario {
                 }
             }
 
-            // Agregar a la lista local (en producción, guardar en Firebase)
-            producto.id = 'prod-' + Date.now();
+            // Agregar a la lista
             this.productos.push(producto);
+            this.guardarProductosEnLocalStorage();
             
             this.mostrarExito('Producto agregado correctamente');
             document.getElementById('form-nuevo-producto').reset();
@@ -398,7 +380,6 @@ class SistemaInventario {
 
     async editarProducto(id) {
         try {
-            console.log("✏️ Editando producto:", id);
             const producto = this.productos.find(p => p.id === id);
             if (!producto) {
                 this.mostrarError('Producto no encontrado');
@@ -408,8 +389,10 @@ class SistemaInventario {
             // Llenar formulario de edición
             document.getElementById('edit-id').value = producto.id;
             document.getElementById('edit-codigo').value = producto.codigo || '';
+            document.getElementById('edit-codigos-proveedor').value = 
+                producto.codigosProveedor ? producto.codigosProveedor.join(', ') : '';
             document.getElementById('edit-desc-inventario').value = producto.descInventario;
-            document.getElementById('edit-desc-factura').value = producto.descFactura;
+            document.getElementById('edit-desc-factura').value = producto.descFactura || producto.descInventario;
             document.getElementById('edit-precio-costo').value = producto.precioCosto;
             document.getElementById('edit-precio-venta').value = producto.precioVenta;
             document.getElementById('edit-existencia').value = producto.existencia;
@@ -432,26 +415,23 @@ class SistemaInventario {
             
             const updates = {
                 codigo: formData.get('edit-codigo') || '',
+                codigosProveedor: formData.get('edit-codigos-proveedor') ? 
+                    formData.get('edit-codigos-proveedor').split(',').map(cod => cod.trim()).filter(cod => cod) : [],
                 descInventario: formData.get('edit-desc-inventario'),
-                descFactura: formData.get('edit-desc-factura'),
+                descFactura: formData.get('edit-desc-factura') || formData.get('edit-desc-inventario'),
                 precioCosto: parseFloat(formData.get('edit-precio-costo')) || 0,
                 precioVenta: parseFloat(formData.get('edit-precio-venta')) || 0,
                 existencia: parseInt(formData.get('edit-existencia')) || 0,
                 stockMinimo: parseInt(formData.get('edit-stock-minimo')) || 0,
-                proveedor: formData.get('edit-proveedor') || ''
+                proveedor: formData.get('edit-proveedor') || '',
+                fechaActualizacion: new Date().toISOString()
             };
 
-            console.log("🔄 Actualizando producto:", id, updates);
-
-            // Actualizar en lista local (en producción, actualizar en Firebase)
+            // Actualizar en lista
             const index = this.productos.findIndex(p => p.id === id);
             if (index !== -1) {
                 this.productos[index] = { ...this.productos[index], ...updates };
-                console.log("✅ Producto actualizado en índice:", index);
-            } else {
-                console.error("❌ Producto no encontrado para actualizar:", id);
-                this.mostrarError('Producto no encontrado');
-                return;
+                this.guardarProductosEnLocalStorage();
             }
 
             this.mostrarExito('Producto actualizado correctamente');
@@ -465,46 +445,19 @@ class SistemaInventario {
     }
 
     async eliminarProducto(id) {
+        if (!confirm('¿Estás seguro de que quieres eliminar este producto?')) {
+            return;
+        }
+
         try {
-            console.log("🗑️ Intentando eliminar producto:", id);
-            
-            // Verificar que el producto existe
-            const producto = this.productos.find(p => p.id === id);
-            if (!producto) {
-                console.error("❌ Producto no encontrado para eliminar:", id);
-                this.mostrarError('Producto no encontrado');
-                return;
-            }
-
-            const nombreProducto = producto.descInventario || 'Producto';
-            const confirmacion = confirm(`¿Estás seguro de que quieres eliminar "${nombreProducto}"?`);
-            
-            if (!confirmacion) {
-                console.log("❌ Eliminación cancelada por el usuario");
-                return;
-            }
-
-            console.log("✅ Confirmación recibida, eliminando producto...");
-
-            // Eliminar de lista local (en producción, eliminar de Firebase)
-            const productosAntes = this.productos.length;
+            // Eliminar de lista
             this.productos = this.productos.filter(p => p.id !== id);
-            const productosDespues = this.productos.length;
-
-            console.log(`📊 Productos antes: ${productosAntes}, después: ${productosDespues}`);
-
-            if (productosDespues < productosAntes) {
-                this.mostrarExito(`"${nombreProducto}" eliminado correctamente`);
-                this.mostrarProductos();
-                console.log("✅ Producto eliminado exitosamente");
-            } else {
-                console.error("❌ No se pudo eliminar el producto - filtro no funcionó");
-                this.mostrarError('Error al eliminar el producto');
-            }
-
+            this.guardarProductosEnLocalStorage();
+            this.mostrarExito('Producto eliminado correctamente');
+            this.mostrarProductos();
         } catch (error) {
-            console.error('❌ Error eliminando producto:', error);
-            this.mostrarError('Error al eliminar el producto: ' + error.message);
+            console.error('Error eliminando producto:', error);
+            this.mostrarError('Error al eliminar el producto');
         }
     }
 
@@ -519,9 +472,15 @@ class SistemaInventario {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
                     
-                    // Tomar la primera hoja
-                    const firstSheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[firstSheetName];
+                    // Buscar hoja "inventario noviembre" o tomar la primera
+                    let worksheet = workbook.Sheets['inventario noviembre'];
+                    if (!worksheet) {
+                        const firstSheetName = workbook.SheetNames[0];
+                        worksheet = workbook.Sheets[firstSheetName];
+                        console.log("📋 Usando hoja:", firstSheetName);
+                    } else {
+                        console.log("📋 Usando hoja: inventario noviembre");
+                    }
                     
                     const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
                         header: 1, 
@@ -532,7 +491,7 @@ class SistemaInventario {
                     
                 } catch (error) {
                     console.error('Error procesando Excel:', error);
-                    this.mostrarError('Error al procesar el archivo Excel');
+                    this.mostrarError('Error al procesar el archivo Excel: ' + error.message);
                 }
             };
             
@@ -569,12 +528,12 @@ class SistemaInventario {
                 html += '<tr>';
                 
                 // Procesar cada celda manteniendo la posición correcta
-                for (let i = 0; i < Math.max(fila.length, 5); i++) {
+                for (let i = 0; i < Math.max(fila.length, 6); i++) { // 6 columnas para ambas descripciones
                     const celda = fila[i] !== undefined ? fila[i] : '';
                     
                     if (index === 0) {
                         // Encabezados
-                        const encabezados = ['Código', 'Descripción', 'Precio Costo', 'Precio Venta', 'Existencia'];
+                        const encabezados = ['Código', 'Descripción Inventario', 'Descripción Factura', 'Precio Costo', 'Precio Venta', 'Existencia'];
                         html += `<th style="border:1px solid #ddd; padding:5px; background:#f2f2f2;">${encabezados[i] || `Col ${i+1}`}</th>`;
                     } else {
                         // Datos
@@ -635,11 +594,12 @@ class SistemaInventario {
                 if (fila.length === 0) continue;
 
                 try {
-                    // [0: Código, 1: Descripción, 2: Precio Costo, 3: Precio Venta, 4: Existencia]
+                    // [0: Código, 1: Descripción Inventario, 2: Descripción Factura, 3: Precio Costo, 4: Precio Venta, 5: Existencia]
                     const codigo = fila[0]?.toString().trim() || '';
-                    const descripcion = fila[1]?.toString().trim() || '';
+                    const descInventario = fila[1]?.toString().trim() || '';
+                    const descFactura = fila[2]?.toString().trim() || descInventario; // Si no hay segunda descripción, usar la primera
                     
-                    if (!descripcion) {
+                    if (!descInventario) {
                         continue;
                     }
 
@@ -649,15 +609,18 @@ class SistemaInventario {
                     }
 
                     const producto = {
-                        id: 'excel-' + Date.now() + '-' + productosCargados,
+                        id: 'excel-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
                         codigo: codigo,
-                        descInventario: descripcion,
-                        descFactura: descripcion,
-                        precioCosto: this.parseNumero(fila[2]) || 0,
-                        precioVenta: this.parseNumero(fila[3]) || 0,
-                        existencia: this.parseNumero(fila[4], true) || 0,
+                        codigosProveedor: codigo ? [codigo] : [],
+                        descInventario: descInventario,
+                        descFactura: descFactura,
+                        precioCosto: this.parseNumero(fila[3]) || 0,
+                        precioVenta: this.parseNumero(fila[4]) || 0,
+                        existencia: this.parseNumero(fila[5], true) || 0,
                         stockMinimo: 0,
-                        proveedor: ''
+                        proveedor: '',
+                        categoria: '',
+                        fechaCreacion: new Date().toISOString()
                     };
 
                     // Buscar producto existente
@@ -666,7 +629,7 @@ class SistemaInventario {
                         productoExistente = this.productos.find(p => p.codigo === producto.codigo);
                     } else {
                         productoExistente = this.productos.find(p => 
-                            !p.codigo && p.descInventario.toLowerCase() === descripcion.toLowerCase()
+                            !p.codigo && p.descInventario.toLowerCase() === descInventario.toLowerCase()
                         );
                     }
                     
@@ -695,6 +658,9 @@ class SistemaInventario {
                     errores++;
                 }
             }
+
+            // Guardar cambios
+            this.guardarProductosEnLocalStorage();
 
             let mensaje = `Carga completada: ${productosCargados} nuevos, ${productosActualizados} actualizados`;
             if (productosSinCodigo > 0) {
@@ -731,10 +697,9 @@ class SistemaInventario {
     descargarPlantillaExcel() {
         try {
             const plantilla = [
-                ['Código', 'Descripción', 'Precio Costo', 'Precio Venta', 'Existencia', 'Stock Mínimo', 'Proveedor'],
-                ['TM001', 'Tulio Rin Ancho 2 Pulgadas', '18.40', '25.00', '50', '10', 'Todo Motor'],
-                ['TM002', 'Cadena 7 Velocidades', '8.50', '12.00', '30', '5', 'Todo Motor'],
-                ['', 'Producto sin código (se mantendrá vacío)', '15.00', '20.00', '25', '5', 'Proveedor X']
+                ['Código', 'Descripción Inventario', 'Descripción Factura', 'Precio Costo', 'Precio Venta', 'Existencia', 'Stock Mínimo', 'Proveedor'],
+                ['TM001', 'Tulio Rin Ancho 2 Pulgadas', 'TULIO RIN ANCHO DE DOS PULGADAS', '18.40', '25.00', '50', '10', 'Todo Motor'],
+                ['', 'Producto sin código', 'PRODUCTO SIN CÓDIGO', '15.00', '20.00', '25', '5', 'Proveedor X']
             ];
 
             const worksheet = XLSX.utils.aoa_to_sheet(plantilla);
