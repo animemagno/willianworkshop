@@ -92,6 +92,7 @@
     .excel-upload-area:hover{background:#e8f4fd;border-color:#2980b9}
     .excel-upload-area i{font-size:2rem;color:#3498db;margin-bottom:10px}
     .excel-preview{max-height:300px;overflow-y:auto;margin-top:15px;border:1px solid #ddd;border-radius:4px;padding:10px;background:white}
+    .excel-advertencia{background:#fff3cd;border:1px solid #ffeaa7;border-radius:4px;padding:10px;margin:10px 0;color:#856404;font-size:.8rem}
 
     /* Modal */
     .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);z-index:2000;display:none;align-items:center;justify-content:center;padding:20px}
@@ -197,6 +198,7 @@
                         <i class="fas fa-file-excel"></i>
                         <p>Haz clic aquí o arrastra tu archivo Excel</p>
                         <p><small>Formato esperado: Código, Descripción, Precio Costo, Precio Venta, Existencia</small></p>
+                        <p><small><strong>Nota:</strong> Los productos sin código se generarán automáticamente</small></p>
                         <input type="file" id="excel-file" accept=".xlsx, .xls" style="display: none;">
                     </div>
                     
@@ -208,6 +210,7 @@
 
                     <div id="excel-preview" class="excel-preview" style="display: none;">
                         <h4>Vista previa de datos</h4>
+                        <div id="excel-advertencias"></div>
                         <div id="excel-preview-content"></div>
                         <div class="btn-container">
                             <button class="btn btn-success" id="confirmar-carga-btn">
