@@ -201,12 +201,15 @@ class SistemaInventario {
 
         tbody.innerHTML = productos.map(producto => {
             const claseStock = this.obtenerClaseStock(producto.existencia, producto.stockMinimo);
+            const claseCodigo = !producto.codigo ? 'codigo-vacio' : '';
             const codigosProveedor = producto.codigosProveedor ? 
                 producto.codigosProveedor.join(', ') : '';
+            
+            const codigoDisplay = producto.codigo || '<span style="color:#856404; font-style:italic;">SIN CÓDIGO</span>';
 
             return `
                 <tr>
-                    <td><strong>${producto.codigo}</strong></td>
+                    <td class="${claseCodigo}"><strong>${codigoDisplay}</strong></td>
                     <td>${producto.descInventario}</td>
                     <td>${producto.descFactura}</td>
                     <td>$${producto.precioCosto?.toFixed(2) || '0.00'}</td>
@@ -242,7 +245,7 @@ class SistemaInventario {
 
         const terminoLower = termino.toLowerCase();
         const filtrados = this.productos.filter(producto =>
-            producto.codigo.toLowerCase().includes(terminoLower) ||
+            (producto.codigo && producto.codigo.toLowerCase().includes(terminoLower)) ||
             producto.descInventario.toLowerCase().includes(terminoLower) ||
             producto.descFactura.toLowerCase().includes(terminoLower) ||
             (producto.codigosProveedor && producto.codigosProveedor.some(codigo => 
@@ -263,7 +266,7 @@ class SistemaInventario {
                 formData.get('codigos-proveedor').split(',').map(cod => cod.trim()).filter(cod => cod) : [];
 
             const producto = {
-                codigo: formData.get('codigo'),
+                codigo: formData.get('codigo') || '', // Permite código vacío
                 codigosProveedor: codigosProveedor,
                 descInventario: formData.get('desc-inventario'),
                 descFactura: formData.get('desc-factura'),
@@ -277,11 +280,13 @@ class SistemaInventario {
                 fechaActualizacion: serverTimestamp()
             };
 
-            // Validar que no exista el código
-            const existe = this.productos.some(p => p.codigo === producto.codigo);
-            if (existe) {
-                this.mostrarError('Ya existe un producto con este código');
-                return;
+            // Solo validar duplicados si tiene código
+            if (producto.codigo) {
+                const existe = this.productos.some(p => p.codigo === producto.codigo);
+                if (existe) {
+                    this.mostrarError('Ya existe un producto con este código');
+                    return;
+                }
             }
 
             await addDoc(collection(db, "inventario"), producto);
@@ -303,7 +308,7 @@ class SistemaInventario {
 
             // Llenar formulario de edición
             document.getElementById('edit-id').value = producto.id;
-            document.getElementById('edit-codigo').value = producto.codigo;
+            document.getElementById('edit-codigo').value = producto.codigo || '';
             document.getElementById('edit-codigos-proveedor').value = 
                 producto.codigosProveedor ? producto.codigosProveedor.join(', ') : '';
             document.getElementById('edit-desc-inventario').value = producto.descInventario;
@@ -332,7 +337,7 @@ class SistemaInventario {
                 formData.get('edit-codigos-proveedor').split(',').map(cod => cod.trim()).filter(cod => cod) : [];
 
             const updates = {
-                codigo: formData.get('edit-codigo'),
+                codigo: formData.get('edit-codigo') || '', // Permite código vacío
                 codigosProveedor: codigosProveedor,
                 descInventario: formData.get('edit-desc-inventario'),
                 descFactura: formData.get('edit-desc-factura'),
@@ -435,8 +440,9 @@ class SistemaInventario {
                     html += `<th style="border:1px solid #ddd; padding:5px; background:#f2f2f2;">${encabezados[i] || `Col ${i+1}`}</th>`;
                 } else {
                     // Datos
-                    const estilo = i === 0 && !celda ? 'background:#fff3cd; color:#856404;' : '';
-                    html += `<td style="border:1px solid #ddd; padding:5px; ${estilo}">${celda}</td>`;
+                    const estilo = i === 0 && !celda ? 'background:#fff3cd; color:#856404; font-style:italic;' : '';
+                    const displayCelda = i === 0 && !celda ? 'SIN CÓDIGO' : celda;
+                    html += `<td style="border:1px solid #ddd; padding:5px; ${estilo}">${displayCelda}</td>`;
                     
                     // Contar productos sin código
                     if (i === 0 && index > 0 && !celda) {
@@ -458,8 +464,8 @@ class SistemaInventario {
             advertenciasHTML = `
                 <div class="excel-advertencia">
                     <i class="fas fa-exclamation-triangle"></i>
-                    <strong>Advertencia:</strong> Se encontraron ${productosSinCodigo} productos sin código. 
-                    Se generarán códigos automáticamente para estos productos.
+                    <strong>Nota:</strong> Se encontraron ${productosSinCodigo} productos sin código. 
+                    Se mantendrán vacíos para identificarlos fácilmente.
                 </div>
             `;
         }
@@ -490,23 +496,22 @@ class SistemaInventario {
                 try {
                     // Mapear columnas manteniendo posiciones fijas
                     // [0: Código, 1: Descripción, 2: Precio Costo, 3: Precio Venta, 4: Existencia]
-                    let codigo = fila[0]?.toString().trim() || '';
+                    const codigo = fila[0]?.toString().trim() || ''; // Permite código vacío
                     const descripcion = fila[1]?.toString().trim() || '';
                     
-                    // Si no hay código, generar uno automático
-                    if (!codigo) {
-                        codigo = `AUTO-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-                        productosSinCodigo++;
-                    }
-
                     if (!descripcion) {
                         console.log('Fila sin descripción, omitiendo:', fila);
                         continue;
                     }
 
+                    // Contar productos sin código
+                    if (!codigo) {
+                        productosSinCodigo++;
+                    }
+
                     const producto = {
-                        codigo: codigo,
-                        codigosProveedor: codigo.startsWith('AUTO-') ? [] : [codigo],
+                        codigo: codigo, // Puede estar vacío
+                        codigosProveedor: codigo ? [codigo] : [], // Solo agregar si tiene código
                         descInventario: descripcion,
                         descFactura: descripcion,
                         precioCosto: this.parseNumero(fila[2]) || 0,
@@ -516,14 +521,18 @@ class SistemaInventario {
                         proveedor: '',
                         categoria: '',
                         fechaCreacion: serverTimestamp(),
-                        fechaActualizacion: serverTimestamp(),
-                        codigoAutomatico: codigo.startsWith('AUTO-')
+                        fechaActualizacion: serverTimestamp()
                     };
 
-                    // Verificar si existe (solo si no es código automático)
+                    // Buscar producto existente por código (solo si tiene código)
                     let productoExistente = null;
-                    if (!codigo.startsWith('AUTO-')) {
+                    if (codigo) {
                         productoExistente = this.productos.find(p => p.codigo === producto.codigo);
+                    } else {
+                        // Si no tiene código, buscar por descripción exacta
+                        productoExistente = this.productos.find(p => 
+                            !p.codigo && p.descInventario.toLowerCase() === descripcion.toLowerCase()
+                        );
                     }
                     
                     if (productoExistente) {
@@ -551,7 +560,7 @@ class SistemaInventario {
 
             let mensaje = `Carga completada: ${productosCargados} nuevos, ${productosActualizados} actualizados`;
             if (productosSinCodigo > 0) {
-                mensaje += `, ${productosSinCodigo} con código automático`;
+                mensaje += `, ${productosSinCodigo} sin código`;
             }
             if (errores > 0) {
                 mensaje += `, ${errores} errores`;
@@ -592,7 +601,8 @@ class SistemaInventario {
             ['Código', 'Descripción', 'Precio Costo', 'Precio Venta', 'Existencia', 'Stock Mínimo', 'Proveedor'],
             ['TM001', 'Tulio Rin Ancho 2 Pulgadas', '18.40', '25.00', '50', '10', 'Todo Motor'],
             ['TM002', 'Cadena 7 Velocidades', '8.50', '12.00', '30', '5', 'Todo Motor'],
-            ['', 'Producto sin código (se generará automático)', '15.00', '20.00', '25', '5', 'Proveedor X']
+            ['', 'Producto sin código (se mantendrá vacío)', '15.00', '20.00', '25', '5', 'Proveedor X'],
+            ['PROV-123', 'Mismo producto, código diferente', '12.00', '18.00', '40', '8', 'Otro Proveedor']
         ];
 
         const worksheet = XLSX.utils.aoa_to_sheet(plantilla);
@@ -619,6 +629,9 @@ class SistemaInventario {
                 break;
             case 'valorizacion':
                 contenido = this.generarReporteValorizacion();
+                break;
+            case 'sin-codigo':
+                contenido = this.generarReporteSinCodigo();
                 break;
         }
 
@@ -647,10 +660,12 @@ class SistemaInventario {
         this.productos.forEach(producto => {
             const estado = this.obtenerEstadoStock(producto.existencia, producto.stockMinimo);
             const clase = this.obtenerClaseStock(producto.existencia, producto.stockMinimo);
+            const claseCodigo = !producto.codigo ? 'codigo-vacio' : '';
+            const codigoDisplay = producto.codigo || 'SIN CÓDIGO';
             
             html += `
                 <tr>
-                    <td>${producto.codigo}</td>
+                    <td class="${claseCodigo}">${codigoDisplay}</td>
                     <td>${producto.descInventario}</td>
                     <td class="${clase}">${producto.existencia}</td>
                     <td>${producto.stockMinimo || 0}</td>
@@ -693,15 +708,61 @@ class SistemaInventario {
             const diferencia = producto.existencia - producto.stockMinimo;
             const estado = this.obtenerEstadoStock(producto.existencia, producto.stockMinimo);
             const clase = this.obtenerClaseStock(producto.existencia, producto.stockMinimo);
+            const claseCodigo = !producto.codigo ? 'codigo-vacio' : '';
+            const codigoDisplay = producto.codigo || 'SIN CÓDIGO';
             
             html += `
                 <tr>
-                    <td>${producto.codigo}</td>
+                    <td class="${claseCodigo}">${codigoDisplay}</td>
                     <td>${producto.descInventario}</td>
                     <td class="${clase}">${producto.existencia}</td>
                     <td>${producto.stockMinimo}</td>
                     <td>${diferencia}</td>
                     <td>${estado}</td>
+                </tr>
+            `;
+        });
+
+        html += `</tbody></table>`;
+        return html;
+    }
+
+    generarReporteSinCodigo() {
+        const productosSinCodigo = this.productos.filter(producto => !producto.codigo);
+
+        if (productosSinCodigo.length === 0) {
+            return '<div class="empty-cart">No hay productos sin código</div>';
+        }
+
+        let html = `
+            <h4 style="margin:10px; color:#856404;">Productos sin Código</h4>
+            <table class="inventario-table">
+                <thead>
+                    <tr>
+                        <th>Descripción</th>
+                        <th>Precio Costo</th>
+                        <th>Precio Venta</th>
+                        <th>Existencia</th>
+                        <th>Proveedor</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        productosSinCodigo.forEach(producto => {
+            html += `
+                <tr>
+                    <td>${producto.descInventario}</td>
+                    <td>$${producto.precioCosto?.toFixed(2) || '0.00'}</td>
+                    <td>$${producto.precioVenta?.toFixed(2) || '0.00'}</td>
+                    <td>${producto.existencia}</td>
+                    <td>${producto.proveedor || ''}</td>
+                    <td>
+                        <button class="icon-btn btn-edit" onclick="inventario.editarProducto('${producto.id}')" title="Agregar código">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </td>
                 </tr>
             `;
         });
@@ -749,10 +810,12 @@ class SistemaInventario {
         this.productos.forEach(producto => {
             const valorCosto = producto.existencia * producto.precioCosto;
             const valorVenta = producto.existencia * producto.precioVenta;
+            const claseCodigo = !producto.codigo ? 'codigo-vacio' : '';
+            const codigoDisplay = producto.codigo || 'SIN CÓDIGO';
             
             html += `
                 <tr>
-                    <td>${producto.codigo}</td>
+                    <td class="${claseCodigo}">${codigoDisplay}</td>
                     <td>${producto.descInventario}</td>
                     <td>${producto.existencia}</td>
                     <td>$${producto.precioCosto.toFixed(2)}</td>
@@ -789,6 +852,7 @@ class SistemaInventario {
                         th { background-color: #2c3e50; color: white; }
                         .stock-bajo { background-color: #fff3cd; }
                         .stock-critico { background-color: #f8d7da; }
+                        .codigo-vacio { background-color: #fff3cd; color: #856404; font-style: italic; }
                         @media print { body { margin: 0; } }
                     </style>
                 </head>
