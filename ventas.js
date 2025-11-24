@@ -1,4 +1,4 @@
-// ventas.js - MEJORADO con sistema de búsqueda y validaciones
+// ventas.js - CORREGIDO con búsqueda en base de datos
 import { db } from "./firebase-config.js";
 import {
   collection,
@@ -24,9 +24,10 @@ let itemAEliminar = null;
 let abonoInicial = 0;
 let saldoPendiente = 0;
 let productosInventario = [];
+let timeoutBusqueda = null;
 
 /* ---------- CLAVE PARA GUARDAR LOCALMENTE ---------- */
-const VENTA_GUARDADA_KEY = 'ventaEnProgreso';
+const VENTA_GARDADA_KEY = 'ventaEnProgreso';
 
 /* ---------- CARGAR PRODUCTOS DEL INVENTARIO ---------- */
 async function cargarProductosInventario() {
@@ -50,60 +51,102 @@ async function cargarProductosInventario() {
     }
 }
 
-/* ---------- BUSCAR PRODUCTOS ---------- */
-function buscarProductos(termino) {
+/* ---------- BUSCAR PRODUCTOS EN BASE DE DATOS ---------- */
+async function buscarProductosEnBaseDatos(termino) {
+    try {
+        if (!termino || termino.length < 2) {
+            return [];
+        }
+        
+        const terminoLower = termino.toLowerCase().trim();
+        const resultados = [];
+        const idsAgregados = new Set();
+
+        // Buscar por código (exacto)
+        const qCodigo = query(
+            collection(db, "inventario"),
+            where("codigo", ">=", terminoLower),
+            where("codigo", "<=", terminoLower + '\uf8ff')
+        );
+        
+        const snapshotCodigo = await getDocs(qCodigo);
+        snapshotCodigo.forEach(doc => {
+            const producto = { id: doc.id, ...doc.data() };
+            if (!idsAgregados.has(producto.id)) {
+                resultados.push({...producto, tipoBusqueda: "Código"});
+                idsAgregados.add(producto.id);
+            }
+        });
+
+        // Buscar por descripción taller
+        const qTaller = query(
+            collection(db, "inventario"),
+            where("descripcionTaller", ">=", terminoLower),
+            where("descripcionTaller", "<=", terminoLower + '\uf8ff')
+        );
+        
+        const snapshotTaller = await getDocs(qTaller);
+        snapshotTaller.forEach(doc => {
+            const producto = { id: doc.id, ...doc.data() };
+            if (!idsAgregados.has(producto.id)) {
+                resultados.push({...producto, tipoBusqueda: "Descripción Taller"});
+                idsAgregados.add(producto.id);
+            }
+        });
+
+        // Buscar por descripción factura
+        const qFactura = query(
+            collection(db, "inventario"),
+            where("descripcionFactura", ">=", terminoLower),
+            where("descripcionFactura", "<=", terminoLower + '\uf8ff')
+        );
+        
+        const snapshotFactura = await getDocs(qFactura);
+        snapshotFactura.forEach(doc => {
+            const producto = { id: doc.id, ...doc.data() };
+            if (!idsAgregados.has(producto.id)) {
+                resultados.push({...producto, tipoBusqueda: "Descripción Factura"});
+                idsAgregados.add(producto.id);
+            }
+        });
+
+        return resultados.slice(0, 10); // Limitar a 10 resultados
+
+    } catch (error) {
+        console.error("Error en búsqueda:", error);
+        // Fallback a búsqueda local si hay error
+        return buscarProductosLocal(termino);
+    }
+}
+
+/* ---------- BÚSQUEDA LOCAL (FALLBACK) ---------- */
+function buscarProductosLocal(termino) {
     if (!termino || termino.length < 2) {
         return [];
     }
     
     const terminoLower = termino.toLowerCase().trim();
     const resultados = [];
-    
-    // Buscar por código (exacto)
-    const porCodigo = productosInventario.filter(producto => 
-        producto.codigo && producto.codigo.toLowerCase() === terminoLower
-    );
-    
-    // Buscar por descripción taller (primaria)
-    const porDescTaller = productosInventario.filter(producto =>
-        producto.descripcionTaller && 
-        producto.descripcionTaller.toLowerCase().includes(terminoLower)
-    );
-    
-    // Buscar por descripción factura (secundaria)
-    const porDescFactura = productosInventario.filter(producto =>
-        producto.descripcionFactura && 
-        producto.descripcionFactura.toLowerCase().includes(terminoLower)
-    );
-    
-    // Combinar resultados evitando duplicados
     const idsAgregados = new Set();
     
-    // Primero agregar búsqueda por código
-    porCodigo.forEach(producto => {
-        if (!idsAgregados.has(producto.id)) {
-            resultados.push({...producto, tipoBusqueda: "Código"});
+    // Buscar en productos ya cargados
+    productosInventario.forEach(producto => {
+        const matchesCodigo = producto.codigo && producto.codigo.toLowerCase().includes(terminoLower);
+        const matchesTaller = producto.descripcionTaller && producto.descripcionTaller.toLowerCase().includes(terminoLower);
+        const matchesFactura = producto.descripcionFactura && producto.descripcionFactura.toLowerCase().includes(terminoLower);
+        
+        if ((matchesCodigo || matchesTaller || matchesFactura) && !idsAgregados.has(producto.id)) {
+            let tipoBusqueda = "";
+            if (matchesCodigo) tipoBusqueda = "Código";
+            else if (matchesTaller) tipoBusqueda = "Descripción Taller";
+            else if (matchesFactura) tipoBusqueda = "Descripción Factura";
+            
+            resultados.push({...producto, tipoBusqueda});
             idsAgregados.add(producto.id);
         }
     });
     
-    // Luego por descripción taller
-    porDescTaller.forEach(producto => {
-        if (!idsAgregados.has(producto.id)) {
-            resultados.push({...producto, tipoBusqueda: "Descripción Taller"});
-            idsAgregados.add(producto.id);
-        }
-    });
-    
-    // Finalmente por descripción factura
-    porDescFactura.forEach(producto => {
-        if (!idsAgregados.has(producto.id)) {
-            resultados.push({...producto, tipoBusqueda: "Descripción Factura"});
-            idsAgregados.add(producto.id);
-        }
-    });
-    
-    return resultados.slice(0, 10); // Limitar a 10 resultados
+    return resultados.slice(0, 10);
 }
 
 /* ---------- MOSTRAR RESULTADOS DE BÚSQUEDA ---------- */
@@ -119,14 +162,14 @@ function mostrarResultadosBusqueda(resultados) {
     
     dropdown.innerHTML = resultados.map(producto => `
         <div class="search-dropdown-item" data-producto-id="${producto.id}">
-            <div style="font-weight: bold;">${producto.descripcionTaller}</div>
+            <div style="font-weight: bold;">${producto.descripcionTaller || 'Sin descripción'}</div>
             ${producto.descripcionFactura ? `<div style="font-size: 0.8rem; color: #666;">${producto.descripcionFactura}</div>` : ''}
             <div style="display: flex; justify-content: space-between; margin-top: 4px;">
                 <span style="font-size: 0.8rem;">Código: ${producto.codigo || 'N/A'}</span>
-                <span style="font-weight: bold; color: #27ae60;">$${producto.precioVenta.toFixed(2)}</span>
+                <span style="font-weight: bold; color: #27ae60;">$${(producto.precioVenta || 0).toFixed(2)}</span>
             </div>
-            <div style="font-size: 0.7rem; color: ${producto.existencia > 0 ? '#27ae60' : '#e74c3c'};">
-                Existencia: ${producto.existencia} | Búsqueda: ${producto.tipoBusqueda}
+            <div style="font-size: 0.7rem; color: ${(producto.existencia || 0) > 0 ? '#27ae60' : '#e74c3c'};">
+                Existencia: ${producto.existencia || 0} | Búsqueda: ${producto.tipoBusqueda}
             </div>
         </div>
     `).join('');
@@ -142,76 +185,88 @@ function mostrarResultadosBusqueda(resultados) {
 }
 
 /* ---------- SELECCIONAR PRODUCTO ---------- */
-function seleccionarProducto(productoId) {
-    const producto = productosInventario.find(p => p.id === productoId);
-    if (!producto) {
-        alert("Producto no encontrado");
-        return;
-    }
-    
-    // Validar existencia
-    if (producto.existencia <= 0) {
-        alert("❌ Producto sin existencia disponible");
-        cerrarDropdownBusqueda();
-        return;
-    }
-    
-    const cantidadInput = document.getElementById("cantidad");
-    const cantidad = parseInt(cantidadInput.value) || 1;
-    
-    // Validar cantidad
-    if (cantidad <= 0) {
-        alert("❌ La cantidad debe ser mayor a 0");
-        return;
-    }
-    
-    // Validar que no exceda existencia
-    if (cantidad > producto.existencia) {
-        alert(`❌ Solo hay ${producto.existencia} unidades disponibles`);
-        return;
-    }
-    
-    // Prevenir productos duplicados en el carrito
-    const productoExistente = carrito.find(item => item.id === productoId);
-    if (productoExistente) {
-        if (confirm("⚠️ Este producto ya está en el carrito. ¿Quieres agregar más cantidad?")) {
-            // Actualizar cantidad del producto existente
-            const index = carrito.indexOf(productoExistente);
-            const nuevaCantidad = productoExistente.cantidad + cantidad;
-            
-            if (nuevaCantidad > producto.existencia) {
-                alert(`❌ No hay suficiente existencia. Máximo: ${producto.existencia}`);
-                return;
-            }
-            
-            carrito[index].cantidad = nuevaCantidad;
-            carrito[index].subtotal = nuevaCantidad * productoExistente.precio;
-            
-            // Recalcular totales
-            total = carrito.reduce((sum, item) => sum + item.subtotal, 0);
-            cantidadTotal = carrito.reduce((sum, item) => sum + item.cantidad, 0);
-            
-            if (window.actualizarCarrito) {
-                window.actualizarCarrito(true);
-            }
-            
-            mostrarNotificacionProducto(producto.descripcionTaller, producto.precioVenta, cantidad);
-            guardarVentaAutomaticamente();
+async function seleccionarProducto(productoId) {
+    try {
+        // Obtener datos actualizados del producto
+        const docRef = doc(db, "inventario", productoId);
+        const docSnap = await getDoc(docRef);
+        
+        if (!docSnap.exists()) {
+            alert("❌ Producto no encontrado en inventario");
+            cerrarDropdownBusqueda();
+            return;
         }
+        
+        const producto = { id: docSnap.id, ...docSnap.data() };
+        
+        // Validar existencia
+        if ((producto.existencia || 0) <= 0) {
+            alert("❌ Producto sin existencia disponible");
+            cerrarDropdownBusqueda();
+            return;
+        }
+        
+        const cantidadInput = document.getElementById("cantidad");
+        const cantidad = parseInt(cantidadInput.value) || 1;
+        
+        // Validar cantidad
+        if (cantidad <= 0) {
+            alert("❌ La cantidad debe ser mayor a 0");
+            return;
+        }
+        
+        // Validar que no exceda existencia
+        if (cantidad > (producto.existencia || 0)) {
+            alert(`❌ Solo hay ${producto.existencia} unidades disponibles`);
+            return;
+        }
+        
+        // Prevenir productos duplicados en el carrito
+        const productoExistente = carrito.find(item => item.id === productoId);
+        if (productoExistente) {
+            if (confirm("⚠️ Este producto ya está en el carrito. ¿Quieres agregar más cantidad?")) {
+                // Actualizar cantidad del producto existente
+                const index = carrito.indexOf(productoExistente);
+                const nuevaCantidad = productoExistente.cantidad + cantidad;
+                
+                if (nuevaCantidad > producto.existencia) {
+                    alert(`❌ No hay suficiente existencia. Máximo: ${producto.existencia}`);
+                    return;
+                }
+                
+                carrito[index].cantidad = nuevaCantidad;
+                carrito[index].subtotal = nuevaCantidad * productoExistente.precio;
+                
+                // Recalcular totales
+                total = carrito.reduce((sum, item) => sum + item.subtotal, 0);
+                cantidadTotal = carrito.reduce((sum, item) => sum + item.cantidad, 0);
+                
+                if (window.actualizarCarrito) {
+                    window.actualizarCarrito(true);
+                }
+                
+                mostrarNotificacionProducto(producto.descripcionTaller, producto.precioVenta, cantidad);
+                guardarVentaAutomaticamente();
+            }
+            cerrarDropdownBusqueda();
+            return;
+        }
+        
+        // Agregar nuevo producto al carrito
+        agregarProducto(
+            producto.descripcionTaller || "Producto sin nombre",
+            producto.precioVenta || 0,
+            cantidad,
+            producto.id,
+            producto.descripcionFactura
+        );
+        
         cerrarDropdownBusqueda();
-        return;
+        
+    } catch (error) {
+        console.error("Error seleccionando producto:", error);
+        alert("❌ Error al cargar producto: " + error.message);
     }
-    
-    // Agregar nuevo producto al carrito
-    agregarProducto(
-        producto.descripcionTaller,
-        producto.precioVenta,
-        cantidad,
-        producto.id,
-        producto.descripcionFactura
-    );
-    
-    cerrarDropdownBusqueda();
 }
 
 /* ---------- CERRAR DROPDOWN DE BÚSQUEDA ---------- */
@@ -237,7 +292,7 @@ function mostrarNotificacionProducto(desc, precio, cantidad) {
     
     setTimeout(() => {
         notificacion.classList.remove("mostrar");
-    }, 2000); // Aumentado a 2 segundos para mejor lectura
+    }, 2000);
 }
 
 /* ---------- GUARDAR VENTA AUTOMÁTICAMENTE ---------- */
@@ -781,14 +836,14 @@ window.cerrarDetalle = () => {
 
 /* ---------- INICIALIZAR TODO ---------- */
 window.addEventListener('DOMContentLoaded', async () => {
-    console.log("Iniciando ventas.js con mejoras implementadas...");
+    console.log("Iniciando ventas.js con búsqueda en base de datos...");
     
     if (!localStorage.getItem('usuarioLogueado')) {
         window.location.href = 'login.html';
         return;
     }
     
-    // Cargar productos del inventario
+    // Cargar productos del inventario para búsqueda local
     await cargarProductosInventario();
     await cargarVentaGuardada();
     
@@ -797,12 +852,28 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (buscarProductoInput) {
         buscarProductoInput.addEventListener("input", function() {
             const termino = this.value;
-            if (termino.length >= 2) {
-                const resultados = buscarProductos(termino);
-                mostrarResultadosBusqueda(resultados);
-            } else {
-                cerrarDropdownBusqueda();
+            
+            // Limpiar timeout anterior
+            if (timeoutBusqueda) {
+                clearTimeout(timeoutBusqueda);
             }
+            
+            // Esperar 300ms después de que el usuario deje de escribir
+            timeoutBusqueda = setTimeout(async () => {
+                if (termino.length >= 2) {
+                    try {
+                        const resultados = await buscarProductosEnBaseDatos(termino);
+                        mostrarResultadosBusqueda(resultados);
+                    } catch (error) {
+                        console.error("Error en búsqueda:", error);
+                        // Fallback a búsqueda local
+                        const resultadosLocal = buscarProductosLocal(termino);
+                        mostrarResultadosBusqueda(resultadosLocal);
+                    }
+                } else {
+                    cerrarDropdownBusqueda();
+                }
+            }, 300);
         });
         
         // Cerrar dropdown al hacer clic fuera
@@ -939,5 +1010,5 @@ window.addEventListener('DOMContentLoaded', async () => {
     // Cargar historial
     await cargarMiniHistorial();
     
-    console.log("Sistema de ventas inicializado correctamente");
+    console.log("Sistema de ventas inicializado correctamente con búsqueda en base de datos");
 });
