@@ -615,11 +615,17 @@ class SistemaInventario {
                             displayCelda = valor > 0 ? `$${valor.toFixed(2)}` : displayCelda;
                         }
                         
-                        // Formatear crédito fiscal
+                        // Formatear crédito fiscal - CORREGIDO: Por defecto SI
                         if (i === 6) {
-                            displayCelda = celda === 'SI' || celda === true || celda === 'true' ? 
-                                '<span style="color:#27ae60; font-weight:bold;">SI</span>' : 
-                                '<span style="color:#e74c3c; font-weight:bold;">NO</span>';
+                            if (celda === '' || celda === undefined || celda === null) {
+                                // Si está vacío, mostrar SI por defecto
+                                displayCelda = '<span style="color:#27ae60; font-weight:bold;">SI (por defecto)</span>';
+                            } else {
+                                const creditoStr = celda.toString().trim().toUpperCase();
+                                displayCelda = (creditoStr === 'SI' || creditoStr === 'TRUE' || creditoStr === '1' || creditoStr === 'SÍ') ? 
+                                    '<span style="color:#27ae60; font-weight:bold;">SI</span>' : 
+                                    '<span style="color:#e74c3c; font-weight:bold;">NO</span>';
+                            }
                         }
                         
                         html += `<td style="border:1px solid #ddd; padding:5px; ${estilo}">${displayCelda}</td>`;
@@ -649,6 +655,14 @@ class SistemaInventario {
                     </div>
                 `;
             }
+            
+            // Agregar advertencia sobre crédito fiscal por defecto
+            advertenciasHTML += `
+                <div class="excel-advertencia">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Información:</strong> Los productos sin valor en "Crédito Fiscal" se cargarán como <strong>SI</strong> por defecto.
+                </div>
+            `;
             
             advertenciasDiv.innerHTML = advertenciasHTML;
             previewContent.innerHTML = html;
@@ -691,11 +705,12 @@ class SistemaInventario {
                         productosSinCodigo++;
                     }
 
-                    // Determinar crédito fiscal (por defecto SI)
-                    let creditoFiscal = true;
-                    if (fila[6] !== undefined && fila[6] !== '') {
+                    // CORREGIDO: Determinar crédito fiscal - POR DEFECTO SI
+                    let creditoFiscal = true; // VALOR POR DEFECTO: SI
+                    if (fila[6] !== undefined && fila[6] !== null && fila[6] !== '') {
                         const creditoStr = fila[6]?.toString().trim().toUpperCase();
-                        creditoFiscal = (creditoStr === 'SI' || creditoStr === 'TRUE' || creditoStr === '1' || creditoStr === 'SÍ');
+                        // Solo cambiar a NO si explícitamente dice "NO"
+                        creditoFiscal = !(creditoStr === 'NO' || creditoStr === 'FALSE' || creditoStr === '0');
                     }
 
                     const productoData = {
@@ -706,7 +721,7 @@ class SistemaInventario {
                         precioVenta: this.parseNumero(fila[4]) || 0,
                         existencia: this.parseNumero(fila[5], true) || 0,
                         stockMinimo: this.parseNumero(fila[6], true) || 0,
-                        creditoFiscal: creditoFiscal,
+                        creditoFiscal: creditoFiscal, // SIEMPRE SI por defecto
                         proveedor: (fila[7]?.toString().trim() || ''),
                         fechaCreacion: new Date().toISOString(),
                         fechaActualizacion: new Date().toISOString()
@@ -1001,7 +1016,7 @@ class SistemaInventario {
 
         let html = `
             <h4 style="margin:10px; color:#27ae60;">Valorización de Inventario</h4>
-            <div style="padding:15px; background:#f8f9fa; border-radius:6px; margin-bottom:15px;">
+            <div style="padding:15px; background:#f8f9fa;border-radius:6px; margin-bottom:15px;">
                 <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
                     <strong>Valor total en costo:</strong>
                     <span style="color:#2c3e50; font-weight:bold;">$${totalValorizacion.toFixed(2)}</span>
