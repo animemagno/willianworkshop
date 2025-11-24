@@ -1,4 +1,4 @@
-// ventas.js - CORREGIDO con todos los errores arreglados
+// ventas.js - CORREGIDO con botón "Cerrar" funcionando
 import { db } from "./firebase-config.js";
 import {
   collection,
@@ -327,7 +327,7 @@ function agregarProducto(desc, precio, cantidad) {
     guardarVentaAutomaticamente();
 }
 
-/* ---------- MINI HISTORIAL (AHORA SI ACTUALIZA EN TIEMPO REAL) ---------- */
+/* ---------- MINI HISTORIAL ---------- */
 async function cargarMiniHistorial() {
     try {
         const hoy = new Date();
@@ -351,7 +351,7 @@ async function cargarMiniHistorial() {
         if (titulo) titulo.textContent = "Historial de hoy";
         
         if (lista.length === 0) {
-            miniGrid.innerHTML = "<p style='color:#7f8c8d;font-size:.9rem'>Sin ventas hoy</p>";
+            if (miniGrid) miniGrid.innerHTML = "<p style='color:#7f8c8d;font-size:.9rem'>Sin ventas hoy</p>";
             return;
         }
         
@@ -361,18 +361,20 @@ async function cargarMiniHistorial() {
             grupos[v.equipo].push(v);
         });
 
-        miniGrid.innerHTML = Object.entries(grupos).map(([eq, facturas]) => {
-            const totalEquipo = facturas.reduce((sum, v) => sum + v.total, 0);
-            const esLocal = facturas[0].esLocal;
-            const ciudad = facturas[0].ciudad;
-            
-            return `
-              <div class="mini-card" onclick="mostrarDetalleEquipo('${eq}')" title="Ver facturas del equipo ${eq}">
-                <div class="mini-equipo">${eq}</div>
-                <div class="mini-total">$${totalEquipo.toFixed(2)}</div>
-                ${!esLocal && ciudad ? `<div class="mini-ciudad">${ciudad}</div>` : ''}
-              </div>`;
-        }).join("");
+        if (miniGrid) {
+            miniGrid.innerHTML = Object.entries(grupos).map(([eq, facturas]) => {
+                const totalEquipo = facturas.reduce((sum, v) => sum + v.total, 0);
+                const esLocal = facturas[0].esLocal;
+                const ciudad = facturas[0].ciudad;
+                
+                return `
+                  <div class="mini-card" onclick="mostrarDetalleEquipo('${eq}')" title="Ver facturas del equipo ${eq}">
+                    <div class="mini-equipo">${eq}</div>
+                    <div class="mini-total">$${totalEquipo.toFixed(2)}</div>
+                    ${!esLocal && ciudad ? `<div class="mini-ciudad">${ciudad}</div>` : ''}
+                  </div>`;
+            }).join("");
+        }
         
     } catch (error) {
         console.error("Error cargando historial:", error);
@@ -404,8 +406,8 @@ window.mostrarDetalleEquipo = async (equipo) => {
         const modalDetalle = document.getElementById("modalDetalle");
         
         if (facturas.length === 0) {
-            detalleEquipoContent.innerHTML = "<p>No se encontraron ventas para este equipo hoy.</p>";
-            modalDetalle.style.display = "flex";
+            if (detalleEquipoContent) detalleEquipoContent.innerHTML = "<p>No se encontraron ventas para este equipo hoy.</p>";
+            if (modalDetalle) modalDetalle.style.display = "flex";
             return;
         }
         
@@ -453,8 +455,8 @@ window.mostrarDetalleEquipo = async (equipo) => {
               </div>`;
         });
         
-        detalleEquipoContent.innerHTML = html;
-        modalDetalle.style.display = "flex";
+        if (detalleEquipoContent) detalleEquipoContent.innerHTML = html;
+        if (modalDetalle) modalDetalle.style.display = "flex";
         
     } catch (e) { 
         console.error("Error cargando detalle:", e);
@@ -467,15 +469,22 @@ window.mostrarDetalleEquipo = async (equipo) => {
     }
 };
 
+/* ---------- EDITAR FACTURA ---------- */
 window.editarFactura = (id) => {
     const modalDetalle = document.getElementById("modalDetalle");
     if (modalDetalle) modalDetalle.style.display = 'none';
     window.location.href = `venta.html?id=${id}`;
 };
 
+/* ---------- CERRAR DETALLE (AHORA SÍ FUNCIONA) ---------- */
+window.cerrarDetalle = () => {
+    const modalDetalle = document.getElementById("modalDetalle");
+    if (modalDetalle) modalDetalle.style.display = 'none';
+};
+
 /* ---------- INICIALIZAR TODO ---------- */
 window.addEventListener('DOMContentLoaded', async () => {
-    console.log("Iniciando ventas.js con todas las correcciones...");
+    console.log("Iniciando ventas.js con botón Cerrar arreglado...");
     
     if (!localStorage.getItem('usuarioLogueado')) {
         window.location.href = 'login.html';
@@ -491,7 +500,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (equipoInput) equipoInput.addEventListener("input", guardarVentaAutomaticamente);
     if (clienteInput) clienteInput.addEventListener("input", guardarVentaAutomaticamente);
     
-    // Configurar botones de modales (AHORA SÍ FUNCIONAN)
+    // Configurar botones de modales
     const btnConAbono = document.getElementById("btnConAbono");
     const btnSinAbono = document.getElementById("btnSinAbono");
     const confirmarAbonoBtn = document.getElementById("confirmarAbonoBtn");
