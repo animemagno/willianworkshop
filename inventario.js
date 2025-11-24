@@ -27,8 +27,9 @@ class SistemaInventario {
         try {
             console.log("🚀 Iniciando sistema de inventario...");
             this.setupMenuMobile();
-            this.setupEventListeners();
+            this.setupTabs();
             await this.cargarProductos();
+            this.setupEventListeners();
             console.log("✅ Sistema de inventario listo");
         } catch (error) {
             console.error("❌ Error al iniciar:", error);
@@ -39,12 +40,12 @@ class SistemaInventario {
     setupMenuMobile() {
         try {
             const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-            const sidebar = document.getElementById('sidebar');
+            const mobileMenu = document.getElementById('mobileMenu');
             const logoutBtn = document.getElementById('logoutBtn');
 
-            if (mobileMenuBtn && sidebar) {
+            if (mobileMenuBtn && mobileMenu) {
                 mobileMenuBtn.addEventListener('click', () => {
-                    sidebar.classList.toggle('active');
+                    mobileMenu.classList.toggle('active');
                 });
             }
 
@@ -59,6 +60,32 @@ class SistemaInventario {
         }
     }
 
+    setupTabs() {
+        try {
+            const sidebarItems = document.querySelectorAll('.inventario-sidebar-item');
+            const tabContents = document.querySelectorAll('.tab-content');
+
+            sidebarItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    const tabId = item.getAttribute('data-tab');
+                    
+                    // Remover activo de todos
+                    sidebarItems.forEach(sideItem => sideItem.classList.remove('active'));
+                    tabContents.forEach(content => content.classList.remove('active'));
+                    
+                    // Activar actual
+                    item.classList.add('active');
+                    const tabContent = document.getElementById(`tab-${tabId}`);
+                    if (tabContent) {
+                        tabContent.classList.add('active');
+                    }
+                });
+            });
+        } catch (error) {
+            console.error("Error en setupTabs:", error);
+        }
+    }
+
     // ========== EVENT LISTENERS ==========
     setupEventListeners() {
         try {
@@ -70,20 +97,21 @@ class SistemaInventario {
                 });
             }
 
-            // Botón nuevo producto
-            const nuevoProductoBtn = document.getElementById('nuevo-producto-btn');
-            if (nuevoProductoBtn) {
-                nuevoProductoBtn.addEventListener('click', () => {
-                    this.abrirModalNuevoProducto();
-                });
-            }
-
             // Formulario nuevo producto
             const formNuevo = document.getElementById('form-nuevo-producto');
             if (formNuevo) {
                 formNuevo.addEventListener('submit', (e) => {
                     e.preventDefault();
                     this.guardarNuevoProducto();
+                });
+            }
+
+            // Limpiar formulario
+            const limpiarBtn = document.getElementById('limpiar-form-btn');
+            if (limpiarBtn) {
+                limpiarBtn.addEventListener('click', () => {
+                    document.getElementById('form-nuevo-producto').reset();
+                    document.getElementById('credito-fiscal').checked = true;
                 });
             }
 
@@ -104,27 +132,109 @@ class SistemaInventario {
                 });
             }
 
-            // Cargar Excel
-            const cargarExcelBtn = document.getElementById('cargar-excel-btn');
-            if (cargarExcelBtn) {
-                cargarExcelBtn.addEventListener('click', () => {
-                    this.abrirModalCargarExcel();
-                });
-            }
-
-            // Reportes
-            const reportesBtn = document.getElementById('generar-reporte-btn');
-            if (reportesBtn) {
-                reportesBtn.addEventListener('click', () => {
-                    this.generarReporteCompleto();
-                });
-            }
-
             // Carga de Excel
             this.setupExcelUpload();
+            
+            // Reportes
+            this.setupReportes();
 
         } catch (error) {
             console.error("Error en setupEventListeners:", error);
+        }
+    }
+
+    // ========== GESTIÓN DE EXCEL ==========
+    setupExcelUpload() {
+        try {
+            const dropArea = document.getElementById('excel-drop-area');
+            const fileInput = document.getElementById('excel-file');
+            const preview = document.getElementById('excel-preview');
+
+            if (!dropArea || !fileInput) {
+                console.warn("❌ Elementos de Excel no encontrados");
+                return;
+            }
+
+            // Click en área de drop
+            dropArea.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            // Drag and drop
+            dropArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropArea.style.background = '#e8f4fd';
+            });
+
+            dropArea.addEventListener('dragleave', () => {
+                dropArea.style.background = '#f8f9fa';
+            });
+
+            dropArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropArea.style.background = '#f8f9fa';
+                const files = e.dataTransfer.files;
+                if (files.length) {
+                    this.procesarArchivoExcel(files[0]);
+                }
+            });
+
+            // Cambio de archivo
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length) {
+                    this.procesarArchivoExcel(e.target.files[0]);
+                }
+            });
+
+            // Descargar plantilla
+            const descargarBtn = document.getElementById('descargar-plantilla-btn');
+            if (descargarBtn) {
+                descargarBtn.addEventListener('click', () => {
+                    this.descargarPlantillaExcel();
+                });
+            }
+
+            // Confirmar carga
+            const confirmarBtn = document.getElementById('confirmar-carga-btn');
+            if (confirmarBtn) {
+                confirmarBtn.addEventListener('click', () => {
+                    this.confirmarCargaExcel();
+                });
+            }
+
+            // Cancelar carga
+            const cancelarBtn = document.getElementById('cancelar-carga-btn');
+            if (cancelarBtn) {
+                cancelarBtn.addEventListener('click', () => {
+                    preview.style.display = 'none';
+                    this.datosExcel = [];
+                });
+            }
+
+        } catch (error) {
+            console.error("Error en setupExcelUpload:", error);
+        }
+    }
+
+    // ========== REPORTES ==========
+    setupReportes() {
+        try {
+            const generarBtn = document.getElementById('generar-reporte-btn');
+            const imprimirBtn = document.getElementById('imprimir-reporte-btn');
+
+            if (generarBtn) {
+                generarBtn.addEventListener('click', () => {
+                    this.generarReporte();
+                });
+            }
+
+            if (imprimirBtn) {
+                imprimirBtn.addEventListener('click', () => {
+                    this.imprimirReporte();
+                });
+            }
+        } catch (error) {
+            console.error("Error en setupReportes:", error);
         }
     }
 
@@ -250,12 +360,6 @@ class SistemaInventario {
         }
     }
 
-    abrirModalNuevoProducto() {
-        document.getElementById('modalNuevoProducto').style.display = 'flex';
-        document.getElementById('form-nuevo-producto').reset();
-        document.getElementById('credito-fiscal').checked = true; // Por defecto SI
-    }
-
     async guardarNuevoProducto() {
         try {
             const formData = new FormData(document.getElementById('form-nuevo-producto'));
@@ -302,7 +406,8 @@ class SistemaInventario {
             this.productos.push(producto);
             
             this.mostrarExito('Producto agregado correctamente');
-            this.cerrarModalNuevo();
+            document.getElementById('form-nuevo-producto').reset();
+            document.getElementById('credito-fiscal').checked = true;
             this.mostrarProductos();
             
         } catch (error) {
@@ -429,84 +534,6 @@ class SistemaInventario {
     }
 
     // ========== GESTIÓN DE EXCEL ==========
-    abrirModalCargarExcel() {
-        document.getElementById('modalCargarExcel').style.display = 'flex';
-        document.getElementById('excel-preview').style.display = 'none';
-        this.datosExcel = [];
-    }
-
-    setupExcelUpload() {
-        try {
-            const dropArea = document.getElementById('excel-drop-area');
-            const fileInput = document.getElementById('excel-file');
-            const preview = document.getElementById('excel-preview');
-
-            if (!dropArea || !fileInput) {
-                console.warn("❌ Elementos de Excel no encontrados");
-                return;
-            }
-
-            // Click en área de drop
-            dropArea.addEventListener('click', () => {
-                fileInput.click();
-            });
-
-            // Drag and drop
-            dropArea.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                dropArea.style.background = '#e8f4fd';
-            });
-
-            dropArea.addEventListener('dragleave', () => {
-                dropArea.style.background = '#f8f9fa';
-            });
-
-            dropArea.addEventListener('drop', (e) => {
-                e.preventDefault();
-                dropArea.style.background = '#f8f9fa';
-                const files = e.dataTransfer.files;
-                if (files.length) {
-                    this.procesarArchivoExcel(files[0]);
-                }
-            });
-
-            // Cambio de archivo
-            fileInput.addEventListener('change', (e) => {
-                if (e.target.files.length) {
-                    this.procesarArchivoExcel(e.target.files[0]);
-                }
-            });
-
-            // Descargar plantilla
-            const descargarBtn = document.getElementById('descargar-plantilla-btn');
-            if (descargarBtn) {
-                descargarBtn.addEventListener('click', () => {
-                    this.descargarPlantillaExcel();
-                });
-            }
-
-            // Confirmar carga
-            const confirmarBtn = document.getElementById('confirmar-carga-btn');
-            if (confirmarBtn) {
-                confirmarBtn.addEventListener('click', () => {
-                    this.confirmarCargaExcel();
-                });
-            }
-
-            // Cancelar carga
-            const cancelarBtn = document.getElementById('cancelar-carga-btn');
-            if (cancelarBtn) {
-                cancelarBtn.addEventListener('click', () => {
-                    preview.style.display = 'none';
-                    this.datosExcel = [];
-                });
-            }
-
-        } catch (error) {
-            console.error("Error en setupExcelUpload:", error);
-        }
-    }
-
     procesarArchivoExcel(file) {
         try {
             const reader = new FileReader();
@@ -739,7 +766,6 @@ class SistemaInventario {
             
             document.getElementById('excel-preview').style.display = 'none';
             this.datosExcel = [];
-            this.cerrarModalCargarExcel();
             this.mostrarProductos();
 
         } catch (error) {
@@ -788,7 +814,183 @@ class SistemaInventario {
     }
 
     // ========== REPORTES ==========
-    generarReporteCompleto() {
+    async generarReporte() {
+        try {
+            const tipoReporte = document.getElementById('tipo-reporte').value;
+            let contenido = '';
+
+            switch (tipoReporte) {
+                case 'stock':
+                    contenido = this.generarReporteStock();
+                    break;
+                case 'bajo-stock':
+                    contenido = this.generarReporteBajoStock();
+                    break;
+                case 'valorizacion':
+                    contenido = this.generarReporteValorizacion();
+                    break;
+                case 'sin-codigo':
+                    contenido = this.generarReporteSinCodigo();
+                    break;
+            }
+
+            const reporteContenido = document.getElementById('reporte-contenido');
+            if (reporteContenido) {
+                reporteContenido.innerHTML = contenido;
+                reporteContenido.style.display = 'block';
+            }
+        } catch (error) {
+            console.error("Error en generarReporte:", error);
+        }
+    }
+
+    generarReporteStock() {
+        let html = `
+            <h4 style="margin:10px; color:#2c3e50;">Reporte de Stock Actual</h4>
+            <table class="inventario-table">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Descripción Inventario</th>
+                        <th>Descripción Factura</th>
+                        <th>Existencia</th>
+                        <th>Stock Mínimo</th>
+                        <th>Estado</th>
+                        <th>Crédito Fiscal</th>
+                        <th>Proveedor</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        this.productos.forEach(producto => {
+            const estado = this.obtenerEstadoStock(producto.existencia, producto.stockMinimo);
+            const clase = this.obtenerClaseStock(producto.existencia, producto.stockMinimo);
+            const claseCodigo = !producto.codigo ? 'codigo-vacio' : '';
+            const codigoDisplay = producto.codigo || 'SIN CÓDIGO';
+            const creditoFiscal = producto.creditoFiscal !== false ? 'SI' : 'NO';
+            const claseCredito = producto.creditoFiscal !== false ? 'credito-si' : 'credito-no';
+            
+            html += `
+                <tr>
+                    <td class="${claseCodigo}">${codigoDisplay}</td>
+                    <td>${producto.descInventario}</td>
+                    <td>${producto.descFactura}</td>
+                    <td class="${clase}">${producto.existencia}</td>
+                    <td>${producto.stockMinimo || 0}</td>
+                    <td>${estado}</td>
+                    <td><span class="${claseCredito}">${creditoFiscal}</span></td>
+                    <td>${producto.proveedor || ''}</td>
+                </tr>
+            `;
+        });
+
+        html += `</tbody></table>`;
+        return html;
+    }
+
+    generarReporteBajoStock() {
+        const productosBajoStock = this.productos.filter(producto => 
+            producto.stockMinimo && producto.existencia <= producto.stockMinimo
+        );
+
+        if (productosBajoStock.length === 0) {
+            return '<div class="empty-cart">No hay productos con stock bajo</div>';
+        }
+
+        let html = `
+            <h4 style="margin:10px; color:#e74c3c;">Productos con Stock Bajo/Crítico</h4>
+            <table class="inventario-table">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Descripción Inventario</th>
+                        <th>Descripción Factura</th>
+                        <th>Existencia</th>
+                        <th>Stock Mínimo</th>
+                        <th>Diferencia</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        productosBajoStock.forEach(producto => {
+            const diferencia = producto.existencia - producto.stockMinimo;
+            const estado = this.obtenerEstadoStock(producto.existencia, producto.stockMinimo);
+            const clase = this.obtenerClaseStock(producto.existencia, producto.stockMinimo);
+            const claseCodigo = !producto.codigo ? 'codigo-vacio' : '';
+            const codigoDisplay = producto.codigo || 'SIN CÓDIGO';
+            
+            html += `
+                <tr>
+                    <td class="${claseCodigo}">${codigoDisplay}</td>
+                    <td>${producto.descInventario}</td>
+                    <td>${producto.descFactura}</td>
+                    <td class="${clase}">${producto.existencia}</td>
+                    <td>${producto.stockMinimo}</td>
+                    <td>${diferencia}</td>
+                    <td>${estado}</td>
+                </tr>
+            `;
+        });
+
+        html += `</tbody></table>`;
+        return html;
+    }
+
+    generarReporteSinCodigo() {
+        const productosSinCodigo = this.productos.filter(producto => !producto.codigo);
+
+        if (productosSinCodigo.length === 0) {
+            return '<div class="empty-cart">No hay productos sin código</div>';
+        }
+
+        let html = `
+            <h4 style="margin:10px; color:#856404;">Productos sin Código</h4>
+            <table class="inventario-table">
+                <thead>
+                    <tr>
+                        <th>Descripción Inventario</th>
+                        <th>Descripción Factura</th>
+                        <th>Precio Costo</th>
+                        <th>Precio Venta</th>
+                        <th>Existencia</th>
+                        <th>Crédito Fiscal</th>
+                        <th>Proveedor</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        productosSinCodigo.forEach(producto => {
+            const creditoFiscal = producto.creditoFiscal !== false ? 'SI' : 'NO';
+            const claseCredito = producto.creditoFiscal !== false ? 'credito-si' : 'credito-no';
+            
+            html += `
+                <tr>
+                    <td>${producto.descInventario}</td>
+                    <td>${producto.descFactura}</td>
+                    <td class="precio">$${producto.precioCosto?.toFixed(2) || '0.00'}</td>
+                    <td class="precio">$${producto.precioVenta?.toFixed(2) || '0.00'}</td>
+                    <td>${producto.existencia}</td>
+                    <td><span class="${claseCredito}">${creditoFiscal}</span></td>
+                    <td>${producto.proveedor || ''}</td>
+                    <td>
+                        <button class="icon-btn btn-edit" onclick="inventario.editarProducto('${producto.id}')" title="Agregar código">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `</tbody></table>`;
+        return html;
+    }
+
+    generarReporteValorizacion() {
         const totalValorizacion = this.productos.reduce((sum, producto) => 
             sum + (producto.existencia * producto.precioCosto), 0
         );
@@ -797,104 +999,110 @@ class SistemaInventario {
             sum + (producto.existencia * producto.precioVenta), 0
         );
 
-        const productosBajoStock = this.productos.filter(producto => 
-            producto.stockMinimo && producto.existencia <= producto.stockMinimo
-        );
-
         let html = `
-            <h4 style="margin:10px; color:#2c3e50;">REPORTE COMPLETO DE INVENTARIO</h4>
-            
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 20px;">
-                <div style="background: #e8f4fd; padding: 15px; border-radius: 6px; border-left: 4px solid #3498db;">
-                    <h5 style="margin: 0 0 8px 0; color: #2c3e50;">Total Productos</h5>
-                    <p style="font-size: 1.5rem; font-weight: bold; color: #3498db; margin: 0;">${this.productos.length}</p>
+            <h4 style="margin:10px; color:#27ae60;">Valorización de Inventario</h4>
+            <div style="padding:15px; background:#f8f9fa; border-radius:6px; margin-bottom:15px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                    <strong>Valor total en costo:</strong>
+                    <span style="color:#2c3e50; font-weight:bold;">$${totalValorizacion.toFixed(2)}</span>
                 </div>
-                <div style="background: #d4edda; padding: 15px; border-radius: 6px; border-left: 4px solid #27ae60;">
-                    <h5 style="margin: 0 0 8px 0; color: #155724;">Valor en Costo</h5>
-                    <p style="font-size: 1.5rem; font-weight: bold; color: #27ae60; margin: 0;">$${totalValorizacion.toFixed(2)}</p>
-                </div>
-                <div style="background: #fff3cd; padding: 15px; border-radius: 6px; border-left: 4px solid #f39c12;">
-                    <h5 style="margin: 0 0 8px 0; color: #856404;">Valor en Venta</h5>
-                    <p style="font-size: 1.5rem; font-weight: bold; color: #f39c12; margin: 0;">$${totalValorVenta.toFixed(2)}</p>
-                </div>
-                <div style="background: ${productosBajoStock.length > 0 ? '#f8d7da' : '#d4edda'}; padding: 15px; border-radius: 6px; border-left: 4px solid ${productosBajoStock.length > 0 ? '#e74c3c' : '#27ae60'};">
-                    <h5 style="margin: 0 0 8px 0; color: ${productosBajoStock.length > 0 ? '#721c24' : '#155724'};">Stock Bajo</h5>
-                    <p style="font-size: 1.5rem; font-weight: bold; color: ${productosBajoStock.length > 0 ? '#e74c3c' : '#27ae60'}; margin: 0;">${productosBajoStock.length}</p>
+                <div style="display:flex; justify-content:space-between;">
+                    <strong>Valor total en venta:</strong>
+                    <span style="color:#27ae60; font-weight:bold;">$${totalValorVenta.toFixed(2)}</span>
                 </div>
             </div>
+            <table class="inventario-table">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Descripción Inventario</th>
+                        <th>Descripción Factura</th>
+                        <th>Existencia</th>
+                        <th>Costo Unit.</th>
+                        <th>Valor en Costo</th>
+                        <th>Precio Venta</th>
+                        <th>Valor en Venta</th>
+                    </tr>
+                </thead>
+                <tbody>
         `;
 
-        // Productos con stock bajo
-        if (productosBajoStock.length > 0) {
+        this.productos.forEach(producto => {
+            const valorCosto = producto.existencia * producto.precioCosto;
+            const valorVenta = producto.existencia * producto.precioVenta;
+            const claseCodigo = !producto.codigo ? 'codigo-vacio' : '';
+            const codigoDisplay = producto.codigo || 'SIN CÓDIGO';
+            
             html += `
-                <h5 style="color:#e74c3c; margin:20px 0 10px 0;">Productos con Stock Bajo/Crítico</h5>
-                <table class="inventario-table">
-                    <thead>
-                        <tr>
-                            <th>Código</th>
-                            <th>Descripción</th>
-                            <th>Existencia</th>
-                            <th>Stock Mínimo</th>
-                            <th>Diferencia</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+                <tr>
+                    <td class="${claseCodigo}">${codigoDisplay}</td>
+                    <td>${producto.descInventario}</td>
+                    <td>${producto.descFactura}</td>
+                    <td>${producto.existencia}</td>
+                    <td class="precio">$${producto.precioCosto.toFixed(2)}</td>
+                    <td class="precio">$${valorCosto.toFixed(2)}</td>
+                    <td class="precio">$${producto.precioVenta.toFixed(2)}</td>
+                    <td class="precio">$${valorVenta.toFixed(2)}</td>
+                </tr>
             `;
+        });
 
-            productosBajoStock.forEach(producto => {
-                const diferencia = producto.existencia - producto.stockMinimo;
-                html += `
-                    <tr>
-                        <td>${producto.codigo || 'SIN CÓDIGO'}</td>
-                        <td>${producto.descInventario}</td>
-                        <td class="stock-critico">${producto.existencia}</td>
-                        <td>${producto.stockMinimo}</td>
-                        <td>${diferencia}</td>
-                    </tr>
-                `;
-            });
+        html += `</tbody></table>`;
+        return html;
+    }
 
-            html += `</tbody></table>`;
+    obtenerEstadoStock(existencia, stockMinimo) {
+        if (!stockMinimo) return 'Sin mínimo';
+        if (existencia <= 0) return 'AGOTADO';
+        if (existencia <= stockMinimo) return 'BAJO STOCK';
+        return 'NORMAL';
+    }
+
+    imprimirReporte() {
+        try {
+            const contenido = document.getElementById('reporte-contenido').innerHTML;
+            const ventana = window.open('', '_blank', 'width=800,height=600');
+            
+            ventana.document.write(`
+                <html>
+                    <head>
+                        <title>Reporte de Inventario - Taller Wilian</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; margin: 20px; }
+                            table { width: 100%; border-collapse: collapse; }
+                            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                            th { background-color: #2c3e50; color: white; }
+                            .stock-bajo { background-color: #fff3cd; }
+                            .stock-critico { background-color: #f8d7da; }
+                            .codigo-vacio { background-color: #fff3cd; color: #856404; font-style: italic; }
+                            .precio { color: #27ae60; font-weight: bold; }
+                            .credito-si { background-color: #d4edda; color: #155724; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
+                            .credito-no { background-color: #f8d7da; color: #721c24; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
+                            @media print { body { margin: 0; } }
+                        </style>
+                    </head>
+                    <body>
+                        <h1>Taller Wilian - Reporte de Inventario</h1>
+                        <p>Generado: ${new Date().toLocaleString()}</p>
+                        ${contenido}
+                    </body>
+                </html>
+            `);
+            
+            ventana.document.close();
+            ventana.print();
+        } catch (error) {
+            console.error("Error en imprimirReporte:", error);
         }
-
-        // Ventana de impresión
-        const ventana = window.open('', '_blank', 'width=1000,height=700');
-        ventana.document.write(`
-            <html>
-                <head>
-                    <title>Reporte de Inventario - Taller Wilian</title>
-                    <style>
-                        body { font-family: Arial, sans-serif; margin: 20px; }
-                        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                        th { background-color: #2c3e50; color: white; }
-                        .stock-bajo { background-color: #fff3cd; }
-                        .stock-critico { background-color: #f8d7da; }
-                        @media print { body { margin: 0; } }
-                    </style>
-                </head>
-                <body>
-                    <h1>Taller Wilian - Reporte de Inventario</h1>
-                    <p>Generado: ${new Date().toLocaleString()}</p>
-                    ${html}
-                </body>
-            </html>
-        `);
-        ventana.document.close();
-        ventana.print();
     }
 
     // ========== UTILIDADES ==========
-    cerrarModalNuevo() {
-        document.getElementById('modalNuevoProducto').style.display = 'none';
-    }
-
     cerrarModalEditar() {
-        document.getElementById('modalEditarProducto').style.display = 'none';
-    }
-
-    cerrarModalCargarExcel() {
-        document.getElementById('modalCargarExcel').style.display = 'none';
+        try {
+            document.getElementById('modalEditarProducto').style.display = 'none';
+        } catch (error) {
+            console.error("Error en cerrarModalEditar:", error);
+        }
     }
 
     mostrarExito(mensaje) {
@@ -931,10 +1139,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 // Hacer funciones disponibles globalmente
 window.cerrarModalEditar = () => {
     if (inventario) inventario.cerrarModalEditar();
-};
-
-window.cerrarModalNuevo = () => {
-    if (inventario) inventario.cerrarModalNuevo();
 };
 
 console.log("📄 inventario.js cargado completamente");
