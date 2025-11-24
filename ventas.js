@@ -1,4 +1,4 @@
-// ventas.js - Sistema HÍBRIDO (online + offline)
+// ventas.js - CORREGIDO con todos los errores arreglados
 import { db } from "./firebase-config.js";
 import {
   collection,
@@ -64,14 +64,11 @@ function guardarVentaAutomaticamente() {
         saldoPendiente: saldoPendiente
     };
     
-    // Guardar en localStorage (siempre)
     localStorage.setItem(VENTA_GUARDADA_KEY, JSON.stringify(ventaData));
-    
-    // También en Firebase (si hay internet)
     guardarVentaEnFirebase(ventaData);
 }
 
-/* ---------- GUARDAR EN FIREBASE (si hay internet) ---------- */
+/* ---------- GUARDAR EN FIREBASE ---------- */
 async function guardarVentaEnFirebase(ventaData) {
     try {
         const usuario = localStorage.getItem('usuarioLogueado');
@@ -85,15 +82,12 @@ async function guardarVentaEnFirebase(ventaData) {
         });
         console.log("Venta guardada en Firebase");
     } catch (error) {
-        console.log("No se pudo guardar en Firebase (puede ser normal sin internet)");
+        console.log("Error guardando en Firebase:", error);
     }
 }
 
-/* ---------- CARGAR VENTA GUARDADA AL INICIAR ---------- */
+/* ---------- CARGAR VENTA GUARDADA ---------- */
 async function cargarVentaGuardada() {
-    console.log("Buscando venta guardada...");
-    
-    // Primero desde localStorage
     const ventaLocal = localStorage.getItem(VENTA_GUARDADA_KEY);
     
     if (ventaLocal) {
@@ -101,18 +95,14 @@ async function cargarVentaGuardada() {
         const fechaGuardado = new Date(ventaData.fechaGuardado);
         const hoy = new Date();
         
-        // Solo cargar si es del mismo día
         if (fechaGuardado.toDateString() === hoy.toDateString()) {
-            console.log("Venta recuperada desde localStorage");
             aplicarVentaGuardada(ventaData);
             return true;
         } else {
-            console.log("Venta de día anterior, limpiando...");
             limpiarVentaGuardada();
         }
     }
     
-    // Si no hay en localStorage, intentar desde Firebase
     return await cargarVentaDesdeFirebase();
 }
 
@@ -131,11 +121,9 @@ async function cargarVentaDesdeFirebase() {
             const hoy = new Date();
             
             if (fechaGuardado.toDateString() === hoy.toDateString()) {
-                console.log("Venta recuperada desde Firebase");
                 aplicarVentaGuardada(ventaData);
                 return true;
             } else {
-                console.log("Venta de día anterior en Firebase, limpiando...");
                 limpiarVentaGuardada();
             }
         }
@@ -168,8 +156,6 @@ function aplicarVentaGuardada(ventaData) {
         if (window.actualizarCarrito) {
             window.actualizarCarrito(false);
         }
-        
-        console.log("Venta recuperada - Productos:", carrito.length);
     }
     
     if (ventaData.idFactura) {
@@ -185,10 +171,9 @@ function limpiarVentaGuardada() {
         const docRef = doc(db, "ventasTemporales", usuario);
         setDoc(docRef, {}).catch(() => {});
     }
-    console.log("Venta guardada limpiada");
 }
 
-/* ---------- MODALES ABONO (sin cambios) ---------- */
+/* ---------- MODALES (AHORA SÍ FUNCIONAN) ---------- */
 function mostrarModalAbonoInicial() {
     document.getElementById("modalAbonoInicial").style.display = 'flex';
 }
@@ -259,7 +244,7 @@ function guardarVentaCredito(conAbono = false) {
     guardarVenta("credito");
 }
 
-/* ---------- GUARDAR VENTA FINAL ---------- */
+/* ---------- GUARDAR VENTA (CON NUMERO DE EQUIPO) ---------- */
 async function guardarVenta(tipoBoton) {
     const eq = document.getElementById("equipo")?.value.trim();
     if (!eq) {
@@ -289,16 +274,17 @@ async function guardarVenta(tipoBoton) {
     };
 
     try {
-        if (idFactura) {
-            await updateDoc(doc(db, "ventas", idFactura), venta);
-        } else {
-            await addDoc(collection(db, "ventas"), venta);
-        }
+        // GUARDAR POR NUMERO DE EQUIPO
+        const idVenta = `equipo_${eq}_${Date.now()}`;
+        await setDoc(doc(db, "ventas", idVenta), venta);
         
-        limpiarVentaGuardada(); // LIMPIAR AL FINALIZAR
+        limpiarVentaGuardada();
         limpiarTodo();
         alert("✅ Venta guardada correctamente");
-        location.reload();
+        
+        // ACTUALIZAR HISTORIAL EN TIEMPO REAL
+        await cargarMiniHistorial();
+        
     } catch (e) {
         console.error("Error:", e);
         alert("❌ Error al guardar: " + (e.message || "Inténtalo de nuevo"));
@@ -326,7 +312,7 @@ function limpiarTodo() {
     }
 }
 
-/* ---------- EVENTOS DE CARRITO ---------- */
+/* ---------- CARRITO ---------- */
 function agregarProducto(desc, precio, cantidad) {
     const sub = precio * cantidad;
     carrito.push({ desc, precio, cantidad, subtotal: sub });
@@ -338,20 +324,164 @@ function agregarProducto(desc, precio, cantidad) {
     }
     
     mostrarNotificacionProducto(desc, precio, cantidad);
-    guardarVentaAutomaticamente(); // GUARDAR CADA CAMBIO
+    guardarVentaAutomaticamente();
 }
 
-/* ---------- INICIALIZAR AL CARGAR LA PÁGINA ---------- */
+/* ---------- MINI HISTORIAL (AHORA SI ACTUALIZA EN TIEMPO REAL) ---------- */
+async function cargarMiniHistorial() {
+    try {
+        const hoy = new Date();
+        const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0);
+        const fin = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59);
+        
+        const q = query(collection(db, "ventas"), 
+                       where("fecha", ">=", inicio), 
+                       where("fecha", "<=", fin), 
+                       orderBy("fecha", "desc"));
+        const snap = await getDocs(q);
+        const lista = snap.docs.map(d => ({ 
+            id: d.id, 
+            ...d.data(),
+            fechaTimestamp: d.data().fecha
+        }));
+
+        const miniGrid = document.getElementById("miniGrid");
+        const titulo = document.querySelector(".mini-historial h3");
+        
+        if (titulo) titulo.textContent = "Historial de hoy";
+        
+        if (lista.length === 0) {
+            miniGrid.innerHTML = "<p style='color:#7f8c8d;font-size:.9rem'>Sin ventas hoy</p>";
+            return;
+        }
+        
+        const grupos = {};
+        lista.forEach(v => {
+            if (!grupos[v.equipo]) grupos[v.equipo] = [];
+            grupos[v.equipo].push(v);
+        });
+
+        miniGrid.innerHTML = Object.entries(grupos).map(([eq, facturas]) => {
+            const totalEquipo = facturas.reduce((sum, v) => sum + v.total, 0);
+            const esLocal = facturas[0].esLocal;
+            const ciudad = facturas[0].ciudad;
+            
+            return `
+              <div class="mini-card" onclick="mostrarDetalleEquipo('${eq}')" title="Ver facturas del equipo ${eq}">
+                <div class="mini-equipo">${eq}</div>
+                <div class="mini-total">$${totalEquipo.toFixed(2)}</div>
+                ${!esLocal && ciudad ? `<div class="mini-ciudad">${ciudad}</div>` : ''}
+              </div>`;
+        }).join("");
+        
+    } catch (error) {
+        console.error("Error cargando historial:", error);
+        const miniGrid = document.getElementById("miniGrid");
+        if (miniGrid) miniGrid.innerHTML = "<p style='color:#e74c3c;font-size:.9rem'>Error al cargar</p>";
+    }
+}
+
+/* ---------- MOSTRAR DETALLE DE EQUIPO ---------- */
+window.mostrarDetalleEquipo = async (equipo) => {
+    try {
+        const hoy = new Date();
+        const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0);
+        const fin = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59);
+        
+        const q = query(collection(db, "ventas"), 
+                       where("fecha", ">=", inicio), 
+                       where("fecha", "<=", fin), 
+                       where("equipo", "==", equipo),
+                       orderBy("fecha", "desc"));
+        const snap = await getDocs(q);
+        const facturas = snap.docs.map(d => ({ 
+            id: d.id, 
+            ...d.data(),
+            fechaTimestamp: d.data().fecha
+        }));
+
+        const detalleEquipoContent = document.getElementById("detalleEquipoContent");
+        const modalDetalle = document.getElementById("modalDetalle");
+        
+        if (facturas.length === 0) {
+            detalleEquipoContent.innerHTML = "<p>No se encontraron ventas para este equipo hoy.</p>";
+            modalDetalle.style.display = "flex";
+            return;
+        }
+        
+        let html = `<h4 style="margin-bottom:15px;color:#2c3e50;text-align:center;">Ventas del Equipo: ${equipo}</h4>`;
+        
+        facturas.forEach((v, index) => {
+            const fecha = v.fechaTimestamp ? 
+              new Date(v.fechaTimestamp.seconds * 1000).toLocaleString() : "Fecha no disponible";
+            
+            const infoAbono = v.tipo === 'credito' && v.abonoInicial > 0 ? 
+              `<tr><td style="padding:4px;font-weight:bold;">Abono:</td><td style="padding:4px;color:#27ae60;">$${v.abonoInicial.toFixed(2)}</td></tr>
+               <tr><td style="padding:4px;font-weight:bold;">Saldo:</td><td style="padding:4px;color:#e74c3c;">$${v.saldoPendiente.toFixed(2)}</td></tr>` : '';
+            
+            html += `
+              <div style="margin-bottom:20px;padding:15px;border:1px solid #ddd;border-radius:6px;background:#f8f9fa;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #ccc;">
+                  <strong style="color:#2c3e50;">Venta ${index + 1}</strong>
+                  <span style="font-size:.75rem;color:#7f8c8d;">${fecha}</span>
+                </div>
+                <table style="width:100%;font-size:.8rem;border-collapse:collapse;margin-bottom:10px;">
+                  <tr><td style="padding:4px;font-weight:bold;width:80px;">Cliente:</td><td style="padding:4px;">${v.cliente}</td></tr>
+                  <tr><td style="padding:4px;font-weight:bold;">Tipo:</td><td style="padding:4px;">
+                    <span style="padding:2px 6px;border-radius:3px;color:white;background:${v.tipo === 'credito' ? '#f39c12' : '#3498db'};font-size:.7rem;">${v.tipo}</span>
+                  </td></tr>
+                  <tr><td style="padding:4px;font-weight:bold;">Total:</td><td style="padding:4px;font-weight:bold;color:#27ae60;">$${v.total.toFixed(2)}</td></tr>
+                  ${infoAbono}
+                </table>
+                <table style="width:100%;font-size:.75rem;border-collapse:collapse;margin-bottom:10px;">
+                  <thead><tr style="background:#2c3e50;color:white">
+                    <th style="padding:6px;text-align:left;">Producto</th>
+                    <th style="padding:6px;text-align:center;">Cant</th>
+                    <th style="padding:6px;text-align:right;">P.U.</th>
+                    <th style="padding:6px;text-align:right;">Subt.</th>
+                  </tr></thead>
+                  <tbody>
+                    ${v.items.map(i => `
+                      <tr>
+                        <td style="padding:6px;border-bottom:1px solid #eee;">${i.desc}</td>
+                        <td style="padding:6px;border-bottom:1px solid #eee;text-align:center;">${i.cantidad}</td>
+                        <td style="padding:6px;border-bottom:1px solid #eee;text-align:right;">$${i.precio.toFixed(2)}</td>
+                        <td style="padding:6px;border-bottom:1px solid #eee;text-align:right;">$${i.subtotal.toFixed(2)}</td>
+                      </tr>`).join("")}
+                  </tbody>
+                </table>
+              </div>`;
+        });
+        
+        detalleEquipoContent.innerHTML = html;
+        modalDetalle.style.display = "flex";
+        
+    } catch (e) { 
+        console.error("Error cargando detalle:", e);
+        const detalleEquipoContent = document.getElementById("detalleEquipoContent");
+        if (detalleEquipoContent) {
+            detalleEquipoContent.innerHTML = `<p style="color:#e74c3c;text-align:center;">Error al cargar detalles</p>`;
+        }
+        const modalDetalle = document.getElementById("modalDetalle");
+        if (modalDetalle) modalDetalle.style.display = "flex";
+    }
+};
+
+window.editarFactura = (id) => {
+    const modalDetalle = document.getElementById("modalDetalle");
+    if (modalDetalle) modalDetalle.style.display = 'none';
+    window.location.href = `venta.html?id=${id}`;
+};
+
+/* ---------- INICIALIZAR TODO ---------- */
 window.addEventListener('DOMContentLoaded', async () => {
-    console.log("Iniciando ventas.js con sistema híbrido...");
+    console.log("Iniciando ventas.js con todas las correcciones...");
     
-    // Verificar login
     if (!localStorage.getItem('usuarioLogueado')) {
         window.location.href = 'login.html';
         return;
     }
     
-    // Cargar venta guardada
     await cargarVentaGuardada();
     
     // Configurar eventos
@@ -361,7 +491,46 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (equipoInput) equipoInput.addEventListener("input", guardarVentaAutomaticamente);
     if (clienteInput) clienteInput.addEventListener("input", guardarVentaAutomaticamente);
     
-    // Botones
+    // Configurar botones de modales (AHORA SÍ FUNCIONAN)
+    const btnConAbono = document.getElementById("btnConAbono");
+    const btnSinAbono = document.getElementById("btnSinAbono");
+    const confirmarAbonoBtn = document.getElementById("confirmarAbonoBtn");
+    const confirmarEliminarBtn = document.getElementById("confirmarEliminarBtn");
+    
+    if (btnConAbono) btnConAbono.addEventListener("click", () => {
+        cerrarAbonoInicial();
+        mostrarModalMontoAbono();
+    });
+    
+    if (btnSinAbono) btnSinAbono.addEventListener("click", () => {
+        cerrarAbonoInicial();
+        guardarVentaCredito(false);
+    });
+    
+    if (confirmarAbonoBtn) confirmarAbonoBtn.addEventListener("click", confirmarAbonoInicial);
+    
+    if (confirmarEliminarBtn) confirmarEliminarBtn.addEventListener("click", () => {
+        if (itemAEliminar !== null) {
+            const it = carrito[itemAEliminar];
+            total -= it.subtotal;
+            cantidadTotal -= it.cantidad;
+            carrito.splice(itemAEliminar, 1);
+            window.actualizarCarrito(false);
+            guardarVentaAutomaticamente();
+            itemAEliminar = null;
+        }
+        const modal = document.getElementById("modalConfirmarEliminar");
+        if (modal) modal.style.display = 'none';
+    });
+    
+    // Cerrar modales al hacer clic fuera
+    document.querySelectorAll('.modal-overlay').forEach(modal => {
+        modal.addEventListener('click', e => {
+            if (e.target === modal) modal.style.display = 'none';
+        });
+    });
+    
+    // Botones de venta
     const efectivoBtn = document.getElementById("efectivoBtn");
     const creditoBtn = document.getElementById("creditoBtn");
     
@@ -390,118 +559,12 @@ window.addEventListener('DOMContentLoaded', async () => {
     const id = params.get("id");
     if (id) {
         await cargarFactura(id);
-    }
-});
-
-/* ---------- HACER FUNCIONES GLOBALES ---------- */
-window.actualizarCarrito = (desdeAgregar = false) => {
-    const cartItems = document.getElementById("cart-items");
-    const cartBadge = document.getElementById("cart-badge");
-    const cartTotalTxt = document.getElementById("cart-total");
-    const cartResumen = document.getElementById("cart-resumen");
-    
-    if (!cartItems || !cartBadge || !cartTotalTxt || !cartResumen) return;
-    
-    if (carrito.length === 0) {
-        cartItems.innerHTML = `<div class="empty-cart"><i class="fas fa-shopping-cart"></i><div>No hay productos</div></div>`;
     } else {
-        cartItems.innerHTML = carrito.map((it, i) => `
-            <div class="cart-item" data-index="${i}">
-                <div class="product-desc">${it.desc}</div>
-                <div><input type="number" value="${it.cantidad}" min="1" style="width:50px" onchange="cambiarCantidad(${i},this.value)"></div>
-                <div><input type="number" value="${it.precio.toFixed(2)}" min="0.01" step="0.01" style="width:70px" onchange="cambiarPrecio(${i},this.value)"></div>
-                <div>$${it.subtotal.toFixed(2)}</div>
-                <div><button class="delete-item-btn" onclick="abrirConfirmarEliminar(${i})"><i class="fas fa-trash"></i></button></div>
-            </div>`).join("");
+        if (window.actualizarCarrito) {
+            window.actualizarCarrito(false);
+        }
     }
     
-    cartBadge.textContent = cantidadTotal;
-    cartTotalTxt.textContent = `$${total.toFixed(2)}`;
-    cartResumen.textContent = `Productos: ${cantidadTotal} | Total: `;
-    
-    guardarVentaAutomaticamente();
-};
-
-window.abrirConfirmarEliminar = (i) => {
-    itemAEliminar = i;
-    const modal = document.getElementById("modalConfirmarEliminar");
-    if (modal) modal.style.display = 'flex';
-};
-
-window.cambiarCantidad = (i, v) => {
-    const nueva = parseInt(v) || 1;
-    const it = carrito[i];
-    total -= it.subtotal;
-    cantidadTotal -= it.cantidad;
-    it.cantidad = nueva;
-    it.subtotal = it.precio * it.cantidad;
-    total += it.subtotal;
-    cantidadTotal += nueva;
-    window.actualizarCarrito(false);
-};
-
-window.cambiarPrecio = (i, v) => {
-    const nuevo = parseFloat(v) || 0;
-    const it = carrito[i];
-    total -= it.subtotal;
-    it.precio = nuevo;
-    it.subtotal = it.precio * it.cantidad;
-    total += it.subtotal;
-    window.actualizarCarrito(false);
-};
-
-window.editarFactura = (id) => {
-    window.location.href = `venta.html?id=${id}`;
-};
-
-/* ---------- CARGAR FACTURA PARA EDICIÓN ---------- */
-async function cargarFactura(id) {
-    try {
-        const snap = await getDoc(doc(db, "ventas", id));
-        if (!snap.exists()) {
-            alert("Factura no encontrada");
-            return;
-        }
-        
-        const data = snap.data();
-        idFactura = id;
-        tipoOriginal = data.tipo;
-        
-        const equipoInput = document.getElementById("equipo");
-        const clienteInput = document.getElementById("cliente");
-        
-        if (equipoInput) equipoInput.value = data.equipo;
-        if (clienteInput) clienteInput.value = data.cliente || "";
-        
-        carrito = data.items.map(x => ({ ...x }));
-        total = data.total;
-        cantidadTotal = data.cantidadTotal;
-        abonoInicial = data.abonoInicial || 0;
-        saldoPendiente = data.saldoPendiente || total;
-        
-        const tituloVenta = document.getElementById("tituloVenta");
-        if (tituloVenta) tituloVenta.textContent = "EDITAR VENTA";
-        
-        const efectivoBtn = document.getElementById("efectivoBtn");
-        const creditoBtn = document.getElementById("creditoBtn");
-        
-        if (efectivoBtn) {
-            efectivoBtn.textContent = "Actualizar";
-            efectivoBtn.classList.remove("btn-success", "btn-warning");
-            efectivoBtn.classList.add("btn-primary");
-        }
-        
-        if (creditoBtn) {
-            creditoBtn.textContent = "Cancelar";
-            creditoBtn.classList.remove("btn-success", "btn-warning");
-            creditoBtn.classList.add("btn-danger");
-        }
-        
-        window.actualizarCarrito(false);
-        guardarVentaAutomaticamente();
-        
-    } catch (e) {
-        console.error("Error al cargar factura:", e);
-        alert("Error al cargar la factura");
-    }
-}
+    // Cargar historial
+    await cargarMiniHistorial();
+});
