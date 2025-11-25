@@ -20,6 +20,7 @@ class SistemaInventario {
         this.productos = [];
         this.proveedores = [];
         this.datosExcel = [];
+        this.ordenActual = '';
         console.log("✅ SistemaInventario inicializado con Firebase");
     }
 
@@ -94,6 +95,17 @@ class SistemaInventario {
             if (buscarInput) {
                 buscarInput.addEventListener('input', (e) => {
                     this.filtrarProductos(e.target.value);
+                });
+            }
+
+            //Ordenamiento
+            const ordenarSelect = document.getElementById('ordenar-por');
+            if (ordenarSelect) {
+                ordenarSelect.addEventListener('change', (e) => {
+                    this.ordenActual = e.target.value;
+                    console.log('Ordenando por:', this.ordenActual);
+                    const termino = buscarInput ? buscarInput.value : '';
+                    this.filtrarProductos(termino);
                 });
             }
 
@@ -277,7 +289,8 @@ class SistemaInventario {
 
     mostrarProductos(productosFiltrados = null) {
         try {
-            const productos = productosFiltrados || this.productos;
+            let productos = productosFiltrados || this.productos;
+            productos = this.ordenarProductos(productos);
             const tbody = document.getElementById('inventario-body');
             const modoEdicion = localStorage.getItem('modoEdicionInventario') === 'true';
 
@@ -362,6 +375,40 @@ class SistemaInventario {
         if (existencia <= 0) return 'stock-critico';
         if (existencia <= stockMinimo) return 'stock-bajo';
         return 'stock-normal';
+    }
+
+    ordenarProductos(productos) {
+        if (!this.ordenActual) return productos;
+
+        const productosCopia = [...productos];
+        const [campo, direccion] = this.ordenActual.split('-');
+
+        productosCopia.sort((a, b) => {
+            let valorA, valorB;
+
+            switch (campo) {
+                case 'codigo':
+                    valorA = (a.codigo || '').toLowerCase();
+                    valorB = (b.codigo || '').toLowerCase();
+                    break;
+                case 'descripcion':
+                    valorA = a.descInventario.toLowerCase();
+                    valorB = b.descInventario.toLowerCase();
+                    break;
+                case 'existencia':
+                    valorA = a.existencia || 0;
+                    valorB = b.existencia || 0;
+                    break;
+                default:
+                    return 0;
+            }
+
+            if (valorA < valorB) return direccion === 'asc' ? -1 : 1;
+            if (valorA > valorB) return direccion === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        return productosCopia;
     }
 
     filtrarProductos(termino) {
