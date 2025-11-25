@@ -2,14 +2,14 @@
 console.log("✅ inventario.js cargando...");
 
 import { db } from './firebase-config.js';
-import { 
-    collection, 
-    addDoc, 
-    updateDoc, 
-    deleteDoc, 
-    doc, 
-    getDocs, 
-    query, 
+import {
+    collection,
+    addDoc,
+    updateDoc,
+    deleteDoc,
+    doc,
+    getDocs,
+    query,
     where,
     getDoc,
     setDoc
@@ -68,11 +68,11 @@ class SistemaInventario {
             sidebarItems.forEach(item => {
                 item.addEventListener('click', () => {
                     const tabId = item.getAttribute('data-tab');
-                    
+
                     // Remover activo de todos
                     sidebarItems.forEach(sideItem => sideItem.classList.remove('active'));
                     tabContents.forEach(content => content.classList.remove('active'));
-                    
+
                     // Activar actual
                     item.classList.add('active');
                     const tabContent = document.getElementById(`tab-${tabId}`);
@@ -134,7 +134,7 @@ class SistemaInventario {
 
             // Carga de Excel
             this.setupExcelUpload();
-            
+
             // Reportes
             this.setupReportes();
 
@@ -243,7 +243,7 @@ class SistemaInventario {
         try {
             console.log("📦 Cargando productos desde Firebase...");
             const tbody = document.getElementById('inventario-body');
-            
+
             if (tbody) {
                 tbody.innerHTML = `
                     <tr>
@@ -257,7 +257,7 @@ class SistemaInventario {
 
             const querySnapshot = await getDocs(collection(db, "inventario"));
             this.productos = [];
-            
+
             querySnapshot.forEach((doc) => {
                 const producto = {
                     id: doc.id,
@@ -268,7 +268,7 @@ class SistemaInventario {
 
             console.log(`✅ ${this.productos.length} productos cargados desde Firebase`);
             this.mostrarProductos();
-            
+
         } catch (error) {
             console.error("❌ Error cargando productos desde Firebase:", error);
             this.mostrarError("Error al cargar el inventario desde la base de datos");
@@ -279,12 +279,13 @@ class SistemaInventario {
         try {
             const productos = productosFiltrados || this.productos;
             const tbody = document.getElementById('inventario-body');
-            
+            const modoEdicion = localStorage.getItem('modoEdicionInventario') === 'true';
+
             if (!tbody) {
                 console.error("❌ No se encontró tbody#inventario-body");
                 return;
             }
-            
+
             if (productos.length === 0) {
                 tbody.innerHTML = `
                     <tr>
@@ -304,29 +305,53 @@ class SistemaInventario {
                 const creditoFiscal = producto.creditoFiscal !== false ? 'SI' : 'NO';
                 const claseCredito = producto.creditoFiscal !== false ? 'credito-si' : 'credito-no';
 
-                return `
-                    <tr>
-                        <td class="${claseCodigo}"><strong>${codigoDisplay}</strong></td>
-                        <td>${producto.descInventario}</td>
-                        <td>${producto.descFactura}</td>
-                        <td class="precio">$${producto.precioCosto?.toFixed(2) || '0.00'}</td>
-                        <td class="precio">$${producto.precioVenta?.toFixed(2) || '0.00'}</td>
-                        <td class="${claseStock}">${producto.existencia}</td>
-                        <td>${producto.stockMinimo || 0}</td>
-                        <td><span class="${claseCredito}">${creditoFiscal}</span></td>
-                        <td>${producto.proveedor || ''}</td>
-                        <td>
-                            <button class="icon-btn btn-edit" onclick="inventario.editarProducto('${producto.id}')" title="Editar">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="icon-btn btn-delete" onclick="inventario.eliminarProducto('${producto.id}')" title="Eliminar">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `;
+                if (modoEdicion) {
+                    // MODO EDICIÓN (EXCEL)
+                    return `
+                        <tr data-id="${producto.id}">
+                            <td><input type="text" value="${producto.codigo || ''}" class="edit-input" onchange="inventario.guardarCambioRapido('${producto.id}', 'codigo', this.value)"></td>
+                            <td><input type="text" value="${producto.descInventario}" class="edit-input" onchange="inventario.guardarCambioRapido('${producto.id}', 'descInventario', this.value)"></td>
+                            <td><input type="text" value="${producto.descFactura}" class="edit-input" onchange="inventario.guardarCambioRapido('${producto.id}', 'descFactura', this.value)"></td>
+                            <td><input type="number" step="0.01" value="${producto.precioCosto}" class="edit-input" onchange="inventario.guardarCambioRapido('${producto.id}', 'precioCosto', this.value)"></td>
+                            <td><input type="number" step="0.01" value="${producto.precioVenta}" class="edit-input" onchange="inventario.guardarCambioRapido('${producto.id}', 'precioVenta', this.value)"></td>
+                            <td><input type="number" value="${producto.existencia}" class="edit-input" onchange="inventario.guardarCambioRapido('${producto.id}', 'existencia', this.value)"></td>
+                            <td><input type="number" value="${producto.stockMinimo || 0}" class="edit-input" onchange="inventario.guardarCambioRapido('${producto.id}', 'stockMinimo', this.value)"></td>
+                            <td>
+                                <select onchange="inventario.guardarCambioRapido('${producto.id}', 'creditoFiscal', this.value === 'true')">
+                                    <option value="true" ${producto.creditoFiscal !== false ? 'selected' : ''}>SI</option>
+                                    <option value="false" ${producto.creditoFiscal === false ? 'selected' : ''}>NO</option>
+                                </select>
+                            </td>
+                            <td><input type="text" value="${producto.proveedor || ''}" class="edit-input" onchange="inventario.guardarCambioRapido('${producto.id}', 'proveedor', this.value)"></td>
+                            <td>
+                                <button class="icon-btn btn-delete" onclick="inventario.eliminarProducto('${producto.id}')" title="Eliminar">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                } else {
+                    // MODO VISUALIZACIÓN (SEGURO)
+                    return `
+                        <tr>
+                            <td class="${claseCodigo}"><strong>${codigoDisplay}</strong></td>
+                            <td>${producto.descInventario}</td>
+                            <td>${producto.descFactura}</td>
+                            <td class="precio">$${producto.precioCosto?.toFixed(2) || '0.00'}</td>
+                            <td class="precio">$${producto.precioVenta?.toFixed(2) || '0.00'}</td>
+                            <td class="${claseStock}">${producto.existencia}</td>
+                            <td>${producto.stockMinimo || 0}</td>
+                            <td><span class="${claseCredito}">${creditoFiscal}</span></td>
+                            <td>${producto.proveedor || ''}</td>
+                            <td>
+                                <!-- Botones ocultos en modo seguro -->
+                                <span style="color:#999; font-size:0.8rem;"><i class="fas fa-lock"></i></span>
+                            </td>
+                        </tr>
+                    `;
+                }
             }).join('');
-            
+
         } catch (error) {
             console.error("Error en mostrarProductos:", error);
         }
@@ -363,7 +388,7 @@ class SistemaInventario {
     async guardarNuevoProducto() {
         try {
             const formData = new FormData(document.getElementById('form-nuevo-producto'));
-            
+
             const producto = {
                 codigo: (formData.get('codigo') || '').trim(),
                 codigosProveedor: (formData.get('codigos-proveedor') || '').trim(),
@@ -404,12 +429,12 @@ class SistemaInventario {
             // Actualizar lista local
             producto.id = docRef.id;
             this.productos.push(producto);
-            
+
             this.mostrarExito('Producto agregado correctamente');
             document.getElementById('form-nuevo-producto').reset();
             document.getElementById('credito-fiscal').checked = true;
             this.mostrarProductos();
-            
+
         } catch (error) {
             console.error('❌ Error guardando producto en Firebase:', error);
             this.mostrarError('Error al guardar el producto: ' + error.message);
@@ -451,7 +476,7 @@ class SistemaInventario {
         try {
             const id = document.getElementById('edit-id').value;
             const formData = new FormData(document.getElementById('form-editar-producto'));
-            
+
             const updates = {
                 codigo: (formData.get('edit-codigo') || '').trim(),
                 codigosProveedor: (formData.get('edit-codigos-proveedor') || '').trim(),
@@ -498,7 +523,7 @@ class SistemaInventario {
     async eliminarProducto(id) {
         try {
             console.log("🗑️ Intentando eliminar producto:", id);
-            
+
             // Verificar que el producto existe
             const producto = this.productos.find(p => p.id === id);
             if (!producto) {
@@ -509,7 +534,7 @@ class SistemaInventario {
 
             const nombreProducto = producto.descInventario || 'Producto';
             const confirmacion = confirm(`¿Estás seguro de que quieres eliminar "${nombreProducto}"?\n\nEsta acción no se puede deshacer.`);
-            
+
             if (!confirmacion) {
                 console.log("❌ Eliminación cancelada por el usuario");
                 return;
@@ -537,37 +562,37 @@ class SistemaInventario {
     procesarArchivoExcel(file) {
         try {
             const reader = new FileReader();
-            
+
             reader.onload = (e) => {
                 try {
                     console.log("📊 Procesando archivo Excel...");
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
-                    
+
                     // Tomar la primera hoja
                     const firstSheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[firstSheetName];
-                    
+
                     // Convertir a JSON manteniendo celdas vacías
-                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
-                        header: 1, 
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+                        header: 1,
                         defval: "",
                         blankrows: true
                     });
-                    
+
                     console.log("📋 Datos procesados del Excel:", jsonData);
                     this.mostrarPreviewExcel(jsonData);
-                    
+
                 } catch (error) {
                     console.error('❌ Error procesando Excel:', error);
                     this.mostrarError('Error al procesar el archivo Excel: ' + error.message);
                 }
             };
-            
+
             reader.onerror = () => {
                 this.mostrarError('Error al leer el archivo');
             };
-            
+
             reader.readAsArrayBuffer(file);
         } catch (error) {
             console.error("Error en procesarArchivoExcel:", error);
@@ -579,7 +604,7 @@ class SistemaInventario {
             const preview = document.getElementById('excel-preview');
             const previewContent = document.getElementById('excel-preview-content');
             const advertenciasDiv = document.getElementById('excel-advertencias');
-            
+
             if (!preview || !previewContent) {
                 console.error("❌ Elementos de preview no encontrados");
                 return;
@@ -592,29 +617,29 @@ class SistemaInventario {
             let html = '<table style="width:100%; border-collapse:collapse; font-size:12px;">';
             let productosSinCodigo = 0;
             let advertenciasHTML = '';
-            
+
             previewData.forEach((fila, index) => {
                 html += '<tr>';
-                
+
                 // Procesar cada celda manteniendo la posición correcta
                 for (let i = 0; i < Math.max(fila.length, 7); i++) {
                     const celda = fila[i] !== undefined ? fila[i] : '';
-                    
+
                     if (index === 0) {
                         // Encabezados
                         const encabezados = ['Código', 'Descripción Inventario', 'Descripción Factura', 'Precio Costo', 'Precio Venta', 'Existencia', 'Crédito Fiscal'];
-                        html += `<th style="border:1px solid #ddd; padding:5px; background:#f2f2f2;">${encabezados[i] || `Col ${i+1}`}</th>`;
+                        html += `<th style="border:1px solid #ddd; padding:5px; background:#f2f2f2;">${encabezados[i] || `Col ${i + 1}`}</th>`;
                     } else {
                         // Datos - RESPETAR CELDAS VACÍAS
                         const estilo = i === 0 && !celda ? 'background:#fff3cd; color:#856404; font-style:italic;' : '';
                         let displayCelda = celda === '' ? '<span style="color:#999; font-style:italic;">vacío</span>' : celda;
-                        
+
                         // Formatear precios con signo de dólar
                         if (i === 3 || i === 4) {
                             const valor = this.parseNumero(celda);
                             displayCelda = valor > 0 ? `$${valor.toFixed(2)}` : displayCelda;
                         }
-                        
+
                         // Formatear crédito fiscal - CORREGIDO: Por defecto SI
                         if (i === 6) {
                             if (celda === '' || celda === undefined || celda === null) {
@@ -622,14 +647,14 @@ class SistemaInventario {
                                 displayCelda = '<span style="color:#27ae60; font-weight:bold;">SI (por defecto)</span>';
                             } else {
                                 const creditoStr = celda.toString().trim().toUpperCase();
-                                displayCelda = (creditoStr === 'SI' || creditoStr === 'TRUE' || creditoStr === '1' || creditoStr === 'SÍ') ? 
-                                    '<span style="color:#27ae60; font-weight:bold;">SI</span>' : 
+                                displayCelda = (creditoStr === 'SI' || creditoStr === 'TRUE' || creditoStr === '1' || creditoStr === 'SÍ') ?
+                                    '<span style="color:#27ae60; font-weight:bold;">SI</span>' :
                                     '<span style="color:#e74c3c; font-weight:bold;">NO</span>';
                             }
                         }
-                        
+
                         html += `<td style="border:1px solid #ddd; padding:5px; ${estilo}">${displayCelda}</td>`;
-                        
+
                         // Contar productos sin código
                         if (i === 0 && index > 0 && !celda) {
                             productosSinCodigo++;
@@ -638,13 +663,13 @@ class SistemaInventario {
                 }
                 html += '</tr>';
             });
-            
+
             html += '</table>';
-            
+
             if (data.length > 10) {
                 html += `<p style="color:#666; margin-top:10px;">... y ${data.length - 10} filas más</p>`;
             }
-            
+
             // Mostrar advertencias sobre productos sin código
             if (productosSinCodigo > 0) {
                 advertenciasHTML = `
@@ -655,7 +680,7 @@ class SistemaInventario {
                     </div>
                 `;
             }
-            
+
             // Agregar advertencia sobre crédito fiscal por defecto
             advertenciasHTML += `
                 <div class="excel-advertencia">
@@ -663,7 +688,7 @@ class SistemaInventario {
                     <strong>Información:</strong> Los productos sin valor en "Crédito Fiscal" se cargarán como <strong>SI</strong> por defecto.
                 </div>
             `;
-            
+
             advertenciasDiv.innerHTML = advertenciasHTML;
             previewContent.innerHTML = html;
             preview.style.display = 'block';
@@ -681,7 +706,7 @@ class SistemaInventario {
             }
 
             const datos = this.datosExcel.slice(1); // Excluir encabezados
-            
+
             let productosCargados = 0;
             let productosActualizados = 0;
             let productosSinCodigo = 0;
@@ -695,7 +720,7 @@ class SistemaInventario {
                     const codigo = fila[0]?.toString().trim() || ''; // RESPETAR VACÍOS
                     const descInventario = fila[1]?.toString().trim() || '';
                     const descFactura = fila[2]?.toString().trim() || descInventario;
-                    
+
                     if (!descInventario) {
                         continue; // Saltar si no hay descripción inventario
                     }
@@ -734,11 +759,11 @@ class SistemaInventario {
                         productoExistente = this.productos.find(p => p.codigo === productoData.codigo);
                     } else {
                         // Buscar por descripción (solo para productos sin código)
-                        productoExistente = this.productos.find(p => 
+                        productoExistente = this.productos.find(p =>
                             !p.codigo && p.descInventario.toLowerCase() === descInventario.toLowerCase()
                         );
                     }
-                    
+
                     if (productoExistente) {
                         // Actualizar producto existente en Firebase
                         const productoRef = doc(db, "inventario", productoExistente.id);
@@ -746,7 +771,7 @@ class SistemaInventario {
                             ...productoData,
                             fechaActualizacion: new Date().toISOString()
                         });
-                        
+
                         // Actualizar en lista local
                         const index = this.productos.findIndex(p => p.id === productoExistente.id);
                         if (index !== -1) {
@@ -756,7 +781,7 @@ class SistemaInventario {
                     } else {
                         // Crear nuevo producto en Firebase
                         const docRef = await addDoc(collection(db, "inventario"), productoData);
-                        
+
                         // Agregar a lista local
                         productoData.id = docRef.id;
                         this.productos.push(productoData);
@@ -778,7 +803,7 @@ class SistemaInventario {
             }
 
             this.mostrarExito(mensaje);
-            
+
             document.getElementById('excel-preview').style.display = 'none';
             this.datosExcel = [];
             this.mostrarProductos();
@@ -791,19 +816,19 @@ class SistemaInventario {
 
     parseNumero(valor, esEntero = false) {
         if (valor === null || valor === undefined || valor === '') return 0;
-        
+
         // Si ya es número, retornarlo
         if (typeof valor === 'number') return esEntero ? Math.round(valor) : valor;
-        
+
         let strValor = valor.toString().trim();
         if (strValor === '') return 0;
-        
+
         // Limpiar caracteres no numéricos excepto punto decimal y signo negativo
         strValor = strValor.replace(/[^\d.-]/g, '');
-        
+
         const numero = parseFloat(strValor);
         if (isNaN(numero)) return 0;
-        
+
         return esEntero ? Math.round(numero) : numero;
     }
 
@@ -819,7 +844,7 @@ class SistemaInventario {
             const worksheet = XLSX.utils.aoa_to_sheet(plantilla);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, 'Plantilla Inventario');
-            
+
             XLSX.writeFile(workbook, 'plantilla_inventario.xlsx');
             this.mostrarExito('Plantilla descargada correctamente');
         } catch (error) {
@@ -885,7 +910,7 @@ class SistemaInventario {
             const codigoDisplay = producto.codigo || 'SIN CÓDIGO';
             const creditoFiscal = producto.creditoFiscal !== false ? 'SI' : 'NO';
             const claseCredito = producto.creditoFiscal !== false ? 'credito-si' : 'credito-no';
-            
+
             html += `
                 <tr>
                     <td class="${claseCodigo}">${codigoDisplay}</td>
@@ -905,7 +930,7 @@ class SistemaInventario {
     }
 
     generarReporteBajoStock() {
-        const productosBajoStock = this.productos.filter(producto => 
+        const productosBajoStock = this.productos.filter(producto =>
             producto.stockMinimo && producto.existencia <= producto.stockMinimo
         );
 
@@ -936,7 +961,7 @@ class SistemaInventario {
             const clase = this.obtenerClaseStock(producto.existencia, producto.stockMinimo);
             const claseCodigo = !producto.codigo ? 'codigo-vacio' : '';
             const codigoDisplay = producto.codigo || 'SIN CÓDIGO';
-            
+
             html += `
                 <tr>
                     <td class="${claseCodigo}">${codigoDisplay}</td>
@@ -982,7 +1007,7 @@ class SistemaInventario {
         productosSinCodigo.forEach(producto => {
             const creditoFiscal = producto.creditoFiscal !== false ? 'SI' : 'NO';
             const claseCredito = producto.creditoFiscal !== false ? 'credito-si' : 'credito-no';
-            
+
             html += `
                 <tr>
                     <td>${producto.descInventario}</td>
@@ -1006,11 +1031,11 @@ class SistemaInventario {
     }
 
     generarReporteValorizacion() {
-        const totalValorizacion = this.productos.reduce((sum, producto) => 
+        const totalValorizacion = this.productos.reduce((sum, producto) =>
             sum + (producto.existencia * producto.precioCosto), 0
         );
 
-        const totalValorVenta = this.productos.reduce((sum, producto) => 
+        const totalValorVenta = this.productos.reduce((sum, producto) =>
             sum + (producto.existencia * producto.precioVenta), 0
         );
 
@@ -1047,7 +1072,7 @@ class SistemaInventario {
             const valorVenta = producto.existencia * producto.precioVenta;
             const claseCodigo = !producto.codigo ? 'codigo-vacio' : '';
             const codigoDisplay = producto.codigo || 'SIN CÓDIGO';
-            
+
             html += `
                 <tr>
                     <td class="${claseCodigo}">${codigoDisplay}</td>
@@ -1077,7 +1102,7 @@ class SistemaInventario {
         try {
             const contenido = document.getElementById('reporte-contenido').innerHTML;
             const ventana = window.open('', '_blank', 'width=800,height=600');
-            
+
             ventana.document.write(`
                 <html>
                     <head>
@@ -1103,7 +1128,7 @@ class SistemaInventario {
                     </body>
                 </html>
             `);
-            
+
             ventana.document.close();
             ventana.print();
         } catch (error) {
@@ -1127,14 +1152,352 @@ class SistemaInventario {
     mostrarError(mensaje) {
         alert(`❌ ${mensaje}`);
     }
+
+    // ========== EDICIÓN RÁPIDA (MODO EXCEL) ==========
+    async guardarCambioRapido(id, campo, valor) {
+        try {
+            console.log(`📝 Cambio rápido: ${id} - ${campo} = ${valor}`);
+
+            let valorFinal = valor;
+            if (campo === 'precioCosto' || campo === 'precioVenta') valorFinal = parseFloat(valor) || 0;
+            if (campo === 'existencia' || campo === 'stockMinimo') valorFinal = parseInt(valor) || 0;
+
+            const productoRef = doc(db, "inventario", id);
+            await updateDoc(productoRef, {
+                [campo]: valorFinal,
+                fechaActualizacion: new Date().toISOString()
+            });
+
+            // Actualizar localmente
+            const index = this.productos.findIndex(p => p.id === id);
+            if (index !== -1) {
+                this.productos[index][campo] = valorFinal;
+            }
+
+            console.log("✅ Cambio guardado");
+        } catch (error) {
+            console.error("❌ Error guardando cambio rápido:", error);
+            this.mostrarError("Error al guardar el cambio");
+        }
+    }
+
+    // ========== MOVIMIENTOS DE INVENTARIO ==========
+    setupEventListeners() {
+        // ... (listeners anteriores se mantienen si no se sobrescriben, pero aquí agrego los nuevos)
+        // Re-implementing setupEventListeners to include new ones without losing old ones would be cleaner if I could edit the whole method.
+        // But since I am appending/replacing the end, I will add a specific setup method for new features and call it in init.
+
+        // This part is tricky with replace_file_content if I can't see the original setupEventListeners.
+        // I will assume the original setupEventListeners is already called in init.
+        // I will add a new method setupNewFeatures and call it from init? No, init is already defined.
+        // I will add the listeners dynamically in the init or constructor?
+        // Better: I will add a method 'setupNuevasFunciones' and call it manually at the end of the file after instantiation.
+    }
+
+    setupNuevasFunciones() {
+        // Registrar Movimiento
+        const btnMov = document.getElementById('registrar-movimiento-btn');
+        if (btnMov) {
+            btnMov.addEventListener('click', () => {
+                document.getElementById('modalRegistrarMovimiento').style.display = 'flex';
+                this.cargarBusquedaMovimiento();
+            });
+        }
+
+        const formMov = document.getElementById('form-movimiento');
+        if (formMov) {
+            formMov.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.registrarMovimiento();
+            });
+        }
+
+        // Escanear Pedido
+        const btnScan = document.getElementById('escanear-pedido-btn');
+        if (btnScan) {
+            btnScan.addEventListener('click', () => {
+                document.getElementById('modalEscanearPedido').style.display = 'flex';
+                this.iniciarEscaner();
+            });
+        }
+
+        // Busqueda en movimiento
+        const inputBusqueda = document.getElementById('mov-producto-busqueda');
+        if (inputBusqueda) {
+            inputBusqueda.addEventListener('input', (e) => this.buscarProductoMovimiento(e.target.value));
+        }
+    }
+
+    cargarBusquedaMovimiento() {
+        document.getElementById('mov-producto-busqueda').value = '';
+        document.getElementById('mov-producto-id').value = '';
+        document.getElementById('mov-producto-nombre').value = '';
+        document.getElementById('mov-cantidad').value = '';
+        document.getElementById('mov-referencia').value = '';
+        document.getElementById('mov-resultados-busqueda').style.display = 'none';
+    }
+
+    buscarProductoMovimiento(termino) {
+        const resultadosDiv = document.getElementById('mov-resultados-busqueda');
+        if (!termino || termino.length < 2) {
+            resultadosDiv.style.display = 'none';
+            return;
+        }
+
+        const terminoLower = termino.toLowerCase();
+        const resultados = this.productos.filter(p =>
+            (p.codigo && p.codigo.toLowerCase().includes(terminoLower)) ||
+            p.descInventario.toLowerCase().includes(terminoLower)
+        ).slice(0, 10);
+
+        if (resultados.length > 0) {
+            resultadosDiv.innerHTML = resultados.map(p => `
+                <div style="padding: 8px; cursor: pointer; border-bottom: 1px solid #eee;" 
+                     onclick="inventario.seleccionarProductoMovimiento('${p.id}', '${p.descInventario}')">
+                    <strong>${p.codigo || 'S/C'}</strong> - ${p.descInventario} (Stock: ${p.existencia})
+                </div>
+            `).join('');
+            resultadosDiv.style.display = 'block';
+        } else {
+            resultadosDiv.style.display = 'none';
+        }
+    }
+
+    seleccionarProductoMovimiento(id, nombre) {
+        document.getElementById('mov-producto-id').value = id;
+        document.getElementById('mov-producto-nombre').value = nombre;
+        document.getElementById('mov-resultados-busqueda').style.display = 'none';
+        document.getElementById('mov-producto-busqueda').value = '';
+    }
+
+    async registrarMovimiento() {
+        try {
+            const id = document.getElementById('mov-producto-id').value;
+            const tipo = document.getElementById('mov-tipo').value;
+            const cantidad = parseInt(document.getElementById('mov-cantidad').value);
+            const referencia = document.getElementById('mov-referencia').value;
+
+            if (!id) {
+                this.mostrarError('Debes seleccionar un producto');
+                return;
+            }
+
+            const producto = this.productos.find(p => p.id === id);
+            if (!producto) return;
+
+            let nuevaExistencia = producto.existencia;
+            if (tipo === 'entrada') {
+                nuevaExistencia += cantidad;
+            } else {
+                nuevaExistencia -= cantidad;
+            }
+
+            // Actualizar Firebase
+            await updateDoc(doc(db, "inventario", id), {
+                existencia: nuevaExistencia,
+                fechaActualizacion: new Date().toISOString()
+            });
+
+            // Registrar en historial
+            await this.registrarHistorial(
+                tipo.toUpperCase(),
+                `Movimiento manual - Ref: ${referencia}`,
+                [{
+                    id: producto.id,
+                    nombre: producto.descInventario,
+                    cantidad: cantidad,
+                    anterior: producto.existencia,
+                    nuevo: nuevaExistencia
+                }]
+            );
+
+            // Actualizar local
+            producto.existencia = nuevaExistencia;
+
+            this.mostrarExito('Movimiento registrado correctamente');
+            document.getElementById('modalRegistrarMovimiento').style.display = 'none';
+            this.mostrarProductos();
+
+        } catch (error) {
+            console.error("Error en registrarMovimiento:", error);
+            this.mostrarError("Error al registrar movimiento");
+        }
+    }
+
+    // ========== ESCÁNER DE CÓDIGO DE BARRAS ==========
+    iniciarEscaner() {
+        if (this.html5QrcodeScanner) {
+            // Ya iniciado
+            return;
+        }
+
+        this.pedidoActual = [];
+        this.actualizarTablaPedido();
+
+        const onScanSuccess = (decodedText, decodedResult) => {
+            console.log(`Code matched = ${decodedText}`, decodedResult);
+            this.procesarCodigoEscaneado(decodedText);
+            // Pausar escaneo momentáneamente
+            this.html5QrcodeScanner.pause();
+        };
+
+        const onScanFailure = (error) => {
+            // handle scan failure, usually better to ignore and keep scanning.
+            // console.warn(`Code scan error = ${error}`);
+        };
+
+        this.html5QrcodeScanner = new Html5Qrcode("reader");
+        this.html5QrcodeScanner.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            onScanSuccess,
+            onScanFailure
+        ).catch(err => {
+            console.error("Error iniciando cámara", err);
+            this.mostrarError("No se pudo acceder a la cámara");
+        });
+
+        // Botones de acción del escáner
+        document.getElementById('scan-confirmar-btn').onclick = () => {
+            this.agregarAlPedido();
+            this.html5QrcodeScanner.resume();
+            document.getElementById('scan-result-container').style.display = 'none';
+        };
+
+        document.getElementById('scan-cancelar-btn').onclick = () => {
+            this.html5QrcodeScanner.resume();
+            document.getElementById('scan-result-container').style.display = 'none';
+        };
+
+        document.getElementById('procesar-pedido-btn').onclick = () => {
+            this.procesarPedidoCompleto();
+        };
+    }
+
+    procesarCodigoEscaneado(codigo) {
+        const producto = this.productos.find(p => p.codigo === codigo);
+
+        if (producto) {
+            // Producto encontrado
+            document.getElementById('scan-result-container').style.display = 'block';
+            document.getElementById('scan-unknown-container').style.display = 'none';
+            document.getElementById('scan-producto-info').textContent = `${producto.descInventario} (Stock: ${producto.existencia})`;
+            document.getElementById('scan-cantidad').value = 1;
+            document.getElementById('scan-cantidad').focus();
+
+            this.productoEscaneadoTemporal = producto;
+        } else {
+            // Producto NO encontrado
+            document.getElementById('scan-result-container').style.display = 'none';
+            document.getElementById('scan-unknown-container').style.display = 'block';
+            document.getElementById('scan-unknown-code').textContent = codigo;
+
+            // Opciones para desconocido
+            document.getElementById('scan-asociar-btn').onclick = () => {
+                // Lógica para asociar (abrir buscador y vincular código)
+                alert("Funcionalidad de asociación pendiente de implementar. Por favor crea el producto manualmente.");
+                this.html5QrcodeScanner.resume();
+                document.getElementById('scan-unknown-container').style.display = 'none';
+            };
+
+            document.getElementById('scan-crear-btn').onclick = () => {
+                // Abrir modal de nuevo producto con el código prellenado
+                document.getElementById('modalEscanearPedido').style.display = 'none';
+                this.html5QrcodeScanner.stop();
+                document.querySelector('[data-tab="nuevo-producto"]').click();
+                document.getElementById('codigo').value = codigo;
+            };
+        }
+    }
+
+    agregarAlPedido() {
+        const cantidad = parseInt(document.getElementById('scan-cantidad').value) || 1;
+        if (this.productoEscaneadoTemporal) {
+            this.pedidoActual.push({
+                producto: this.productoEscaneadoTemporal,
+                cantidad: cantidad
+            });
+            this.actualizarTablaPedido();
+            this.productoEscaneadoTemporal = null;
+        }
+    }
+
+    actualizarTablaPedido() {
+        const tbody = document.getElementById('pedido-lista-body');
+        tbody.innerHTML = this.pedidoActual.map((item, index) => `
+            <tr>
+                <td>${item.producto.descInventario}</td>
+                <td>${item.cantidad}</td>
+                <td><button class="btn btn-danger btn-sm" onclick="inventario.eliminarDelPedido(${index})">X</button></td>
+            </tr>
+        `).join('');
+    }
+
+    eliminarDelPedido(index) {
+        this.pedidoActual.splice(index, 1);
+        this.actualizarTablaPedido();
+    }
+
+    async procesarPedidoCompleto() {
+        if (this.pedidoActual.length === 0) return;
+
+        if (!confirm(`¿Procesar entrada de ${this.pedidoActual.length} productos?`)) return;
+
+        try {
+            const itemsHistorial = [];
+
+            for (const item of this.pedidoActual) {
+                const nuevaExistencia = (item.producto.existencia || 0) + item.cantidad;
+                await updateDoc(doc(db, "inventario", item.producto.id), {
+                    existencia: nuevaExistencia,
+                    fechaActualizacion: new Date().toISOString()
+                });
+
+                itemsHistorial.push({
+                    id: item.producto.id,
+                    nombre: item.producto.descInventario,
+                    cantidad: item.cantidad,
+                    anterior: item.producto.existencia,
+                    nuevo: nuevaExistencia
+                });
+
+                // Actualizar local
+                const pLocal = this.productos.find(p => p.id === item.producto.id);
+                if (pLocal) pLocal.existencia = nuevaExistencia;
+            }
+
+            // Registrar historial del pedido
+            await this.registrarHistorial(
+                'PEDIDO',
+                'Entrada masiva por escáner',
+                itemsHistorial
+            );
+
+            this.mostrarExito("Pedido procesado correctamente");
+            this.pedidoActual = [];
+            this.actualizarTablaPedido();
+            document.getElementById('modalEscanearPedido').style.display = 'none';
+            if (this.html5QrcodeScanner) {
+                this.html5QrcodeScanner.stop().then(() => {
+                    this.html5QrcodeScanner = null;
+                });
+            }
+            this.mostrarProductos();
+
+        } catch (error) {
+            console.error("Error procesando pedido:", error);
+            this.mostrarError("Error al procesar el pedido");
+        }
+    }
 }
 
 // ========== INICIALIZACIÓN ==========
-let inventario;
+// Variable global expuesta
+window.inventario = null;
 
-document.addEventListener('DOMContentLoaded', async function() {
+document.addEventListener('DOMContentLoaded', async function () {
     console.log("🚀 DOM cargado, iniciando inventario...");
-    
+
     // Verificar autenticación
     if (!localStorage.getItem('usuarioLogueado')) {
         console.log("🔒 Redirigiendo a login...");
@@ -1143,17 +1506,18 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     try {
-        inventario = new SistemaInventario();
-        await inventario.init();
+        window.inventario = new SistemaInventario();
+        await window.inventario.init();
+        window.inventario.setupNuevasFunciones(); // Configurar nuevos listeners
         console.log("🎉 Inventario cargado exitosamente");
     } catch (error) {
         console.error("💥 Error crítico al cargar inventario:", error);
     }
 });
 
-// Hacer funciones disponibles globalmente
+// Helper global para cerrar modal (por si acaso se usa en HTML antiguo)
 window.cerrarModalEditar = () => {
-    if (inventario) inventario.cerrarModalEditar();
+    if (window.inventario) window.inventario.cerrarModalEditar();
 };
 
 console.log("📄 inventario.js cargado completamente");

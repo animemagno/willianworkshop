@@ -1,426 +1,1049 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Inventario - Taller Wilian</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
-  <!-- SheetJS para Excel -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
-    html,body{height:100%}
-    body{background:#eef2f5;color:#333;font-size:14px;display:flex;flex-direction:column}
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Inventario - Taller Wilian</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <!-- SheetJS para Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif
+        }
 
-    .main-wrapper{display:flex;flex-direction:column;min-height:100vh;padding:10px}
-    .container{width:100%;max-width:100%;margin:0 auto;background:white;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.1);flex:1 1 auto;display:flex;flex-direction:column;padding:0}
+        html,
+        body {
+            height: 100%
+        }
 
-    header{background:linear-gradient(135deg,#3498db,#2c3e50);color:white;padding:12px 20px;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
-    header h1{font-size:1.3rem;margin-bottom:4px}
-    .header-actions{display:flex;align-items:center;gap:10px;position:relative}
+        body {
+            background: #eef2f5;
+            color: #333;
+            font-size: 14px;
+            display: flex;
+            flex-direction: column
+        }
 
-    .menu-toggle{background:rgba(255,255,255,.2);border:none;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .3s}
-    .menu-toggle:hover{background:rgba(255,255,255,.3)}
-    .menu-toggle i{color:white;font-size:1.1rem}
+        .main-wrapper {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            padding: 10px
+        }
 
-    .mobile-menu{display:none;position:absolute;top:55px;left:10px;background:white;border:1px solid #ddd;border-radius:6px;box-shadow:0 4px 10px rgba(0,0,0,.15);z-index:999;flex-direction:column;padding:8px 0;min-width:180px}
-    .mobile-menu.active{display:flex}
-    .mobile-menu a{color:#333;text-decoration:none;padding:10px 15px;font-size:1rem;transition:background .2s}
-    .mobile-menu a:hover{background:#f2f2f2}
+        .container {
+            width: 100%;
+            max-width: 100%;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, .1);
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            padding: 0
+        }
 
-    .dashboard-section{background:white;border-radius:8px;padding:20px;box-shadow:0 2px 4px rgba(0,0,0,.1);border:1px solid #e0e0e0;margin-bottom:20px;flex:1 1 auto;display:flex;flex-direction:column}
+        header {
+            background: linear-gradient(135deg, #3498db, #2c3e50);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px
+        }
 
-    .section-title{display:flex;justify-content:space-between;align-items:center;font-size:1.2rem;color:#2c3e50;margin-bottom:15px;padding-bottom:8px;border-bottom:2px solid #3498db}
+        header h1 {
+            font-size: 1.3rem;
+            margin-bottom: 4px
+        }
 
-    /* 🔥 SIMETRÍA: ancho completo */
-    .inventario-wrapper{padding:0 20px}
-    @media (max-width: 768px){.inventario-wrapper{padding:0 10px}}
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            position: relative
+        }
 
-    /* Menú lateral para pestañas de inventario */
-    .inventario-layout{display:flex;gap:20px;min-height:600px}
-    .inventario-sidebar{width:250px;background:#f8f9fa;border-radius:8px;padding:0;border:1px solid #e0e0e0}
-    .inventario-sidebar-menu{display:flex;flex-direction:column}
-    .inventario-sidebar-item{display:flex;align-items:center;padding:15px 20px;color:#333;text-decoration:none;transition:all 0.3s;border-left:4px solid transparent;border-bottom:1px solid #e0e0e0;cursor:pointer}
-    .inventario-sidebar-item:last-child{border-bottom:none}
-    .inventario-sidebar-item:hover{background:#e9ecef;color:#3498db}
-    .inventario-sidebar-item.active{background:#3498db;color:white;border-left-color:#2c3e50}
-    .inventario-sidebar-item i{margin-right:10px;width:20px;text-align:center;font-size:1.1rem}
-    .inventario-content{flex:1;background:white;border-radius:8px;border:1px solid #e0e0e0}
+        .menu-toggle {
+            background: rgba(255, 255, 255, .2);
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background .3s
+        }
 
-    /* Pestañas */
-    .tabs-container{display:flex;flex-direction:column;margin-bottom:20px}
-    .tabs-header{display:flex;border-bottom:2px solid #3498db;margin-bottom:15px;overflow-x:auto}
-    .tab-btn{padding:12px 20px;background:#f8f9fa;border:none;border-bottom:2px solid transparent;cursor:pointer;font-weight:600;color:#666;transition:all .3s ease;font-size:.9rem;white-space:nowrap}
-    .tab-btn.active{background:white;color:#3498db;border-bottom:2px solid #3498db}
-    .tab-btn:hover{background:#e9ecef;color:#3498db}
-    .tab-content{display:none;padding:20px}
-    .tab-content.active{display:block}
+        .menu-toggle:hover {
+            background: rgba(255, 255, 255, .3)
+        }
 
-    /* Controles superiores */
-    .inventario-actions{display:flex;flex-direction:column;gap:10px;margin-bottom:15px}
-    @media(min-width:768px){.inventario-actions{flex-direction:row;justify-content:space-between;align-items:center}}
+        .menu-toggle i {
+            color: white;
+            font-size: 1.1rem
+        }
 
-    .form-group{margin-bottom:15px}
-    .form-group label{display:block;margin-bottom:5px;font-weight:600;color:#333;font-size:.9rem}
-    .form-group input, .form-group select, .form-group textarea{width:100%;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:.9rem;background:white;color:#333}
-    .form-group input:focus, .form-group select:focus, .form-group textarea:focus{outline:none;border-color:#3498db}
-    .checkbox-group{display:flex;align-items:center;gap:8px}
-    .checkbox-group input{width:auto}
+        .mobile-menu {
+            display: none;
+            position: absolute;
+            top: 55px;
+            left: 10px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, .15);
+            z-index: 999;
+            flex-direction: column;
+            padding: 8px 0;
+            min-width: 180px
+        }
 
-    /* Botones */
-    .btn{padding:10px 15px;border:none;border-radius:4px;cursor:pointer;font-weight:600;transition:all .3s ease;font-size:.85rem;text-align:center;width:100%;margin-bottom:5px}
-    @media(min-width:768px){.btn{width:auto;margin-bottom:0}}
-    .btn-success{background-color:#27ae60;color:white}
-    .btn-success:hover{background-color:#219a52}
-    .btn-primary{background-color:#3498db;color:white}
-    .btn-primary:hover{background-color:#2980b9}
-    .btn-warning{background-color:#f39c12;color:white}
-    .btn-warning:hover{background-color:#d35400}
-    .btn-info{background-color:#17a2b8;color:white}
-    .btn-info:hover{background-color:#138496}
-    .btn-danger{background-color:#e74c3c;color:white}
-    .btn-danger:hover{background-color:#c0392b}
-    .btn-container{display:flex;flex-direction:column;gap:5px;margin-top:15px}
-    @media(min-width:768px){.btn-container{flex-direction:row;justify-content:flex-end}}
-    
-    /* Icon buttons */
-    .icon-btn{background:none;border:none;cursor:pointer;padding:6px;border-radius:4px;transition:all .3s ease;margin:0 2px;display:inline-flex;align-items:center;justify-content:center;width:32px;height:28px}
-    .btn-edit{background-color:#27ae60;color:white}
-    .btn-edit:hover{background-color:#219a52}
-    .btn-delete{background-color:#e74c3c;color:white}
-    .btn-delete:hover{background-color:#c0392b}
+        .mobile-menu.active {
+            display: flex
+        }
 
-    /* Tabla de inventario */
-    .inventario-table-container{overflow-x:auto;border:1px solid #e0e0e0;border-radius:6px}
-    .inventario-table{width:100%;border-collapse:collapse;font-size:.8rem;min-width:1200px}
-    .inventario-table th,.inventario-table td{padding:12px 10px;text-align:left;border-bottom:1px solid #ddd}
-    .inventario-table th{background-color:#2c3e50;color:white;font-weight:600}
-    .inventario-table tbody tr:hover{background-color:#f8f9fa}
-    .stock-bajo{background-color:#fff3cd !important;color:#856404;font-weight:bold}
-    .stock-critico{background-color:#f8d7da !important;color:#721c24;font-weight:bold}
-    .stock-normal{color:#27ae60;font-weight:bold}
-    .precio{color:#27ae60;font-weight:bold}
-    .credito-si{background-color:#d4edda;color:#155724;padding:4px 8px;border-radius:4px;font-size:0.75rem;font-weight:bold}
-    .credito-no{background-color:#f8d7da;color:#721c24;padding:4px 8px;border-radius:4px;font-size:0.75rem;font-weight:bold}
+        .mobile-menu a {
+            color: #333;
+            text-decoration: none;
+            padding: 10px 15px;
+            font-size: 1rem;
+            transition: background .2s
+        }
 
-    /* Carga de Excel */
-    .excel-upload-area{border:2px dashed #3498db;border-radius:8px;padding:30px;text-align:center;background:#f8f9fa;cursor:pointer;transition:all .3s ease;margin-bottom:15px}
-    .excel-upload-area:hover{background:#e8f4fd;border-color:#2980b9}
-    .excel-upload-area i{font-size:2rem;color:#3498db;margin-bottom:10px}
-    .excel-preview{max-height:300px;overflow-y:auto;margin-top:15px;border:1px solid #ddd;border-radius:4px;padding:10px;background:white}
-    .excel-advertencia{background:#fff3cd;border:1px solid #ffeaa7;border-radius:4px;padding:10px;margin:10px 0;color:#856404;font-size:.8rem}
+        .mobile-menu a:hover {
+            background: #f2f2f2
+        }
 
-    /* Modal */
-    .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);z-index:2000;display:none;align-items:center;justify-content:center;padding:20px}
-    .modal-box{background:white;border-radius:8px;padding:25px 20px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 5px 15px rgba(0,0,0,.2)}
-    .modal-box h3{margin-bottom:15px;color:#2c3e50;text-align:center;font-size:1.3rem}
-    .modal-buttons{display:flex;gap:10px;justify-content:flex-end;margin-top:15px;flex-wrap:wrap}
-    .modal-buttons .btn{width:auto;min-width:120px}
+        .dashboard-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, .1);
+            border: 1px solid #e0e0e0;
+            margin-bottom: 20px;
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column
+        }
 
-    .empty-cart{text-align:center;color:#7f8c8d;font-size:.9rem;padding:30px;background:white;border-radius:4px;border:2px dashed #ddd}
+        .section-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.2rem;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #3498db
+        }
 
-    /* Móvil: ajustes */
-    @media (max-width: 768px) {
-        .inventario-layout{flex-direction:column}
-        .inventario-sidebar{width:100%;margin-bottom:20px}
-        .inventario-table-container{overflow-x:auto}
-        .inventario-table{font-size:.75rem;min-width:1000px}
-        header h1{font-size:1.2rem}
-        .container{padding:10px}
-        .modal-box{padding:20px 15px}
-    }
-  </style>
+        /* 🔥 SIMETRÍA: ancho completo */
+        .inventario-wrapper {
+            padding: 0 20px
+        }
+
+        @media (max-width: 768px) {
+            .inventario-wrapper {
+                padding: 0 10px
+            }
+        }
+
+        /* Menú lateral para pestañas de inventario */
+        .inventario-layout {
+            display: flex;
+            gap: 20px;
+            min-height: 600px
+        }
+
+        .inventario-sidebar {
+            width: 250px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 0;
+            border: 1px solid #e0e0e0
+        }
+
+        .inventario-sidebar-menu {
+            display: flex;
+            flex-direction: column
+        }
+
+        .inventario-sidebar-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            color: #333;
+            text-decoration: none;
+            transition: all 0.3s;
+            border-left: 4px solid transparent;
+            border-bottom: 1px solid #e0e0e0;
+            cursor: pointer
+        }
+
+        .inventario-sidebar-item:last-child {
+            border-bottom: none
+        }
+
+        .inventario-sidebar-item:hover {
+            background: #e9ecef;
+            color: #3498db
+        }
+
+        .inventario-sidebar-item.active {
+            background: #3498db;
+            color: white;
+            border-left-color: #2c3e50
+        }
+
+        .inventario-sidebar-item i {
+            margin-right: 10px;
+            width: 20px;
+            text-align: center;
+            font-size: 1.1rem
+        }
+
+        .inventario-content {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0
+        }
+
+        /* Pestañas */
+        .tabs-container {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 20px
+        }
+
+        .tabs-header {
+            display: flex;
+            border-bottom: 2px solid #3498db;
+            margin-bottom: 15px;
+            overflow-x: auto
+        }
+
+        .tab-btn {
+            padding: 12px 20px;
+            background: #f8f9fa;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
+            transition: all .3s ease;
+            font-size: .9rem;
+            white-space: nowrap
+        }
+
+        .tab-btn.active {
+            background: white;
+            color: #3498db;
+            border-bottom: 2px solid #3498db
+        }
+
+        .tab-btn:hover {
+            background: #e9ecef;
+            color: #3498db
+        }
+
+        .tab-content {
+            display: none;
+            padding: 20px
+        }
+
+        .tab-content.active {
+            display: block
+        }
+
+        /* Controles superiores */
+        .inventario-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 15px
+        }
+
+        @media(min-width:768px) {
+            .inventario-actions {
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center
+            }
+        }
+
+        .form-group {
+            margin-bottom: 15px
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+            font-size: .9rem
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: .9rem;
+            background: white;
+            color: #333
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #3498db
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px
+        }
+
+        .checkbox-group input {
+            width: auto
+        }
+
+        /* Botones */
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all .3s ease;
+            font-size: .85rem;
+            text-align: center;
+            width: 100%;
+            margin-bottom: 5px
+        }
+
+        @media(min-width:768px) {
+            .btn {
+                width: auto;
+                margin-bottom: 0
+            }
+        }
+
+        .btn-success {
+            background-color: #27ae60;
+            color: white
+        }
+
+        .btn-success:hover {
+            background-color: #219a52
+        }
+
+        .btn-primary {
+            background-color: #3498db;
+            color: white
+        }
+
+        .btn-primary:hover {
+            background-color: #2980b9
+        }
+
+        .btn-warning {
+            background-color: #f39c12;
+            color: white
+        }
+
+        .btn-warning:hover {
+            background-color: #d35400
+        }
+
+        .btn-info {
+            background-color: #17a2b8;
+            color: white
+        }
+
+        .btn-info:hover {
+            background-color: #138496
+        }
+
+        .btn-danger {
+            background-color: #e74c3c;
+            color: white
+        }
+
+        .btn-danger:hover {
+            background-color: #c0392b
+        }
+
+        .btn-container {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-top: 15px
+        }
+
+        @media(min-width:768px) {
+            .btn-container {
+                flex-direction: row;
+                justify-content: flex-end
+            }
+        }
+
+        /* Icon buttons */
+        .icon-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 4px;
+            transition: all .3s ease;
+            margin: 0 2px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 28px
+        }
+
+        .btn-edit {
+            background-color: #27ae60;
+            color: white
+        }
+
+        .btn-edit:hover {
+            background-color: #219a52
+        }
+
+        .btn-delete {
+            background-color: #e74c3c;
+            color: white
+        }
+
+        .btn-delete:hover {
+            background-color: #c0392b
+        }
+
+        /* Tabla de inventario */
+        .inventario-table-container {
+            overflow-x: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px
+        }
+
+        .inventario-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .8rem;
+            min-width: 1200px
+        }
+
+        .inventario-table th,
+        .inventario-table td {
+            padding: 12px 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd
+        }
+
+        .inventario-table th {
+            background-color: #2c3e50;
+            color: white;
+            font-weight: 600
+        }
+
+        .inventario-table tbody tr:hover {
+            background-color: #f8f9fa
+        }
+
+        .stock-bajo {
+            background-color: #fff3cd !important;
+            color: #856404;
+            font-weight: bold
+        }
+
+        .stock-critico {
+            background-color: #f8d7da !important;
+            color: #721c24;
+            font-weight: bold
+        }
+
+        .stock-normal {
+            color: #27ae60;
+            font-weight: bold
+        }
+
+        .precio {
+            color: #27ae60;
+            font-weight: bold
+        }
+
+        .credito-si {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold
+        }
+
+        .credito-no {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold
+        }
+
+        /* Carga de Excel */
+        .excel-upload-area {
+            border: 2px dashed #3498db;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: all .3s ease;
+            margin-bottom: 15px
+        }
+
+        .excel-upload-area:hover {
+            background: #e8f4fd;
+            border-color: #2980b9
+        }
+
+        .excel-upload-area i {
+            font-size: 2rem;
+            color: #3498db;
+            margin-bottom: 10px
+        }
+
+        .excel-preview {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            background: white
+        }
+
+        .excel-advertencia {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            color: #856404;
+            font-size: .8rem
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, .45);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px
+        }
+
+        .modal-box {
+            background: white;
+            border-radius: 8px;
+            padding: 25px 20px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, .2)
+        }
+
+        .modal-box h3 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+            text-align: center;
+            font-size: 1.3rem
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 15px;
+            flex-wrap: wrap
+        }
+
+        .modal-buttons .btn {
+            width: auto;
+            min-width: 120px
+        }
+
+        .empty-cart {
+            text-align: center;
+            color: #7f8c8d;
+            font-size: .9rem;
+            padding: 30px;
+            background: white;
+            border-radius: 4px;
+            border: 2px dashed #ddd
+        }
+
+        /* Móvil: ajustes */
+        @media (max-width: 768px) {
+            .inventario-layout {
+                flex-direction: column
+            }
+
+            .inventario-sidebar {
+                width: 100%;
+                margin-bottom: 20px
+            }
+
+            .inventario-table-container {
+                overflow-x: auto
+            }
+
+            .inventario-table {
+                font-size: .75rem;
+                min-width: 1000px
+            }
+
+            header h1 {
+                font-size: 1.2rem
+            }
+
+            .container {
+                padding: 10px
+            }
+
+            .modal-box {
+                padding: 20px 15px
+            }
+        }
+    </style>
 </head>
+
 <body class="main-wrapper">
 
-<header>
-    <button class="menu-toggle" id="mobileMenuBtn"><i class="fas fa-bars"></i></button>
-    <h1>Taller Willian</h1>
-    <div class="header-actions">
-        <!-- Sin carrito -->
+    <header>
+        <button class="menu-toggle" id="mobileMenuBtn"><i class="fas fa-bars"></i></button>
+        <h1>Taller Willian</h1>
+        <div class="header-actions">
+            <!-- Sin carrito -->
+        </div>
+    </header>
+
+    <div class="mobile-menu" id="mobileMenu">
+        <a href="index.html"><i class="fas fa-home"></i> Inicio</a>
+        <a href="venta.html"><i class="fas fa-cash-register"></i> Nueva Venta</a>
+        <a href="facturas.html"><i class="fas fa-file-invoice-dollar"></i> Facturas Pendientes</a>
+        <a href="historial.html"><i class="fas fa-history"></i> Historial de Ventas</a>
+        <a href="inventario.html" class="active"><i class="fas fa-boxes"></i> Inventario</a>
+        <a href="servicios.html"><i class="fas fa-tools"></i> Servicios</a>
+        <a href="entregas.html"><i class="fas fa-truck"></i> Entregas</a>
+        <a href="cuentas.html"><i class="fas fa-sticky-note"></i> Memos y Cuentas</a>
+        <a href="configuracion.html"><i class="fas fa-cog"></i> Configuración</a>
+        <a href="#" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
     </div>
-</header>
 
-<div class="mobile-menu" id="mobileMenu">
-    <a href="index.html"><i class="fas fa-home"></i> Inicio</a>
-    <a href="venta.html"><i class="fas fa-cash-register"></i> Nueva Venta</a>
-    <a href="facturas.html"><i class="fas fa-file-invoice-dollar"></i> Facturas Pendientes</a>
-    <a href="historial.html"><i class="fas fa-history"></i> Historial de Ventas</a>
-    <a href="inventario.html" class="active"><i class="fas fa-boxes"></i> Inventario</a>
-    <a href="servicios.html"><i class="fas fa-tools"></i> Servicios</a>
-    <a href="entregas.html"><i class="fas fa-truck"></i> Entregas</a>
-    <a href="cuentas.html"><i class="fas fa-sticky-note"></i> Memos y Cuentas</a>
-    <a href="configuracion.html"><i class="fas fa-cog"></i> Configuración</a>
-    <a href="#" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
-</div>
+    <div class="container">
+        <div class="dashboard-section">
+            <div class="section-title">INVENTARIO</div>
 
-<div class="container">
-    <div class="dashboard-section">
-        <div class="section-title">INVENTARIO</div>
-
-        <!-- 🔥 Contenedor con ancho completo -->
-        <div class="inventario-wrapper">
-            <!-- Layout con menú lateral y contenido -->
-            <div class="inventario-layout">
-                <!-- Menú lateral para pestañas -->
-                <div class="inventario-sidebar">
-                    <div class="inventario-sidebar-menu">
-                        <div class="inventario-sidebar-item active" data-tab="lista">
-                            <i class="fas fa-list"></i>
-                            <span>Lista de Productos</span>
-                        </div>
-                        <div class="inventario-sidebar-item" data-tab="cargar-excel">
-                            <i class="fas fa-file-excel"></i>
-                            <span>Cargar Excel</span>
-                        </div>
-                        <div class="inventario-sidebar-item" data-tab="nuevo-producto">
-                            <i class="fas fa-plus-circle"></i>
-                            <span>Nuevo Producto</span>
-                        </div>
-                        <div class="inventario-sidebar-item" data-tab="reportes">
-                            <i class="fas fa-chart-bar"></i>
-                            <span>Reportes</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Contenido de las pestañas -->
-                <div class="inventario-content">
-                    <!-- PESTAÑA LISTA DE PRODUCTOS -->
-                    <div class="tab-content active" id="tab-lista">
-                        <div class="inventario-actions">
-                            <div>
-                                <button class="btn btn-success" id="actualizar-inventario-btn">
-                                    <i class="fas fa-sync-alt"></i> ACTUALIZAR
-                                </button>
+            <!-- 🔥 Contenedor con ancho completo -->
+            <div class="inventario-wrapper">
+                <!-- Layout con menú lateral y contenido -->
+                <div class="inventario-layout">
+                    <!-- Menú lateral para pestañas -->
+                    <div class="inventario-sidebar">
+                        <div class="inventario-sidebar-menu">
+                            <div class="inventario-sidebar-item active" data-tab="lista">
+                                <i class="fas fa-list"></i>
+                                <span>Lista de Productos</span>
                             </div>
-                            <div class="form-group">
-                                <input type="text" id="buscar-producto" placeholder="Buscar producto...">
+                            <div class="inventario-sidebar-item" data-tab="cargar-excel">
+                                <i class="fas fa-file-excel"></i>
+                                <span>Cargar Excel</span>
                             </div>
-                        </div>
-
-                        <div class="inventario-table-container">
-                            <table class="inventario-table">
-                                <thead>
-                                    <tr>
-                                        <th>Código</th>
-                                        <th>Descripción Inventario</th>
-                                        <th>Descripción Factura</th>
-                                        <th>Precio Costo</th>
-                                        <th>Precio Venta</th>
-                                        <th>Existencia</th>
-                                        <th>Stock Mínimo</th>
-                                        <th>Crédito Fiscal</th>
-                                        <th>Proveedor</th>
-                                        <th width="100">Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="inventario-body">
-                                    <tr>
-                                        <td colspan="10" class="empty-cart">
-                                            <i class="fas fa-boxes" style="font-size:2rem;margin-bottom:10px;opacity:.5;"></i>
-                                            <div>No hay productos en inventario</div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- PESTAÑA CARGAR EXCEL -->
-                    <div class="tab-content" id="tab-cargar-excel">
-                        <h3>Cargar Inventario desde Excel</h3>
-                        <div class="excel-upload-area" id="excel-drop-area">
-                            <i class="fas fa-file-excel"></i>
-                            <p>Haz clic aquí o arrastra tu archivo Excel</p>
-                            <p><small>Formato esperado: Código, Descripción Inventario, Descripción Factura, Precio Costo, Precio Venta, Existencia, Crédito Fiscal</small></p>
-                            <p><small><strong>Nota:</strong> Los productos sin código se mantendrán vacíos. Crédito Fiscal por defecto: SI</small></p>
-                            <input type="file" id="excel-file" accept=".xlsx, .xls" style="display: none;">
-                        </div>
-                        
-                        <div class="btn-container">
-                            <button class="btn btn-primary" id="descargar-plantilla-btn">
-                                <i class="fas fa-download"></i> DESCARGAR PLANTILLA
-                            </button>
-                        </div>
-
-                        <div id="excel-preview" class="excel-preview" style="display: none;">
-                            <h4>Vista previa de datos</h4>
-                            <div id="excel-advertencias"></div>
-                            <div id="excel-preview-content"></div>
-                            <div class="btn-container">
-                                <button class="btn btn-success" id="confirmar-carga-btn">
-                                    <i class="fas fa-check"></i> CONFIRMAR CARGA
-                                </button>
-                                <button class="btn btn-danger" id="cancelar-carga-btn">
-                                    <i class="fas fa-times"></i> CANCELAR
-                                </button>
+                            <div class="inventario-sidebar-item" data-tab="nuevo-producto">
+                                <i class="fas fa-plus-circle"></i>
+                                <span>Nuevo Producto</span>
+                            </div>
+                            <div class="inventario-sidebar-item" data-tab="reportes">
+                                <i class="fas fa-chart-bar"></i>
+                                <span>Reportes</span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- PESTAÑA NUEVO PRODUCTO -->
-                    <div class="tab-content" id="tab-nuevo-producto">
-                        <form id="form-nuevo-producto">
-                            <div class="form-group">
-                                <label for="codigo">Código *</label>
-                                <input type="text" id="codigo" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="codigos-proveedor">Códigos de Proveedor (separados por coma)</label>
-                                <input type="text" id="codigos-proveedor" placeholder="COD1, COD2, COD3">
-                            </div>
-                            <div class="form-group">
-                                <label for="desc-inventario">Descripción según Inventario *</label>
-                                <input type="text" id="desc-inventario" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="desc-factura">Descripción según Factura *</label>
-                                <input type="text" id="desc-factura" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="precio-costo">Precio Costo *</label>
-                                <input type="number" id="precio-costo" step="0.01" min="0" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="precio-venta">Precio Venta *</label>
-                                <input type="number" id="precio-venta" step="0.01" min="0" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="existencia">Existencia *</label>
-                                <input type="number" id="existencia" min="0" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="stock-minimo">Stock Mínimo</label>
-                                <input type="number" id="stock-minimo" min="0" value="0">
-                            </div>
-                            <div class="form-group">
-                                <div class="checkbox-group">
-                                    <input type="checkbox" id="credito-fiscal" checked>
-                                    <label for="credito-fiscal">Crédito Fiscal</label>
+                    <!-- Contenido de las pestañas -->
+                    <div class="inventario-content">
+                        <!-- PESTAÑA LISTA DE PRODUCTOS -->
+                        <div class="tab-content active" id="tab-lista">
+                            <div class="inventario-actions">
+                                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                    <button class="btn btn-success" id="actualizar-inventario-btn">
+                                        <i class="fas fa-sync-alt"></i> ACTUALIZAR
+                                    </button>
+                                    <button class="btn btn-primary" id="registrar-movimiento-btn">
+                                        <i class="fas fa-exchange-alt"></i> REGISTRAR MOVIMIENTO
+                                    </button>
+                                    <button class="btn btn-warning" id="escanear-pedido-btn">
+                                        <i class="fas fa-barcode"></i> ESCANEAR PEDIDO
+                                    </button>
+                                </div>
+                                <div class="form-group">
+                                    <input type="text" id="buscar-producto" placeholder="Buscar producto...">
                                 </div>
                             </div>
-                            <div class="form-group">
-                                <label for="proveedor">Proveedor</label>
-                                <input type="text" id="proveedor">
+
+                            <div class="inventario-table-container">
+                                <table class="inventario-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Código</th>
+                                            <th>Descripción Inventario</th>
+                                            <th>Descripción Factura</th>
+                                            <th>Precio Costo</th>
+                                            <th>Precio Venta</th>
+                                            <th>Existencia</th>
+                                            <th>Stock Mínimo</th>
+                                            <th>Crédito Fiscal</th>
+                                            <th>Proveedor</th>
+                                            <th width="100">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="inventario-body">
+                                        <tr>
+                                            <td colspan="10" class="empty-cart">
+                                                <i class="fas fa-boxes"
+                                                    style="font-size:2rem;margin-bottom:10px;opacity:.5;"></i>
+                                                <div>No hay productos en inventario</div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
-                            <div class="form-group">
-                                <label for="categoria">Categoría</label>
-                                <input type="text" id="categoria">
+                        </div>
+
+                        <!-- PESTAÑA CARGAR EXCEL -->
+                        <div class="tab-content" id="tab-cargar-excel">
+                            <h3>Cargar Inventario desde Excel</h3>
+                            <div class="excel-upload-area" id="excel-drop-area">
+                                <i class="fas fa-file-excel"></i>
+                                <p>Haz clic aquí o arrastra tu archivo Excel</p>
+                                <p><small>Formato esperado: Código, Descripción Inventario, Descripción Factura, Precio
+                                        Costo, Precio Venta, Existencia, Crédito Fiscal</small></p>
+                                <p><small><strong>Nota:</strong> Los productos sin código se mantendrán vacíos. Crédito
+                                        Fiscal por defecto: SI</small></p>
+                                <input type="file" id="excel-file" accept=".xlsx, .xls" style="display: none;">
                             </div>
+
                             <div class="btn-container">
-                                <button type="submit" class="btn btn-success">
-                                    <i class="fas fa-save"></i> GUARDAR PRODUCTO
-                                </button>
-                                <button type="button" class="btn btn-danger" id="limpiar-form-btn">
-                                    <i class="fas fa-broom"></i> LIMPIAR
+                                <button class="btn btn-primary" id="descargar-plantilla-btn">
+                                    <i class="fas fa-download"></i> DESCARGAR PLANTILLA
                                 </button>
                             </div>
-                        </form>
-                    </div>
 
-                    <!-- PESTAÑA REPORTES -->
-                    <div class="tab-content" id="tab-reportes">
-                        <div class="inventario-actions">
-                            <div class="form-group">
-                                <label for="fecha-inicio">Fecha Inicio</label>
-                                <input type="date" id="fecha-inicio">
-                            </div>
-                            <div class="form-group">
-                                <label for="fecha-fin">Fecha Fin</label>
-                                <input type="date" id="fecha-fin">
-                            </div>
-                            <div class="form-group">
-                                <label for="tipo-reporte">Tipo de Reporte</label>
-                                <select id="tipo-reporte">
-                                    <option value="stock">Stock Actual</option>
-                                    <option value="bajo-stock">Productos con Stock Bajo</option>
-                                    <option value="valorizacion">Valorización de Inventario</option>
-                                    <option value="sin-codigo">Productos sin Código</option>
-                                </select>
+                            <div id="excel-preview" class="excel-preview" style="display: none;">
+                                <h4>Vista previa de datos</h4>
+                                <div id="excel-advertencias"></div>
+                                <div id="excel-preview-content"></div>
+                                <div class="btn-container">
+                                    <button class="btn btn-success" id="confirmar-carga-btn">
+                                        <i class="fas fa-check"></i> CONFIRMAR CARGA
+                                    </button>
+                                    <button class="btn btn-danger" id="cancelar-carga-btn">
+                                        <i class="fas fa-times"></i> CANCELAR
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                        
-                        <div class="btn-container">
-                            <button class="btn btn-info" id="generar-reporte-btn">
-                                <i class="fas fa-chart-bar"></i> GENERAR REPORTE
-                            </button>
-                            <button class="btn btn-primary" id="imprimir-reporte-btn">
-                                <i class="fas fa-print"></i> IMPRIMIR
-                            </button>
+
+                        <!-- PESTAÑA NUEVO PRODUCTO -->
+                        <div class="tab-content" id="tab-nuevo-producto">
+                            <form id="form-nuevo-producto">
+                                <div class="form-group">
+                                    <label for="codigo">Código *</label>
+                                    <input type="text" id="codigo" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="codigos-proveedor">Códigos de Proveedor (separados por coma)</label>
+                                    <input type="text" id="codigos-proveedor" placeholder="COD1, COD2, COD3">
+                                </div>
+                                <div class="form-group">
+                                    <label for="desc-inventario">Descripción según Inventario *</label>
+                                    <input type="text" id="desc-inventario" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="desc-factura">Descripción según Factura *</label>
+                                    <input type="text" id="desc-factura" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="precio-costo">Precio Costo *</label>
+                                    <input type="number" id="precio-costo" step="0.01" min="0" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="precio-venta">Precio Venta *</label>
+                                    <input type="number" id="precio-venta" step="0.01" min="0" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="existencia">Existencia *</label>
+                                    <input type="number" id="existencia" min="0" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="stock-minimo">Stock Mínimo</label>
+                                    <input type="number" id="stock-minimo" min="0" value="0">
+                                </div>
+                                <div class="form-group">
+                                    <div class="checkbox-group">
+                                        <input type="checkbox" id="credito-fiscal" checked>
+                                        <label for="credito-fiscal">Crédito Fiscal</label>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="proveedor">Proveedor</label>
+                                    <input type="text" id="proveedor">
+                                </div>
+                                <div class="form-group">
+                                    <label for="categoria">Categoría</label>
+                                    <input type="text" id="categoria">
+                                </div>
+                                <div class="btn-container">
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="fas fa-save"></i> GUARDAR PRODUCTO
+                                    </button>
+                                    <button type="button" class="btn btn-danger" id="limpiar-form-btn">
+                                        <i class="fas fa-broom"></i> LIMPIAR
+                                    </button>
+                                </div>
+                            </form>
                         </div>
 
-                        <div id="reporte-contenido" class="inventario-table-container" style="margin-top: 20px; display: none;">
-                            <!-- Aquí se mostrará el reporte -->
+                        <!-- PESTAÑA REPORTES -->
+                        <div class="tab-content" id="tab-reportes">
+                            <div class="inventario-actions">
+                                <div class="form-group">
+                                    <label for="fecha-inicio">Fecha Inicio</label>
+                                    <input type="date" id="fecha-inicio">
+                                </div>
+                                <div class="form-group">
+                                    <label for="fecha-fin">Fecha Fin</label>
+                                    <input type="date" id="fecha-fin">
+                                </div>
+                                <div class="form-group">
+                                    <label for="tipo-reporte">Tipo de Reporte</label>
+                                    <select id="tipo-reporte">
+                                        <option value="stock">Stock Actual</option>
+                                        <option value="bajo-stock">Productos con Stock Bajo</option>
+                                        <option value="valorizacion">Valorización de Inventario</option>
+                                        <option value="sin-codigo">Productos sin Código</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="btn-container">
+                                <button class="btn btn-info" id="generar-reporte-btn">
+                                    <i class="fas fa-chart-bar"></i> GENERAR REPORTE
+                                </button>
+                                <button class="btn btn-primary" id="imprimir-reporte-btn">
+                                    <i class="fas fa-print"></i> IMPRIMIR
+                                </button>
+                            </div>
+
+                            <div id="reporte-contenido" class="inventario-table-container"
+                                style="margin-top: 20px; display: none;">
+                                <!-- Aquí se mostrará el reporte -->
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- MODAL EDITAR PRODUCTO -->
-<div id="modalEditarProducto" class="modal-overlay">
-    <div class="modal-box">
-        <h3>EDITAR PRODUCTO</h3>
-        <form id="form-editar-producto">
-            <input type="hidden" id="edit-id">
-            <div class="form-group">
-                <label for="edit-codigo">Código</label>
-                <input type="text" id="edit-codigo" required>
-            </div>
-            <div class="form-group">
-                <label for="edit-codigos-proveedor">Códigos de Proveedor</label>
-                <input type="text" id="edit-codigos-proveedor">
-            </div>
-            <div class="form-group">
-                <label for="edit-desc-inventario">Descripción Inventario</label>
-                <input type="text" id="edit-desc-inventario" required>
-            </div>
-            <div class="form-group">
-                <label for="edit-desc-factura">Descripción Factura</label>
-                <input type="text" id="edit-desc-factura" required>
-            </div>
-            <div class="form-group">
-                <label for="edit-precio-costo">Precio Costo</label>
-                <input type="number" id="edit-precio-costo" step="0.01" required>
-            </div>
-            <div class="form-group">
-                <label for="edit-precio-venta">Precio Venta</label>
-                <input type="number" id="edit-precio-venta" step="0.01" required>
-            </div>
-            <div class="form-group">
-                <label for="edit-existencia">Existencia</label>
-                <input type="number" id="edit-existencia" required>
-            </div>
-            <div class="form-group">
-                <label for="edit-stock-minimo">Stock Mínimo</label>
-                <input type="number" id="edit-stock-minimo">
-            </div>
-            <div class="form-group">
-                <div class="checkbox-group">
-                    <input type="checkbox" id="edit-credito-fiscal">
-                    <label for="edit-credito-fiscal">Crédito Fiscal</label>
+    <!-- MODAL REGISTRAR MOVIMIENTO -->
+    <div id="modalRegistrarMovimiento" class="modal-overlay">
+        <div class="modal-box">
+            <h3>REGISTRAR MOVIMIENTO DE INVENTARIO</h3>
+            <form id="form-movimiento">
+                <div class="form-group">
+                    <label for="mov-tipo">Tipo de Movimiento</label>
+                    <select id="mov-tipo" required>
+                        <option value="entrada">ENTRADA (Compra/Devolución)</option>
+                        <option value="salida">SALIDA (Venta/Merma)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="mov-producto-busqueda">Buscar Producto</label>
+                    <input type="text" id="mov-producto-busqueda" placeholder="Escribe nombre o código...">
+                    <div id="mov-resultados-busqueda"
+                        style="border: 1px solid #ddd; max-height: 150px; overflow-y: auto; display: none;"></div>
+                </div>
+                <div class="form-group">
+                    <label>Producto Seleccionado</label>
+                    <input type="text" id="mov-producto-nombre" readonly style="background: #f9f9f9;">
+                    <input type="hidden" id="mov-producto-id">
+                </div>
+                <div class="form-group">
+                    <label for="mov-cantidad">Cantidad</label>
+                    <input type="number" id="mov-cantidad" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label for="mov-referencia">Referencia (Factura/Nota)</label>
+                    <input type="text" id="mov-referencia" placeholder="Ej: Factura #123">
+                </div>
+                <div class="modal-buttons">
+                    <button type="submit" class="btn btn-primary">REGISTRAR</button>
+                    <button type="button" class="btn btn-danger"
+                        onclick="document.getElementById('modalRegistrarMovimiento').style.display='none'">CANCELAR</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL ESCANEAR PEDIDO -->
+    <div id="modalEscanearPedido" class="modal-overlay">
+        <div class="modal-box" style="max-width: 800px;">
+            <h3>ESCANEAR PEDIDO (CÁMARA)</h3>
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                <div id="reader" style="width: 100%; min-height: 300px; background: #000;"></div>
+
+                <div id="scan-result-container"
+                    style="display: none; background: #e8f4fd; padding: 15px; border-radius: 8px;">
+                    <h4>Producto Detectado:</h4>
+                    <p id="scan-producto-info" style="font-weight: bold; font-size: 1.1rem;"></p>
+                    <div class="form-group" style="margin-top: 10px;">
+                        <label>Cantidad Recibida:</label>
+                        <input type="number" id="scan-cantidad" value="1" min="1"
+                            style="font-size: 1.2rem; width: 100px;">
+                    </div>
+                    <div class="btn-container">
+                        <button class="btn btn-success" id="scan-confirmar-btn">CONFIRMAR Y AGREGAR</button>
+                        <button class="btn btn-warning" id="scan-cancelar-btn">IGNORAR</button>
+                    </div>
+                </div>
+
+                <div id="scan-unknown-container"
+                    style="display: none; background: #fff3cd; padding: 15px; border-radius: 8px;">
+                    <h4>Producto NO Encontrado</h4>
+                    <p>El código <strong id="scan-unknown-code"></strong> no existe en el inventario.</p>
+                    <div class="btn-container">
+                        <button class="btn btn-primary" id="scan-asociar-btn">ASOCIAR A PRODUCTO EXISTENTE</button>
+                        <button class="btn btn-info" id="scan-crear-btn">CREAR NUEVO PRODUCTO</button>
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <h4>Lista de Pedido Actual</h4>
+                    <table class="inventario-table">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Cant.</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pedido-lista-body"></tbody>
+                    </table>
+                    <div class="btn-container" style="margin-top: 15px;">
+                        <button class="btn btn-success" id="procesar-pedido-btn">PROCESAR TODO EL PEDIDO</button>
+                    </div>
                 </div>
             </div>
-            <div class="form-group">
-                <label for="edit-proveedor">Proveedor</label>
-                <input type="text" id="edit-proveedor">
-            </div>
             <div class="modal-buttons">
-                <button type="submit" class="btn btn-success">GUARDAR CAMBIOS</button>
-                <button type="button" class="btn btn-danger" onclick="cerrarModalEditar()">CANCELAR</button>
+                <button type="button" class="btn btn-danger"
+                    onclick="document.getElementById('modalEscanearPedido').style.display='none'">CERRAR</button>
             </div>
-        </form>
+        </div>
     </div>
-</div>
 
-<!-- Firebase -->
-<script type="module" src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
-<script type="module" src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
-<script type="module" src="firebase-config.js"></script>
-<script type="module" src="inventario.js"></script>
+    <!-- Script para código de barras -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+    <!-- MODAL EDITAR PRODUCTO -->
+    <div id="modalEditarProducto" class="modal-overlay">
+        <div class="modal-box">
+            <h3>EDITAR PRODUCTO</h3>
+            <form id="form-editar-producto">
+                <input type="hidden" id="edit-id">
+                <div class="form-group">
+                    <label for="edit-codigo">Código</label>
+                    <input type="text" id="edit-codigo" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-codigos-proveedor">Códigos de Proveedor</label>
+                    <input type="text" id="edit-codigos-proveedor">
+                </div>
+                <div class="form-group">
+                    <label for="edit-desc-inventario">Descripción Inventario</label>
+                    <input type="text" id="edit-desc-inventario" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-desc-factura">Descripción Factura</label>
+                    <input type="text" id="edit-desc-factura" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-precio-costo">Precio Costo</label>
+                    <input type="number" id="edit-precio-costo" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-precio-venta">Precio Venta</label>
+                    <input type="number" id="edit-precio-venta" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-existencia">Existencia</label>
+                    <input type="number" id="edit-existencia" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-stock-minimo">Stock Mínimo</label>
+                    <input type="number" id="edit-stock-minimo">
+                </div>
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="edit-credito-fiscal">
+                        <label for="edit-credito-fiscal">Crédito Fiscal</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="edit-proveedor">Proveedor</label>
+                    <input type="text" id="edit-proveedor">
+                </div>
+                <div class="modal-buttons">
+                    <button type="submit" class="btn btn-success">GUARDAR CAMBIOS</button>
+                    <button type="button" class="btn btn-danger" onclick="cerrarModalEditar()">CANCELAR</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Firebase -->
+    <script type="module" src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+    <script type="module" src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
+    <script type="module" src="firebase-config.js"></script>
+    <script type="module" src="inventario.js"></script>
 
 </body>
+
 </html>
