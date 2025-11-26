@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Test de Filtro</title>
+</head>
+
+<body>
+    <h1>Test de Diagnóstico del Filtro</h1>
+
+    <h2>Instrucciones:</h2>
+    <ol>
+        <li>Abre <strong>inventario.html</strong> en tu navegador</li>
+        <li>Presiona <strong>F12</strong> para abrir la consola del navegador</li>
+        <li>Espera a que la página cargue completamente</li>
+        <li>En la consola, ejecuta los siguientes comandos uno por uno y observa los resultados:</li>
+    </ol>
+
+    <h3>Comandos de Diagnóstico:</h3>
+    <pre style="background: #f4f4f4; padding: 15px; border-radius: 5px; font-size: 14px;">
+// 1. Verificar que el elemento SELECT existe
+console.log('SELECT element:', document.getElementById('ordenar-por'));
+
+// 2. Verificar que la instancia de inventario existe
+console.log('Inventario instance:', window.inventario);
+
+// 3. Verificar el orden actual
+console.log('Orden actual:', window.inventario ? window.inventario.ordenActual : 'N/A');
+
+// 4. Intentar cambiar el select manualmente
+const select = document.getElementById('ordenar-por');
+if (select) {
+    select.value = 'descripcion-asc';
+    select.dispatchEvent(new Event('change'));
+    console.log('✅ Select cambiado a descripcion-asc');
+} else {
+    console.error('❌ SELECT NO ENCONTRADO');
+}
+
+// 5. Verificar si hay productos cargados
+console.log('Productos cargados:', window.inventario ? window.inventario.productos.length : 0);
+</pre>
+
+    <h3>Resultados Esperados:</h3>
+    <ul>
+        <li>✅ El SELECT debe existir (no debe ser NULL)</li>
+        <li>✅ La instancia de inventario debe existir</li>
+        <li>✅ Al cambiar el select, debería verse en consola "Ordenando por: descripcion-asc"</li>
+        <li>✅ La tabla debería reordenarse automáticamente</li>
+    </ul>
+
+    <h3>Si alguno falla:</h3>
+    <ul>
+        <li>❌ Si SELECT es NULL → El elemento no existe o no está cargado</li>
+        <li>❌ Si inventario es null/undefined → El JavaScript no se cargó correctamente</li>
+        <li>❌ Si no hay productos → La base de datos está vacía o no se conectó</li>
+        <li>❌ Si no se reordena → El event listener no está funcionando</li>
+    </ul>
+
+    <hr>
+    <p><strong>Por favor, ejecuta estos comandos y dime cuáles fueron los resultados exactos.</strong></p>
+</body>
+
+</html>

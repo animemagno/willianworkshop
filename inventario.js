@@ -1563,7 +1563,6 @@ document.addEventListener('DOMContentLoaded', async function () {
     try {
         window.inventario = new SistemaInventario();
         await window.inventario.init();
-        window.inventario.setupNuevasFunciones(); // Configurar nuevos listeners
         console.log("🎉 Inventario cargado exitosamente");
     } catch (error) {
         console.error("💥 Error crítico al cargar inventario:", error);
