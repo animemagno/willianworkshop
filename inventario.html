@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -149,7 +149,7 @@
             border-bottom: 2px solid #3498db
         }
 
-        /* 🔥 SIMETRÍA: ancho completo */
+        /* ðŸ”¥ SIMETRÃA: ancho completo */
         .inventario-wrapper {
             padding: 0 20px
         }
@@ -160,7 +160,7 @@
             }
         }
 
-        /* Menú lateral para pestañas de inventario */
+        /* MenÃº lateral para pestaÃ±as de inventario */
         .inventario-layout {
             display: flex;
             gap: 20px;
@@ -221,7 +221,7 @@
             border: 1px solid #e0e0e0
         }
 
-        /* Pestañas */
+        /* PestaÃ±as */
         .tabs-container {
             display: flex;
             flex-direction: column;
@@ -609,38 +609,8 @@
             border: 2px dashed #ddd
         }
 
-        /* Móvil: ajustes */
-        @media (max-width: 768px) {
-            .inventario-layout {
-                flex-direction: column
-            }
-
-            .inventario-sidebar {
-                width: 100%;
-                margin-bottom: 20px
-            }
-
-            .inventario-table-container {
-                overflow-x: auto
-            }
-
-            .inventario-table {
-                font-size: .75rem;
-                min-width: 1000px
-            }
-
-            header h1 {
-                font-size: 1.2rem
-            }
-
-            .container {
-                padding: 10px
-            }
-
-            .modal-box {
-                padding: 20px 15px
-            }
-        }
+        /* MÃ³vil: ajustes */
+        @media (max-width: 768px) { .inventario-layout { flex-direction: column; gap: 0; } .inventario-sidebar { width: 100%; margin-bottom: 10px; } .inventario-table-container { overflow-x: auto; border: none; } .inventario-table { font-size: .75rem; min-width: 100%; } header h1 { font-size: 1.2rem; } .container { padding: 0 !important; max-width: 100vw; } .inventario-wrapper { padding: 0 !important; } .dashboard-section { padding: 10px 0 !important; border: none; } .tab-content { padding: 10px 5px; } .modal-box { padding: 20px 10px; width: 95%; } .inventario-table th, .inventario-table td { padding: 8px 2px; } }
     </style>
 </head>
 
@@ -663,19 +633,19 @@
         <a href="servicios.html"><i class="fas fa-tools"></i> Servicios</a>
         <a href="entregas.html"><i class="fas fa-truck"></i> Entregas</a>
         <a href="cuentas.html"><i class="fas fa-sticky-note"></i> Memos y Cuentas</a>
-        <a href="configuracion.html"><i class="fas fa-cog"></i> Configuración</a>
-        <a href="#" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
+        <a href="configuracion.html"><i class="fas fa-cog"></i> ConfiguraciÃ³n</a>
+        <a href="#" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Cerrar sesiÃ³n</a>
     </div>
 
     <div class="container">
         <div class="dashboard-section">
             <div class="section-title">INVENTARIO</div>
 
-            <!-- 🔥 Contenedor con ancho completo -->
+            <!-- ðŸ”¥ Contenedor con ancho completo -->
             <div class="inventario-wrapper">
-                <!-- Layout con menú lateral y contenido -->
+                <!-- Layout con menÃº lateral y contenido -->
                 <div class="inventario-layout">
-                    <!-- Menú lateral para pestañas -->
+                    <!-- MenÃº lateral para pestaÃ±as -->
                     <div class="inventario-sidebar">
                         <div class="inventario-sidebar-menu">
                             <div class="inventario-sidebar-item active" data-tab="lista">
@@ -697,9 +667,9 @@
                         </div>
                     </div>
 
-                    <!-- Contenido de las pestañas -->
+                    <!-- Contenido de las pestaÃ±as -->
                     <div class="inventario-content">
-                        <!-- PESTAÑA LISTA DE PRODUCTOS -->
+                        <!-- PESTAÃ‘A LISTA DE PRODUCTOS -->
                         <div class="tab-content active" id="tab-lista">
                             <div class="inventario-actions">
                                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
@@ -719,10 +689,10 @@
                                 <div class="form-group">
                                     <select id="ordenar-por">
                                         <option value="">Sin ordenar</option>
-                                        <option value="codigo-asc">C�digo (A-Z)</option>
-                                        <option value="codigo-desc">C�digo (Z-A)</option>
-                                        <option value="descripcion-asc">Descripci�n (A-Z)</option>
-                                        <option value="descripcion-desc">Descripci�n (Z-A)</option>
+                                        <option value="codigo-asc">Código (A-Z)</option>
+                                        <option value="codigo-desc">Código (Z-A)</option>
+                                        <option value="descripcion-asc">Descripción (A-Z)</option>
+                                        <option value="descripcion-desc">Descripción (Z-A)</option>
                                         <option value="existencia-asc">Existencia (Menor)</option>
                                         <option value="existencia-desc">Existencia (Mayor)</option>
                                     </select>
@@ -733,14 +703,14 @@
                                 <table class="inventario-table">
                                     <thead>
                                         <tr>
-                                            <th>Código</th>
-                                            <th>Descripción Inventario</th>
-                                            <th>Descripción Factura</th>
+                                            <th>CÃ³digo</th>
+                                            <th>DescripciÃ³n Inventario</th>
+                                            <th>DescripciÃ³n Factura</th>
                                             <th>Precio Costo</th>
                                             <th>Precio Venta</th>
                                             <th>Existencia</th>
-                                            <th>Stock Mínimo</th>
-                                            <th>Crédito Fiscal</th>
+                                            <th>Stock MÃ­nimo</th>
+                                            <th>CrÃ©dito Fiscal</th>
                                             <th>Proveedor</th>
                                             <th width="100">Acciones</th>
                                         </tr>
@@ -758,15 +728,15 @@
                             </div>
                         </div>
 
-                        <!-- PESTAÑA CARGAR EXCEL -->
+                        <!-- PESTAÃ‘A CARGAR EXCEL -->
                         <div class="tab-content" id="tab-cargar-excel">
                             <h3>Cargar Inventario desde Excel</h3>
                             <div class="excel-upload-area" id="excel-drop-area">
                                 <i class="fas fa-file-excel"></i>
-                                <p>Haz clic aquí o arrastra tu archivo Excel</p>
-                                <p><small>Formato esperado: Código, Descripción Inventario, Descripción Factura, Precio
-                                        Costo, Precio Venta, Existencia, Crédito Fiscal</small></p>
-                                <p><small><strong>Nota:</strong> Los productos sin código se mantendrán vacíos. Crédito
+                                <p>Haz clic aquÃ­ o arrastra tu archivo Excel</p>
+                                <p><small>Formato esperado: CÃ³digo, DescripciÃ³n Inventario, DescripciÃ³n Factura, Precio
+                                        Costo, Precio Venta, Existencia, CrÃ©dito Fiscal</small></p>
+                                <p><small><strong>Nota:</strong> Los productos sin cÃ³digo se mantendrÃ¡n vacÃ­os. CrÃ©dito
                                         Fiscal por defecto: SI</small></p>
                                 <input type="file" id="excel-file" accept=".xlsx, .xls" style="display: none;">
                             </div>
@@ -792,23 +762,23 @@
                             </div>
                         </div>
 
-                        <!-- PESTAÑA NUEVO PRODUCTO -->
+                        <!-- PESTAÃ‘A NUEVO PRODUCTO -->
                         <div class="tab-content" id="tab-nuevo-producto">
                             <form id="form-nuevo-producto">
                                 <div class="form-group">
-                                    <label for="codigo">Código *</label>
+                                    <label for="codigo">CÃ³digo *</label>
                                     <input type="text" id="codigo" required>
                                 </div>
                                 <div class="form-group">
-                                    <label for="codigos-proveedor">Códigos de Proveedor (separados por coma)</label>
+                                    <label for="codigos-proveedor">CÃ³digos de Proveedor (separados por coma)</label>
                                     <input type="text" id="codigos-proveedor" placeholder="COD1, COD2, COD3">
                                 </div>
                                 <div class="form-group">
-                                    <label for="desc-inventario">Descripción según Inventario *</label>
+                                    <label for="desc-inventario">DescripciÃ³n segÃºn Inventario *</label>
                                     <input type="text" id="desc-inventario" required>
                                 </div>
                                 <div class="form-group">
-                                    <label for="desc-factura">Descripción según Factura *</label>
+                                    <label for="desc-factura">DescripciÃ³n segÃºn Factura *</label>
                                     <input type="text" id="desc-factura" required>
                                 </div>
                                 <div class="form-group">
@@ -824,13 +794,13 @@
                                     <input type="number" id="existencia" min="0" required>
                                 </div>
                                 <div class="form-group">
-                                    <label for="stock-minimo">Stock Mínimo</label>
+                                    <label for="stock-minimo">Stock MÃ­nimo</label>
                                     <input type="number" id="stock-minimo" min="0" value="0">
                                 </div>
                                 <div class="form-group">
                                     <div class="checkbox-group">
                                         <input type="checkbox" id="credito-fiscal" checked>
-                                        <label for="credito-fiscal">Crédito Fiscal</label>
+                                        <label for="credito-fiscal">CrÃ©dito Fiscal</label>
                                     </div>
                                 </div>
                                 <div class="form-group">
@@ -838,7 +808,7 @@
                                     <input type="text" id="proveedor">
                                 </div>
                                 <div class="form-group">
-                                    <label for="categoria">Categoría</label>
+                                    <label for="categoria">CategorÃ­a</label>
                                     <input type="text" id="categoria">
                                 </div>
                                 <div class="btn-container">
@@ -852,7 +822,7 @@
                             </form>
                         </div>
 
-                        <!-- PESTAÑA REPORTES -->
+                        <!-- PESTAÃ‘A REPORTES -->
                         <div class="tab-content" id="tab-reportes">
                             <div class="inventario-actions">
                                 <div class="form-group">
@@ -868,8 +838,8 @@
                                     <select id="tipo-reporte">
                                         <option value="stock">Stock Actual</option>
                                         <option value="bajo-stock">Productos con Stock Bajo</option>
-                                        <option value="valorizacion">Valorización de Inventario</option>
-                                        <option value="sin-codigo">Productos sin Código</option>
+                                        <option value="valorizacion">ValorizaciÃ³n de Inventario</option>
+                                        <option value="sin-codigo">Productos sin CÃ³digo</option>
                                     </select>
                                 </div>
                             </div>
@@ -885,7 +855,7 @@
 
                             <div id="reporte-contenido" class="inventario-table-container"
                                 style="margin-top: 20px; display: none;">
-                                <!-- Aquí se mostrará el reporte -->
+                                <!-- AquÃ­ se mostrarÃ¡ el reporte -->
                             </div>
                         </div>
                     </div>
@@ -902,13 +872,13 @@
                 <div class="form-group">
                     <label for="mov-tipo">Tipo de Movimiento</label>
                     <select id="mov-tipo" required>
-                        <option value="entrada">ENTRADA (Compra/Devolución)</option>
+                        <option value="entrada">ENTRADA (Compra/DevoluciÃ³n)</option>
                         <option value="salida">SALIDA (Venta/Merma)</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label for="mov-producto-busqueda">Buscar Producto</label>
-                    <input type="text" id="mov-producto-busqueda" placeholder="Escribe nombre o código...">
+                    <input type="text" id="mov-producto-busqueda" placeholder="Escribe nombre o cÃ³digo...">
                     <div id="mov-resultados-busqueda"
                         style="border: 1px solid #ddd; max-height: 150px; overflow-y: auto; display: none;"></div>
                 </div>
@@ -937,7 +907,7 @@
     <!-- MODAL ESCANEAR PEDIDO -->
     <div id="modalEscanearPedido" class="modal-overlay">
         <div class="modal-box" style="max-width: 800px;">
-            <h3>ESCANEAR PEDIDO (CÁMARA)</h3>
+            <h3>ESCANEAR PEDIDO (CÃMARA)</h3>
             <div style="display: flex; flex-direction: column; gap: 20px;">
                 <div id="reader" style="width: 100%; min-height: 300px; background: #000;"></div>
 
@@ -959,7 +929,7 @@
                 <div id="scan-unknown-container"
                     style="display: none; background: #fff3cd; padding: 15px; border-radius: 8px;">
                     <h4>Producto NO Encontrado</h4>
-                    <p>El código <strong id="scan-unknown-code"></strong> no existe en el inventario.</p>
+                    <p>El cÃ³digo <strong id="scan-unknown-code"></strong> no existe en el inventario.</p>
                     <div class="btn-container">
                         <button class="btn btn-primary" id="scan-asociar-btn">ASOCIAR A PRODUCTO EXISTENTE</button>
                         <button class="btn btn-info" id="scan-crear-btn">CREAR NUEVO PRODUCTO</button>
@@ -973,7 +943,7 @@
                             <tr>
                                 <th>Producto</th>
                                 <th>Cant.</th>
-                                <th>Acción</th>
+                                <th>AcciÃ³n</th>
                             </tr>
                         </thead>
                         <tbody id="pedido-lista-body"></tbody>
@@ -990,7 +960,7 @@
         </div>
     </div>
 
-    <!-- Script para código de barras -->
+    <!-- Script para cÃ³digo de barras -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
     <!-- MODAL EDITAR PRODUCTO -->
@@ -1000,19 +970,19 @@
             <form id="form-editar-producto">
                 <input type="hidden" id="edit-id">
                 <div class="form-group">
-                    <label for="edit-codigo">Código</label>
+                    <label for="edit-codigo">CÃ³digo</label>
                     <input type="text" id="edit-codigo" required>
                 </div>
                 <div class="form-group">
-                    <label for="edit-codigos-proveedor">Códigos de Proveedor</label>
+                    <label for="edit-codigos-proveedor">CÃ³digos de Proveedor</label>
                     <input type="text" id="edit-codigos-proveedor">
                 </div>
                 <div class="form-group">
-                    <label for="edit-desc-inventario">Descripción Inventario</label>
+                    <label for="edit-desc-inventario">DescripciÃ³n Inventario</label>
                     <input type="text" id="edit-desc-inventario" required>
                 </div>
                 <div class="form-group">
-                    <label for="edit-desc-factura">Descripción Factura</label>
+                    <label for="edit-desc-factura">DescripciÃ³n Factura</label>
                     <input type="text" id="edit-desc-factura" required>
                 </div>
                 <div class="form-group">
@@ -1028,13 +998,13 @@
                     <input type="number" id="edit-existencia" required>
                 </div>
                 <div class="form-group">
-                    <label for="edit-stock-minimo">Stock Mínimo</label>
+                    <label for="edit-stock-minimo">Stock MÃ­nimo</label>
                     <input type="number" id="edit-stock-minimo">
                 </div>
                 <div class="form-group">
                     <div class="checkbox-group">
                         <input type="checkbox" id="edit-credito-fiscal">
-                        <label for="edit-credito-fiscal">Crédito Fiscal</label>
+                        <label for="edit-credito-fiscal">CrÃ©dito Fiscal</label>
                     </div>
                 </div>
                 <div class="form-group">
@@ -1055,6 +1025,78 @@
     <script type="module" src="firebase-config.js"></script>
     <script type="module" src="inventario.js"></script>
 
+
+    <!-- MODAL CONFIGURACIÓN DE COMPRA -->
+    <div id="modalConfigCompra" class="modal-overlay">
+        <div class="modal-box">
+            <h3>Nueva Entrada de Compra</h3>
+            <form id="form-config-compra">
+                <div class="form-group">
+                    <label>Proveedor</label>
+                    <input type="text" id="compra-proveedor" placeholder="Nombre del proveedor">
+                </div>
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="compra-credito-fiscal" checked>
+                        <label for="compra-credito-fiscal">Crédito Fiscal</label>
+                    </div>
+                </div>
+                <div class="modal-buttons">
+                    <button type="submit" class="btn btn-primary">Comenzar Escaneo</button>
+                    <button type="button" class="btn btn-danger" onclick="document.getElementById('modalConfigCompra').style.display='none'">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL PRODUCTO EXISTENTE (EN ESCANEO) -->
+    <div id="modalProductoExistente" class="modal-overlay" style="z-index: 2100;">
+        <div class="modal-box">
+            <h3>Producto Encontrado</h3>
+            <p id="prod-existente-info" style="font-weight:bold; color: #27ae60; margin-bottom: 10px;"></p>
+            <form id="form-prod-existente">
+                <div class="form-group">
+                    <label>Cantidad</label>
+                    <input type="number" id="prod-existente-cantidad" min="1" value="1" required>
+                </div>
+                <div class="form-group">
+                    <label>Precio Costo Unitario</label>
+                    <input type="number" id="prod-existente-precio" step="0.01" required>
+                </div>
+                <div class="modal-buttons">
+                    <button type="submit" class="btn btn-success">Agregar</button>
+                    <button type="button" class="btn btn-secondary" id="btn-cancelar-existente">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL PRODUCTO NUEVO (EN ESCANEO) -->
+    <div id="modalProductoNuevo" class="modal-overlay" style="z-index: 2100;">
+        <div class="modal-box">
+            <h3>Producto Nuevo (Desconocido)</h3>
+            <p>Código: <span id="prod-nuevo-codigo" style="font-weight:bold; color: #e67e22;"></span></p>
+            <form id="form-prod-nuevo">
+                <div class="form-group">
+                    <label>Descripción Temporal</label>
+                    <input type="text" id="prod-nuevo-desc" required placeholder="Ej: Aceite 20W50...">
+                </div>
+                <div class="form-group">
+                    <label>Cantidad</label>
+                    <input type="number" id="prod-nuevo-cantidad" min="1" value="1" required>
+                </div>
+                <div class="form-group">
+                    <label>Precio Costo Unitario</label>
+                    <input type="number" id="prod-nuevo-precio" step="0.01" required>
+                </div>
+                <div class="modal-buttons">
+                    <button type="submit" class="btn btn-warning">Agregar a Pendientes</button>
+                    <button type="button" class="btn btn-secondary" id="btn-cancelar-nuevo">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </body>
 
 </html>
+

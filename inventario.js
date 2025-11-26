@@ -1,5 +1,5 @@
-// inventario.js - Sistema completo de inventario con Firebase
-console.log("✅ inventario.js cargando...");
+﻿// inventario.js - Sistema completo de inventario con Firebase
+console.log("âœ… inventario.js cargando...");
 
 import { db } from './firebase-config.js';
 import {
@@ -21,23 +21,23 @@ class SistemaInventario {
         this.proveedores = [];
         this.datosExcel = [];
         this.ordenActual = '';
-        console.log("✅ SistemaInventario inicializado con Firebase");
+        console.log("âœ… SistemaInventario inicializado con Firebase");
     }
 
     async init() {
         try {
-            console.log("🚀 Iniciando sistema de inventario...");
+            console.log("ðŸš€ Iniciando sistema de inventario...");
             this.setupMenuMobile();
             this.setupTabs();
             await this.cargarProductos();
             this.setupEventListeners();
-            console.log("✅ Sistema de inventario listo");
+            console.log("âœ… Sistema de inventario listo");
         } catch (error) {
-            console.error("❌ Error al iniciar:", error);
+            console.error("âŒ Error al iniciar:", error);
         }
     }
 
-    // ========== CONFIGURACIÓN INICIAL ==========
+    // ========== CONFIGURACIÃ“N INICIAL ==========
     setupMenuMobile() {
         try {
             const mobileMenuBtn = document.getElementById('mobileMenuBtn');
@@ -90,7 +90,7 @@ class SistemaInventario {
     // ========== EVENT LISTENERS ==========
     setupEventListeners() {
         try {
-            // Búsqueda en tiempo real
+            // BÃºsqueda en tiempo real
             const buscarInput = document.getElementById('buscar-producto');
             if (buscarInput) {
                 buscarInput.addEventListener('input', (e) => {
@@ -155,7 +155,7 @@ class SistemaInventario {
         }
     }
 
-    // ========== GESTIÓN DE EXCEL ==========
+    // ========== GESTIÃ“N DE EXCEL ==========
     setupExcelUpload() {
         try {
             const dropArea = document.getElementById('excel-drop-area');
@@ -163,11 +163,11 @@ class SistemaInventario {
             const preview = document.getElementById('excel-preview');
 
             if (!dropArea || !fileInput) {
-                console.warn("❌ Elementos de Excel no encontrados");
+                console.warn("âŒ Elementos de Excel no encontrados");
                 return;
             }
 
-            // Click en área de drop
+            // Click en Ã¡rea de drop
             dropArea.addEventListener('click', () => {
                 fileInput.click();
             });
@@ -253,7 +253,7 @@ class SistemaInventario {
     // ========== OPERACIONES CRUD PRODUCTOS CON FIREBASE ==========
     async cargarProductos() {
         try {
-            console.log("📦 Cargando productos desde Firebase...");
+            console.log("ðŸ“¦ Cargando productos desde Firebase...");
             const tbody = document.getElementById('inventario-body');
 
             if (tbody) {
@@ -278,11 +278,11 @@ class SistemaInventario {
                 this.productos.push(producto);
             });
 
-            console.log(`✅ ${this.productos.length} productos cargados desde Firebase`);
+            console.log(`âœ… ${this.productos.length} productos cargados desde Firebase`);
             this.mostrarProductos();
 
         } catch (error) {
-            console.error("❌ Error cargando productos desde Firebase:", error);
+            console.error("âŒ Error cargando productos desde Firebase:", error);
             this.mostrarError("Error al cargar el inventario desde la base de datos");
         }
     }
@@ -295,7 +295,7 @@ class SistemaInventario {
             const modoEdicion = localStorage.getItem('modoEdicionInventario') === 'true';
 
             if (!tbody) {
-                console.error("❌ No se encontró tbody#inventario-body");
+                console.error("âŒ No se encontrÃ³ tbody#inventario-body");
                 return;
             }
 
@@ -314,12 +314,12 @@ class SistemaInventario {
             tbody.innerHTML = productos.map(producto => {
                 const claseStock = this.obtenerClaseStock(producto.existencia, producto.stockMinimo);
                 const claseCodigo = !producto.codigo ? 'codigo-vacio' : '';
-                const codigoDisplay = producto.codigo || '<span style="color:#856404; font-style:italic;">SIN CÓDIGO</span>';
+                const codigoDisplay = producto.codigo || '<span style="color:#856404; font-style:italic;">SIN CÃ“DIGO</span>';
                 const creditoFiscal = producto.creditoFiscal !== false ? 'SI' : 'NO';
                 const claseCredito = producto.creditoFiscal !== false ? 'credito-si' : 'credito-no';
 
                 if (modoEdicion) {
-                    // MODO EDICIÓN (EXCEL)
+                    // MODO EDICIÃ“N (EXCEL)
                     return `
                         <tr data-id="${producto.id}">
                             <td><input type="text" value="${producto.codigo || ''}" class="edit-input" onchange="inventario.guardarCambioRapido('${producto.id}', 'codigo', this.value)"></td>
@@ -344,7 +344,7 @@ class SistemaInventario {
                         </tr>
                     `;
                 } else {
-                    // MODO VISUALIZACIÓN (SEGURO)
+                    // MODO VISUALIZACIÃ“N (SEGURO)
                     return `
                         <tr>
                             <td class="${claseCodigo}"><strong>${codigoDisplay}</strong></td>
@@ -458,20 +458,20 @@ class SistemaInventario {
                 return;
             }
 
-            // Validar duplicados si tiene código
+            // Validar duplicados si tiene cÃ³digo
             if (producto.codigo) {
                 const existe = this.productos.some(p => p.codigo === producto.codigo);
                 if (existe) {
-                    this.mostrarError('Ya existe un producto con este código');
+                    this.mostrarError('Ya existe un producto con este cÃ³digo');
                     return;
                 }
             }
 
-            console.log("💾 Guardando producto en Firebase:", producto);
+            console.log("ðŸ’¾ Guardando producto en Firebase:", producto);
 
             // Guardar en Firebase
             const docRef = await addDoc(collection(db, "inventario"), producto);
-            console.log("✅ Producto guardado con ID:", docRef.id);
+            console.log("âœ… Producto guardado con ID:", docRef.id);
 
             // Actualizar lista local
             producto.id = docRef.id;
@@ -483,21 +483,21 @@ class SistemaInventario {
             this.mostrarProductos();
 
         } catch (error) {
-            console.error('❌ Error guardando producto en Firebase:', error);
+            console.error('âŒ Error guardando producto en Firebase:', error);
             this.mostrarError('Error al guardar el producto: ' + error.message);
         }
     }
 
     async editarProducto(id) {
         try {
-            console.log("✏️ Editando producto:", id);
+            console.log("âœï¸ Editando producto:", id);
             const producto = this.productos.find(p => p.id === id);
             if (!producto) {
                 this.mostrarError('Producto no encontrado');
                 return;
             }
 
-            // Llenar formulario de edición
+            // Llenar formulario de ediciÃ³n
             document.getElementById('edit-id').value = producto.id;
             document.getElementById('edit-codigo').value = producto.codigo || '';
             document.getElementById('edit-codigos-proveedor').value = producto.codigosProveedor || '';
@@ -514,7 +514,7 @@ class SistemaInventario {
             document.getElementById('modalEditarProducto').style.display = 'flex';
 
         } catch (error) {
-            console.error('❌ Error editando producto:', error);
+            console.error('âŒ Error editando producto:', error);
             this.mostrarError('Error al cargar producto para editar');
         }
     }
@@ -538,7 +538,7 @@ class SistemaInventario {
                 fechaActualizacion: new Date().toISOString()
             };
 
-            console.log("🔄 Actualizando producto en Firebase:", id, updates);
+            console.log("ðŸ”„ Actualizando producto en Firebase:", id, updates);
 
             // Validar campos requeridos
             if (!updates.descInventario || !updates.descFactura) {
@@ -554,7 +554,7 @@ class SistemaInventario {
             const index = this.productos.findIndex(p => p.id === id);
             if (index !== -1) {
                 this.productos[index] = { ...this.productos[index], ...updates };
-                console.log("✅ Producto actualizado en índice:", index);
+                console.log("âœ… Producto actualizado en Ã­ndice:", index);
             }
 
             this.mostrarExito('Producto actualizado correctamente');
@@ -562,32 +562,32 @@ class SistemaInventario {
             this.mostrarProductos();
 
         } catch (error) {
-            console.error('❌ Error actualizando producto en Firebase:', error);
+            console.error('âŒ Error actualizando producto en Firebase:', error);
             this.mostrarError('Error al actualizar el producto: ' + error.message);
         }
     }
 
     async eliminarProducto(id) {
         try {
-            console.log("🗑️ Intentando eliminar producto:", id);
+            console.log("ðŸ—‘ï¸ Intentando eliminar producto:", id);
 
             // Verificar que el producto existe
             const producto = this.productos.find(p => p.id === id);
             if (!producto) {
-                console.error("❌ Producto no encontrado para eliminar:", id);
+                console.error("âŒ Producto no encontrado para eliminar:", id);
                 this.mostrarError('Producto no encontrado');
                 return;
             }
 
             const nombreProducto = producto.descInventario || 'Producto';
-            const confirmacion = confirm(`¿Estás seguro de que quieres eliminar "${nombreProducto}"?\n\nEsta acción no se puede deshacer.`);
+            const confirmacion = confirm(`Â¿EstÃ¡s seguro de que quieres eliminar "${nombreProducto}"?\n\nEsta acciÃ³n no se puede deshacer.`);
 
             if (!confirmacion) {
-                console.log("❌ Eliminación cancelada por el usuario");
+                console.log("âŒ EliminaciÃ³n cancelada por el usuario");
                 return;
             }
 
-            console.log("✅ Confirmación recibida, eliminando producto de Firebase...");
+            console.log("âœ… ConfirmaciÃ³n recibida, eliminando producto de Firebase...");
 
             // Eliminar de Firebase
             await deleteDoc(doc(db, "inventario", id));
@@ -597,22 +597,22 @@ class SistemaInventario {
 
             this.mostrarExito(`"${nombreProducto}" eliminado correctamente`);
             this.mostrarProductos();
-            console.log("✅ Producto eliminado exitosamente de Firebase");
+            console.log("âœ… Producto eliminado exitosamente de Firebase");
 
         } catch (error) {
-            console.error('❌ Error eliminando producto de Firebase:', error);
+            console.error('âŒ Error eliminando producto de Firebase:', error);
             this.mostrarError('Error al eliminar el producto: ' + error.message);
         }
     }
 
-    // ========== GESTIÓN DE EXCEL ==========
+    // ========== GESTIÃ“N DE EXCEL ==========
     procesarArchivoExcel(file) {
         try {
             const reader = new FileReader();
 
             reader.onload = (e) => {
                 try {
-                    console.log("📊 Procesando archivo Excel...");
+                    console.log("ðŸ“Š Procesando archivo Excel...");
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
 
@@ -620,18 +620,18 @@ class SistemaInventario {
                     const firstSheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[firstSheetName];
 
-                    // Convertir a JSON manteniendo celdas vacías
+                    // Convertir a JSON manteniendo celdas vacÃ­as
                     const jsonData = XLSX.utils.sheet_to_json(worksheet, {
                         header: 1,
                         defval: "",
                         blankrows: true
                     });
 
-                    console.log("📋 Datos procesados del Excel:", jsonData);
+                    console.log("ðŸ“‹ Datos procesados del Excel:", jsonData);
                     this.mostrarPreviewExcel(jsonData);
 
                 } catch (error) {
-                    console.error('❌ Error procesando Excel:', error);
+                    console.error('âŒ Error procesando Excel:', error);
                     this.mostrarError('Error al procesar el archivo Excel: ' + error.message);
                 }
             };
@@ -653,7 +653,7 @@ class SistemaInventario {
             const advertenciasDiv = document.getElementById('excel-advertencias');
 
             if (!preview || !previewContent) {
-                console.error("❌ Elementos de preview no encontrados");
+                console.error("âŒ Elementos de preview no encontrados");
                 return;
             }
 
@@ -668,33 +668,33 @@ class SistemaInventario {
             previewData.forEach((fila, index) => {
                 html += '<tr>';
 
-                // Procesar cada celda manteniendo la posición correcta
+                // Procesar cada celda manteniendo la posiciÃ³n correcta
                 for (let i = 0; i < Math.max(fila.length, 7); i++) {
                     const celda = fila[i] !== undefined ? fila[i] : '';
 
                     if (index === 0) {
                         // Encabezados
-                        const encabezados = ['Código', 'Descripción Inventario', 'Descripción Factura', 'Precio Costo', 'Precio Venta', 'Existencia', 'Crédito Fiscal'];
+                        const encabezados = ['CÃ³digo', 'DescripciÃ³n Inventario', 'DescripciÃ³n Factura', 'Precio Costo', 'Precio Venta', 'Existencia', 'CrÃ©dito Fiscal'];
                         html += `<th style="border:1px solid #ddd; padding:5px; background:#f2f2f2;">${encabezados[i] || `Col ${i + 1}`}</th>`;
                     } else {
-                        // Datos - RESPETAR CELDAS VACÍAS
+                        // Datos - RESPETAR CELDAS VACÃAS
                         const estilo = i === 0 && !celda ? 'background:#fff3cd; color:#856404; font-style:italic;' : '';
-                        let displayCelda = celda === '' ? '<span style="color:#999; font-style:italic;">vacío</span>' : celda;
+                        let displayCelda = celda === '' ? '<span style="color:#999; font-style:italic;">vacÃ­o</span>' : celda;
 
-                        // Formatear precios con signo de dólar
+                        // Formatear precios con signo de dÃ³lar
                         if (i === 3 || i === 4) {
                             const valor = this.parseNumero(celda);
                             displayCelda = valor > 0 ? `$${valor.toFixed(2)}` : displayCelda;
                         }
 
-                        // Formatear crédito fiscal - CORREGIDO: Por defecto SI
+                        // Formatear crÃ©dito fiscal - CORREGIDO: Por defecto SI
                         if (i === 6) {
                             if (celda === '' || celda === undefined || celda === null) {
-                                // Si está vacío, mostrar SI por defecto
+                                // Si estÃ¡ vacÃ­o, mostrar SI por defecto
                                 displayCelda = '<span style="color:#27ae60; font-weight:bold;">SI (por defecto)</span>';
                             } else {
                                 const creditoStr = celda.toString().trim().toUpperCase();
-                                displayCelda = (creditoStr === 'SI' || creditoStr === 'TRUE' || creditoStr === '1' || creditoStr === 'SÍ') ?
+                                displayCelda = (creditoStr === 'SI' || creditoStr === 'TRUE' || creditoStr === '1' || creditoStr === 'SÃ') ?
                                     '<span style="color:#27ae60; font-weight:bold;">SI</span>' :
                                     '<span style="color:#e74c3c; font-weight:bold;">NO</span>';
                             }
@@ -702,7 +702,7 @@ class SistemaInventario {
 
                         html += `<td style="border:1px solid #ddd; padding:5px; ${estilo}">${displayCelda}</td>`;
 
-                        // Contar productos sin código
+                        // Contar productos sin cÃ³digo
                         if (i === 0 && index > 0 && !celda) {
                             productosSinCodigo++;
                         }
@@ -714,25 +714,25 @@ class SistemaInventario {
             html += '</table>';
 
             if (data.length > 10) {
-                html += `<p style="color:#666; margin-top:10px;">... y ${data.length - 10} filas más</p>`;
+                html += `<p style="color:#666; margin-top:10px;">... y ${data.length - 10} filas mÃ¡s</p>`;
             }
 
-            // Mostrar advertencias sobre productos sin código
+            // Mostrar advertencias sobre productos sin cÃ³digo
             if (productosSinCodigo > 0) {
                 advertenciasHTML = `
                     <div class="excel-advertencia">
                         <i class="fas fa-exclamation-triangle"></i>
-                        <strong>Nota:</strong> Se encontraron ${productosSinCodigo} productos sin código. 
-                        Se mantendrán <strong>VACÍOS</strong> exactamente como en el archivo Excel.
+                        <strong>Nota:</strong> Se encontraron ${productosSinCodigo} productos sin cÃ³digo. 
+                        Se mantendrÃ¡n <strong>VACÃOS</strong> exactamente como en el archivo Excel.
                     </div>
                 `;
             }
 
-            // Agregar advertencia sobre crédito fiscal por defecto
+            // Agregar advertencia sobre crÃ©dito fiscal por defecto
             advertenciasHTML += `
                 <div class="excel-advertencia">
                     <i class="fas fa-info-circle"></i>
-                    <strong>Información:</strong> Los productos sin valor en "Crédito Fiscal" se cargarán como <strong>SI</strong> por defecto.
+                    <strong>InformaciÃ³n:</strong> Los productos sin valor en "CrÃ©dito Fiscal" se cargarÃ¡n como <strong>SI</strong> por defecto.
                 </div>
             `;
 
@@ -748,7 +748,7 @@ class SistemaInventario {
     async confirmarCargaExcel() {
         try {
             if (this.datosExcel.length < 2) {
-                this.mostrarError('El archivo no contiene datos válidos');
+                this.mostrarError('El archivo no contiene datos vÃ¡lidos');
                 return;
             }
 
@@ -760,33 +760,33 @@ class SistemaInventario {
             let errores = 0;
 
             for (const fila of datos) {
-                if (fila.length === 0 || !fila[1]) continue; // Saltar filas vacías o sin descripción
+                if (fila.length === 0 || !fila[1]) continue; // Saltar filas vacÃ­as o sin descripciÃ³n
 
                 try {
-                    // [0: Código, 1: Descripción Inventario, 2: Descripción Factura, 3: Precio Costo, 4: Precio Venta, 5: Existencia, 6: Crédito Fiscal]
-                    const codigo = fila[0]?.toString().trim() || ''; // RESPETAR VACÍOS
+                    // [0: CÃ³digo, 1: DescripciÃ³n Inventario, 2: DescripciÃ³n Factura, 3: Precio Costo, 4: Precio Venta, 5: Existencia, 6: CrÃ©dito Fiscal]
+                    const codigo = fila[0]?.toString().trim() || ''; // RESPETAR VACÃOS
                     const descInventario = fila[1]?.toString().trim() || '';
                     const descFactura = fila[2]?.toString().trim() || descInventario;
 
                     if (!descInventario) {
-                        continue; // Saltar si no hay descripción inventario
+                        continue; // Saltar si no hay descripciÃ³n inventario
                     }
 
-                    // Contar productos sin código
+                    // Contar productos sin cÃ³digo
                     if (!codigo) {
                         productosSinCodigo++;
                     }
 
-                    // CORREGIDO: Determinar crédito fiscal - POR DEFECTO SI
+                    // CORREGIDO: Determinar crÃ©dito fiscal - POR DEFECTO SI
                     let creditoFiscal = true; // VALOR POR DEFECTO: SI
                     if (fila[6] !== undefined && fila[6] !== null && fila[6] !== '') {
                         const creditoStr = fila[6]?.toString().trim().toUpperCase();
-                        // Solo cambiar a NO si explícitamente dice "NO"
+                        // Solo cambiar a NO si explÃ­citamente dice "NO"
                         creditoFiscal = !(creditoStr === 'NO' || creditoStr === 'FALSE' || creditoStr === '0');
                     }
 
                     const productoData = {
-                        codigo: codigo, // Mantener vacío si viene vacío
+                        codigo: codigo, // Mantener vacÃ­o si viene vacÃ­o
                         descInventario: descInventario,
                         descFactura: descFactura,
                         precioCosto: this.parseNumero(fila[3]) || 0,
@@ -802,10 +802,10 @@ class SistemaInventario {
                     // Buscar producto existente
                     let productoExistente = null;
                     if (codigo) {
-                        // Buscar por código
+                        // Buscar por cÃ³digo
                         productoExistente = this.productos.find(p => p.codigo === productoData.codigo);
                     } else {
-                        // Buscar por descripción (solo para productos sin código)
+                        // Buscar por descripciÃ³n (solo para productos sin cÃ³digo)
                         productoExistente = this.productos.find(p =>
                             !p.codigo && p.descInventario.toLowerCase() === descInventario.toLowerCase()
                         );
@@ -836,14 +836,14 @@ class SistemaInventario {
                     }
 
                 } catch (error) {
-                    console.error('❌ Error procesando fila:', fila, error);
+                    console.error('âŒ Error procesando fila:', fila, error);
                     errores++;
                 }
             }
 
             let mensaje = `Carga completada: ${productosCargados} nuevos, ${productosActualizados} actualizados`;
             if (productosSinCodigo > 0) {
-                mensaje += `, ${productosSinCodigo} sin código (mantenidos vacíos)`;
+                mensaje += `, ${productosSinCodigo} sin cÃ³digo (mantenidos vacÃ­os)`;
             }
             if (errores > 0) {
                 mensaje += `, ${errores} errores`;
@@ -856,7 +856,7 @@ class SistemaInventario {
             this.mostrarProductos();
 
         } catch (error) {
-            console.error('❌ Error en carga masiva:', error);
+            console.error('âŒ Error en carga masiva:', error);
             this.mostrarError('Error durante la carga masiva: ' + error.message);
         }
     }
@@ -864,13 +864,13 @@ class SistemaInventario {
     parseNumero(valor, esEntero = false) {
         if (valor === null || valor === undefined || valor === '') return 0;
 
-        // Si ya es número, retornarlo
+        // Si ya es nÃºmero, retornarlo
         if (typeof valor === 'number') return esEntero ? Math.round(valor) : valor;
 
         let strValor = valor.toString().trim();
         if (strValor === '') return 0;
 
-        // Limpiar caracteres no numéricos excepto punto decimal y signo negativo
+        // Limpiar caracteres no numÃ©ricos excepto punto decimal y signo negativo
         strValor = strValor.replace(/[^\d.-]/g, '');
 
         const numero = parseFloat(strValor);
@@ -882,10 +882,10 @@ class SistemaInventario {
     descargarPlantillaExcel() {
         try {
             const plantilla = [
-                ['Código', 'Descripción Inventario', 'Descripción Factura', 'Precio Costo', 'Precio Venta', 'Existencia', 'Crédito Fiscal', 'Proveedor'],
+                ['CÃ³digo', 'DescripciÃ³n Inventario', 'DescripciÃ³n Factura', 'Precio Costo', 'Precio Venta', 'Existencia', 'CrÃ©dito Fiscal', 'Proveedor'],
                 ['TM001', 'Tulio Rin Ancho 2 Pulgadas', 'TULIO RIN ANCHO DE DOS PULGADAS', '18.40', '25.00', '50', 'SI', 'Todo Motor'],
                 ['TM002', 'Cadena 7 Velocidades', 'CADENA 7V', '8.50', '12.00', '30', 'SI', 'Todo Motor'],
-                ['', 'Producto sin código', 'PRODUCTO SIN CÓDIGO', '15.00', '20.00', '25', 'SI', 'Proveedor X']
+                ['', 'Producto sin cÃ³digo', 'PRODUCTO SIN CÃ“DIGO', '15.00', '20.00', '25', 'SI', 'Proveedor X']
             ];
 
             const worksheet = XLSX.utils.aoa_to_sheet(plantilla);
@@ -895,7 +895,7 @@ class SistemaInventario {
             XLSX.writeFile(workbook, 'plantilla_inventario.xlsx');
             this.mostrarExito('Plantilla descargada correctamente');
         } catch (error) {
-            console.error("❌ Error en descargarPlantillaExcel:", error);
+            console.error("âŒ Error en descargarPlantillaExcel:", error);
             this.mostrarError('Error al descargar la plantilla');
         }
     }
@@ -937,13 +937,13 @@ class SistemaInventario {
             <table class="inventario-table">
                 <thead>
                     <tr>
-                        <th>Código</th>
-                        <th>Descripción Inventario</th>
-                        <th>Descripción Factura</th>
+                        <th>CÃ³digo</th>
+                        <th>DescripciÃ³n Inventario</th>
+                        <th>DescripciÃ³n Factura</th>
                         <th>Existencia</th>
-                        <th>Stock Mínimo</th>
+                        <th>Stock MÃ­nimo</th>
                         <th>Estado</th>
-                        <th>Crédito Fiscal</th>
+                        <th>CrÃ©dito Fiscal</th>
                         <th>Proveedor</th>
                     </tr>
                 </thead>
@@ -954,7 +954,7 @@ class SistemaInventario {
             const estado = this.obtenerEstadoStock(producto.existencia, producto.stockMinimo);
             const clase = this.obtenerClaseStock(producto.existencia, producto.stockMinimo);
             const claseCodigo = !producto.codigo ? 'codigo-vacio' : '';
-            const codigoDisplay = producto.codigo || 'SIN CÓDIGO';
+            const codigoDisplay = producto.codigo || 'SIN CÃ“DIGO';
             const creditoFiscal = producto.creditoFiscal !== false ? 'SI' : 'NO';
             const claseCredito = producto.creditoFiscal !== false ? 'credito-si' : 'credito-no';
 
@@ -986,15 +986,15 @@ class SistemaInventario {
         }
 
         let html = `
-            <h4 style="margin:10px; color:#e74c3c;">Productos con Stock Bajo/Crítico</h4>
+            <h4 style="margin:10px; color:#e74c3c;">Productos con Stock Bajo/CrÃ­tico</h4>
             <table class="inventario-table">
                 <thead>
                     <tr>
-                        <th>Código</th>
-                        <th>Descripción Inventario</th>
-                        <th>Descripción Factura</th>
+                        <th>CÃ³digo</th>
+                        <th>DescripciÃ³n Inventario</th>
+                        <th>DescripciÃ³n Factura</th>
                         <th>Existencia</th>
-                        <th>Stock Mínimo</th>
+                        <th>Stock MÃ­nimo</th>
                         <th>Diferencia</th>
                         <th>Estado</th>
                     </tr>
@@ -1007,7 +1007,7 @@ class SistemaInventario {
             const estado = this.obtenerEstadoStock(producto.existencia, producto.stockMinimo);
             const clase = this.obtenerClaseStock(producto.existencia, producto.stockMinimo);
             const claseCodigo = !producto.codigo ? 'codigo-vacio' : '';
-            const codigoDisplay = producto.codigo || 'SIN CÓDIGO';
+            const codigoDisplay = producto.codigo || 'SIN CÃ“DIGO';
 
             html += `
                 <tr>
@@ -1030,20 +1030,20 @@ class SistemaInventario {
         const productosSinCodigo = this.productos.filter(producto => !producto.codigo);
 
         if (productosSinCodigo.length === 0) {
-            return '<div class="empty-cart">No hay productos sin código</div>';
+            return '<div class="empty-cart">No hay productos sin cÃ³digo</div>';
         }
 
         let html = `
-            <h4 style="margin:10px; color:#856404;">Productos sin Código</h4>
+            <h4 style="margin:10px; color:#856404;">Productos sin CÃ³digo</h4>
             <table class="inventario-table">
                 <thead>
                     <tr>
-                        <th>Descripción Inventario</th>
-                        <th>Descripción Factura</th>
+                        <th>DescripciÃ³n Inventario</th>
+                        <th>DescripciÃ³n Factura</th>
                         <th>Precio Costo</th>
                         <th>Precio Venta</th>
                         <th>Existencia</th>
-                        <th>Crédito Fiscal</th>
+                        <th>CrÃ©dito Fiscal</th>
                         <th>Proveedor</th>
                         <th>Acciones</th>
                     </tr>
@@ -1065,7 +1065,7 @@ class SistemaInventario {
                     <td><span class="${claseCredito}">${creditoFiscal}</span></td>
                     <td>${producto.proveedor || ''}</td>
                     <td>
-                        <button class="icon-btn btn-edit" onclick="inventario.editarProducto('${producto.id}')" title="Agregar código">
+                        <button class="icon-btn btn-edit" onclick="inventario.editarProducto('${producto.id}')" title="Agregar cÃ³digo">
                             <i class="fas fa-edit"></i>
                         </button>
                     </td>
@@ -1087,7 +1087,7 @@ class SistemaInventario {
         );
 
         let html = `
-            <h4 style="margin:10px; color:#27ae60;">Valorización de Inventario</h4>
+            <h4 style="margin:10px; color:#27ae60;">ValorizaciÃ³n de Inventario</h4>
             <div style="padding:15px; background:#f8f9fa;border-radius:6px; margin-bottom:15px;">
                 <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
                     <strong>Valor total en costo:</strong>
@@ -1101,9 +1101,9 @@ class SistemaInventario {
             <table class="inventario-table">
                 <thead>
                     <tr>
-                        <th>Código</th>
-                        <th>Descripción Inventario</th>
-                        <th>Descripción Factura</th>
+                        <th>CÃ³digo</th>
+                        <th>DescripciÃ³n Inventario</th>
+                        <th>DescripciÃ³n Factura</th>
                         <th>Existencia</th>
                         <th>Costo Unit.</th>
                         <th>Valor en Costo</th>
@@ -1118,7 +1118,7 @@ class SistemaInventario {
             const valorCosto = producto.existencia * producto.precioCosto;
             const valorVenta = producto.existencia * producto.precioVenta;
             const claseCodigo = !producto.codigo ? 'codigo-vacio' : '';
-            const codigoDisplay = producto.codigo || 'SIN CÓDIGO';
+            const codigoDisplay = producto.codigo || 'SIN CÃ“DIGO';
 
             html += `
                 <tr>
@@ -1139,7 +1139,7 @@ class SistemaInventario {
     }
 
     obtenerEstadoStock(existencia, stockMinimo) {
-        if (!stockMinimo) return 'Sin mínimo';
+        if (!stockMinimo) return 'Sin mÃ­nimo';
         if (existencia <= 0) return 'AGOTADO';
         if (existencia <= stockMinimo) return 'BAJO STOCK';
         return 'NORMAL';
@@ -1193,17 +1193,17 @@ class SistemaInventario {
     }
 
     mostrarExito(mensaje) {
-        alert(`✅ ${mensaje}`);
+        alert(`âœ… ${mensaje}`);
     }
 
     mostrarError(mensaje) {
-        alert(`❌ ${mensaje}`);
+        alert(`âŒ ${mensaje}`);
     }
 
-    // ========== EDICIÓN RÁPIDA (MODO EXCEL) ==========
+    // ========== EDICIÃ“N RÃPIDA (MODO EXCEL) ==========
     async guardarCambioRapido(id, campo, valor) {
         try {
-            console.log(`📝 Cambio rápido: ${id} - ${campo} = ${valor}`);
+            console.log(`ðŸ“ Cambio rÃ¡pido: ${id} - ${campo} = ${valor}`);
 
             let valorFinal = valor;
             if (campo === 'precioCosto' || campo === 'precioVenta') valorFinal = parseFloat(valor) || 0;
@@ -1221,16 +1221,16 @@ class SistemaInventario {
                 this.productos[index][campo] = valorFinal;
             }
 
-            console.log("✅ Cambio guardado");
+            console.log("âœ… Cambio guardado");
         } catch (error) {
-            console.error("❌ Error guardando cambio rápido:", error);
+            console.error("âŒ Error guardando cambio rÃ¡pido:", error);
             this.mostrarError("Error al guardar el cambio");
         }
     }
 
     // ========== MOVIMIENTOS DE INVENTARIO ==========
     setupEventListeners() {
-        // ... (listeners anteriores se mantienen si no se sobrescriben, pero aquí agrego los nuevos)
+        // ... (listeners anteriores se mantienen si no se sobrescriben, pero aquÃ­ agrego los nuevos)
         // Re-implementing setupEventListeners to include new ones without losing old ones would be cleaner if I could edit the whole method.
         // But since I am appending/replacing the end, I will add a specific setup method for new features and call it in init.
 
@@ -1371,35 +1371,69 @@ class SistemaInventario {
         }
     }
 
-    // ========== ESCÁNER DE CÓDIGO DE BARRAS ==========
+    // ========== ESCÃNER DE CÃ“DIGO DE BARRAS ==========
+    // ========== ESCÁNER DE CÓDIGO DE BARRAS (FLUJO DE COMPRAS) ==========
     iniciarEscaner() {
-        if (this.html5QrcodeScanner) {
-            // Ya iniciado
-            return;
-        }
+        // Paso 1: Abrir configuración de compra
+        document.getElementById('modalEscanearPedido').style.display = 'none';
+        document.getElementById('modalConfigCompra').style.display = 'flex';
+        
+        // Resetear variables de sesión
+        this.sesionCompra = {
+            proveedor: '',
+            creditoFiscal: true
+        };
+        
+        // Configurar listener para el formulario de inicio
+        const formConfig = document.getElementById('form-config-compra');
+        // Clonar para eliminar listeners anteriores
+        const newForm = formConfig.cloneNode(true);
+        formConfig.parentNode.replaceChild(newForm, formConfig);
+        
+        newForm.onsubmit = (e) => {
+            e.preventDefault();
+            this.sesionCompra.proveedor = document.getElementById('compra-proveedor').value;
+            this.sesionCompra.creditoFiscal = document.getElementById('compra-credito-fiscal').checked;
+            
+            document.getElementById('modalConfigCompra').style.display = 'none';
+            document.getElementById('modalEscanearPedido').style.display = 'flex';
+            
+            this.iniciarCamara();
+        };
+    }
+
+    iniciarCamara() {
+        if (this.html5QrcodeScanner) return;
 
         this.pedidoActual = [];
         this.actualizarTablaPedido();
 
         const onScanSuccess = (decodedText, decodedResult) => {
-            console.log(`Code matched = ${decodedText}`, decodedResult);
-            this.procesarCodigoEscaneado(decodedText);
-            // Pausar escaneo momentáneamente
+            console.log(Code matched = , decodedResult);
             this.html5QrcodeScanner.pause();
+            this.procesarCodigoEscaneado(decodedText);
         };
 
-        const onScanFailure = (error) => {
-            // handle scan failure, usually better to ignore and keep scanning.
-            // console.warn(`Code scan error = ${error}`);
-        };
+        const onScanFailure = (error) => {};
 
         this.html5QrcodeScanner = new Html5Qrcode("reader");
+        const config = {
+            fps: 25,
+            qrbox: { width: 280, height: 150 },
+            aspectRatio: 1.0,
+            formatsToSupport: [
+                Html5QrcodeSupportedFormats.QR_CODE,
+                Html5QrcodeSupportedFormats.CODE_128,
+                Html5QrcodeSupportedFormats.CODE_39,
+                Html5QrcodeSupportedFormats.EAN_13,
+                Html5QrcodeSupportedFormats.UPC_A
+            ],
+            experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+        };
+
         this.html5QrcodeScanner.start(
             { facingMode: "environment" },
-            {
-                fps: 20,  // Aumentado de 10 a 20 para escaneo más rápido
-                qrbox: { width: 300, height: 150 }  // Área rectangular optimizada para códigos de barras
-            },
+            config,
             onScanSuccess,
             onScanFailure
         ).catch(err => {
@@ -1407,80 +1441,116 @@ class SistemaInventario {
             this.mostrarError("No se pudo acceder a la cámara");
         });
 
-        // Botones de acción del escáner
-        document.getElementById('scan-confirmar-btn').onclick = () => {
-            this.agregarAlPedido();
-            this.html5QrcodeScanner.resume();
-            document.getElementById('scan-result-container').style.display = 'none';
-        };
+        // Configurar botones de cancelar
+        const btnCancelExistente = document.getElementById('btn-cancelar-existente');
+        if(btnCancelExistente) {
+            btnCancelExistente.onclick = () => {
+                document.getElementById('modalProductoExistente').style.display = 'none';
+                this.html5QrcodeScanner.resume();
+            };
+        }
 
-        document.getElementById('scan-cancelar-btn').onclick = () => {
-            this.html5QrcodeScanner.resume();
-            document.getElementById('scan-result-container').style.display = 'none';
-        };
-
-        document.getElementById('procesar-pedido-btn').onclick = () => {
-            this.procesarPedidoCompleto();
-        };
+        const btnCancelNuevo = document.getElementById('btn-cancelar-nuevo');
+        if(btnCancelNuevo) {
+            btnCancelNuevo.onclick = () => {
+                document.getElementById('modalProductoNuevo').style.display = 'none';
+                this.html5QrcodeScanner.resume();
+            };
+        }
+        
+        const btnProcesar = document.getElementById('procesar-pedido-btn');
+        if(btnProcesar) {
+             btnProcesar.onclick = () => {
+                this.procesarPedidoCompleto();
+            };
+        }
     }
 
     procesarCodigoEscaneado(codigo) {
         const producto = this.productos.find(p => p.codigo === codigo);
 
         if (producto) {
-            // Producto encontrado
-            document.getElementById('scan-result-container').style.display = 'block';
-            document.getElementById('scan-unknown-container').style.display = 'none';
-            document.getElementById('scan-producto-info').textContent = `${producto.descInventario} (Stock: ${producto.existencia})`;
-            document.getElementById('scan-cantidad').value = 1;
-            document.getElementById('scan-cantidad').focus();
+            // CASO A: Producto Existe
+            const modal = document.getElementById('modalProductoExistente');
+            document.getElementById('prod-existente-info').textContent = ${producto.descInventario} (Stock: );
+            document.getElementById('prod-existente-cantidad').value = 1;
+            document.getElementById('prod-existente-precio').value = producto.precioCosto || 0;
+            
+            modal.style.display = 'flex';
+            document.getElementById('prod-existente-cantidad').focus();
 
-            this.productoEscaneadoTemporal = producto;
-        } else {
-            // Producto NO encontrado
-            document.getElementById('scan-result-container').style.display = 'none';
-            document.getElementById('scan-unknown-container').style.display = 'block';
-            document.getElementById('scan-unknown-code').textContent = codigo;
-
-            // Opciones para desconocido
-            document.getElementById('scan-asociar-btn').onclick = () => {
-                // Lógica para asociar (abrir buscador y vincular código)
-                alert("Funcionalidad de asociación pendiente de implementar. Por favor crea el producto manualmente.");
+            const form = document.getElementById('form-prod-existente');
+            form.onsubmit = (e) => {
+                e.preventDefault();
+                const cantidad = parseInt(document.getElementById('prod-existente-cantidad').value);
+                const costo = parseFloat(document.getElementById('prod-existente-precio').value);
+                
+                this.agregarAlPedido(producto, cantidad, costo, false);
+                modal.style.display = 'none';
                 this.html5QrcodeScanner.resume();
-                document.getElementById('scan-unknown-container').style.display = 'none';
             };
 
-            document.getElementById('scan-crear-btn').onclick = () => {
-                // Abrir modal de nuevo producto con el código prellenado
-                document.getElementById('modalEscanearPedido').style.display = 'none';
-                this.html5QrcodeScanner.stop();
-                document.querySelector('[data-tab="nuevo-producto"]').click();
-                document.getElementById('codigo').value = codigo;
+        } else {
+            // CASO B: Producto Nuevo
+            const modal = document.getElementById('modalProductoNuevo');
+            document.getElementById('prod-nuevo-codigo').textContent = codigo;
+            document.getElementById('prod-nuevo-desc').value = '';
+            document.getElementById('prod-nuevo-cantidad').value = 1;
+            document.getElementById('prod-nuevo-precio').value = '';
+            
+            modal.style.display = 'flex';
+            document.getElementById('prod-nuevo-desc').focus();
+
+            const form = document.getElementById('form-prod-nuevo');
+            form.onsubmit = (e) => {
+                e.preventDefault();
+                const desc = document.getElementById('prod-nuevo-desc').value;
+                const cantidad = parseInt(document.getElementById('prod-nuevo-cantidad').value);
+                const costo = parseFloat(document.getElementById('prod-nuevo-precio').value);
+                
+                const prodTemp = {
+                    id: 'TEMP_' + Date.now(),
+                    codigo: codigo,
+                    descInventario: desc,
+                    descFactura: desc,
+                    existencia: 0,
+                    esNuevo: true
+                };
+
+                this.agregarAlPedido(prodTemp, cantidad, costo, true);
+                modal.style.display = 'none';
+                this.html5QrcodeScanner.resume();
             };
         }
     }
 
-    agregarAlPedido() {
-        const cantidad = parseInt(document.getElementById('scan-cantidad').value) || 1;
-        if (this.productoEscaneadoTemporal) {
-            this.pedidoActual.push({
-                producto: this.productoEscaneadoTemporal,
-                cantidad: cantidad
-            });
-            this.actualizarTablaPedido();
-            this.productoEscaneadoTemporal = null;
-        }
+    agregarAlPedido(producto, cantidad, costo, esNuevo) {
+        this.pedidoActual.push({
+            producto: producto,
+            cantidad: cantidad,
+            costo: costo,
+            esNuevo: esNuevo,
+            proveedor: this.sesionCompra.proveedor,
+            creditoFiscal: this.sesionCompra.creditoFiscal
+        });
+        this.actualizarTablaPedido();
     }
 
     actualizarTablaPedido() {
         const tbody = document.getElementById('pedido-lista-body');
-        tbody.innerHTML = this.pedidoActual.map((item, index) => `
-            <tr>
-                <td>${item.producto.descInventario}</td>
-                <td>${item.cantidad}</td>
-                <td><button class="btn btn-danger btn-sm" onclick="inventario.eliminarDelPedido(${index})">X</button></td>
+        if (!tbody) return;
+
+        tbody.innerHTML = this.pedidoActual.map((item, index) => 
+            <tr style="">
+                <td>
+                    
+                    
+                </td>
+                <td></td>
+                <td>{item.costo.toFixed(2)}</td>
+                <td><button class="btn btn-danger btn-sm" onclick="inventario.eliminarDelPedido()">X</button></td>
             </tr>
-        `).join('');
+        ).join('');
     }
 
     eliminarDelPedido(index) {
@@ -1491,42 +1561,73 @@ class SistemaInventario {
     async procesarPedidoCompleto() {
         if (this.pedidoActual.length === 0) return;
 
-        if (!confirm(`¿Procesar entrada de ${this.pedidoActual.length} productos?`)) return;
+        if (!confirm(¿Procesar entrada de  productos?)) return;
 
         try {
             const itemsHistorial = [];
 
             for (const item of this.pedidoActual) {
-                const nuevaExistencia = (item.producto.existencia || 0) + item.cantidad;
-                await updateDoc(doc(db, "inventario", item.producto.id), {
-                    existencia: nuevaExistencia,
-                    fechaActualizacion: new Date().toISOString()
-                });
+                let productoId = item.producto.id;
+                let nuevaExistencia = 0;
+
+                if (item.esNuevo) {
+                    // CREAR PRODUCTO NUEVO
+                    const nuevoProducto = {
+                        codigo: item.producto.codigo,
+                        descInventario: item.producto.descInventario,
+                        descFactura: item.producto.descFactura,
+                        precioCosto: item.costo,
+                        precioVenta: 0,
+                        existencia: item.cantidad,
+                        stockMinimo: 5,
+                        creditoFiscal: item.creditoFiscal,
+                        proveedor: item.proveedor,
+                        fechaCreacion: new Date().toISOString()
+                    };
+                    
+                    const docRef = await addDoc(collection(db, "inventario"), nuevoProducto);
+                    productoId = docRef.id;
+                    nuevaExistencia = item.cantidad;
+                    
+                    this.productos.push({ id: productoId, ...nuevoProducto });
+
+                } else {
+                    // ACTUALIZAR EXISTENTE
+                    nuevaExistencia = (item.producto.existencia || 0) + item.cantidad;
+                    await updateDoc(doc(db, "inventario", productoId), {
+                        existencia: nuevaExistencia,
+                        precioCosto: item.costo,
+                        proveedor: item.proveedor || item.producto.proveedor,
+                        fechaActualizacion: new Date().toISOString()
+                    });
+
+                    const pLocal = this.productos.find(p => p.id === productoId);
+                    if (pLocal) {
+                        pLocal.existencia = nuevaExistencia;
+                        pLocal.precioCosto = item.costo;
+                    }
+                }
 
                 itemsHistorial.push({
-                    id: item.producto.id,
+                    id: productoId,
                     nombre: item.producto.descInventario,
                     cantidad: item.cantidad,
-                    anterior: item.producto.existencia,
-                    nuevo: nuevaExistencia
+                    costo: item.costo,
+                    tipo: item.esNuevo ? 'NUEVO INGRESO' : 'REABASTECIMIENTO'
                 });
-
-                // Actualizar local
-                const pLocal = this.productos.find(p => p.id === item.producto.id);
-                if (pLocal) pLocal.existencia = nuevaExistencia;
             }
 
-            // Registrar historial del pedido
             await this.registrarHistorial(
-                'PEDIDO',
-                'Entrada masiva por escáner',
+                'COMPRA',
+                Entrada masiva (Prov: ),
                 itemsHistorial
             );
 
-            this.mostrarExito("Pedido procesado correctamente");
+            this.mostrarExito("Compra procesada correctamente");
             this.pedidoActual = [];
             this.actualizarTablaPedido();
             document.getElementById('modalEscanearPedido').style.display = 'none';
+            
             if (this.html5QrcodeScanner) {
                 this.html5QrcodeScanner.stop().then(() => {
                     this.html5QrcodeScanner = null;
@@ -1536,21 +1637,18 @@ class SistemaInventario {
 
         } catch (error) {
             console.error("Error procesando pedido:", error);
-            this.mostrarError("Error al procesar el pedido");
+            this.mostrarError("Error al procesar la compra");
         }
     }
 }
 
 // ========== INICIALIZACIÓN ==========
-// Variable global expuesta
 window.inventario = null;
 
 document.addEventListener('DOMContentLoaded', async function () {
     console.log("🚀 DOM cargado, iniciando inventario...");
 
-    // Verificar autenticación
     if (!localStorage.getItem('usuarioLogueado')) {
-        console.log("🔒 Redirigiendo a login...");
         window.location.href = 'login.html';
         return;
     }
@@ -1558,16 +1656,13 @@ document.addEventListener('DOMContentLoaded', async function () {
     try {
         window.inventario = new SistemaInventario();
         await window.inventario.init();
-        window.inventario.setupNuevasFunciones(); // Configurar nuevos listeners
+        window.inventario.setupNuevasFunciones();
         console.log("🎉 Inventario cargado exitosamente");
     } catch (error) {
         console.error("💥 Error crítico al cargar inventario:", error);
     }
 });
 
-// Helper global para cerrar modal (por si acaso se usa en HTML antiguo)
 window.cerrarModalEditar = () => {
     if (window.inventario) window.inventario.cerrarModalEditar();
 };
-
-console.log("📄 inventario.js cargado completamente");
