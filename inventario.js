@@ -100,13 +100,17 @@ class SistemaInventario {
 
             //Ordenamiento
             const ordenarSelect = document.getElementById('ordenar-por');
+            console.log('🔍 Select ordenar-por encontrado:', ordenarSelect);
             if (ordenarSelect) {
                 ordenarSelect.addEventListener('change', (e) => {
                     this.ordenActual = e.target.value;
-                    console.log('Ordenando por:', this.ordenActual);
+                    console.log('✅ Ordenando por:', this.ordenActual);
                     const termino = buscarInput ? buscarInput.value : '';
                     this.filtrarProductos(termino);
                 });
+                console.log('✅ Event listener registrado para ordenar-por');
+            } else {
+                console.error('❌ No se encontró el select #ordenar-por');
             }
 
             // Formulario nuevo producto
