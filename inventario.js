@@ -1396,7 +1396,10 @@ class SistemaInventario {
         this.html5QrcodeScanner = new Html5Qrcode("reader");
         this.html5QrcodeScanner.start(
             { facingMode: "environment" },
-            { fps: 10, qrbox: { width: 250, height: 250 } },
+            {
+                fps: 20,  // Aumentado de 10 a 20 para escaneo más rápido
+                qrbox: { width: 300, height: 150 }  // Área rectangular optimizada para códigos de barras
+            },
             onScanSuccess,
             onScanFailure
         ).catch(err => {
