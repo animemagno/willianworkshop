@@ -290,6 +290,7 @@ class SistemaInventario {
     mostrarProductos(productosFiltrados = null) {
         try {
             let productos = productosFiltrados || this.productos;
+            console.log('🔄 Ordenando productos. Orden actual:', this.ordenActual);
             productos = this.ordenarProductos(productos);
             const tbody = document.getElementById('inventario-body');
             const modoEdicion = localStorage.getItem('modoEdicionInventario') === 'true';
