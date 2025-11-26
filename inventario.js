@@ -1377,27 +1377,27 @@ class SistemaInventario {
         // Paso 1: Abrir configuración de compra
         document.getElementById('modalEscanearPedido').style.display = 'none';
         document.getElementById('modalConfigCompra').style.display = 'flex';
-        
+
         // Resetear variables de sesión
         this.sesionCompra = {
             proveedor: '',
             creditoFiscal: true
         };
-        
+
         // Configurar listener para el formulario de inicio
         const formConfig = document.getElementById('form-config-compra');
         // Clonar para eliminar listeners anteriores
         const newForm = formConfig.cloneNode(true);
         formConfig.parentNode.replaceChild(newForm, formConfig);
-        
+
         newForm.onsubmit = (e) => {
             e.preventDefault();
             this.sesionCompra.proveedor = document.getElementById('compra-proveedor').value;
             this.sesionCompra.creditoFiscal = document.getElementById('compra-credito-fiscal').checked;
-            
+
             document.getElementById('modalConfigCompra').style.display = 'none';
             document.getElementById('modalEscanearPedido').style.display = 'flex';
-            
+
             this.iniciarCamara();
         };
     }
@@ -1409,12 +1409,12 @@ class SistemaInventario {
         this.actualizarTablaPedido();
 
         const onScanSuccess = (decodedText, decodedResult) => {
-            console.log(Code matched = , decodedResult);
+            console.log(`Code matched = ${decodedText}`, decodedResult);
             this.html5QrcodeScanner.pause();
             this.procesarCodigoEscaneado(decodedText);
         };
 
-        const onScanFailure = (error) => {};
+        const onScanFailure = (error) => { };
 
         this.html5QrcodeScanner = new Html5Qrcode("reader");
         const config = {
@@ -1443,7 +1443,7 @@ class SistemaInventario {
 
         // Configurar botones de cancelar
         const btnCancelExistente = document.getElementById('btn-cancelar-existente');
-        if(btnCancelExistente) {
+        if (btnCancelExistente) {
             btnCancelExistente.onclick = () => {
                 document.getElementById('modalProductoExistente').style.display = 'none';
                 this.html5QrcodeScanner.resume();
@@ -1451,16 +1451,16 @@ class SistemaInventario {
         }
 
         const btnCancelNuevo = document.getElementById('btn-cancelar-nuevo');
-        if(btnCancelNuevo) {
+        if (btnCancelNuevo) {
             btnCancelNuevo.onclick = () => {
                 document.getElementById('modalProductoNuevo').style.display = 'none';
                 this.html5QrcodeScanner.resume();
             };
         }
-        
+
         const btnProcesar = document.getElementById('procesar-pedido-btn');
-        if(btnProcesar) {
-             btnProcesar.onclick = () => {
+        if (btnProcesar) {
+            btnProcesar.onclick = () => {
                 this.procesarPedidoCompleto();
             };
         }
@@ -1472,10 +1472,10 @@ class SistemaInventario {
         if (producto) {
             // CASO A: Producto Existe
             const modal = document.getElementById('modalProductoExistente');
-            document.getElementById('prod-existente-info').textContent = ${producto.descInventario} (Stock: );
+            document.getElementById('prod-existente-info').textContent = `${producto.descInventario} (Stock: ${producto.existencia})`;
             document.getElementById('prod-existente-cantidad').value = 1;
             document.getElementById('prod-existente-precio').value = producto.precioCosto || 0;
-            
+
             modal.style.display = 'flex';
             document.getElementById('prod-existente-cantidad').focus();
 
@@ -1484,7 +1484,7 @@ class SistemaInventario {
                 e.preventDefault();
                 const cantidad = parseInt(document.getElementById('prod-existente-cantidad').value);
                 const costo = parseFloat(document.getElementById('prod-existente-precio').value);
-                
+
                 this.agregarAlPedido(producto, cantidad, costo, false);
                 modal.style.display = 'none';
                 this.html5QrcodeScanner.resume();
@@ -1497,7 +1497,7 @@ class SistemaInventario {
             document.getElementById('prod-nuevo-desc').value = '';
             document.getElementById('prod-nuevo-cantidad').value = 1;
             document.getElementById('prod-nuevo-precio').value = '';
-            
+
             modal.style.display = 'flex';
             document.getElementById('prod-nuevo-desc').focus();
 
@@ -1507,7 +1507,7 @@ class SistemaInventario {
                 const desc = document.getElementById('prod-nuevo-desc').value;
                 const cantidad = parseInt(document.getElementById('prod-nuevo-cantidad').value);
                 const costo = parseFloat(document.getElementById('prod-nuevo-precio').value);
-                
+
                 const prodTemp = {
                     id: 'TEMP_' + Date.now(),
                     codigo: codigo,
@@ -1536,32 +1536,10 @@ class SistemaInventario {
         this.actualizarTablaPedido();
     }
 
-    actualizarTablaPedido() {
-        const tbody = document.getElementById('pedido-lista-body');
-        if (!tbody) return;
-
-        tbody.innerHTML = this.pedidoActual.map((item, index) => 
-            <tr style="">
-                <td>
-                    
-                    
-                </td>
-                <td></td>
-                <td>{item.costo.toFixed(2)}</td>
-                <td><button class="btn btn-danger btn-sm" onclick="inventario.eliminarDelPedido()">X</button></td>
-            </tr>
-        ).join('');
-    }
-
-    eliminarDelPedido(index) {
-        this.pedidoActual.splice(index, 1);
-        this.actualizarTablaPedido();
-    }
-
     async procesarPedidoCompleto() {
         if (this.pedidoActual.length === 0) return;
 
-        if (!confirm(¿Procesar entrada de  productos?)) return;
+        if (!confirm(¿Procesar entrada de  productos ?)) return;
 
         try {
             const itemsHistorial = [];
@@ -1584,11 +1562,11 @@ class SistemaInventario {
                         proveedor: item.proveedor,
                         fechaCreacion: new Date().toISOString()
                     };
-                    
+
                     const docRef = await addDoc(collection(db, "inventario"), nuevoProducto);
                     productoId = docRef.id;
                     nuevaExistencia = item.cantidad;
-                    
+
                     this.productos.push({ id: productoId, ...nuevoProducto });
 
                 } else {
@@ -1619,7 +1597,7 @@ class SistemaInventario {
 
             await this.registrarHistorial(
                 'COMPRA',
-                Entrada masiva (Prov: ),
+                `Entrada masiva (Prov: ${this.sesionCompra.proveedor || 'N/A'})`,
                 itemsHistorial
             );
 
@@ -1627,7 +1605,7 @@ class SistemaInventario {
             this.pedidoActual = [];
             this.actualizarTablaPedido();
             document.getElementById('modalEscanearPedido').style.display = 'none';
-            
+
             if (this.html5QrcodeScanner) {
                 this.html5QrcodeScanner.stop().then(() => {
                     this.html5QrcodeScanner = null;
