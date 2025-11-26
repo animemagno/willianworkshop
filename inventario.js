@@ -1536,10 +1536,32 @@ class SistemaInventario {
         this.actualizarTablaPedido();
     }
 
+    actualizarTablaPedido() {
+        const tbody = document.getElementById('pedido-lista-body');
+        if (!tbody) return;
+
+        tbody.innerHTML = this.pedidoActual.map((item, index) => `
+            <tr style="${item.esNuevo ? 'background-color: #fff3cd;' : ''}">
+                <td>
+                    ${item.producto.descInventario}
+                    ${item.esNuevo ? '<br><span class="badge badge-warning">NUEVO</span>' : ''}
+                </td>
+                <td>${item.cantidad}</td>
+                <td>$${item.costo.toFixed(2)}</td>
+                <td><button class="btn btn-danger btn-sm" onclick="inventario.eliminarDelPedido(${index})">X</button></td>
+            </tr>
+        `).join('');
+    }
+
+    eliminarDelPedido(index) {
+        this.pedidoActual.splice(index, 1);
+        this.actualizarTablaPedido();
+    }
+
     async procesarPedidoCompleto() {
         if (this.pedidoActual.length === 0) return;
 
-        if (!confirm(¿Procesar entrada de  productos ?)) return;
+        if (!confirm(`¿Procesar entrada de ${this.pedidoActual.length} productos?`)) return;
 
         try {
             const itemsHistorial = [];
