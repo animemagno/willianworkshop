@@ -253,7 +253,7 @@ class SistemaInventario {
     // ========== OPERACIONES CRUD PRODUCTOS CON FIREBASE ==========
     async cargarProductos() {
         try {
-            console.log("ðŸ“¦ Cargando productos desde Firebase...");
+            console.log("📦 Cargando productos desde Firebase...");
             const tbody = document.getElementById('inventario-body');
 
             if (tbody) {
@@ -278,11 +278,11 @@ class SistemaInventario {
                 this.productos.push(producto);
             });
 
-            console.log(`âœ… ${this.productos.length} productos cargados desde Firebase`);
+            console.log(`✅ ${this.productos.length} productos cargados desde Firebase`);
             this.mostrarProductos();
 
         } catch (error) {
-            console.error("âŒ Error cargando productos desde Firebase:", error);
+            console.error("❌ Error cargando productos desde Firebase:", error);
             this.mostrarError("Error al cargar el inventario desde la base de datos");
         }
     }
