@@ -61,28 +61,43 @@ class SistemaInventario {
     }
 
     setupTabs() {
+        // Mantenemos esto por compatibilidad, pero usaremos onclick en HTML
         try {
             const sidebarItems = document.querySelectorAll('.inventario-sidebar-item');
-            const tabContents = document.querySelectorAll('.tab-content');
-
             sidebarItems.forEach(item => {
                 item.addEventListener('click', () => {
                     const tabId = item.getAttribute('data-tab');
-
-                    // Remover activo de todos
-                    sidebarItems.forEach(sideItem => sideItem.classList.remove('active'));
-                    tabContents.forEach(content => content.classList.remove('active'));
-
-                    // Activar actual
-                    item.classList.add('active');
-                    const tabContent = document.getElementById(`tab-${tabId}`);
-                    if (tabContent) {
-                        tabContent.classList.add('active');
-                    }
+                    this.cambiarTab(tabId);
                 });
             });
         } catch (error) {
             console.error("Error en setupTabs:", error);
+        }
+    }
+
+    cambiarTab(tabId) {
+        try {
+            console.log("🔄 Cambiando a pestaña:", tabId);
+            const sidebarItems = document.querySelectorAll('.inventario-sidebar-item');
+            const tabContents = document.querySelectorAll('.tab-content');
+
+            // Remover activo de todos
+            sidebarItems.forEach(sideItem => {
+                sideItem.classList.remove('active');
+                if (sideItem.getAttribute('data-tab') === tabId) {
+                    sideItem.classList.add('active');
+                }
+            });
+
+            tabContents.forEach(content => content.classList.remove('active'));
+
+            // Activar contenido
+            const tabContent = document.getElementById(`tab-${tabId}`);
+            if (tabContent) {
+                tabContent.classList.add('active');
+            }
+        } catch (error) {
+            console.error("Error en cambiarTab:", error);
         }
     }
 
@@ -1512,8 +1527,9 @@ class SistemaInventario {
 // Variable global expuesta
 window.inventario = null;
 
-document.addEventListener('DOMContentLoaded', async function () {
-    console.log("🚀 DOM cargado, iniciando inventario...");
+// Función de arranque
+async function iniciarApp() {
+    console.log("🚀 Iniciando inventario...");
 
     // Verificar autenticación
     if (!localStorage.getItem('usuarioLogueado')) {
@@ -1529,7 +1545,14 @@ document.addEventListener('DOMContentLoaded', async function () {
     } catch (error) {
         console.error("💥 Error crítico al cargar inventario:", error);
     }
-});
+}
+
+// Ejecutar cuando el DOM esté listo
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', iniciarApp);
+} else {
+    iniciarApp();
+}
 
 // Helper global para cerrar modal (por si acaso se usa en HTML antiguo)
 window.cerrarModalEditar = () => {
