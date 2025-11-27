@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Ordenamiento Simple</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        select,
+        button {
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 16px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .log {
+            background: #f4f4f4;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Test de Ordenamiento - Diagnóstico</h1>
+
+    <div class="log" id="log">
+        <strong>Log:</strong><br>
+        Esperando interacción...
+    </div>
+
+    <label for="ordenar">Ordenar por:</label>
+    <select id="ordenar">
+        <option value="">Sin ordenar</option>
+        <option value="codigo-asc">Código (A-Z)</option>
+        <option value="codigo-desc">Código (Z-A)</option>
+        <option value="descripcion-asc">Descripción (A-Z)</option>
+        <option value="descripcion-desc">Descripción (Z-A)</option>
+    </select>
+
+    <button onclick="resetear()">Resetear</button>
+
+    <table id="tabla">
+        <thead>
+            <tr>
+                <th>Código</th>
+                <th>Descripción</th>
+            </tr>
+        </thead>
+        <tbody id="tbody">
+            <!-- Se llena con JavaScript -->
+        </tbody>
+    </table>
+
+    <script>
+        // Datos de prueba
+        let productos = [
+            { codigo: 'Z100', descripcion: 'Producto Z' },
+            { codigo: 'A200', descripcion: 'Producto A' },
+            { codigo: 'M500', descripcion: 'Producto M' },
+            { codigo: 'B300', descripcion: 'Producto B' },
+            { codigo: 'K400', descripcion: 'Producto K' }
+        ];
+
+        let productosOriginales = [...productos];
+
+        function log(mensaje) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<br>[${timestamp}] ${mensaje}`;
+            console.log(mensaje);
+        }
+
+        function mostrarProductos(lista) {
+            const tbody = document.getElementById('tbody');
+            tbody.innerHTML = lista.map(p => `
+                <tr>
+                    <td><strong>${p.codigo}</strong></td>
+                    <td>${p.descripcion}</td>
+                </tr>
+            `).join('');
+        }
+
+        function ordenarProductos(ordenActual) {
+            if (!ordenActual) {
+                log('⚠️ Sin ordenamiento, mostrando original');
+                return [...productosOriginales];
+            }
+
+            const [campo, direccion] = ordenActual.split('-');
+            log(`🔄 Ordenando por: campo="${campo}", dirección="${direccion}"`);
+
+            const copia = [...productos];
+
+            copia.sort((a, b) => {
+                let valorA, valorB;
+
+                if (campo === 'codigo') {
+                    valorA = a.codigo.toLowerCase();
+                    valorB = b.codigo.toLowerCase();
+                } else if (campo === 'descripcion') {
+                    valorA = a.descripcion.toLowerCase();
+                    valorB = b.descripcion.toLowerCase();
+                }
+
+                if (valorA < valorB) return direccion === 'asc' ? -1 : 1;
+                if (valorA > valorB) return direccion === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            log(`✅ Ordenamiento completado. Primer elemento: ${copia[0].codigo}`);
+            return copia;
+        }
+
+        function resetear() {
+            productos = [...productosOriginales];
+            document.getElementById('ordenar').value = '';
+            mostrarProductos(productos);
+            log('🔄 Datos reseteados');
+        }
+
+        // Event listener
+        const select = document.getElementById('ordenar');
+
+        log('🔍 Buscando elemento SELECT...');
+        log(`✅ SELECT encontrado: ${select ? 'SÍ' : 'NO'}`);
+
+        if (select) {
+            select.addEventListener('change', function (e) {
+                const valor = e.target.value;
+                log(`📢 Evento 'change' disparado. Valor: "${valor}"`);
+
+                const ordenados = ordenarProductos(valor);
+                mostrarProductos(ordenados);
+            });
+            log('✅ Event listener registrado');
+        } else {
+            log('❌ ERROR: No se pudo encontrar el SELECT');
+        }
+
+        // Mostrar datos iniciales
+        mostrarProductos(productos);
+        log('📊 Tabla inicial mostrada');
+    </script>
+</body>
+
+</html>
