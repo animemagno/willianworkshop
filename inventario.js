@@ -280,6 +280,16 @@ class SistemaInventario {
     mostrarProductos(productosFiltrados = null) {
         try {
             let productos = productosFiltrados || this.productos;
+
+            // Ordenamiento automático por Descripción Inventario (A-Z)
+            productos.sort((a, b) => {
+                const descA = (a.descInventario || '').toLowerCase();
+                const descB = (b.descInventario || '').toLowerCase();
+                if (descA < descB) return -1;
+                if (descA > descB) return 1;
+                return 0;
+            });
+
             const tbody = document.getElementById('inventario-body');
             const modoEdicion = localStorage.getItem('modoEdicionInventario') === 'true';
 
