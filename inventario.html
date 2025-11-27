@@ -706,202 +706,164 @@
                             </div>
                         </div>
                     </div>
+                    <tr>
+                        <th>Código</th>
+                        <th>Descripción Inventario</th>
+                        <th>Descripción Factura</th>
+                        <th>Precio Costo</th>
+                        <th>Precio Venta</th>
+                        <th>Existencia</th>
+                        <th>Stock Mínimo</th>
+                        <th>Crédito Fiscal</th>
+                        <th>Proveedor</th>
+                        <th width="100">Acciones</th>
+                    </tr>
+                    </thead>
+                    <tbody id="inventario-body">
+                        <tr>
+                            <td colspan="10" class="empty-cart">
+                                <i class="fas fa-boxes" style="font-size:2rem;margin-bottom:10px;opacity:.5;"></i>
+                                <div>No hay productos en inventario</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                    </table>
+                </div>
+            </div>
 
-                    <!-- Contenido de las pestañas -->
-                    <div class="inventario-content">
-                        <!-- PESTAÑA LISTA DE PRODUCTOS -->
-                        <div class="tab-content active" id="tab-lista">
-                            <div class="inventario-actions">
-                                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                                    <button class="btn btn-success" id="actualizar-inventario-btn">
-                                        <i class="fas fa-sync-alt"></i> ACTUALIZAR
-                                    </button>
-                                    <button class="btn btn-primary" id="registrar-movimiento-btn">
-                                        <i class="fas fa-exchange-alt"></i> REGISTRAR MOVIMIENTO
-                                    </button>
-                                    <button class="btn btn-warning" id="escanear-pedido-btn">
-                                        <i class="fas fa-barcode"></i> ESCANEAR PEDIDO
-                                    </button>
-                                </div>
-                                <div class="form-group">
-                                    <input type="text" id="buscar-producto" placeholder="Buscar producto...">
-                                </div>
-                                <div class="form-group">
-                                    <select id="ordenar-por">
-                                        <option value="">Sin ordenar</option>
-                                        <option value="codigo-asc">Código (A-Z)</option>
-                                        <option value="codigo-desc">Código (Z-A)</option>
-                                        <option value="descripcion-asc">Descripción (A-Z)</option>
-                                        <option value="descripcion-desc">Descripción (Z-A)</option>
-                                        <option value="existencia-asc">Existencia (Menor)</option>
-                                        <option value="existencia-desc">Existencia (Mayor)</option>
-                                    </select>
-                                </div>
-                            </div>
+            <!-- PESTAÑA CARGAR EXCEL -->
+            <div class="tab-content" id="tab-cargar-excel">
+                <h3>Cargar Inventario desde Excel</h3>
+                <div class="excel-upload-area" id="excel-drop-area">
+                    <i class="fas fa-file-excel"></i>
+                    <p>Haz clic aquí o arrastra tu archivo Excel</p>
+                    <p><small>Formato esperado: Código, Descripción Inventario, Descripción Factura, Precio
+                            Costo, Precio Venta, Existencia, Crédito Fiscal</small></p>
+                    <p><small><strong>Nota:</strong> Los productos sin código se mantendrán vacíos. Crédito
+                            Fiscal por defecto: SI</small></p>
+                    <input type="file" id="excel-file" accept=".xlsx, .xls" style="display: none;">
+                </div>
 
-                            <div class="inventario-table-container">
-                                <table class="inventario-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Código</th>
-                                            <th>Descripción Inventario</th>
-                                            <th>Descripción Factura</th>
-                                            <th>Precio Costo</th>
-                                            <th>Precio Venta</th>
-                                            <th>Existencia</th>
-                                            <th>Stock Mínimo</th>
-                                            <th>Crédito Fiscal</th>
-                                            <th>Proveedor</th>
-                                            <th width="100">Acciones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="inventario-body">
-                                        <tr>
-                                            <td colspan="10" class="empty-cart">
-                                                <i class="fas fa-boxes"
-                                                    style="font-size:2rem;margin-bottom:10px;opacity:.5;"></i>
-                                                <div>No hay productos en inventario</div>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                <div class="btn-container">
+                    <button class="btn btn-primary" id="descargar-plantilla-btn">
+                        <i class="fas fa-download"></i> DESCARGAR PLANTILLA
+                    </button>
+                </div>
 
-                        <!-- PESTAÑA CARGAR EXCEL -->
-                        <div class="tab-content" id="tab-cargar-excel">
-                            <h3>Cargar Inventario desde Excel</h3>
-                            <div class="excel-upload-area" id="excel-drop-area">
-                                <i class="fas fa-file-excel"></i>
-                                <p>Haz clic aquí o arrastra tu archivo Excel</p>
-                                <p><small>Formato esperado: Código, Descripción Inventario, Descripción Factura, Precio
-                                        Costo, Precio Venta, Existencia, Crédito Fiscal</small></p>
-                                <p><small><strong>Nota:</strong> Los productos sin código se mantendrán vacíos. Crédito
-                                        Fiscal por defecto: SI</small></p>
-                                <input type="file" id="excel-file" accept=".xlsx, .xls" style="display: none;">
-                            </div>
-
-                            <div class="btn-container">
-                                <button class="btn btn-primary" id="descargar-plantilla-btn">
-                                    <i class="fas fa-download"></i> DESCARGAR PLANTILLA
-                                </button>
-                            </div>
-
-                            <div id="excel-preview" class="excel-preview" style="display: none;">
-                                <h4>Vista previa de datos</h4>
-                                <div id="excel-advertencias"></div>
-                                <div id="excel-preview-content"></div>
-                                <div class="btn-container">
-                                    <button class="btn btn-success" id="confirmar-carga-btn">
-                                        <i class="fas fa-check"></i> CONFIRMAR CARGA
-                                    </button>
-                                    <button class="btn btn-danger" id="cancelar-carga-btn">
-                                        <i class="fas fa-times"></i> CANCELAR
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- PESTAÑA NUEVO PRODUCTO -->
-                        <div class="tab-content" id="tab-nuevo-producto">
-                            <form id="form-nuevo-producto">
-                                <div class="form-group">
-                                    <label for="codigo">Código *</label>
-                                    <input type="text" id="codigo" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="codigos-proveedor">Códigos de Proveedor (separados por coma)</label>
-                                    <input type="text" id="codigos-proveedor" placeholder="COD1, COD2, COD3">
-                                </div>
-                                <div class="form-group">
-                                    <label for="desc-inventario">Descripción según Inventario *</label>
-                                    <input type="text" id="desc-inventario" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="desc-factura">Descripción según Factura *</label>
-                                    <input type="text" id="desc-factura" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="precio-costo">Precio Costo *</label>
-                                    <input type="number" id="precio-costo" step="0.01" min="0" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="precio-venta">Precio Venta *</label>
-                                    <input type="number" id="precio-venta" step="0.01" min="0" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="existencia">Existencia *</label>
-                                    <input type="number" id="existencia" min="0" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="stock-minimo">Stock Mínimo</label>
-                                    <input type="number" id="stock-minimo" min="0" value="0">
-                                </div>
-                                <div class="form-group">
-                                    <div class="checkbox-group">
-                                        <input type="checkbox" id="credito-fiscal" checked>
-                                        <label for="credito-fiscal">Crédito Fiscal</label>
-                                    </div>
-                                </div>
-                                <div class="form-group">
-                                    <label for="proveedor">Proveedor</label>
-                                    <input type="text" id="proveedor">
-                                </div>
-                                <div class="form-group">
-                                    <label for="categoria">Categoría</label>
-                                    <input type="text" id="categoria">
-                                </div>
-                                <div class="btn-container">
-                                    <button type="submit" class="btn btn-success">
-                                        <i class="fas fa-save"></i> GUARDAR PRODUCTO
-                                    </button>
-                                    <button type="button" class="btn btn-danger" id="limpiar-form-btn">
-                                        <i class="fas fa-broom"></i> LIMPIAR
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-
-                        <!-- PESTAÑA REPORTES -->
-                        <div class="tab-content" id="tab-reportes">
-                            <div class="inventario-actions">
-                                <div class="form-group">
-                                    <label for="fecha-inicio">Fecha Inicio</label>
-                                    <input type="date" id="fecha-inicio">
-                                </div>
-                                <div class="form-group">
-                                    <label for="fecha-fin">Fecha Fin</label>
-                                    <input type="date" id="fecha-fin">
-                                </div>
-                                <div class="form-group">
-                                    <label for="tipo-reporte">Tipo de Reporte</label>
-                                    <select id="tipo-reporte">
-                                        <option value="stock">Stock Actual</option>
-                                        <option value="bajo-stock">Productos con Stock Bajo</option>
-                                        <option value="valorizacion">Valorización de Inventario</option>
-                                        <option value="sin-codigo">Productos sin Código</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="btn-container">
-                                <button class="btn btn-info" id="generar-reporte-btn">
-                                    <i class="fas fa-chart-bar"></i> GENERAR REPORTE
-                                </button>
-                                <button class="btn btn-primary" id="imprimir-reporte-btn">
-                                    <i class="fas fa-print"></i> IMPRIMIR
-                                </button>
-                            </div>
-
-                            <div id="reporte-contenido" class="inventario-table-container"
-                                style="margin-top: 20px; display: none;">
-                                <!-- Aquí se mostrará el reporte -->
-                            </div>
-                        </div>
+                <div id="excel-preview" class="excel-preview" style="display: none;">
+                    <h4>Vista previa de datos</h4>
+                    <div id="excel-advertencias"></div>
+                    <div id="excel-preview-content"></div>
+                    <div class="btn-container">
+                        <button class="btn btn-success" id="confirmar-carga-btn">
+                            <i class="fas fa-check"></i> CONFIRMAR CARGA
+                        </button>
+                        <button class="btn btn-danger" id="cancelar-carga-btn">
+                            <i class="fas fa-times"></i> CANCELAR
+                        </button>
                     </div>
                 </div>
             </div>
+
+            <!-- PESTAÑA NUEVO PRODUCTO -->
+            <div class="tab-content" id="tab-nuevo-producto">
+                <form id="form-nuevo-producto">
+                    <div class="form-group">
+                        <label for="codigo">Código *</label>
+                        <input type="text" id="codigo" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="codigos-proveedor">Códigos de Proveedor (separados por coma)</label>
+                        <input type="text" id="codigos-proveedor" placeholder="COD1, COD2, COD3">
+                    </div>
+                    <div class="form-group">
+                        <label for="desc-inventario">Descripción según Inventario *</label>
+                        <input type="text" id="desc-inventario" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="desc-factura">Descripción según Factura *</label>
+                        <input type="text" id="desc-factura" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="precio-costo">Precio Costo *</label>
+                        <input type="number" id="precio-costo" step="0.01" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="precio-venta">Precio Venta *</label>
+                        <input type="number" id="precio-venta" step="0.01" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="existencia">Existencia *</label>
+                        <input type="number" id="existencia" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="stock-minimo">Stock Mínimo</label>
+                        <input type="number" id="stock-minimo" min="0" value="0">
+                    </div>
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="credito-fiscal" checked>
+                            <label for="credito-fiscal">Crédito Fiscal</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="proveedor">Proveedor</label>
+                        <input type="text" id="proveedor">
+                    </div>
+                    <div class="form-group">
+                        <label for="categoria">Categoría</label>
+                        <input type="text" id="categoria">
+                    </div>
+                    <div class="btn-container">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save"></i> GUARDAR PRODUCTO
+                        </button>
+                        <button type="button" class="btn btn-danger" id="limpiar-form-btn">
+                            <i class="fas fa-broom"></i> LIMPIAR
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- PESTAÑA REPORTES -->
+            <div class="tab-content" id="tab-reportes">
+                <div class="inventario-actions">
+                    <div class="form-group">
+                        <label for="fecha-inicio">Fecha Inicio</label>
+                        <input type="date" id="fecha-inicio">
+                    </div>
+                    <div class="form-group">
+                        <label for="fecha-fin">Fecha Fin</label>
+                        <input type="date" id="fecha-fin">
+                    </div>
+                    <div class="form-group">
+                        <label for="tipo-reporte">Tipo de Reporte</label>
+                        <select id="tipo-reporte">
+                            <option value="stock">Stock Actual</option>
+                            <option value="bajo-stock">Productos con Stock Bajo</option>
+                            <option value="valorizacion">Valorización de Inventario</option>
+                            <option value="sin-codigo">Productos sin Código</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="btn-container">
+                    <button class="btn btn-info" id="generar-reporte-btn">
+                        <i class="fas fa-chart-bar"></i> GENERAR REPORTE
+                    </button>
+                    <button class="btn btn-primary" id="imprimir-reporte-btn">
+                        <i class="fas fa-print"></i> IMPRIMIR
+                    </button>
+                </div>
+
+                <div id="reporte-contenido" class="inventario-table-container" style="margin-top: 20px; display: none;">
+                    <!-- Aquí se mostrará el reporte -->
+                </div>
+            </div>
         </div>
+    </div>
+    </div>
+    </div>
     </div>
 
     <!-- MODAL REGISTRAR MOVIMIENTO -->
