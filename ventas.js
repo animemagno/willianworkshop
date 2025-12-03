@@ -1,17 +1,17 @@
 // ventas.js - CORREGIDO con búsqueda en base de datos
 import { db } from "./firebase-config.js";
 import {
-  collection,
-  addDoc,
-  doc,
-  getDoc,
-  updateDoc,
-  serverTimestamp,
-  query,
-  where,
-  orderBy,
-  getDocs,
-  setDoc
+    collection,
+    addDoc,
+    doc,
+    getDoc,
+    updateDoc,
+    serverTimestamp,
+    query,
+    where,
+    orderBy,
+    getDocs,
+    setDoc
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 /* ---------- estado ---------- */
@@ -57,7 +57,7 @@ async function buscarProductosEnBaseDatos(termino) {
         if (!termino || termino.length < 2) {
             return [];
         }
-        
+
         const terminoLower = termino.toLowerCase().trim();
         const resultados = [];
         const idsAgregados = new Set();
@@ -68,12 +68,12 @@ async function buscarProductosEnBaseDatos(termino) {
             where("codigo", ">=", terminoLower),
             where("codigo", "<=", terminoLower + '\uf8ff')
         );
-        
+
         const snapshotCodigo = await getDocs(qCodigo);
         snapshotCodigo.forEach(doc => {
             const producto = { id: doc.id, ...doc.data() };
             if (!idsAgregados.has(producto.id)) {
-                resultados.push({...producto, tipoBusqueda: "Código"});
+                resultados.push({ ...producto, tipoBusqueda: "Código" });
                 idsAgregados.add(producto.id);
             }
         });
@@ -84,12 +84,12 @@ async function buscarProductosEnBaseDatos(termino) {
             where("descripcionTaller", ">=", terminoLower),
             where("descripcionTaller", "<=", terminoLower + '\uf8ff')
         );
-        
+
         const snapshotTaller = await getDocs(qTaller);
         snapshotTaller.forEach(doc => {
             const producto = { id: doc.id, ...doc.data() };
             if (!idsAgregados.has(producto.id)) {
-                resultados.push({...producto, tipoBusqueda: "Descripción Taller"});
+                resultados.push({ ...producto, tipoBusqueda: "Descripción Taller" });
                 idsAgregados.add(producto.id);
             }
         });
@@ -100,12 +100,12 @@ async function buscarProductosEnBaseDatos(termino) {
             where("descripcionFactura", ">=", terminoLower),
             where("descripcionFactura", "<=", terminoLower + '\uf8ff')
         );
-        
+
         const snapshotFactura = await getDocs(qFactura);
         snapshotFactura.forEach(doc => {
             const producto = { id: doc.id, ...doc.data() };
             if (!idsAgregados.has(producto.id)) {
-                resultados.push({...producto, tipoBusqueda: "Descripción Factura"});
+                resultados.push({ ...producto, tipoBusqueda: "Descripción Factura" });
                 idsAgregados.add(producto.id);
             }
         });
@@ -124,28 +124,28 @@ function buscarProductosLocal(termino) {
     if (!termino || termino.length < 2) {
         return [];
     }
-    
+
     const terminoLower = termino.toLowerCase().trim();
     const resultados = [];
     const idsAgregados = new Set();
-    
+
     // Buscar en productos ya cargados
     productosInventario.forEach(producto => {
         const matchesCodigo = producto.codigo && producto.codigo.toLowerCase().includes(terminoLower);
         const matchesTaller = producto.descripcionTaller && producto.descripcionTaller.toLowerCase().includes(terminoLower);
         const matchesFactura = producto.descripcionFactura && producto.descripcionFactura.toLowerCase().includes(terminoLower);
-        
+
         if ((matchesCodigo || matchesTaller || matchesFactura) && !idsAgregados.has(producto.id)) {
             let tipoBusqueda = "";
             if (matchesCodigo) tipoBusqueda = "Código";
             else if (matchesTaller) tipoBusqueda = "Descripción Taller";
             else if (matchesFactura) tipoBusqueda = "Descripción Factura";
-            
-            resultados.push({...producto, tipoBusqueda});
+
+            resultados.push({ ...producto, tipoBusqueda });
             idsAgregados.add(producto.id);
         }
     });
-    
+
     return resultados.slice(0, 10);
 }
 
@@ -153,13 +153,13 @@ function buscarProductosLocal(termino) {
 function mostrarResultadosBusqueda(resultados) {
     const dropdown = document.getElementById("search-dropdown");
     if (!dropdown) return;
-    
+
     if (resultados.length === 0) {
         dropdown.innerHTML = '<div class="search-dropdown-item">No se encontraron productos</div>';
         dropdown.style.display = 'block';
         return;
     }
-    
+
     dropdown.innerHTML = resultados.map(producto => `
         <div class="search-dropdown-item" data-producto-id="${producto.id}">
             <div style="font-weight: bold;">${producto.descripcionTaller || 'Sin descripción'}</div>
@@ -173,12 +173,12 @@ function mostrarResultadosBusqueda(resultados) {
             </div>
         </div>
     `).join('');
-    
+
     dropdown.style.display = 'block';
-    
+
     // Agregar event listeners a los items
     dropdown.querySelectorAll('.search-dropdown-item').forEach(item => {
-        item.addEventListener('click', function() {
+        item.addEventListener('click', function () {
             seleccionarProducto(this.getAttribute('data-producto-id'));
         });
     });
@@ -190,37 +190,37 @@ async function seleccionarProducto(productoId) {
         // Obtener datos actualizados del producto
         const docRef = doc(db, "inventario", productoId);
         const docSnap = await getDoc(docRef);
-        
+
         if (!docSnap.exists()) {
             alert("❌ Producto no encontrado en inventario");
             cerrarDropdownBusqueda();
             return;
         }
-        
+
         const producto = { id: docSnap.id, ...docSnap.data() };
-        
+
         // Validar existencia
         if ((producto.existencia || 0) <= 0) {
             alert("❌ Producto sin existencia disponible");
             cerrarDropdownBusqueda();
             return;
         }
-        
+
         const cantidadInput = document.getElementById("cantidad");
         const cantidad = parseInt(cantidadInput.value) || 1;
-        
+
         // Validar cantidad
         if (cantidad <= 0) {
             alert("❌ La cantidad debe ser mayor a 0");
             return;
         }
-        
+
         // Validar que no exceda existencia
         if (cantidad > (producto.existencia || 0)) {
             alert(`❌ Solo hay ${producto.existencia} unidades disponibles`);
             return;
         }
-        
+
         // Prevenir productos duplicados en el carrito
         const productoExistente = carrito.find(item => item.id === productoId);
         if (productoExistente) {
@@ -228,30 +228,30 @@ async function seleccionarProducto(productoId) {
                 // Actualizar cantidad del producto existente
                 const index = carrito.indexOf(productoExistente);
                 const nuevaCantidad = productoExistente.cantidad + cantidad;
-                
+
                 if (nuevaCantidad > producto.existencia) {
                     alert(`❌ No hay suficiente existencia. Máximo: ${producto.existencia}`);
                     return;
                 }
-                
+
                 carrito[index].cantidad = nuevaCantidad;
                 carrito[index].subtotal = nuevaCantidad * productoExistente.precio;
-                
+
                 // Recalcular totales
                 total = carrito.reduce((sum, item) => sum + item.subtotal, 0);
                 cantidadTotal = carrito.reduce((sum, item) => sum + item.cantidad, 0);
-                
+
                 if (window.actualizarCarrito) {
                     window.actualizarCarrito(true);
                 }
-                
+
                 mostrarNotificacionProducto(producto.descripcionTaller, producto.precioVenta, cantidad);
                 guardarVentaAutomaticamente();
             }
             cerrarDropdownBusqueda();
             return;
         }
-        
+
         // Agregar nuevo producto al carrito
         agregarProducto(
             producto.descripcionTaller || "Producto sin nombre",
@@ -260,9 +260,9 @@ async function seleccionarProducto(productoId) {
             producto.id,
             producto.descripcionFactura
         );
-        
+
         cerrarDropdownBusqueda();
-        
+
     } catch (error) {
         console.error("Error seleccionando producto:", error);
         alert("❌ Error al cargar producto: " + error.message);
@@ -282,14 +282,14 @@ function mostrarNotificacionProducto(desc, precio, cantidad) {
     const notificacion = document.getElementById("notificacionProducto");
     const nombreElement = document.getElementById("notificacionNombre");
     const detallesElement = document.getElementById("notificacionDetalles");
-    
+
     if (!notificacion || !nombreElement || !detallesElement) return;
-    
+
     nombreElement.textContent = desc;
     detallesElement.textContent = `Cantidad: ${cantidad} - $${precio.toFixed(2)} c/u`;
-    
+
     notificacion.classList.add("mostrar");
-    
+
     setTimeout(() => {
         notificacion.classList.remove("mostrar");
     }, 2000);
@@ -299,9 +299,9 @@ function mostrarNotificacionProducto(desc, precio, cantidad) {
 function guardarVentaAutomaticamente() {
     const equipoInput = document.getElementById("equipo");
     const clienteInput = document.getElementById("cliente");
-    
+
     if (!equipoInput || !clienteInput) return;
-    
+
     const ventaData = {
         equipo: equipoInput.value || "",
         cliente: clienteInput.value || "",
@@ -313,7 +313,7 @@ function guardarVentaAutomaticamente() {
         abonoInicial: abonoInicial,
         saldoPendiente: saldoPendiente
     };
-    
+
     localStorage.setItem(VENTA_GUARDADA_KEY, JSON.stringify(ventaData));
     guardarVentaEnFirebase(ventaData);
 }
@@ -323,7 +323,7 @@ async function guardarVentaEnFirebase(ventaData) {
     try {
         const usuario = localStorage.getItem('usuarioLogueado');
         if (!usuario) return;
-        
+
         const docRef = doc(db, "ventasTemporales", usuario);
         await setDoc(docRef, {
             ...ventaData,
@@ -339,12 +339,12 @@ async function guardarVentaEnFirebase(ventaData) {
 /* ---------- CARGAR VENTA GUARDADA ---------- */
 async function cargarVentaGuardada() {
     const ventaLocal = localStorage.getItem(VENTA_GUARDADA_KEY);
-    
+
     if (ventaLocal) {
         const ventaData = JSON.parse(ventaLocal);
         const fechaGuardado = new Date(ventaData.fechaGuardado);
         const hoy = new Date();
-        
+
         if (fechaGuardado.toDateString() === hoy.toDateString()) {
             aplicarVentaGuardada(ventaData);
             return true;
@@ -352,7 +352,7 @@ async function cargarVentaGuardada() {
             limpiarVentaGuardada();
         }
     }
-    
+
     return await cargarVentaDesdeFirebase();
 }
 
@@ -361,15 +361,15 @@ async function cargarVentaDesdeFirebase() {
     try {
         const usuario = localStorage.getItem('usuarioLogueado');
         if (!usuario) return false;
-        
+
         const docRef = doc(db, "ventasTemporales", usuario);
         const docSnap = await getDoc(docRef);
-        
+
         if (docSnap.exists()) {
             const ventaData = docSnap.data();
             const fechaGuardado = ventaData.fechaGuardado ? new Date(ventaData.fechaGuardado) : new Date();
             const hoy = new Date();
-            
+
             if (fechaGuardado.toDateString() === hoy.toDateString()) {
                 aplicarVentaGuardada(ventaData);
                 return true;
@@ -387,27 +387,27 @@ async function cargarVentaDesdeFirebase() {
 function aplicarVentaGuardada(ventaData) {
     const equipoInput = document.getElementById("equipo");
     const clienteInput = document.getElementById("cliente");
-    
+
     if (!equipoInput || !clienteInput) {
         setTimeout(() => aplicarVentaGuardada(ventaData), 100);
         return;
     }
-    
+
     if (ventaData.equipo) equipoInput.value = ventaData.equipo;
     if (ventaData.cliente) clienteInput.value = ventaData.cliente;
-    
+
     if (ventaData.carrito && ventaData.carrito.length > 0) {
         carrito = ventaData.carrito;
         total = ventaData.total || 0;
         cantidadTotal = ventaData.cantidadTotal || 0;
         abonoInicial = ventaData.abonoInicial || 0;
         saldoPendiente = ventaData.saldoPendiente || total;
-        
+
         if (window.actualizarCarrito) {
             window.actualizarCarrito(false);
         }
     }
-    
+
     if (ventaData.idFactura) {
         idFactura = ventaData.idFactura;
     }
@@ -419,14 +419,14 @@ function limpiarVentaGuardada() {
     const usuario = localStorage.getItem('usuarioLogueado');
     if (usuario) {
         const docRef = doc(db, "ventasTemporales", usuario);
-        setDoc(docRef, {}).catch(() => {});
+        setDoc(docRef, {}).catch(() => { });
     }
 }
 
 /* ---------- VALIDAR NUMERO DE EQUIPO ---------- */
 function validarNumeroEquipo(equipo) {
     if (!equipo) return false;
-    
+
     // Debe tener exactamente 3 dígitos numéricos
     const regex = /^\d{3}$/;
     return regex.test(equipo);
@@ -445,7 +445,7 @@ function mostrarModalAbonoInicial() {
         guardarVentaCredito(false);
         return;
     }
-    
+
     document.getElementById("modalAbonoInicial").style.display = 'flex';
 }
 
@@ -460,7 +460,7 @@ function mostrarModalMontoAbono() {
     document.getElementById("abonoMonto").textContent = "$0.00";
     document.getElementById("abonoSaldo").textContent = `$${total.toFixed(2)}`;
     modal.style.display = 'flex';
-    
+
     setTimeout(() => {
         document.getElementById("montoAbono").focus();
     }, 300);
@@ -474,32 +474,32 @@ function actualizarCalculoAbono() {
     const montoInput = document.getElementById("montoAbono");
     const monto = parseFloat(montoInput.value) || 0;
     const maxMonto = total;
-    
+
     if (monto > maxMonto) {
         montoInput.value = maxMonto.toFixed(2);
         monto = maxMonto;
     }
-    
+
     abonoInicial = monto;
     saldoPendiente = total - monto;
-    
+
     document.getElementById("abonoMonto").textContent = `$${abonoInicial.toFixed(2)}`;
     document.getElementById("abonoSaldo").textContent = `$${saldoPendiente.toFixed(2)}`;
 }
 
 function confirmarAbonoInicial() {
     const monto = parseFloat(document.getElementById("montoAbono").value) || 0;
-    
+
     if (monto <= 0) {
         alert("❌ Ingrese un monto válido para el abono");
         return;
     }
-    
+
     if (monto > total) {
         alert("❌ El abono no puede ser mayor al total de la venta");
         return;
     }
-    
+
     cerrarMontoAbono();
     cerrarAbonoInicial();
     guardarVentaCredito(true);
@@ -510,7 +510,7 @@ function guardarVentaCredito(conAbono = false) {
         abonoInicial = 0;
         saldoPendiente = total;
     }
-    
+
     tipoOriginal = "credito";
     guardarVenta("credito");
 }
@@ -518,18 +518,18 @@ function guardarVentaCredito(conAbono = false) {
 /* ---------- GUARDAR VENTA (CON VALIDACIONES) ---------- */
 async function guardarVenta(tipoBoton) {
     const eq = document.getElementById("equipo")?.value.trim();
-    
+
     // Validar número de equipo
     if (!eq) {
         alert("❌ Ingresá el número de equipo");
         return;
     }
-    
+
     if (!validarNumeroEquipo(eq)) {
         alert("❌ El número de equipo debe tener exactamente 3 dígitos numéricos");
         return;
     }
-    
+
     if (carrito.length === 0) {
         alert("❌ Agregá al menos un producto");
         return;
@@ -562,14 +562,14 @@ async function guardarVenta(tipoBoton) {
         // GUARDAR POR NUMERO DE EQUIPO
         const idVenta = `equipo_${eq}_${Date.now()}`;
         await setDoc(doc(db, "ventas", idVenta), venta);
-        
+
         limpiarVentaGuardada();
         limpiarTodo();
         alert("✅ Venta guardada correctamente");
-        
+
         // ACTUALIZAR HISTORIAL EN TIEMPO REAL
         await cargarMiniHistorial();
-        
+
     } catch (e) {
         console.error("Error:", e);
         alert("❌ Error al guardar: " + (e.message || "Inténtalo de nuevo"));
@@ -578,68 +578,68 @@ async function guardarVenta(tipoBoton) {
 
 /* ---------- LIMPIAR TODO ---------- */
 function limpiarTodo() {
-    carrito = []; 
-    total = 0; 
+    carrito = [];
+    total = 0;
     cantidadTotal = 0;
     abonoInicial = 0;
     saldoPendiente = 0;
-    
+
     const equipoInput = document.getElementById("equipo");
     const clienteInput = document.getElementById("cliente");
     const buscarInput = document.getElementById("buscar-producto");
-    
+
     if (equipoInput) equipoInput.value = "";
     if (clienteInput) clienteInput.value = "";
     if (buscarInput) buscarInput.value = "";
-    
+
     idFactura = null;
-    
+
     if (window.actualizarCarrito) {
         window.actualizarCarrito(false);
     }
-    
+
     cerrarDropdownBusqueda();
 }
 
 /* ---------- CARRITO ---------- */
 function agregarProducto(desc, precio, cantidad, productoId = null, descFactura = null) {
     const sub = precio * cantidad;
-    const item = { 
-        desc, 
-        precio, 
-        cantidad, 
+    const item = {
+        desc,
+        precio,
+        cantidad,
         subtotal: sub,
         id: productoId,
         descFactura: descFactura || desc
     };
-    
+
     carrito.push(item);
     total += sub;
     cantidadTotal += cantidad;
-    
+
     if (window.actualizarCarrito) {
         window.actualizarCarrito(true);
     }
-    
+
     mostrarNotificacionProducto(desc, precio, cantidad);
     guardarVentaAutomaticamente();
 }
 
 /* ---------- ACTUALIZAR CARRITO (GLOBAL) ---------- */
-window.actualizarCarrito = function(mostrarAnimacion = false) {
+window.actualizarCarrito = function (mostrarAnimacion = false) {
     const cartItems = document.getElementById("cart-items");
     const cartTotal = document.getElementById("cart-total");
     const cartResumen = document.getElementById("cart-resumen");
     const cartBadge = document.getElementById("cart-badge");
-    
+
     if (!cartItems || !cartTotal || !cartResumen) return;
-    
+
     // Actualizar badge
     if (cartBadge) {
         cartBadge.textContent = cantidadTotal;
         cartBadge.style.display = cantidadTotal > 0 ? 'flex' : 'none';
     }
-    
+
     if (carrito.length === 0) {
         cartItems.innerHTML = `
             <div class="empty-cart">
@@ -651,7 +651,7 @@ window.actualizarCarrito = function(mostrarAnimacion = false) {
         cartResumen.textContent = "Productos: 0 | Total: ";
         return;
     }
-    
+
     cartItems.innerHTML = carrito.map((item, index) => `
         <div class="cart-item ${mostrarAnimacion && index === carrito.length - 1 ? 'nuevo-item' : ''}">
             <div class="product-desc">${item.desc}</div>
@@ -663,18 +663,18 @@ window.actualizarCarrito = function(mostrarAnimacion = false) {
             </button>
         </div>
     `).join('');
-    
+
     cartTotal.textContent = `$${total.toFixed(2)}`;
     cartResumen.textContent = `Productos: ${cantidadTotal} | Total: `;
 };
 
 /* ---------- CONFIRMAR ELIMINAR ITEM ---------- */
-window.mostrarConfirmarEliminar = function(index) {
+window.mostrarConfirmarEliminar = function (index) {
     itemAEliminar = index;
     document.getElementById("modalConfirmarEliminar").style.display = 'flex';
 };
 
-window.cerrarConfirmarEliminar = function() {
+window.cerrarConfirmarEliminar = function () {
     itemAEliminar = null;
     document.getElementById("modalConfirmarEliminar").style.display = 'none';
 };
@@ -685,28 +685,28 @@ async function cargarMiniHistorial() {
         const hoy = new Date();
         const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0);
         const fin = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59);
-        
-        const q = query(collection(db, "ventas"), 
-                       where("fecha", ">=", inicio), 
-                       where("fecha", "<=", fin), 
-                       orderBy("fecha", "desc"));
+
+        const q = query(collection(db, "ventas"),
+            where("fecha", ">=", inicio),
+            where("fecha", "<=", fin),
+            orderBy("fecha", "desc"));
         const snap = await getDocs(q);
-        const lista = snap.docs.map(d => ({ 
-            id: d.id, 
+        const lista = snap.docs.map(d => ({
+            id: d.id,
             ...d.data(),
             fechaTimestamp: d.data().fecha
         }));
 
         const miniGrid = document.getElementById("miniGrid");
         const titulo = document.querySelector(".mini-historial h3");
-        
+
         if (titulo) titulo.textContent = "Historial de hoy";
-        
+
         if (lista.length === 0) {
             if (miniGrid) miniGrid.innerHTML = "<p style='color:#7f8c8d;font-size:.9rem'>Sin ventas hoy</p>";
             return;
         }
-        
+
         const grupos = {};
         lista.forEach(v => {
             if (!grupos[v.equipo]) grupos[v.equipo] = [];
@@ -718,7 +718,7 @@ async function cargarMiniHistorial() {
                 const totalEquipo = facturas.reduce((sum, v) => sum + v.total, 0);
                 const esLocal = facturas[0].esLocal;
                 const ciudad = facturas[0].ciudad;
-                
+
                 return `
                   <div class="mini-card" onclick="mostrarDetalleEquipo('${eq}')" title="Ver facturas del equipo ${eq}">
                     <div class="mini-equipo">${eq}</div>
@@ -727,7 +727,7 @@ async function cargarMiniHistorial() {
                   </div>`;
             }).join("");
         }
-        
+
     } catch (error) {
         console.error("Error cargando historial:", error);
         const miniGrid = document.getElementById("miniGrid");
@@ -741,38 +741,38 @@ window.mostrarDetalleEquipo = async (equipo) => {
         const hoy = new Date();
         const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0);
         const fin = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59);
-        
-        const q = query(collection(db, "ventas"), 
-                       where("fecha", ">=", inicio), 
-                       where("fecha", "<=", fin), 
-                       where("equipo", "==", equipo),
-                       orderBy("fecha", "desc"));
+
+        const q = query(collection(db, "ventas"),
+            where("fecha", ">=", inicio),
+            where("fecha", "<=", fin),
+            where("equipo", "==", equipo),
+            orderBy("fecha", "desc"));
         const snap = await getDocs(q);
-        const facturas = snap.docs.map(d => ({ 
-            id: d.id, 
+        const facturas = snap.docs.map(d => ({
+            id: d.id,
             ...d.data(),
             fechaTimestamp: d.data().fecha
         }));
 
         const detalleEquipoContent = document.getElementById("detalleEquipoContent");
         const modalDetalle = document.getElementById("modalDetalle");
-        
+
         if (facturas.length === 0) {
             if (detalleEquipoContent) detalleEquipoContent.innerHTML = "<p>No se encontraron ventas para este equipo hoy.</p>";
             if (modalDetalle) modalDetalle.style.display = "flex";
             return;
         }
-        
+
         let html = `<h4 style="margin-bottom:15px;color:#2c3e50;text-align:center;">Ventas del Equipo: ${equipo}</h4>`;
-        
+
         facturas.forEach((v, index) => {
-            const fecha = v.fechaTimestamp ? 
-              new Date(v.fechaTimestamp.seconds * 1000).toLocaleString() : "Fecha no disponible";
-            
-            const infoAbono = v.tipo === 'credito' && v.abonoInicial > 0 ? 
-              `<tr><td style="padding:4px;font-weight:bold;">Abono:</td><td style="padding:4px;color:#27ae60;">$${v.abonoInicial.toFixed(2)}</td></tr>
+            const fecha = v.fechaTimestamp ?
+                new Date(v.fechaTimestamp.seconds * 1000).toLocaleString() : "Fecha no disponible";
+
+            const infoAbono = v.tipo === 'credito' && v.abonoInicial > 0 ?
+                `<tr><td style="padding:4px;font-weight:bold;">Abono:</td><td style="padding:4px;color:#27ae60;">$${v.abonoInicial.toFixed(2)}</td></tr>
                <tr><td style="padding:4px;font-weight:bold;">Saldo:</td><td style="padding:4px;color:#e74c3c;">$${v.saldoPendiente.toFixed(2)}</td></tr>` : '';
-            
+
             html += `
               <div style="margin-bottom:20px;padding:15px;border:1px solid #ddd;border-radius:6px;background:#f8f9fa;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #ccc;">
@@ -806,11 +806,11 @@ window.mostrarDetalleEquipo = async (equipo) => {
                 </table>
               </div>`;
         });
-        
+
         if (detalleEquipoContent) detalleEquipoContent.innerHTML = html;
         if (modalDetalle) modalDetalle.style.display = "flex";
-        
-    } catch (e) { 
+
+    } catch (e) {
         console.error("Error cargando detalle:", e);
         const detalleEquipoContent = document.getElementById("detalleEquipoContent");
         if (detalleEquipoContent) {
@@ -837,27 +837,27 @@ window.cerrarDetalle = () => {
 /* ---------- INICIALIZAR TODO ---------- */
 window.addEventListener('DOMContentLoaded', async () => {
     console.log("Iniciando ventas.js con búsqueda en base de datos...");
-    
+
     if (!localStorage.getItem('usuarioLogueado')) {
         window.location.href = 'login.html';
         return;
     }
-    
+
     // Cargar productos del inventario para búsqueda local
     await cargarProductosInventario();
     await cargarVentaGuardada();
-    
+
     // Configurar eventos de búsqueda
     const buscarProductoInput = document.getElementById("buscar-producto");
     if (buscarProductoInput) {
-        buscarProductoInput.addEventListener("input", function() {
+        buscarProductoInput.addEventListener("input", function () {
             const termino = this.value;
-            
+
             // Limpiar timeout anterior
             if (timeoutBusqueda) {
                 clearTimeout(timeoutBusqueda);
             }
-            
+
             // Esperar 300ms después de que el usuario deje de escribir
             timeoutBusqueda = setTimeout(async () => {
                 if (termino.length >= 2) {
@@ -875,21 +875,21 @@ window.addEventListener('DOMContentLoaded', async () => {
                 }
             }, 300);
         });
-        
+
         // Cerrar dropdown al hacer clic fuera
-        document.addEventListener('click', function(e) {
+        document.addEventListener('click', function (e) {
             if (!e.target.closest('.search-container')) {
                 cerrarDropdownBusqueda();
             }
         });
     }
-    
+
     // Configurar eventos
     const equipoInput = document.getElementById("equipo");
     const clienteInput = document.getElementById("cliente");
-    
+
     if (equipoInput) {
-        equipoInput.addEventListener("input", function() {
+        equipoInput.addEventListener("input", function () {
             // Validar en tiempo real
             const valor = this.value;
             if (valor && !validarNumeroEquipo(valor)) {
@@ -900,32 +900,32 @@ window.addEventListener('DOMContentLoaded', async () => {
             guardarVentaAutomaticamente();
         });
     }
-    
+
     if (clienteInput) clienteInput.addEventListener("input", guardarVentaAutomaticamente);
-    
+
     // Configurar botones de modales
     const btnConAbono = document.getElementById("btnConAbono");
     const btnSinAbono = document.getElementById("btnSinAbono");
     const confirmarAbonoBtn = document.getElementById("confirmarAbonoBtn");
     const confirmarEliminarBtn = document.getElementById("confirmarEliminarBtn");
     const montoAbonoInput = document.getElementById("montoAbono");
-    
+
     if (btnConAbono) btnConAbono.addEventListener("click", () => {
         cerrarAbonoInicial();
         mostrarModalMontoAbono();
     });
-    
+
     if (btnSinAbono) btnSinAbono.addEventListener("click", () => {
         cerrarAbonoInicial();
         guardarVentaCredito(false);
     });
-    
+
     if (confirmarAbonoBtn) confirmarAbonoBtn.addEventListener("click", confirmarAbonoInicial);
-    
+
     if (montoAbonoInput) {
         montoAbonoInput.addEventListener("input", actualizarCalculoAbono);
     }
-    
+
     if (confirmarEliminarBtn) confirmarEliminarBtn.addEventListener("click", () => {
         if (itemAEliminar !== null) {
             const it = carrito[itemAEliminar];
@@ -939,18 +939,18 @@ window.addEventListener('DOMContentLoaded', async () => {
         const modal = document.getElementById("modalConfirmarEliminar");
         if (modal) modal.style.display = 'none';
     });
-    
+
     // Cerrar modales al hacer clic fuera
     document.querySelectorAll('.modal-overlay').forEach(modal => {
         modal.addEventListener('click', e => {
             if (e.target === modal) modal.style.display = 'none';
         });
     });
-    
+
     // Botones de venta
     const efectivoBtn = document.getElementById("efectivoBtn");
     const creditoBtn = document.getElementById("creditoBtn");
-    
+
     if (efectivoBtn) {
         efectivoBtn.addEventListener("click", () => {
             tipoOriginal = "efectivo";
@@ -959,7 +959,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             guardarVenta("efectivo");
         });
     }
-    
+
     if (creditoBtn) {
         creditoBtn.addEventListener("click", () => {
             if (idFactura) {
@@ -970,32 +970,32 @@ window.addEventListener('DOMContentLoaded', async () => {
             mostrarModalAbonoInicial();
         });
     }
-    
+
     // Menú móvil
     const mobileMenuBtn = document.getElementById("mobileMenuBtn");
     const mobileMenu = document.getElementById("mobileMenu");
     const cartIcon = document.getElementById("cartIcon");
     const carritoContainer = document.getElementById("carritoContainer");
-    
+
     if (mobileMenuBtn && mobileMenu) {
         mobileMenuBtn.addEventListener("click", () => {
             mobileMenu.classList.toggle("active");
         });
     }
-    
+
     if (cartIcon && carritoContainer) {
         cartIcon.addEventListener("click", () => {
             carritoContainer.classList.toggle("mostrar");
         });
     }
-    
+
     // Cerrar menú al hacer clic fuera
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', function (e) {
         if (mobileMenu && !e.target.closest('#mobileMenu') && !e.target.closest('#mobileMenuBtn')) {
             mobileMenu.classList.remove("active");
         }
     });
-    
+
     // Cargar edición si existe
     const params = new URLSearchParams(window.location.search);
     const id = params.get("id");
@@ -1006,9 +1006,135 @@ window.addEventListener('DOMContentLoaded', async () => {
             window.actualizarCarrito(false);
         }
     }
-    
+
     // Cargar historial
     await cargarMiniHistorial();
-    
+
     console.log("Sistema de ventas inicializado correctamente con búsqueda en base de datos");
 });
+
+/* ---------- LÓGICA DE RETIROS E INGRESOS ---------- */
+
+// Event listeners para botones de RETIRO e INGRESO
+document.addEventListener('DOMContentLoaded', () => {
+    const btnRetiro = document.getElementById('btnRetiro');
+    const btnIngreso = document.getElementById('btnIngreso');
+    const btnConfirmarRetiro = document.getElementById('btnConfirmarRetiro');
+    const btnConfirmarIngreso = document.getElementById('btnConfirmarIngreso');
+
+    if (btnRetiro) {
+        btnRetiro.addEventListener('click', () => {
+            document.getElementById('montoRetiro').value = '';
+            document.getElementById('conceptoRetiro').value = '';
+            document.getElementById('modalRetiro').style.display = 'flex';
+            document.getElementById('montoRetiro').focus();
+        });
+    }
+
+    if (btnIngreso) {
+        btnIngreso.addEventListener('click', () => {
+            document.getElementById('montoIngreso').value = '';
+            document.getElementById('conceptoIngreso').value = '';
+            document.getElementById('modalIngreso').style.display = 'flex';
+            document.getElementById('montoIngreso').focus();
+        });
+    }
+
+    if (btnConfirmarRetiro) {
+        btnConfirmarRetiro.addEventListener('click', procesarRetiro);
+    }
+
+    if (btnConfirmarIngreso) {
+        btnConfirmarIngreso.addEventListener('click', procesarIngreso);
+    }
+
+    // Lógica del botón de intercambio (Restaurada)
+    const swapBtn = document.getElementById("swapBtn");
+    const ventaWrapper = document.getElementById("ventaWrapper");
+
+    if (swapBtn && ventaWrapper) {
+        swapBtn.addEventListener("click", () => {
+            ventaWrapper.classList.toggle("invertido");
+        });
+    }
+});
+
+async function procesarRetiro() {
+    const montoInput = document.getElementById('montoRetiro');
+    const conceptoInput = document.getElementById('conceptoRetiro');
+    const categoriaInput = document.getElementById('categoriaRetiro');
+
+    const monto = parseFloat(montoInput.value);
+    const concepto = conceptoInput.value.trim();
+    const categoria = categoriaInput.value;
+
+    if (!monto || monto <= 0) {
+        alert("❌ Ingrese un monto válido mayor a 0");
+        return;
+    }
+
+    if (!concepto) {
+        alert("❌ Ingrese un concepto para el retiro");
+        return;
+    }
+
+    try {
+        const retiroData = {
+            monto: monto,
+            concepto: concepto,
+            categoria: categoria,
+            fecha: serverTimestamp(),
+            usuario: localStorage.getItem('usuarioLogueado') || 'Desconocido',
+            tipo: 'retiro'
+        };
+
+        await addDoc(collection(db, "retiros"), retiroData);
+
+        alert(`✅ Retiro de $${monto.toFixed(2)} registrado correctamente`);
+        document.getElementById('modalRetiro').style.display = 'none';
+
+    } catch (error) {
+        console.error("Error al procesar retiro:", error);
+        alert("❌ Error al guardar el retiro: " + error.message);
+    }
+}
+
+async function procesarIngreso() {
+    const montoInput = document.getElementById('montoIngreso');
+    const conceptoInput = document.getElementById('conceptoIngreso');
+    const categoriaInput = document.getElementById('categoriaIngreso');
+
+    const monto = parseFloat(montoInput.value);
+    const concepto = conceptoInput.value.trim();
+    const categoria = categoriaInput.value;
+
+    if (!monto || monto <= 0) {
+        alert("❌ Ingrese un monto válido mayor a 0");
+        return;
+    }
+
+    if (!concepto) {
+        alert("❌ Ingrese un concepto para el ingreso");
+        return;
+    }
+
+    try {
+        const ingresoData = {
+            monto: monto,
+            concepto: concepto,
+            categoria: categoria,
+            fecha: serverTimestamp(),
+            usuario: localStorage.getItem('usuarioLogueado') || 'Desconocido',
+            tipo: 'ingreso'
+        };
+
+        await addDoc(collection(db, "ingresos"), ingresoData);
+
+        alert(`✅ Ingreso de $${monto.toFixed(2)} registrado correctamente`);
+        document.getElementById('modalIngreso').style.display = 'none';
+
+    } catch (error) {
+        console.error("Error al procesar ingreso:", error);
+        alert("❌ Error al guardar el ingreso: " + error.message);
+    }
+}

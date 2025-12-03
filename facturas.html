@@ -1,227 +1,573 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Facturas - Taller Wilian</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
-    html,body{height:100%}
-    body{background:#eef2f5;color:#333;font-size:14px;display:flex;flex-direction:column}
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Facturas - Taller Wilian</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif
+        }
 
-    .main-wrapper{display:flex;flex-direction:column;min-height:100vh;padding:10px}
-    .container{width:100%;max-width:100%;margin:0 auto;background:white;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.1);flex:1 1 auto;display:flex;flex-direction:column;padding:0}
+        html,
+        body {
+            height: 100%
+        }
 
-    header{background:linear-gradient(135deg,#3498db,#2c3e50);color:white;padding:12px 20px;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
-    header h1{font-size:1.3rem;margin-bottom:4px}
-    .header-actions{display:flex;align-items:center;gap:10px;position:relative}
+        body {
+            background: #eef2f5;
+            color: #333;
+            font-size: 14px;
+            display: flex;
+            flex-direction: column
+        }
 
-    .menu-toggle{background:rgba(255,255,255,.2);border:none;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .3s}
-    .menu-toggle:hover{background:rgba(255,255,255,.3)}
-    .menu-toggle i{color:white;font-size:1.1rem}
+        .main-wrapper {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            padding: 10px
+        }
 
-    .mobile-menu{display:none;position:absolute;top:55px;left:10px;background:white;border:1px solid #ddd;border-radius:6px;box-shadow:0 4px 10px rgba(0,0,0,.15);z-index:999;flex-direction:column;padding:8px 0;min-width:180px}
-    .mobile-menu.active{display:flex}
-    .mobile-menu a{color:#333;text-decoration:none;padding:10px 15px;font-size:1rem;transition:background .2s}
-    .mobile-menu a:hover{background:#f2f2f2}
+        .container {
+            width: 100%;
+            max-width: 100%;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, .1);
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            padding: 0
+        }
 
-    .dashboard-section{background:white;border-radius:8px;padding:20px;box-shadow:0 2px 4px rgba(0,0,0,.1);border:1px solid #e0e0e0;margin-bottom:20px;flex:1 1 auto;display:flex;flex-direction:column}
+        header {
+            background: linear-gradient(135deg, #3498db, #2c3e50);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px
+        }
 
-    .section-title{display:flex;justify-content:space-between;align-items:center;font-size:1.2rem;color:#2c3e50;margin-bottom:15px;padding-bottom:8px;border-bottom:2px solid #3498db}
+        header h1 {
+            font-size: 1.3rem;
+            margin-bottom: 4px
+        }
 
-    /* 🔥 SIMETRÍA: ancho completo */
-    .facturas-wrapper{padding:0 20px}
-    @media (max-width: 768px){.facturas-wrapper{padding:0 10px}}
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            position: relative
+        }
 
-    /* ===== ESTILOS DE FACTURAS (sin tarjetas) ===== */
-    .facturas-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:15px;margin-bottom:20px}
-    .factura-card{background:white;border:2px solid #3498db;border-radius:8px;padding:15px;text-align:center;cursor:pointer;transition:all .3s ease;box-shadow:0 2px 4px rgba(0,0,0,.1);position:relative}
-    .factura-card:hover{transform:translateY(-2px);box-shadow:0 4px 8px rgba(0,0,0,.15);border-color:#2980b9}
-    .equipo-numero{font-size:2rem;font-weight:bold;color:#2c3e50;margin-bottom:5px}
-    .ciudad-nombre{font-size:.9rem;color:#e74c3c;font-weight:bold;margin-bottom:10px}
-    .saldo-total{font-size:1.2rem;font-weight:bold;color:#27ae60}
-    .tipo-badge{position:absolute;top:5px;right:5px;padding:3px 8px;border-radius:3px;font-size:.7rem;font-weight:bold}
-    .badge-local{background:#27ae60;color:white}
-    .badge-otra-ciudad{background:#f39c12;color:white}
+        .menu-toggle {
+            background: rgba(255, 255, 255, .2);
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background .3s
+        }
 
-    .grupos-container{display:grid;grid-template-columns:1fr;gap:20px}
-    @media(min-width:768px){.grupos-container{grid-template-columns:repeat(2,1fr)}}
-    .grupo-card{background:white;border:2px solid #9b59b6;border-radius:10px;padding:20px;box-shadow:0 4px 8px rgba(0,0,0,.1);transition:all .3s ease}
-    .grupo-card:hover{transform:translateY(-3px);box-shadow:0 6px 12px rgba(0,0,0,.15)}
-    .grupo-header{text-align:center;margin-bottom:15px;padding-bottom:10px;border-bottom:2px solid #9b59b6}
-    .grupo-nombre{font-size:1.3rem;font-weight:bold;color:#2c3e50;margin-bottom:5px}
-    .grupo-equipos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-bottom:15px}
-    .grupo-equipo-item{background:#f8f9fa;border:1px solid #e0e0e0;border-radius:6px;padding:10px;text-align:center;transition:all .2s ease}
-    .grupo-equipo-item:hover{background:#e8f4fd;border-color:#3498db}
-    .grupo-equipo-numero{font-size:1.1rem;font-weight:bold;color:#2c3e50;margin-bottom:3px}
-    .grupo-equipo-ciudad{font-size:.8rem;color:#e74c3c;font-weight:bold;margin-bottom:5px}
-    .grupo-equipo-saldo{font-size:.9rem;font-weight:bold;color:#27ae60}
-    .grupo-total{text-align:center;font-weight:bold;font-size:1.2rem;color:#2c3e50;padding:12px;background:#e8f4fd;border-radius:6px;border-top:2px solid #9b59b6;margin-top:15px}
-    .empty-state{text-align:center;color:#7f8c8d;padding:40px 20px}
-    .empty-state i{font-size:2.5rem;margin-bottom:10px;opacity:.5}
+        .menu-toggle:hover {
+            background: rgba(255, 255, 255, .3)
+        }
 
-    .empty-cart{text-align:center;color:#7f8c8d;font-size:.9rem;padding:30px;background:white;border-radius:4px;border:2px dashed #ddd}
-    .btn{padding:10px 15px;border:none;border-radius:4px;cursor:pointer;font-weight:600;transition:all .3s ease;font-size:.85rem;text-align:center;width:100%;margin-bottom:5px}
-    @media(min-width:768px){.btn{width:auto;margin-bottom:0}}
-    .btn-success{background-color:#27ae60;color:white}
-    .btn-success:hover{background-color:#219a52}
-    .btn-warning{background-color:#f39c12;color:white}
-    .btn-warning:hover{background-color:#d35400}
-    .btn-primary{background-color:#3498db;color:white}
-    .btn-primary:hover{background-color:#2980b9}
-    .btn-info{background-color:#9b59b6;color:white}
-    .btn-info:hover{background-color:#8e44ad}
-    .btn-container{display:flex;flex-direction:column;gap:5px;margin-top:15px}
-    @media(min-width:768px){.btn-container{flex-direction:row;justify-content:flex-end}}
-    .icon-btn{background:none;border:none;cursor:pointer;padding:6px;border-radius:4px;transition:all .3s ease;margin:0 2px;display:inline-flex;align-items:center;justify-content:center;width:32px;height:28px}
-    .btn-edit{background-color:#27ae60;color:white}
-    .btn-edit:hover{background-color:#219a52}
-    .btn-delete{background-color:#e74c3c;color:white}
-    .btn-delete:hover{background-color:#c0392b}
-    .btn-complete{background-color:#3498db;color:white}
-    .btn-complete:hover{background-color:#2980b9}
-    .saldo-positivo{color:#27ae60;font-weight:bold}
-    .saldo-negativo{color:#e74c3c;font-weight:bold}
+        .menu-toggle i {
+            color: white;
+            font-size: 1.1rem
+        }
 
-    /* Móvil: ajustes */
-    @media (max-width: 768px) {
-        .facturas-grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
-        .grupos-container{grid-template-columns:1fr}
-        .grupo-equipos-grid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}
-        .factura-card{padding:12px}
-        .equipo-numero{font-size:1.5rem}
-        .ciudad-nombre{font-size:.8rem}
-        .saldo-total{font-size:1rem}
-    }
-</style>
+        .mobile-menu {
+            display: none;
+            position: absolute;
+            top: 55px;
+            left: 10px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, .15);
+            z-index: 999;
+            flex-direction: column;
+            padding: 8px 0;
+            min-width: 180px
+        }
+
+        .mobile-menu.active {
+            display: flex
+        }
+
+        .mobile-menu a {
+            color: #333;
+            text-decoration: none;
+            padding: 10px 15px;
+            font-size: 1rem;
+            transition: background .2s
+        }
+
+        .mobile-menu a:hover {
+            background: #f2f2f2
+        }
+
+        .dashboard-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, .1);
+            border: 1px solid #e0e0e0;
+            margin-bottom: 20px;
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column
+        }
+
+        .section-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.2rem;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #3498db
+        }
+
+        .facturas-wrapper {
+            padding: 0 20px
+        }
+
+        @media (max-width: 768px) {
+            .facturas-wrapper {
+                padding: 0 10px
+            }
+        }
+
+        /* ===== ESTILOS DE FACTURAS ===== */
+        .facturas-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px
+        }
+
+        .factura-card {
+            background: white;
+            border: 2px solid #3498db;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all .3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, .1);
+            position: relative
+        }
+
+        .factura-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, .15);
+            border-color: #2980b9
+        }
+
+        .equipo-numero {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px
+        }
+
+        .ciudad-nombre {
+            font-size: .9rem;
+            color: #e74c3c;
+            font-weight: bold;
+            margin-bottom: 10px
+        }
+
+        .saldo-total {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #27ae60
+        }
+
+        .tipo-badge {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: .7rem;
+            font-weight: bold
+        }
+
+        .badge-local {
+            background: #27ae60;
+            color: white
+        }
+
+        .badge-otra-ciudad {
+            background: #f39c12;
+            color: white
+        }
+
+        .grupos-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px
+        }
+
+        @media(min-width:768px) {
+            .grupos-container {
+                grid-template-columns: repeat(2, 1fr)
+            }
+        }
+
+        .grupo-card {
+            background: white;
+            border: 2px solid #9b59b6;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, .1);
+            transition: all .3s ease;
+            position: relative;
+        }
+
+        .grupo-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, .15)
+        }
+
+        .grupo-header {
+            text-align: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #9b59b6;
+            position: relative;
+        }
+
+        .grupo-nombre {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px
+        }
+
+        .grupo-actions {
+            position: absolute;
+            top: 0;
+            right: 0;
+            z-index: 10;
+            display: flex;
+            gap: 5px;
+        }
+
+        .grupo-equipos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px
+        }
+
+        .grupo-equipo-item {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 10px;
+            text-align: center;
+            transition: all .2s ease
+        }
+
+        .grupo-equipo-item:hover {
+            background: #e8f4fd;
+            border-color: #3498db
+        }
+
+        .grupo-equipo-numero {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 3px
+        }
+
+        .grupo-equipo-ciudad {
+            font-size: .8rem;
+            color: #e74c3c;
+            font-weight: bold;
+            margin-bottom: 5px
+        }
+
+        .grupo-equipo-saldo {
+            font-size: .9rem;
+            font-weight: bold;
+            color: #27ae60
+        }
+
+        .grupo-total {
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: #2c3e50;
+            padding: 12px;
+            background: #e8f4fd;
+            border-radius: 6px;
+            border-top: 2px solid #9b59b6;
+            margin-top: 15px
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #7f8c8d;
+            padding: 40px 20px
+        }
+
+        .empty-state i {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            opacity: .5
+        }
+
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all .3s ease;
+            font-size: .85rem;
+            text-align: center;
+            width: 100%;
+            margin-bottom: 5px
+        }
+
+        @media(min-width:768px) {
+            .btn {
+                width: auto;
+                margin-bottom: 0
+            }
+        }
+
+        .btn-success {
+            background-color: #27ae60;
+            color: white
+        }
+
+        .btn-success:hover {
+            background-color: #219a52
+        }
+
+        .btn-primary {
+            background-color: #3498db;
+            color: white
+        }
+
+        .btn-primary:hover {
+            background-color: #2980b9
+        }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 4px;
+            transition: all .3s ease;
+            margin: 0 2px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 28px
+        }
+
+        /* Modales */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, .45);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px
+        }
+
+        .modal-box {
+            background: white;
+            border-radius: 8px;
+            padding: 25px 20px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, .2)
+        }
+
+        .modal-box h3 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+            text-align: center;
+            font-size: 1.3rem
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 15px;
+            flex-wrap: wrap
+        }
+
+        .modal-text {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1rem;
+            line-height: 1.5
+        }
+
+        .form-group {
+            margin-bottom: 15px
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+            font-size: .9rem
+        }
+
+        .abono-input {
+            width: 100%;
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-align: center;
+            padding: 12px;
+            border: 2px solid #3498db;
+            border-radius: 6px
+        }
+
+        /* Móvil: ajustes */
+        @media (max-width: 768px) {
+            .facturas-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                gap: 10px
+            }
+
+            .grupos-container {
+                grid-template-columns: 1fr
+            }
+
+            .grupo-equipos-grid {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr))
+            }
+
+            .factura-card {
+                padding: 12px
+            }
+
+            .equipo-numero {
+                font-size: 1.5rem
+            }
+
+            .ciudad-nombre {
+                font-size: .8rem
+            }
+
+            .saldo-total {
+                font-size: 1rem
+            }
+        }
+    </style>
 </head>
+
 <body class="main-wrapper">
 
-<header>
-    <button class="menu-toggle" id="mobileMenuBtn"><i class="fas fa-bars"></i></button>
-    <h1>Taller Willian</h1>
-    <div class="header-actions">
-        <!-- Sin carrito -->
+    <header>
+        <button class="menu-toggle" id="mobileMenuBtn"><i class="fas fa-bars"></i></button>
+        <h1>Taller Willian</h1>
+        <div class="header-actions">
+            <!-- Acciones futuras -->
+        </div>
+    </header>
+
+    <div class="mobile-menu" id="mobileMenu">
+        <a href="index.html"><i class="fas fa-home"></i> Inicio</a>
+        <a href="venta.html"><i class="fas fa-cash-register"></i> Nueva Venta</a>
+        <a href="facturas.html" class="active"><i class="fas fa-file-invoice-dollar"></i> Facturas Pendientes</a>
+        <a href="historial.html"><i class="fas fa-history"></i> Historial de Ventas</a>
+        <a href="inventario.html"><i class="fas fa-boxes"></i> Inventario</a>
+        <a href="servicios.html"><i class="fas fa-tools"></i> Servicios</a>
+        <a href="entregas.html"><i class="fas fa-truck"></i> Entregas</a>
+        <a href="cuentas.html"><i class="fas fa-sticky-note"></i> Memos y Cuentas</a>
+        <a href="configuracion.html"><i class="fas fa-cog"></i> Configuración</a>
+        <a href="#" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
     </div>
-</header>
 
-<div class="mobile-menu" id="mobileMenu">
-    <a href="index.html"><i class="fas fa-home"></i> Inicio</a>
-    <a href="venta.html"><i class="fas fa-cash-register"></i> Nueva Venta</a>
-    <a href="facturas.html" class="active"><i class="fas fa-file-invoice-dollar"></i> Facturas Pendientes</a>
-    <a href="historial.html"><i class="fas fa-history"></i> Historial de Ventas</a>
-    <a href="inventario.html"><i class="fas fa-boxes"></i> Inventario</a>
-    <a href="servicios.html"><i class="fas fa-tools"></i> Servicios</a>
-    <a href="entregas.html"><i class="fas fa-truck"></i> Entregas</a>
-    <a href="cuentas.html"><i class="fas fa-sticky-note"></i> Memos y Cuentas</a>
-    <a href="configuracion.html"><i class="fas fa-cog"></i> Configuración</a>
-    <a href="#" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
-</div>
+    <div class="container">
+        <div class="dashboard-section">
+            <div class="section-title">FACTURAS PENDIENTES</div>
 
-<div class="container">
-    <div class="dashboard-section">
-        <div class="section-title">FACTURAS PENDIENTES</div>
+            <div class="facturas-wrapper">
+                <div class="facturas-grid" id="facturas-container">
+                    <!-- Se llena dinámicamente -->
+                </div>
 
-        <!-- 🔥 Contenedor con ancho completo -->
-        <div class="facturas-wrapper">
-            <div class="facturas-grid" id="facturas-container">
-                <!-- Ejemplo de cuadros -->
-                <div class="factura-card local">
-                    <span class="tipo-badge badge-local">LOCAL</span>
-                    <div class="equipo-numero">123</div>
-                    <div class="saldo-total">$150.00</div>
+                <div class="empty-state" id="empty-facturas" style="display: none;">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                    <div>No hay facturas pendientes</div>
                 </div>
-                <div class="factura-card otra-ciudad">
-                    <span class="tipo-badge badge-otra-ciudad">CIUDAD</span>
-                    <div class="equipo-numero">456</div>
-                    <div class="ciudad-nombre">Chinandega</div>
-                    <div class="saldo-total">$275.50</div>
-                </div>
-                <div class="factura-card local">
-                    <span class="tipo-badge badge-local">LOCAL</span>
-                    <div class="equipo-numero">789</div>
-                    <div class="saldo-total">$89.00</div>
-                </div>
-                <div class="factura-card otra-ciudad">
-                    <span class="tipo-badge badge-otra-ciudad">CIUDAD</span>
-                    <div class="equipo-numero">123</div>
-                    <div class="ciudad-nombre">León</div>
-                    <div class="saldo-total">$420.00</div>
-                </div>
-            </div>
 
-            <div class="empty-state" id="empty-facturas" style="display: none;">
-                <i class="fas fa-file-invoice-dollar"></i>
-                <div>No hay facturas pendientes</div>
-            </div>
-
-            <div class="grupos-container" id="grupos-container">
-                <!-- Ejemplo de grupo -->
-                <div class="grupo-card">
-                    <div class="grupo-header">
-                        <div class="grupo-nombre">Juan Pérez</div>
-                    </div>
-                    <div class="grupo-equipos-grid">
-                        <div class="grupo-equipo-item">
-                            <div class="grupo-equipo-numero">123</div>
-                            <div class="grupo-equipo-saldo">$150.00</div>
-                        </div>
-                        <div class="grupo-equipo-item">
-                            <div class="grupo-equipo-numero">456</div>
-                            <div class="grupo-equipo-ciudad">Chinandega</div>
-                            <div class="grupo-equipo-saldo">$275.50</div>
-                        </div>
-                        <div class="grupo-equipo-item">
-                            <div class="grupo-equipo-numero">789</div>
-                            <div class="grupo-equipo-saldo">$89.00</div>
-                        </div>
-                    </div>
-                    <div class="grupo-total">Total: $514.50</div>
+                <div class="grupos-container" id="grupos-container">
+                    <!-- Se llena dinámicamente -->
                 </div>
-                <div class="grupo-card">
-                    <div class="grupo-header">
-                        <div class="grupo-nombre">María González</div>
-                    </div>
-                    <div class="grupo-equipos-grid">
-                        <div class="grupo-equipo-item">
-                            <div class="grupo-equipo-numero">321</div>
-                            <div class="grupo-equipo-ciudad">León</div>
-                            <div class="grupo-equipo-saldo">$320.00</div>
-                        </div>
-                        <div class="grupo-equipo-item">
-                            <div class="grupo-equipo-numero">654</div>
-                            <div class="grupo-equipo-saldo">$185.00</div>
-                        </div>
-                    </div>
-                    <div class="grupo-total">Total: $505.00</div>
-                </div>
-            </div>
 
-            <div class="empty-state" id="empty-grupos" style="display: none;">
-                <i class="fas fa-users"></i>
-                <div>No hay grupos creados</div>
+                <div class="empty-state" id="empty-grupos" style="display: none;">
+                    <i class="fas fa-users"></i>
+                    <div>No hay grupos creados</div>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<script>
-document.addEventListener('DOMContentLoaded',function(){
-    const mobileMenuBtn=document.getElementById('mobileMenuBtn');
-    const mobileMenu=document.getElementById('mobileMenu');
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            const mobileMenu = document.getElementById('mobileMenu');
 
-    mobileMenuBtn.addEventListener('click',()=>mobileMenu.classList.toggle('active'));
-    document.getElementById('logoutBtn').addEventListener('click',()=>{
-        localStorage.removeItem('usuarioLogueado');
-        window.location.href='login.html';
-    });
-});
+            if (mobileMenuBtn) {
+                mobileMenuBtn.addEventListener('click', () => mobileMenu.classList.toggle('active'));
+            }
 
-// 🔒 Autenticación al final
-if (!localStorage.getItem('usuarioLogueado')) {
-  window.location.href = 'login.html';
-}
-</script>
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', () => {
+                    localStorage.removeItem('usuarioLogueado');
+                    window.location.href = 'login.html';
+                });
+            }
+        });
+    </script>
+
+    <script type="module" src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+    <script type="module" src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
+    <script type="module" src="firebase-config.js"></script>
+    <script type="module" src="facturas.js"></script>
 </body>
+
 </html>
