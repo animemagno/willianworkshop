@@ -144,16 +144,32 @@ export class SalesService {
     async getSalesByTeam(equipo, ciudad) {
         try {
             const ventasRef = collection(db, "ventas");
+
+            // Simplificamos la query para evitar requerir índices compuestos complejos de Firebase
+            // Consultamos solo por equipo (String para asegurar match)
             const q = query(
                 ventasRef,
-                where("equipo", "==", equipo),
-                where("ciudad", "==", ciudad || "LOCAL")
+                where("equipo", "==", String(equipo))
             );
 
             const snapshot = await getDocs(q);
-            const ventas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            let ventas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            // Ordenar en cliente para evitar necesidad de índice compuesto inmediato
+            // Filtrar por ciudad en memoria si se especifica
+            if (ciudad && ciudad !== 'LOCAL') {
+                // Normalizamos para comparación flexible
+                const targetCity = ciudad.toLowerCase().trim();
+                ventas = ventas.filter(v => {
+                    const vCiudad = (v.ciudad || v.cliente || '').toLowerCase();
+                    return vCiudad === targetCity;
+                });
+            } else if (!ciudad || ciudad === 'LOCAL') {
+                // Si es local, tratamos de excluir los que tienen ciudad explícita diferente de LOCAL
+                // O simplemente mostramos todos los del equipo si el usuario clickeó un equipo local
+                // Por ahora, mostrar todos los del equipo suele ser lo esperado si no hay ciudad
+            }
+
+            // Ordenar por fecha descendiente (más reciente primero) en memoria
             return ventas.sort((a, b) => {
                 const dateA = a.fecha?.seconds || 0;
                 const dateB = b.fecha?.seconds || 0;
@@ -162,7 +178,6 @@ export class SalesService {
 
         } catch (error) {
             console.error("Error obteniendo ventas del equipo:", error);
-            // Si falla por falta de índice, al menos intentar devolver algo vacío sin romper
             return [];
         }
     }
