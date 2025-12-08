@@ -11,7 +11,7 @@ const usuarioLogueado = localStorage.getItem('usuario') || 'Admin';
 let selectedDropdownIndex = -1;
 
 async function init() {
-    console.log("🚀 VentasController Inicializado -> Usuario:", usuarioLogueado);
+    console.log("🚀 VentasController Inicializado (IDs Corregidos) -> Usuario:", usuarioLogueado);
 
     try {
         await productService.loadProducts();
@@ -19,14 +19,11 @@ async function init() {
         console.error("Error cargando productos:", e);
     }
 
-    // Configurar layout
     setupGlobalKeys();
     setupSearchEvents();
     setupFormEvents();
     setupHeaderButtons();
-
-    // Configurar eventos del historial (Delegación)
-    setupHistoryEvents();
+    setupHistoryEvents(); // Delegación de historial
 
     try {
         const tempSale = await salesService.loadTempSale(usuarioLogueado);
@@ -116,16 +113,48 @@ function setupSearchEvents() {
 }
 
 function setupFormEvents() {
-    document.getElementById('btnCobrar')?.addEventListener('click', () => processSale('efectivo'));
-    document.getElementById('btnCredito')?.addEventListener('click', () => prepareCreditSale());
+    // CORRECCIÓN DE IDs SEGÚN HTML
+    const efectivoBtn = document.getElementById('efectivoBtn');
+    const creditoBtn = document.getElementById('creditoBtn');
 
-    document.getElementById('btnConfirmarAbono')?.addEventListener('click', () => {
-        const abonoInput = document.getElementById('montoAbono') || document.getElementById('abonoInicialInput');
-        const abono = parseFloat(abonoInput?.value) || 0;
-        salesService.setAbono(abono);
+    if (efectivoBtn) efectivoBtn.addEventListener('click', () => processSale('efectivo'));
+    if (creditoBtn) creditoBtn.addEventListener('click', () => prepareCreditSale());
+
+    // Botón Confirmar Abono (dentro del modal de monto)
+    const confirmarAbonoBtn = document.getElementById('confirmarAbonoBtn');
+    if (confirmarAbonoBtn) {
+        confirmarAbonoBtn.addEventListener('click', () => {
+            const abonoInput = document.getElementById('montoAbono');
+            const abono = parseFloat(abonoInput?.value) || 0;
+            salesService.setAbono(abono);
+            ui.hideModal('modalMontoAbono'); // Ojo: modal correcto es modalMontoAbono según HTML
+            ui.hideModal('modalAbonoInicial');
+            processSale('credito');
+        });
+    }
+
+    // Modal Abono Inicial (Elección Si/No)
+    document.getElementById('btnConAbono')?.addEventListener('click', () => {
+        ui.hideModal('modalAbonoInicial');
+        ui.showModal('modalMontoAbono');
+        ui.updateAbonoModal(salesService.total, 0, salesService.total);
+    });
+
+    document.getElementById('btnSinAbono')?.addEventListener('click', () => {
+        salesService.setAbono(0);
         ui.hideModal('modalAbonoInicial');
         processSale('credito');
     });
+
+    // Inputs de abono para calcular saldo en tiempo real
+    const inputMontoAbono = document.getElementById('montoAbono');
+    if (inputMontoAbono) {
+        inputMontoAbono.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value) || 0;
+            const total = salesService.total;
+            ui.updateAbonoModal(total, val, total - val);
+        });
+    }
 
     const btnRetiro = document.getElementById('btnRetiro');
     const btnIngreso = document.getElementById('btnIngreso');
@@ -195,7 +224,6 @@ function setupHeaderButtons() {
 
     const menuOperacionesBtn = document.getElementById('menuOperacionesBtn');
     const menuOperaciones = document.getElementById('menuOperaciones');
-
     if (menuOperacionesBtn && menuOperaciones) {
         menuOperacionesBtn.addEventListener('click', (e) => {
             e.preventDefault();
@@ -208,7 +236,6 @@ function setupHeaderButtons() {
                 menuOperaciones.classList.add('active');
             }
         });
-
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.dropdown-menu-container')) {
                 menuOperaciones.style.display = 'none';
@@ -216,7 +243,6 @@ function setupHeaderButtons() {
             }
         });
     }
-
     const mobileMenuBtn = document.getElementById('mobileMenuBtn');
     const mobileMenu = document.getElementById('mobileMenu');
     if (mobileMenuBtn && mobileMenu) {
@@ -230,20 +256,17 @@ function setupHistoryEvents() {
     const container = document.getElementById('miniGrid');
     if (!container) return;
 
-    // Delegación de eventos para clicks en mini-cards
     container.addEventListener('click', (e) => {
         const card = e.target.closest('.mini-card');
         if (card) {
-            e.preventDefault(); // Evitar comportamientos extraños
+            e.preventDefault();
             const equipo = card.dataset.equipo;
             const ciudad = card.dataset.ciudad;
-            console.log("Click historial delegación:", equipo, ciudad);
+            console.log("Click historial:", equipo, ciudad);
             mostrarFacturasEquipo(equipo, ciudad);
         }
     });
 }
-
-// --- Logic Helpers ---
 
 function updateDropdownSelection(items) {
     items.forEach((item, index) => {
@@ -258,36 +281,19 @@ function updateDropdownSelection(items) {
 
 async function selectProduct(id) {
     let product = await productService.getProductById(id);
-
     if (!product) {
-        const remoteResults = await productService.searchRemote(id);
-    }
-
-    // Si sigue sin haber producto (ej. es un Servico remoto que no persiste), intentar truco de búsqueda reciente
-    // En una app real, SearchRemote debería devolver una lista de objetos completos que cacheamos temporalmente.
-    // Aquí asumimos que si falló searchLocal y getProductById, algo falta.
-    // Intentaremos recuperar de la caché de búsqueda de UI si existiera.
-
-    if (!product) {
-        // Fallback final: re-buscar
-        let res = await productService.searchRemote(id); // Si ID es texto
-        // Si no funciona, error.
-        if (!product) {
-            // alert("Error cargando producto. Intente buscar de nuevo.");
-            // return;
-            // Para que no se bloquee el flujo en demo, permitimos si el servicio devuelve algo
+        // Intentar recuperar de search remote si id es numérico o algo así
+        // Ojo: getProductById debería ser capaz de buscar en la lista completa.
+        // Si falló, es que no está en la lista inicial.
+        const results = await productService.searchRemote(id);
+        if (results && results.length > 0) {
+            // Asumimos el primero si coincide exacto, o mostramos error.
+            // Simplificación: tomamos el primero.
+            product = results[0];
         }
     }
 
-    // SI AÚN FALLA, usamos un mock si es un ID de servicio conocido 'SERV'
-    if (!product && id === 'SERV') {
-        product = { id: 'SERV', descripcionTaller: 'Servicio', precioVenta: 0, existencia: 999, tipo: 'servicio' };
-    }
-
-    if (!product) {
-        // Si realmente no hay nada
-        return;
-    }
+    if (!product) return;
 
     if (product.existencia <= 0 && product.tipo !== 'servicio') {
         alert("❌ Producto sin existencia");
@@ -329,7 +335,6 @@ function autoSave() {
 
 async function processSale(type) {
     const formData = ui.getFormData();
-
     if (!formData.equipo) {
         alert("❌ Ingrese número de equipo");
         return;
@@ -338,7 +343,6 @@ async function processSale(type) {
         alert("❌ Carrito vacío");
         return;
     }
-
     if (type === 'efectivo' && salesService.cart.some(i => i.precio === 0)) {
         alert("❌ Productos con precio $0 requieren venta a CRÉDITO.");
         return;
@@ -350,7 +354,7 @@ async function processSale(type) {
         resetSale();
         loadMiniHistory();
     } catch (error) {
-        console.error(error);
+        console.error("Error processSale:", error);
         alert("Error al guardar venta: " + error.message);
     }
 }
@@ -395,7 +399,6 @@ async function loadMiniHistory() {
         const equipo = s.equipo === '0' ? 'CLIENTE GENERAL' : s.equipo;
         const ciudad = s.ciudad && s.ciudad !== 'LOCAL' ? s.ciudad : '';
         const key = ciudad ? `${equipo}-${ciudad}` : equipo;
-
         if (!groups[key]) {
             groups[key] = { equipo, ciudad, total: 0 };
         }
@@ -414,6 +417,7 @@ async function loadMiniHistory() {
 }
 
 async function mostrarFacturasEquipo(equipo, ciudad) {
+    console.log(`Abriendo historial para Equipo: ${equipo}, Ciudad: ${ciudad}`);
     const modal = document.getElementById('modalFacturasEquipo');
     const titulo = document.getElementById('tituloModalFacturas');
     const lista = document.getElementById('listaFacturasEquipo');
@@ -425,13 +429,11 @@ async function mostrarFacturasEquipo(equipo, ciudad) {
 
     const ciudadTexto = ciudad && ciudad !== 'LOCAL' ? ` - ${ciudad}` : '';
     titulo.textContent = `Facturas del Equipo ${equipo}${ciudadTexto}`;
-
     lista.innerHTML = '<p style="text-align:center;padding:20px;">Cargando historial...</p>';
     modal.style.display = 'flex';
 
     try {
         const facturas = await salesService.getSalesByTeam(equipo, ciudad);
-
         if (facturas.length === 0) {
             lista.innerHTML = '<p style="text-align:center;padding:20px;color:#666;">No hay facturas registradas.</p>';
             return;
@@ -448,14 +450,12 @@ async function mostrarFacturasEquipo(equipo, ciudad) {
                     <strong>${f.tipo === 'credito' ? '💳 CRÉDITO' : '💵 EFECTIVO'}</strong>
                     <span style="color: #666; font-size: 0.9rem;">${new Date(f.fecha.seconds * 1000).toLocaleString()}</span>
                 </div>
-                
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.9rem;">
                     <div><strong>Total:</strong> $${f.total.toFixed(2)}</div>
                     <div><strong>Abono:</strong> $${f.abonoInicial.toFixed(2)}</div>
                     <div><strong>Saldo:</strong> <span style="color: ${colorEstado}; font-weight: bold;">$${f.saldoPendiente.toFixed(2)}</span></div>
                     <div><strong>Estado:</strong> ${estadoTexto}</div>
                 </div>
-
                 <details style="margin-top: 10px;">
                     <summary style="cursor: pointer; color: #3b82f6; font-weight: 600;">Ver productos (${f.items.length})</summary>
                     <div style="margin-top: 8px; padding-left: 10px;">
@@ -466,7 +466,6 @@ async function mostrarFacturasEquipo(equipo, ciudad) {
                         `).join('')}
                     </div>
                 </details>
-
                 <div class="factura-acciones" style="margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end;">
                     ${esPendiente ? `
                         <button onclick="abonarFactura('${f.id}', ${f.saldoPendiente})" class="btn-mini" style="background: #10b981; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
@@ -484,7 +483,6 @@ async function mostrarFacturasEquipo(equipo, ciudad) {
                 </div>
             </div>
         `}).join('');
-
     } catch (error) {
         console.error('Error cargando historial:', error);
         lista.innerHTML = '<p style="text-align:center;padding:20px;color:#ef4444;">Error al cargar el historial.</p>';
@@ -518,5 +516,4 @@ window.imprimirFactura = (ventaId) => {
 window.cerrarExito = () => ui.hideModal('modalExito');
 window.cerrarError = () => ui.hideModal('modalError');
 
-// Init
 document.addEventListener('DOMContentLoaded', init);
