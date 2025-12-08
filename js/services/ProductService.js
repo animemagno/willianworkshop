@@ -64,32 +64,45 @@ export class ProductService {
     }
 
     /**
-     * Busca productos en Firebase (fallback)
+     * Busca productos en Firebase
+     * Como Firestore no soporta búsqueda parcial nativa, cargamos todos y filtramos
      * @param {string} term 
      * @returns {Promise<Array>}
      */
     async searchRemote(term) {
         try {
             const termLower = term.toLowerCase().trim();
+            const terms = termLower.split(/\s+/).filter(t => t.length > 0);
+
+            // Cargar todos los productos de Firebase
+            const querySnapshot = await getDocs(collection(db, "inventario"));
             const results = [];
 
-            // Búsqueda exacta por código
-            const q = query(collection(db, "inventario"), where("codigo", "==", termLower));
-            const snap = await getDocs(q);
-
-            snap.forEach(doc => {
+            querySnapshot.forEach(doc => {
                 const d = doc.data();
-                results.push({
-                    id: doc.id,
-                    codigo: d.codigo || "",
-                    descripcionTaller: d.descInventario || d.descripcionTaller || "",
-                    descripcionFactura: d.descFactura || d.descripcionFactura || "",
-                    precioVenta: parseFloat(d.precioVenta) || 0,
-                    existencia: parseInt(d.existencia) || 0,
-                    isRemote: true
-                });
+                const searchStr = `
+                    ${d.codigo || ''} 
+                    ${d.descInventario || d.descripcionTaller || ''} 
+                    ${d.descFactura || d.descripcionFactura || ''}
+                `.toLowerCase();
+
+                // Verificar si todos los términos están presentes
+                const matches = terms.every(t => searchStr.includes(t));
+
+                if (matches) {
+                    results.push({
+                        id: doc.id,
+                        codigo: d.codigo || "",
+                        descripcionTaller: d.descInventario || d.descripcionTaller || "",
+                        descripcionFactura: d.descFactura || d.descripcionFactura || "",
+                        precioVenta: parseFloat(d.precioVenta) || 0,
+                        existencia: parseInt(d.existencia) || 0
+                    });
+                }
             });
-            return results;
+
+            // Limitar a 20 resultados
+            return results.slice(0, 20);
         } catch (e) {
             console.error("Error búsqueda remota:", e);
             return [];

@@ -41,7 +41,7 @@ async function init() {
 let selectedDropdownIndex = -1;
 
 function setupEventListeners() {
-    // 1. Búsqueda con navegación por teclado
+    // 1. Búsqueda con navegación por teclado - Busca directamente en Firebase
     ui.els.buscador.addEventListener('input', (e) => {
         const val = e.target.value;
         clearTimeout(searchTimeout);
@@ -53,10 +53,10 @@ function setupEventListeners() {
         }
 
         searchTimeout = setTimeout(async () => {
-            let results = productService.searchLocal(val);
-            if (results.length === 0) {
-                results = await productService.searchRemote(val);
-            }
+            // Buscar directamente en Firebase
+            console.log('🔍 Buscando en Firebase:', val);
+            const results = await productService.searchRemote(val);
+            console.log('📦 Resultados encontrados:', results.length);
             ui.renderSearchResults(results);
             selectedDropdownIndex = -1;
         }, 300);
