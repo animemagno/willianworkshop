@@ -11,7 +11,7 @@ const usuarioLogueado = localStorage.getItem('usuario') || 'Admin';
 let selectedDropdownIndex = -1;
 
 async function init() {
-    console.log("🚀 VentasController Inicializado (IDs Corregidos) -> Usuario:", usuarioLogueado);
+    console.log("🚀 VentasController Inicializado (Versión Final Restaurada) -> Usuario:", usuarioLogueado);
 
     try {
         await productService.loadProducts();
@@ -113,12 +113,23 @@ function setupSearchEvents() {
 }
 
 function setupFormEvents() {
+    console.log("🛠️ setupFormEvents ejecutándose...");
     // CORRECCIÓN DE IDs SEGÚN HTML
     const efectivoBtn = document.getElementById('efectivoBtn');
     const creditoBtn = document.getElementById('creditoBtn');
 
-    if (efectivoBtn) efectivoBtn.addEventListener('click', () => processSale('efectivo'));
-    if (creditoBtn) creditoBtn.addEventListener('click', () => prepareCreditSale());
+    if (efectivoBtn) {
+        efectivoBtn.addEventListener('click', () => {
+            console.log("🖱️ Click Efectivo");
+            processSale('efectivo');
+        });
+    }
+    if (creditoBtn) {
+        creditoBtn.addEventListener('click', () => {
+            console.log("🖱️ Click Crédito");
+            prepareCreditSale();
+        });
+    }
 
     // Botón Confirmar Abono (dentro del modal de monto)
     const confirmarAbonoBtn = document.getElementById('confirmarAbonoBtn');
@@ -164,12 +175,12 @@ function setupFormEvents() {
     document.getElementById('btnConfirmarRetiro')?.addEventListener('click', () => processMovement('retiro'));
     document.getElementById('btnConfirmarIngreso')?.addEventListener('click', () => processMovement('ingreso'));
 
-    // CORRECCIÓN ID LIMPIAR CARRITO
+    // Configuración Botón Limpiar Carrito
     const cleanBtn = document.getElementById('limpiarCarritoBtn');
     if (cleanBtn) {
+        console.log("✅ Botón Limpiar encontrado");
         cleanBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            console.log("Limpiando carrito...");
             if (salesService.cart.length === 0 && !ui.els.equipo.value) {
                 ui.els.equipo.focus();
                 return;
@@ -181,7 +192,7 @@ function setupFormEvents() {
             }
         });
     } else {
-        console.error("❌ Botón limpiarCarritoBtn no encontrado en el DOM");
+        console.error("❌ Botón limpiarCarritoBtn NO encontrado");
     }
 
     const listaCarrito = ui.els.cartItems;
@@ -286,13 +297,8 @@ function updateDropdownSelection(items) {
 async function selectProduct(id) {
     let product = await productService.getProductById(id);
     if (!product) {
-        // Intentar recuperar de search remote si id es numérico o algo así
-        // Ojo: getProductById debería ser capaz de buscar en la lista completa.
-        // Si falló, es que no está en la lista inicial.
         const results = await productService.searchRemote(id);
         if (results && results.length > 0) {
-            // Asumimos el primero si coincide exacto, o mostramos error.
-            // Simplificación: tomamos el primero.
             product = results[0];
         }
     }
@@ -338,6 +344,7 @@ function autoSave() {
 }
 
 async function processSale(type) {
+    console.log(`Procesando venta tipo: ${type}`);
     const formData = ui.getFormData();
     if (!formData.equipo) {
         alert("❌ Ingrese número de equipo");
