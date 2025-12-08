@@ -413,6 +413,9 @@ header h1 {
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  height: calc(100vh - 200px);
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
 }
 
 .venta-carrito-container {
@@ -421,7 +424,8 @@ header h1 {
   flex-direction: column;
   min-height: 0;
   order: 2;
-  height: 100%;
+  height: calc(100vh - 200px);
+  max-height: calc(100vh - 200px);
 }
 
 .venta-wrapper.invertido .venta-form-container {
@@ -1566,6 +1570,50 @@ header h1 {
 
 .btn-limpiar i {
   font-size: 1rem;
+}
+
+/* Scroll en mini-historial */
+.mini-grid {
+  max-height: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Scroll personalizado para mini-grid */
+.mini-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.mini-grid::-webkit-scrollbar-track {
+  background: rgba(30, 30, 46, 0.3);
+  border-radius: 3px;
+}
+
+.mini-grid::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 3px;
+}
+
+.mini-grid::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+/* Estructura del carrito con scroll */
+.cart-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: rgba(30, 30, 46, 0.6);
+  border-radius: 12px;
+  padding: 15px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.cart-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  margin: 10px 0;
 }
 
 #detalleBox {
