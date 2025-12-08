@@ -38,11 +38,14 @@ async function init() {
     console.log('✅ Módulo de Ventas inicializado correctamente');
 }
 
+let selectedDropdownIndex = -1;
+
 function setupEventListeners() {
-    // 1. Búsqueda
+    // 1. Búsqueda con navegación por teclado
     ui.els.buscador.addEventListener('input', (e) => {
         const val = e.target.value;
         clearTimeout(searchTimeout);
+        selectedDropdownIndex = -1;
 
         if (val.length < 2) {
             ui.hideSearchResults();
@@ -50,16 +53,38 @@ function setupEventListeners() {
         }
 
         searchTimeout = setTimeout(async () => {
-            // Primero local, si no hay, remoto (según lógica original)
             let results = productService.searchLocal(val);
             if (results.length === 0) {
                 results = await productService.searchRemote(val);
             }
             ui.renderSearchResults(results);
+            selectedDropdownIndex = -1;
         }, 300);
     });
 
-    // 2. Selección de producto (Event delegation en dropdown)
+    // 2. Navegación con teclado en el buscador
+    ui.els.buscador.addEventListener('keydown', async (e) => {
+        const dropdown = ui.els.searchDropdown;
+        const items = dropdown.querySelectorAll('.search-dropdown-item');
+
+        if (items.length === 0) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectedDropdownIndex = Math.min(selectedDropdownIndex + 1, items.length - 1);
+            updateDropdownSelection(items);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedDropdownIndex = Math.max(selectedDropdownIndex - 1, 0);
+            updateDropdownSelection(items);
+        } else if (e.key === 'Enter' && selectedDropdownIndex >= 0) {
+            e.preventDefault();
+            const id = items[selectedDropdownIndex].dataset.id;
+            await selectProduct(id);
+        }
+    });
+
+    // 3. Selección de producto con click
     ui.els.searchDropdown.addEventListener('click', async (e) => {
         const item = e.target.closest('.search-dropdown-item');
         if (!item) return;
@@ -68,16 +93,15 @@ function setupEventListeners() {
         await selectProduct(id);
     });
 
-    // 3. Cerrar dropdown al hacer click fuera
+    // 4. Cerrar dropdown al hacer click fuera
     document.addEventListener('click', (e) => {
-        if (!e.target.closest('.search-container')) ui.hideSearchResults();
+        if (!e.target.closest('.search-container')) {
+            ui.hideSearchResults();
+            selectedDropdownIndex = -1;
+        }
     });
 
-    // 4. Input Cantidad y Autosave
-    ui.els.cantidad.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') e.preventDefault();
-    });
-
+    // 5. Autosave en equipo y cliente
     [ui.els.equipo, ui.els.cliente].forEach(el => {
         el.addEventListener('input', autoSave);
     });
@@ -185,6 +209,17 @@ function setupEventListeners() {
 
 // --- Logic ---
 
+function updateDropdownSelection(items) {
+    items.forEach((item, index) => {
+        if (index === selectedDropdownIndex) {
+            item.classList.add('selected');
+            item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } else {
+            item.classList.remove('selected');
+        }
+    });
+}
+
 async function selectProduct(id) {
     const product = await productService.getProductById(id);
     if (!product) return;
@@ -194,9 +229,26 @@ async function selectProduct(id) {
         return;
     }
 
-    const qty = parseInt(ui.els.cantidad.value) || 1;
+    // Pedir cantidad con prompt
+    const qtyInput = prompt(`Cantidad para: ${product.descripcionTaller}\n\nExistencia disponible: ${product.existencia}`, "1");
+
+    if (qtyInput === null) {
+        // Usuario canceló
+        ui.els.buscador.focus();
+        return;
+    }
+
+    const qty = parseInt(qtyInput) || 1;
+
+    if (qty <= 0) {
+        alert("❌ La cantidad debe ser mayor a 0");
+        ui.els.buscador.focus();
+        return;
+    }
+
     if (qty > product.existencia) {
-        alert(`❌ Solo hay ${product.existencia} unidades`);
+        alert(`❌ Solo hay ${product.existencia} unidades disponibles`);
+        ui.els.buscador.focus();
         return;
     }
 
@@ -206,6 +258,10 @@ async function selectProduct(id) {
     ui.els.buscador.value = "";
     ui.showNotification(product.descripcionTaller, product.precioVenta, qty);
     autoSave();
+
+    // Volver el foco al buscador
+    selectedDropdownIndex = -1;
+    ui.els.buscador.focus();
 }
 
 function updateCartView() {
