@@ -892,49 +892,7 @@ header h1 {
   gap: 12px
 }
 
-.swap-btn {
-  background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  align-self: center;
-  margin: 0 10px;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-  position: relative;
-  overflow: hidden;
-}
-
-.swap-btn::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
-  transform: translate(-50%, -50%);
-  transition: width 0.6s, height 0.6s;
-}
-
-.swap-btn:hover::before {
-  width: 100%;
-  height: 100%;
-}
-
-.swap-btn:hover {
-  transform: scale(1.1) rotate(180deg);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-}
-
-.swap-btn:active {
-  transform: scale(0.95) rotate(180deg);
-}
+/* Estilos antiguos de swap-btn eliminados - ahora usa header-icon-btn */
 
 
 /* Contenedor de botones reorganizado */
@@ -1381,18 +1339,22 @@ header h1 {
 .mini-equipo {
   font-weight: bold;
   color: #2c3e50;
-  margin-bottom: 4px
+  margin-bottom: 4px;
+  text-align: center;
 }
 
 .mini-total {
   font-weight: bold;
   color: #27ae60;
-  margin-bottom: 2px
+  margin-bottom: 2px;
+  text-align: center;
 }
 
 .mini-ciudad {
+  display: block;
   font-size: .7rem;
-  color: #7f8c8d
+  color: #7f8c8d;
+  text-align: center;
 }
 
 #detalleBox {
