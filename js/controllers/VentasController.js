@@ -2,6 +2,8 @@ import { ProductService } from "../services/ProductService.js";
 import { SalesService } from "../services/SalesService.js";
 import { SalesUI } from "../ui/SalesUI.js";
 
+console.log('✅ VentasController.js loaded');
+
 const productService = new ProductService();
 const salesService = new SalesService();
 const ui = new SalesUI();
@@ -13,6 +15,13 @@ const usuarioLogueado = localStorage.getItem('usuarioLogueado');
 
 async function init() {
     console.log("🚀 Inicializando Módulo de Ventas...");
+
+    // Verificar autenticación
+    if (!usuarioLogueado) {
+        console.log('❌ Usuario no logueado, redirigiendo...');
+        window.location.href = 'login.html';
+        return;
+    }
 
     // 1. Cargar datos
     await productService.loadProducts();
@@ -26,6 +35,7 @@ async function init() {
     loadMiniHistory();
 
     setupEventListeners();
+    console.log('✅ Módulo de Ventas inicializado correctamente');
 }
 
 function setupEventListeners() {
@@ -122,9 +132,40 @@ function setupEventListeners() {
     });
 
     // Mobile Swap
-    document.getElementById('swapBtn')?.addEventListener('click', () => {
-        document.getElementById('ventaWrapper').classList.toggle('invertido');
-    });
+    const swapBtn = document.getElementById('swapBtn');
+    const ventaWrapper = document.getElementById('ventaWrapper');
+    if (swapBtn && ventaWrapper) {
+        swapBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            console.log('🔄 Swap clicked');
+            ventaWrapper.classList.toggle('invertido');
+        });
+    }
+
+    // Dropdown Menu Operaciones
+    const menuOperacionesBtn = document.getElementById('menuOperacionesBtn');
+    const menuOperaciones = document.getElementById('menuOperaciones');
+
+    if (menuOperacionesBtn && menuOperaciones) {
+        menuOperacionesBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('📋 Menu clicked');
+            menuOperaciones.classList.toggle('active');
+        });
+
+        // Cerrar menú al hacer click fuera
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.dropdown-menu-container')) {
+                menuOperaciones.classList.remove('active');
+            }
+        });
+
+        // Cerrar menú al seleccionar una opción
+        menuOperaciones.addEventListener('click', () => {
+            menuOperaciones.classList.remove('active');
+        });
+    }
 
     // Mobile Menu
     document.getElementById('mobileMenuBtn')?.addEventListener('click', () => {

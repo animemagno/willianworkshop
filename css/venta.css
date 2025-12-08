@@ -11,7 +11,7 @@ body {
 }
 
 body {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  background: linear-gradient(135deg, #2d3748 0%, #1a202c 50%, #171923 100%);
   color: #333;
   font-size: 14px;
   display: flex;
@@ -402,7 +402,8 @@ header h1 {
   flex: 1 1 50%;
   display: flex;
   flex-direction: column;
-  min-height: 0
+  min-height: 0;
+  order: 1;
 }
 
 .venta-carrito-container {
@@ -411,11 +412,16 @@ header h1 {
   flex-direction: column;
   min-height: 0;
   position: sticky;
-  top: 0
+  top: 0;
+  order: 2;
 }
 
-.venta-wrapper.invertido {
-  flex-direction: row-reverse
+.venta-wrapper.invertido .venta-form-container {
+  order: 2;
+}
+
+.venta-wrapper.invertido .venta-carrito-container {
+  order: 1;
 }
 
 .form-group {
@@ -841,6 +847,119 @@ header h1 {
 }
 
 
+/* Contenedor de botones reorganizado */
+.btn-container-venta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+/* Mini menú desplegable */
+.dropdown-menu-container {
+  position: relative;
+}
+
+.dropdown-toggle {
+  padding: 12px 20px;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: rgba(30, 30, 46, 0.98);
+  border: 2px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  min-width: 200px;
+  animation: dropdownSlide 0.3s ease-out;
+}
+
+.dropdown-menu.active {
+  display: block;
+}
+
+.dropdown-item {
+  width: 100%;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  color: #e5e7eb;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid rgba(59, 130, 246, 0.1);
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.dropdown-item:hover {
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.2) 0%, transparent 100%);
+  color: #60a5fa;
+  padding-left: 20px;
+}
+
+.dropdown-item i {
+  width: 20px;
+  text-align: center;
+}
+
+/* Grupo de botones derecha */
+.btn-group-right {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-group-right .btn {
+  padding: 12px 24px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .btn-container-venta {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .dropdown-menu-container,
+  .btn-group-right {
+    width: 100%;
+  }
+
+  .dropdown-toggle,
+  .btn-group-right .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .btn-group-right {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
 
 .totales-outside {
   display: none

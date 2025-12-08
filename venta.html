@@ -44,7 +44,6 @@
     <div class="dashboard-section">
       <div class="section-title">
         <span id="tituloVenta">NUEVA VENTA</span>
-        <span id="tituloVenta">NUEVA VENTA</span>
         <button class="swap-btn" id="swapBtn" title="Invertir posición Carrito/Formulario"><i
             class="fas fa-exchange-alt"></i></button>
       </div>
@@ -74,18 +73,36 @@
                 <input type="number" id="cantidad" class="cantidad-input" placeholder="0" min="1" value="1">
               </div>
             </div>
-            <div style="display:flex;gap:8px">
-              <button type="button" id="btnRetiro" class="btn btn-warning"
-                style="flex:1;padding:6px 10px;font-size:0.8rem"><i class="fas fa-money-bill-wave"></i> RETIRO</button>
-              <button type="button" id="btnIngreso" class="btn btn-success"
-                style="flex:1;padding:6px 10px;font-size:0.8rem"><i class="fas fa-hand-holding-usd"></i>
-                INGRESO</button>
-              <button type="button" id="abonarBtn" class="btn btn-info"
-                style="flex:1;padding:6px 10px;font-size:0.8rem">ABONAR</button>
-              <button type="button" class="btn btn-success" id="efectivoBtn"
-                style="flex:1;padding:6px 10px;font-size:0.8rem">Efectivo</button>
-              <button type="button" class="btn btn-warning" id="creditoBtn"
-                style="flex:1;padding:6px 10px;font-size:0.8rem">Crédito</button>
+
+            <!-- Botones reorganizados -->
+            <div class="btn-container-venta">
+              <!-- Mini menú desplegable izquierda -->
+              <div class="dropdown-menu-container">
+                <button type="button" class="btn btn-info dropdown-toggle" id="menuOperacionesBtn">
+                  <i class="fas fa-bars"></i> OPERACIONES
+                </button>
+                <div class="dropdown-menu" id="menuOperaciones">
+                  <button type="button" id="btnRetiro" class="dropdown-item">
+                    <i class="fas fa-money-bill-wave"></i> RETIRO
+                  </button>
+                  <button type="button" id="btnIngreso" class="dropdown-item">
+                    <i class="fas fa-hand-holding-usd"></i> INGRESO
+                  </button>
+                  <button type="button" id="abonarBtn" class="dropdown-item">
+                    <i class="fas fa-coins"></i> ABONAR
+                  </button>
+                </div>
+              </div>
+
+              <!-- Botones principales derecha -->
+              <div class="btn-group-right">
+                <button type="button" class="btn btn-success" id="efectivoBtn">
+                  <i class="fas fa-money-bill-wave"></i> EFECTIVO
+                </button>
+                <button type="button" class="btn btn-warning" id="creditoBtn">
+                  <i class="fas fa-credit-card"></i> CRÉDITO
+                </button>
+              </div>
             </div>
           </form>
 
