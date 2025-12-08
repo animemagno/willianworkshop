@@ -1,72 +1,74 @@
-import { ProductService } from "../services/ProductService.js";
-import { SalesService } from "../services/SalesService.js";
-import { SalesUI } from "../ui/SalesUI.js";
 
-console.log('✅ VentasController.js loaded');
-
-const productService = new ProductService();
-const salesService = new SalesService();
-const ui = new SalesUI();
-
-let searchTimeout = null;
-const usuarioLogueado = localStorage.getItem('usuarioLogueado');
-
-// --- Initialization ---
-
-async function init() {
-    console.log("🚀 Inicializando Módulo de Ventas...");
-
-    // Verificar autenticación
-    if (!usuarioLogueado) {
-        console.log('❌ Usuario no logueado, redirigiendo...');
-        window.location.href = 'login.html';
-        return;
-    }
-
-    // 1. Cargar datos
-    await productService.loadProducts();
-    const tempData = await salesService.loadTempSale(usuarioLogueado);
-
-    if (tempData) {
-        ui.setFormData(tempData);
-        updateCartView();
-    }
-
-    loadMiniHistory();
-
-    setupEventListeners();
-    console.log('✅ Módulo de Ventas inicializado correctamente');
-}
+import { productService, salesService, ui, usuarioLogueado } from "../init.js";
 
 let selectedDropdownIndex = -1;
 
-function setupEventListeners() {
-    // 1. Búsqueda con navegación por teclado - Busca directamente en Firebase
-    ui.els.buscador.addEventListener('input', (e) => {
-        const val = e.target.value;
-        clearTimeout(searchTimeout);
+async function init() {
+    console.log("🚀 VentasController Check -> Usuario:", usuarioLogueado);
+
+    // Cargar inventario y configuración inicial
+    await productService.loadProducts();
+
+    // Eventos de teclado global (F2, F4, Escape)
+    document.addEventListener('keydown', handleGlobalKeys);
+
+    // Eventos del buscador (Input, Keydown, Click fuera)
+    setupSearchEvents();
+
+    // Eventos del formulario (Submit)
+    setupFormEvents();
+
+    // Recuperar venta temporal si existe
+    const tempSale = await salesService.loadTempSale(usuarioLogueado);
+    if (tempSale) {
+        ui.fillForm(tempSale);
+        updateCartView();
+    }
+
+    // Cargar historial del día
+    loadMiniHistory();
+
+    // Eventos Botones Clave
+    setupHeaderButtons();
+}
+
+function handleGlobalKeys(e) {
+    if (e.key === 'F2') {
+        e.preventDefault();
+        ui.els.buscador.focus();
+    } else if (e.key === 'F4') {
+        e.preventDefault();
+        processSale('efectivo');
+    } else if (e.key === 'Escape') {
+        ui.hideSearchResults();
+    }
+}
+
+function setupSearchEvents() {
+    const { buscador, resultados } = ui.els;
+
+    buscador.addEventListener('input', async (e) => {
+        const term = e.target.value;
         selectedDropdownIndex = -1;
 
-        if (val.length < 2) {
+        if (term.length < 2) {
             ui.hideSearchResults();
             return;
         }
 
-        searchTimeout = setTimeout(async () => {
-            // Buscar directamente en Firebase
-            console.log('🔍 Buscando en Firebase:', val);
-            const results = await productService.searchRemote(val);
-            console.log('📦 Resultados encontrados:', results.length);
-            ui.renderSearchResults(results);
-            selectedDropdownIndex = -1;
-        }, 300);
+        // 1. Búsqueda Local
+        let results = productService.searchLocal(term);
+
+        // 2. Si no hay local, buscar remoto
+        if (results.length === 0) {
+            results = await productService.searchRemote(term);
+        }
+
+        ui.renderSearchResults(results);
     });
 
-    // 2. Navegación con teclado en el buscador
-    ui.els.buscador.addEventListener('keydown', async (e) => {
-        const dropdown = ui.els.searchDropdown;
-        const items = dropdown.querySelectorAll('.search-dropdown-item');
-
+    buscador.addEventListener('keydown', (e) => {
+        const items = resultados.querySelectorAll('li');
         if (items.length === 0) return;
 
         if (e.key === 'ArrowDown') {
@@ -77,119 +79,98 @@ function setupEventListeners() {
             e.preventDefault();
             selectedDropdownIndex = Math.max(selectedDropdownIndex - 1, 0);
             updateDropdownSelection(items);
-        } else if (e.key === 'Enter' && selectedDropdownIndex >= 0) {
+        } else if (e.key === 'Enter') {
             e.preventDefault();
-            const id = items[selectedDropdownIndex].dataset.id;
-            await selectProduct(id);
-        }
-    });
-
-    // 3. Selección de producto con click
-    ui.els.searchDropdown.addEventListener('click', async (e) => {
-        const item = e.target.closest('.search-dropdown-item');
-        if (!item) return;
-
-        const id = item.dataset.id;
-        await selectProduct(id);
-    });
-
-    // 4. Cerrar dropdown al hacer click fuera
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.search-container')) {
-            ui.hideSearchResults();
-            selectedDropdownIndex = -1;
-        }
-    });
-
-    // 5. Autosave en equipo y cliente
-    [ui.els.equipo, ui.els.cliente].forEach(el => {
-        el.addEventListener('input', autoSave);
-    });
-
-    // 6. Carrito - Editar cantidad y precio
-    ui.els.cartItems.addEventListener('input', (e) => {
-        if (e.target.classList.contains('cart-cantidad')) {
-            const index = parseInt(e.target.dataset.index);
-            const newQty = parseInt(e.target.value) || 1;
-            salesService.updateCartItemQuantity(index, newQty);
-            updateCartView();
-            autoSave();
-        } else if (e.target.classList.contains('cart-precio')) {
-            const index = parseInt(e.target.dataset.index);
-            const newPrice = parseFloat(e.target.value) || 0;
-            salesService.updateCartItemPrice(index, newPrice);
-            updateCartView();
-            autoSave();
-        }
-    });
-
-    // 7. Carrito - Eliminar
-    ui.els.cartItems.addEventListener('click', (e) => {
-        if (e.target.closest('.delete-item-btn')) {
-            const row = e.target.closest('.cart-item');
-            if (row) {
-                const index = parseInt(row.dataset.index);
-                if (confirm('¿Eliminar producto?')) {
-                    salesService.removeFromCart(index);
-                    updateCartView();
-                    autoSave();
-                }
+            if (selectedDropdownIndex >= 0) {
+                items[selectedDropdownIndex].click();
             }
         }
     });
 
-    // 8. Botón Limpiar Carrito
-    document.getElementById('limpiarCarritoBtn')?.addEventListener('click', () => {
-        if (salesService.cart.length === 0) {
-            alert('El carrito ya está vacío');
-            return;
-        }
-
-        if (confirm('¿Estás seguro de vaciar el carrito?\n\nSe perderán todos los productos agregados.')) {
-            salesService.clearCart();
-            ui.clearForm();
-            updateCartView();
-            salesService.clearTempSale(usuarioLogueado);
-            ui.els.equipo.focus();
-            console.log('🗑️ Carrito limpiado');
+    // Delegación de eventos para selección de producto
+    resultados.addEventListener('click', (e) => {
+        const li = e.target.closest('li');
+        if (li) {
+            const id = li.dataset.id;
+            selectProduct(id);
         }
     });
 
-    // 9. Botones Principales
-    document.getElementById('efectivoBtn')?.addEventListener('click', () => processSale('efectivo'));
-    document.getElementById('creditoBtn')?.addEventListener('click', () => prepareCreditSale());
+    // Click fuera cierra resultados
+    document.addEventListener('click', (e) => {
+        if (!buscador.contains(e.target) && !resultados.contains(e.target)) {
+            ui.hideSearchResults();
+        }
+    });
+}
 
-    // 10. Modales y Movimientos
+function setupFormEvents() {
+    // Escuchar cambios en inputs para AutoSave
+    const inputs = document.querySelectorAll('.venta-input');
+    inputs.forEach(input => {
+        input.addEventListener('input', autoSave);
+    });
+
+    // Botones de acción principales
+    document.getElementById('btnCobrar')?.addEventListener('click', () => processSale('efectivo'));
+    document.getElementById('btnCredito')?.addEventListener('click', () => prepareCreditSale());
+
+    // Botón Aceptar en Modal Abono (Crédito)
+    document.getElementById('btnConfirmarAbono')?.addEventListener('click', () => {
+        const abonoInput = document.getElementById('abonoInicialInput');
+        const abono = parseFloat(abonoInput.value) || 0;
+        salesService.setAbono(abono);
+        ui.hideModal('modalAbonoInicial');
+        processSale('credito');
+    });
+
+    // Botones Retiro/Ingreso
     document.getElementById('btnRetiro')?.addEventListener('click', () => ui.showModal('modalRetiro'));
     document.getElementById('btnIngreso')?.addEventListener('click', () => ui.showModal('modalIngreso'));
 
     document.getElementById('btnConfirmarRetiro')?.addEventListener('click', () => processMovement('retiro'));
     document.getElementById('btnConfirmarIngreso')?.addEventListener('click', () => processMovement('ingreso'));
 
-    // Abono Modals
-    document.getElementById('btnConAbono')?.addEventListener('click', () => {
-        ui.hideModal('modalAbonoInicial');
-        ui.showModal('modalMontoAbono');
-        ui.updateAbonoModal(salesService.total, 0, salesService.total);
+    // Botón Limpiar Carrito (en el header)
+    document.getElementById('cleanCartBtn')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (salesService.cart.length === 0 && !ui.els.equipo.value) {
+            ui.els.equipo.focus();
+            return;
+        }
+
+        if (confirm('¿Limpiar todo el formulario y carrito?')) {
+            salesService.clearCart();
+            salesService.clearTempSale(usuarioLogueado);
+            ui.clearForm();
+            updateCartView();
+            ui.els.equipo.focus();
+        }
     });
 
-    document.getElementById('btnSinAbono')?.addEventListener('click', () => {
-        ui.hideModal('modalAbonoInicial');
-        processSale('credito');
-    });
+    // Eventos para editar cantidad y precio en el carrito
+    const listaCarrito = document.getElementById('lista-carrito');
+    if (listaCarrito) {
+        listaCarrito.addEventListener('input', (e) => {
+            if (e.target.classList.contains('qty-input') || e.target.classList.contains('price-input')) {
+                const index = parseInt(e.target.dataset.index);
+                const val = parseFloat(e.target.value) || 0;
 
-    document.getElementById('montoAbono')?.addEventListener('input', (e) => {
-        const val = parseFloat(e.target.value) || 0;
-        salesService.setAbono(val);
-        ui.updateAbonoModal(salesService.total, salesService.abonoInicial, salesService.saldoPendiente);
-    });
+                if (e.target.classList.contains('qty-input')) {
+                    salesService.updateCartItemQuantity(index, val);
+                } else {
+                    salesService.updateCartItemPrice(index, val);
+                }
+                // Actualizar solo totales visuales sin redibujar todo para no perder foco
+                ui.updateCartTotals(salesService.cart, salesService.total, salesService.totalQuantity);
+                autoSave();
+            }
+        });
+    }
+}
 
-    document.getElementById('confirmarAbonoBtn')?.addEventListener('click', () => {
-        ui.hideModal('modalMontoAbono');
-        processSale('credito');
-    });
-
-    // Mobile Swap
+function setupHeaderButtons() {
+    // Botón Swap
     const swapBtn = document.getElementById('swapBtn');
     const ventaWrapper = document.getElementById('ventaWrapper');
     if (swapBtn && ventaWrapper) {
@@ -258,6 +239,7 @@ async function selectProduct(id) {
     const product = await productService.getProductById(id);
     if (!product) return;
 
+    // Servicios (existencia 999) o productos normales
     if (product.existencia <= 0) {
         alert("❌ Producto sin existencia");
         return;
@@ -422,36 +404,38 @@ async function mostrarFacturasEquipo(equipo, ciudad) {
     titulo.textContent = `Facturas del Equipo ${equipo}${ciudadTexto}`;
 
     // Mostrar loading
-    lista.innerHTML = '<p style="text-align:center;padding:20px;">Cargando facturas...</p>';
+    lista.innerHTML = '<p style="text-align:center;padding:20px;">Cargando historial...</p>';
     modal.style.display = 'flex';
 
     try {
-        // Obtener facturas del equipo
-        const sales = await salesService.getDailySales();
-        const facturas = sales.filter(s => {
-            const equipoMatch = s.equipo === equipo;
-            const ciudadMatch = (s.ciudad || 'LOCAL') === ciudad;
-            return equipoMatch && ciudadMatch;
-        });
+        // Obtener historial completo del equipo
+        const facturas = await salesService.getSalesByTeam(equipo, ciudad);
 
         if (facturas.length === 0) {
-            lista.innerHTML = '<p style="text-align:center;padding:20px;color:#666;">No hay facturas para este equipo hoy.</p>';
+            lista.innerHTML = '<p style="text-align:center;padding:20px;color:#666;">No hay facturas registradas para este equipo.</p>';
             return;
         }
 
         // Renderizar facturas
-        lista.innerHTML = facturas.map(f => `
-            <div class="factura-item" style="background: #f8f9fa; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 4px solid ${f.saldoPendiente > 0 ? '#f59e0b' : '#10b981'};">
+        lista.innerHTML = facturas.map(f => {
+            const esPendiente = f.saldoPendiente > 0;
+            const colorEstado = esPendiente ? '#f59e0b' : '#10b981';
+            const estadoTexto = esPendiente ? '⏳ Pendiente' : '✅ Pagado';
+
+            return `
+            <div class="factura-item" style="background: #f8f9fa; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 4px solid ${colorEstado}; position: relative;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                     <strong>${f.tipo === 'credito' ? '💳 CRÉDITO' : '💵 EFECTIVO'}</strong>
                     <span style="color: #666; font-size: 0.9rem;">${new Date(f.fecha.seconds * 1000).toLocaleString()}</span>
                 </div>
+                
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.9rem;">
                     <div><strong>Total:</strong> $${f.total.toFixed(2)}</div>
                     <div><strong>Abono:</strong> $${f.abonoInicial.toFixed(2)}</div>
-                    <div><strong>Saldo:</strong> <span style="color: ${f.saldoPendiente > 0 ? '#f59e0b' : '#10b981'}; font-weight: bold;">$${f.saldoPendiente.toFixed(2)}</span></div>
-                    <div><strong>Estado:</strong> ${f.saldoPendiente > 0 ? '⏳ Pendiente' : '✅ Pagado'}</div>
+                    <div><strong>Saldo:</strong> <span style="color: ${colorEstado}; font-weight: bold;">$${f.saldoPendiente.toFixed(2)}</span></div>
+                    <div><strong>Estado:</strong> ${estadoTexto}</div>
                 </div>
+
                 <details style="margin-top: 10px;">
                     <summary style="cursor: pointer; color: #3b82f6; font-weight: 600;">Ver productos (${f.items.length})</summary>
                     <div style="margin-top: 8px; padding-left: 10px;">
@@ -462,12 +446,28 @@ async function mostrarFacturasEquipo(equipo, ciudad) {
                         `).join('')}
                     </div>
                 </details>
+
+                <div class="factura-acciones" style="margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end;">
+                    ${esPendiente ? `
+                        <button onclick="abonarFactura('${f.id}', ${f.saldoPendiente})" class="btn-mini" style="background: #10b981; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
+                            <i class="fas fa-money-bill-wave"></i> Abonar
+                        </button>
+                    ` : ''}
+                    <button onclick="imprimirFactura('${f.id}')" class="btn-mini" style="background: #3b82f6; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
+                        <i class="fas fa-print"></i>
+                    </button>
+                    ${esPendiente ? `
+                    <button onclick="borrarFactura('${f.id}')" class="btn-mini" style="background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    ` : ''}
+                </div>
             </div>
-        `).join('');
+        `}).join('');
 
     } catch (error) {
-        console.error('Error cargando facturas:', error);
-        lista.innerHTML = '<p style="text-align:center;padding:20px;color:#ef4444;">Error al cargar las facturas.</p>';
+        console.error('Error cargando historial:', error);
+        lista.innerHTML = '<p style="text-align:center;padding:20px;color:#ef4444;">Error al cargar el historial.</p>';
     }
 }
 
@@ -477,7 +477,26 @@ function resetSale() {
     updateCartView();
 }
 
-// Global exposure for simple button onclicks if necessary (but handled by listeners now)
+// Funciones globales para botones
+window.abonarFactura = (ventaId, saldoActual) => {
+    const monto = prompt(`Saldo pendiente: $${saldoActual.toFixed(2)}\nIngrese monto a abonar:`);
+    if (monto && !isNaN(monto) && parseFloat(monto) > 0) {
+        // Implementar lógica de abono aquí (requerirá updateDoc)
+        alert(`PENDIENTE: Implementar abono de $${monto} a ${ventaId}`);
+    }
+};
+
+window.borrarFactura = (ventaId) => {
+    if (confirm("¿Estás seguro de eliminar esta factura?")) {
+        alert(`PENDIENTE: Implementar borrado de ${ventaId}`);
+    }
+};
+
+window.imprimirFactura = (ventaId) => {
+    alert(`PENDIENTE: Reimpresión de ${ventaId}`);
+};
+
+// Global exposure for simple button onclicks if necessary
 window.cerrarExito = () => ui.hideModal('modalExito');
 window.cerrarError = () => ui.hideModal('modalError');
 

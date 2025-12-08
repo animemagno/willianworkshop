@@ -141,6 +141,32 @@ export class SalesService {
         }
     }
 
+    async getSalesByTeam(equipo, ciudad) {
+        try {
+            const ventasRef = collection(db, "ventas");
+            const q = query(
+                ventasRef,
+                where("equipo", "==", equipo),
+                where("ciudad", "==", ciudad || "LOCAL")
+            );
+
+            const snapshot = await getDocs(q);
+            const ventas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            // Ordenar en cliente para evitar necesidad de índice compuesto inmediato
+            return ventas.sort((a, b) => {
+                const dateA = a.fecha?.seconds || 0;
+                const dateB = b.fecha?.seconds || 0;
+                return dateB - dateA;
+            });
+
+        } catch (error) {
+            console.error("Error obteniendo ventas del equipo:", error);
+            // Si falla por falta de índice, al menos intentar devolver algo vacío sin romper
+            return [];
+        }
+    }
+
     async registerMovement(tipo, monto, concepto, usuario) {
         const collectionName = tipo === 'retiro' ? 'retiros' : 'ingresos';
         await addDoc(collection(db, collectionName), {
