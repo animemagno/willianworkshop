@@ -357,17 +357,31 @@ async function loadMiniHistory() {
         return;
     }
 
-    // Agrupar por equipo
+    // Agrupar por equipo + ciudad
     const groups = {};
     sales.forEach(s => {
-        if (!groups[s.equipo]) groups[s.equipo] = 0;
-        groups[s.equipo] += s.total;
+        // Crear clave única: equipo + ciudad
+        const equipo = s.equipo === '0' ? 'CLIENTE GENERAL' : s.equipo;
+        const ciudad = s.ciudad && s.ciudad !== 'LOCAL' ? s.ciudad : '';
+        const key = ciudad ? `${equipo}-${ciudad}` : equipo;
+
+        if (!groups[key]) {
+            groups[key] = {
+                equipo: equipo,
+                ciudad: ciudad,
+                total: 0
+            };
+        }
+        groups[key].total += s.total;
     });
 
-    container.innerHTML = Object.entries(groups).map(([eq, tot]) => `
+    container.innerHTML = Object.values(groups).map(group => `
         <div class="mini-card">
-            <div class="mini-equipo">${eq}</div>
-            <div class="mini-total">$${tot.toFixed(2)}</div>
+            <div class="mini-equipo">
+                ${group.equipo}
+                ${group.ciudad ? `<span class="mini-ciudad">${group.ciudad}</span>` : ''}
+            </div>
+            <div class="mini-total">$${group.total.toFixed(2)}</div>
         </div>
     `).join("");
 }
