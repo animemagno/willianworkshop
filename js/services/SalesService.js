@@ -97,22 +97,38 @@ export class SalesService {
             this.saldoPendiente = total;
         }
 
+        // SANITIZACIÓN: Reconstruir items para asegurar que son objetos planos válidos para Firestore
+        const cleanItems = this.cart.map(item => ({
+            id: item.id || 'unknown',
+            desc: item.desc || 'Sin descripción',
+            precio: Number(item.precio) || 0,
+            cantidad: Number(item.cantidad) || 1,
+            subtotal: Number(item.subtotal) || 0
+        }));
+
         const ventaData = {
-            equipo: formData.equipo,
-            cliente: formData.cliente || "LOCAL",
-            ciudad: formData.cliente || "LOCAL",
+            equipo: String(formData.equipo || ''),
+            cliente: String(formData.cliente || "LOCAL"),
+            ciudad: String(formData.cliente || "LOCAL"), // Asumo lógica de negocio: cliente == ciudad si no hay cliente? REVISAR
             esLocal: !formData.cliente,
             tipo: tipo,
-            items: this.cart,
-            total: total,
-            cantidadTotal: this.totalQuantity,
-            abonoInicial: finalAbono,
-            saldoPendiente: finalSaldo,
+            items: cleanItems,
+            total: Number(total) || 0,
+            cantidadTotal: Number(this.totalQuantity) || 0,
+            abonoInicial: Number(finalAbono) || 0,
+            saldoPendiente: Number(finalSaldo) || 0,
             fecha: serverTimestamp(),
-            usuario: usuario || 'Desconocido'
+            usuario: String(usuario || 'Desconocido')
         };
 
-        const idVenta = `equipo_${formData.equipo}_${Date.now()}`;
+        // Validación final
+        if (ventaData.items.some(i => isNaN(i.subtotal))) {
+            throw new Error("Datos de venta corruptos (NaN en subtotales)");
+        }
+
+        const idVenta = `equipo_${ventaData.equipo}_${Date.now()}`;
+        console.log("💾 Guardando venta en Firestore:", idVenta, ventaData);
+
         await setDoc(doc(db, "ventas", idVenta), ventaData);
 
         this.clearTempSale(usuario);

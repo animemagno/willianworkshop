@@ -10,6 +10,13 @@ const usuarioLogueado = localStorage.getItem('usuario') || 'Admin';
 
 let selectedDropdownIndex = -1;
 
+// Global Error Handler para depuración en producción
+window.onerror = function (msg, url, line, col, error) {
+    // Ignorar errores triviales de red si quieres, pero mejor mostrar todo
+    alert(`¡Error Inesperado!\n\n${msg}\nLínea: ${line}\n\nPor favor reporte esto.`);
+    return false;
+};
+
 async function init() {
     console.log("🚀 VentasController Inicializado (Versión Final Restaurada) -> Usuario:", usuarioLogueado);
 
