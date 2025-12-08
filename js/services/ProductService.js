@@ -74,9 +74,9 @@ export class ProductService {
             const termLower = term.toLowerCase().trim();
             const terms = termLower.split(/\s+/).filter(t => t.length > 0);
 
-            // Cargar todos los productos de Firebase
+            // 1. Cargar productos de Inventario
             const querySnapshot = await getDocs(collection(db, "inventario"));
-            const results = [];
+            let results = [];
 
             querySnapshot.forEach(doc => {
                 const d = doc.data();
@@ -86,7 +86,6 @@ export class ProductService {
                     ${d.descFactura || d.descripcionFactura || ''}
                 `.toLowerCase();
 
-                // Verificar si todos los términos están presentes
                 const matches = terms.every(t => searchStr.includes(t));
 
                 if (matches) {
@@ -96,10 +95,39 @@ export class ProductService {
                         descripcionTaller: d.descInventario || d.descripcionTaller || "",
                         descripcionFactura: d.descFactura || d.descripcionFactura || "",
                         precioVenta: parseFloat(d.precioVenta) || 0,
-                        existencia: parseInt(d.existencia) || 0
+                        existencia: parseInt(d.existencia) || 0,
+                        tipo: 'producto'
                     });
                 }
             });
+
+            // 2. Si no hay resultados, buscar en Servicios
+            if (results.length === 0) {
+                console.log("No encontrado en inventario, buscando en servicios...");
+                const serviciosSnapshot = await getDocs(collection(db, "servicios"));
+
+                serviciosSnapshot.forEach(doc => {
+                    const s = doc.data();
+                    const searchStr = `
+                        ${s.nombre || ''} 
+                        ${s.descripcion || ''}
+                    `.toLowerCase();
+
+                    const matches = terms.every(t => searchStr.includes(t));
+
+                    if (matches) {
+                        results.push({
+                            id: doc.id,
+                            codigo: "SERV",
+                            descripcionTaller: s.nombre || s.descripcion || "Servicio",
+                            descripcionFactura: s.descripcion || s.nombre || "Servicio",
+                            precioVenta: parseFloat(s.precio) || 0,
+                            existencia: 999, // Servicios siempre tienen existencia
+                            tipo: 'servicio'
+                        });
+                    }
+                });
+            }
 
             // Limitar a 20 resultados
             return results.slice(0, 20);
