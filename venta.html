@@ -213,287 +213,160 @@
           <span id="abonoSaldo">$0.00</span>
         </div>
       </div>
-      color: #2c3e50
-      }
+      <p id="textoExito">La venta se registró correctamente.</p>
+      <div class="modal-buttons"><button class="btn btn-primary" onclick="cerrarExito()">Aceptar</button></div>
+    </div>
+  </div>
+  <div id="modalError" class="modal-overlay">
+    <div class="modal-box">
+      <h3>❌ Error</h3>
+      <p id="textoError">Ocurrió un error al guardar la venta.</p>
+      <div class="modal-buttons"><button class="btn btn-primary" onclick="cerrarError()">Aceptar</button></div>
+    </div>
+  </div>
 
-      .abono-saldo {
-      font-weight: bold;
-      font-size: 1.1rem;
-      color: #27ae60
-      }
-      </style>
-      </head>
+  <!-- MODAL DETALLE EQUIPO -->
+  <div id="modalDetalle" class="modal-overlay">
+    <div class="modal-box">
+      <h3>Detalle del Equipo</h3>
+      <div id="detalleEquipoContent"></div>
+      <div class="modal-buttons">
+        <button class="btn btn-primary" onclick="cerrarDetalle()">Cerrar</button>
+      </div>
+    </div>
+  </div>
 
-      <body class="main-wrapper">
+  <!-- MODAL CONFIRMAR ELIMINAR ITEM -->
+  <div id="modalConfirmarEliminar" class="modal-overlay">
+    <div class="modal-box">
+      <h3>¿Eliminar producto?</h3>
+      <p>Esta acción no se puede deshacer.</p>
+      <div class="modal-buttons">
+        <button class="btn btn-danger" id="confirmarEliminarBtn">Sí, eliminar</button>
+        <button class="btn btn-primary" onclick="cerrarConfirmarEliminar()">Cancelar</button>
+      </div>
+    </div>
+  </div>
 
-        <!-- NOTIFICACIÓN DE PRODUCTO AGREGADO -->
-        <div id="notificacionProducto" class="notificacion-producto">
-          <i class="icono fas fa-check-circle"></i>
-          <div class="producto-nombre" id="notificacionNombre">Producto</div>
-          <div class="producto-detalles" id="notificacionDetalles">Cantidad: 1 - $0.00</div>
+  <!-- MODAL ABONO INICIAL CRÉDITO -->
+  <div id="modalAbonoInicial" class="modal-overlay">
+    <div class="modal-box">
+      <h3>Abono Inicial</h3>
+      <div class="modal-text">
+        <p>¿El cliente realizará un abono inicial?</p>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn btn-success" id="btnConAbono">Sí, con abono</button>
+        <button class="btn btn-warning" id="btnSinAbono">No, sin abono</button>
+        <button class="btn btn-primary" onclick="cerrarAbonoInicial()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL MONTO ABONO -->
+  <div id="modalMontoAbono" class="modal-overlay">
+    <div class="modal-box">
+      <h3>Monto del Abono</h3>
+      <div class="abono-group">
+        <input type="number" id="montoAbono" class="abono-input" placeholder="0.00" min="0" step="0.01">
+      </div>
+      <div class="abono-info">
+        <div class="abono-line">
+          <span>Total de la venta:</span>
+          <span id="abonoTotal">$0.00</span>
         </div>
-
-        <header>
-          <button class="menu-toggle" id="mobileMenuBtn"><i class="fas fa-bars"></i></button>
-          <h1>Taller Wilian</h1>
-          <div class="header-actions">
-            <button class="cart-icon" id="cartIcon"><i class="fas fa-shopping-cart"></i><span class="cart-badge"
-                id="cart-badge">0</span></button>
-          </div>
-        </header>
-
-        <div class="mobile-menu" id="mobileMenu">
-          <a href="index.html"><i class="fas fa-home"></i> Inicio</a>
-          <a href="venta.html" class="active"><i class="fas fa-cash-register"></i> Nueva Venta</a>
-          <a href="facturas.html"><i class="fas fa-file-invoice-dollar"></i> Facturas Pendientes</a>
-          <a href="historial.html"><i class="fas fa-history"></i> Historial de Ventas</a>
-          <a href="inventario.html"><i class="fas fa-boxes"></i> Inventario</a>
-          <a href="servicios.html"><i class="fas fa-tools"></i> Servicios</a>
-          <a href="entregas.html"><i class="fas fa-truck"></i> Entregas</a>
-          <a href="cuentas.html"><i class="fas fa-sticky-note"></i> Memos y Cuentas</a>
-          <a href="configuracion.html"><i class="fas fa-cog"></i> Configuración</a>
-          <a href="#" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
+        <div class="abono-line">
+          <span>Abono inicial:</span>
+          <span id="abonoMonto">$0.00</span>
         </div>
-
-        <div class="container">
-          <div class="dashboard-section">
-            <div class="section-title">
-              <span id="tituloVenta">NUEVA VENTA</span>
-              <button class="swap-btn" id="swapBtn" title="Invertir lados"><i class="fas fa-exchange-alt"></i></button>
-            </div>
-            <div class="venta-wrapper" id="ventaWrapper">
-              <div class="venta-form-container">
-                <form id="ventaForm">
-                  <div class="equipo-ciudad-group">
-                    <div class="form-group">
-                      <label for="equipo">Equipo</label>
-                      <input type="text" id="equipo" class="equipo-input" placeholder="123" maxlength="3" required>
-                    </div>
-                    <div class="form-group">
-                      <label for="cliente">Ciudad (opcional si es local)</label>
-                      <input type="text" id="cliente" placeholder="Nombre de ciudad">
-                    </div>
-                  </div>
-                  <div class="producto-cantidad-group">
-                    <div class="form-group">
-                      <label for="buscar-producto">Buscar Producto</label>
-                      <div class="search-container">
-                        <input type="text" id="buscar-producto" placeholder="Código o descripción">
-                        <div id="search-dropdown" class="search-dropdown"></div>
-                      </div>
-                    </div>
-                    <div class="form-group">
-                      <label for="cantidad">Cantidad</label>
-                      <input type="number" id="cantidad" class="cantidad-input" placeholder="0" min="1" value="1">
-                    </div>
-                  </div>
-                  <div style="display:flex;gap:8px">
-                    <button type="button" id="btnRetiro" class="btn btn-warning"
-                      style="flex:1;padding:6px 10px;font-size:0.8rem"><i class="fas fa-money-bill-wave"></i>
-                      RETIRO</button>
-                    <button type="button" id="btnIngreso" class="btn btn-success"
-                      style="flex:1;padding:6px 10px;font-size:0.8rem"><i class="fas fa-hand-holding-usd"></i>
-                      INGRESO</button>
-                    <button type="button" id="abonarBtn" class="btn btn-info"
-                      style="flex:1;padding:6px 10px;font-size:0.8rem">ABONAR</button>
-                    <button type="button" class="btn btn-success" id="efectivoBtn"
-                      style="flex:1;padding:6px 10px;font-size:0.8rem">Efectivo</button>
-                    <button type="button" class="btn btn-warning" id="creditoBtn"
-                      style="flex:1;padding:6px 10px;font-size:0.8rem">Crédito</button>
-                  </div>
-                </form>
-
-                <div class="mini-historial">
-                  <h3>HISTORIAL DE VENTAS</h3>
-                  <div class="mini-grid" id="miniGrid"></div>
-                  <div id="detalleBox"></div>
-                </div>
-              </div>
-
-              <div class="venta-carrito-container" id="carritoContainer">
-                <div class="cart-container">
-                  <div class="cart-header">
-                    <div>Descripción</div>
-                    <div>Cant</div>
-                    <div>Precio</div>
-                    <div>Subtotal</div>
-                    <div></div>
-                  </div>
-                  <div id="cart-items" class="cart-list">
-                    <div class="empty-cart">
-                      <i class="fas fa-shopping-cart" style="font-size:2rem;margin-bottom:10px;opacity:.5;"></i>
-                      <div>No hay productos agregados</div>
-                    </div>
-                  </div>
-                  <div class="cart-total">
-                    <span id="cart-resumen">Productos: 0 | Total: </span><span id="cart-total">$0.00</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+        <div class="abono-line abono-saldo">
+          <span>Saldo pendiente:</span>
+          <span id="abonoSaldo">$0.00</span>
         </div>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn btn-success" id="confirmarAbonoBtn">Confirmar Abono</button>
+        <button class="btn btn-primary" onclick="cerrarMontoAbono()">Cancelar</button>
+      </div>
+    </div>
+  </div>
 
-        <!-- MODALES -->
-        <div id="modalExito" class="modal-overlay">
-          <div class="modal-box">
-            <h3>✅ Venta guardada</h3>
-            <p id="textoExito">La venta se registró correctamente.</p>
-            <div class="modal-buttons"><button class="btn btn-primary" onclick="cerrarExito()">Aceptar</button></div>
-          </div>
-        </div>
-        <div id="modalError" class="modal-overlay">
-          <div class="modal-box">
-            <h3>❌ Error</h3>
-            <p id="textoError">Ocurrió un error al guardar la venta.</p>
-            <div class="modal-buttons"><button class="btn btn-primary" onclick="cerrarError()">Aceptar</button></div>
-          </div>
-        </div>
+  <!-- MODAL RETIRO -->
+  <div id="modalRetiro" class="modal-overlay">
+    <div class="modal-box">
+      <h3>Registrar Retiro de Caja</h3>
+      <div class="form-group">
+        <label>Monto</label>
+        <input type="number" id="montoRetiro" class="abono-input" placeholder="0.00" min="0.01" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Concepto</label>
+        <input type="text" id="conceptoRetiro" placeholder="Ej: Compra de repuestos"
+          style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+      </div>
+      <div class="form-group">
+        <label>Categoría</label>
+        <select id="categoriaRetiro" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+          <option value="gastos">Gastos Varios</option>
+          <option value="compra">Compra de Mercadería</option>
+          <option value="herramientas">Herramientas</option>
+          <option value="personal">Pago Personal</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn btn-warning" id="btnConfirmarRetiro">Registrar Retiro</button>
+        <button class="btn btn-primary"
+          onclick="document.getElementById('modalRetiro').style.display='none'">Cancelar</button>
+      </div>
+    </div>
+  </div>
 
-        <!-- MODAL DETALLE EQUIPO -->
-        <div id="modalDetalle" class="modal-overlay">
-          <div class="modal-box">
-            <h3>Detalle del Equipo</h3>
-            <div id="detalleEquipoContent"></div>
-            <div class="modal-buttons">
-              <button class="btn btn-primary" onclick="cerrarDetalle()">Cerrar</button>
-            </div>
-          </div>
-        </div>
+  <!-- MODAL INGRESO -->
+  <div id="modalIngreso" class="modal-overlay">
+    <div class="modal-box">
+      <h3>Registrar Ingreso de Caja</h3>
+      <div class="form-group">
+        <label>Monto</label>
+        <input type="number" id="montoIngreso" class="abono-input" placeholder="0.00" min="0.01" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Concepto</label>
+        <input type="text" id="conceptoIngreso" placeholder="Ej: Venta de repuestos usados"
+          style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+      </div>
+      <div class="form-group">
+        <label>Categoría</label>
+        <select id="categoriaIngreso" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+          <option value="venta">Venta</option>
+          <option value="servicio">Servicio</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn btn-success" id="btnConfirmarIngreso">Registrar Ingreso</button>
+        <button class="btn btn-primary"
+          onclick="document.getElementById('modalIngreso').style.display='none'">Cancelar</button>
+      </div>
+    </div>
+  </div>
 
-        <!-- MODAL CONFIRMAR ELIMINAR ITEM -->
-        <div id="modalConfirmarEliminar" class="modal-overlay">
-          <div class="modal-box">
-            <h3>¿Eliminar producto?</h3>
-            <p>Esta acción no se puede deshacer.</p>
-            <div class="modal-buttons">
-              <button class="btn btn-danger" id="confirmarEliminarBtn">Sí, eliminar</button>
-              <button class="btn btn-primary" onclick="cerrarConfirmarEliminar()">Cancelar</button>
-            </div>
-          </div>
-        </div>
+  <!-- MODAL FACTURAS DEL EQUIPO -->
+  <div id="modalFacturasEquipo" class="modal-overlay">
+    <div class="modal-box" style="max-width: 700px;">
+      <h3 id="tituloModalFacturas">Facturas del Equipo</h3>
+      <div id="listaFacturasEquipo" style="max-height: 400px; overflow-y: auto;">
+        <!-- Aquí se cargarán las facturas -->
+      </div>
+      <div class="modal-buttons">
+        <button class="btn btn-primary"
+          onclick="document.getElementById('modalFacturasEquipo').style.display='none'">Cerrar</button>
+      </div>
+    </div>
+  </div>
 
-        <!-- MODAL ABONO INICIAL CRÉDITO -->
-        <div id="modalAbonoInicial" class="modal-overlay">
-          <div class="modal-box">
-            <h3>Abono Inicial</h3>
-            <div class="modal-text">
-              <p>¿El cliente realizará un abono inicial?</p>
-            </div>
-            <div class="modal-buttons">
-              <button class="btn btn-success" id="btnConAbono">Sí, con abono</button>
-              <button class="btn btn-warning" id="btnSinAbono">No, sin abono</button>
-              <button class="btn btn-primary" onclick="cerrarAbonoInicial()">Cancelar</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- MODAL MONTO ABONO -->
-        <div id="modalMontoAbono" class="modal-overlay">
-          <div class="modal-box">
-            <h3>Monto del Abono</h3>
-            <div class="abono-group">
-              <input type="number" id="montoAbono" class="abono-input" placeholder="0.00" min="0" step="0.01">
-            </div>
-            <div class="abono-info">
-              <div class="abono-line">
-                <span>Total de la venta:</span>
-                <span id="abonoTotal">$0.00</span>
-              </div>
-              <div class="abono-line">
-                <span>Abono inicial:</span>
-                <span id="abonoMonto">$0.00</span>
-              </div>
-              <div class="abono-line abono-saldo">
-                <span>Saldo pendiente:</span>
-                <span id="abonoSaldo">$0.00</span>
-              </div>
-            </div>
-            <div class="modal-buttons">
-              <button class="btn btn-success" id="confirmarAbonoBtn">Confirmar Abono</button>
-              <button class="btn btn-primary" onclick="cerrarMontoAbono()">Cancelar</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- MODAL RETIRO -->
-        <div id="modalRetiro" class="modal-overlay">
-          <div class="modal-box">
-            <h3>Registrar Retiro de Caja</h3>
-            <div class="form-group">
-              <label>Monto</label>
-              <input type="number" id="montoRetiro" class="abono-input" placeholder="0.00" min="0.01" step="0.01">
-            </div>
-            <div class="form-group">
-              <label>Concepto</label>
-              <input type="text" id="conceptoRetiro" placeholder="Ej: Compra de repuestos"
-                style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-            </div>
-            <div class="form-group">
-              <label>Categoría</label>
-              <select id="categoriaRetiro"
-                style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                <option value="gastos">Gastos Varios</option>
-                <option value="compra">Compra de Mercadería</option>
-                <option value="herramientas">Herramientas</option>
-                <option value="personal">Pago Personal</option>
-                <option value="otro">Otro</option>
-              </select>
-            </div>
-            <div class="modal-buttons">
-              <button class="btn btn-warning" id="btnConfirmarRetiro">Registrar Retiro</button>
-              <button class="btn btn-primary"
-                onclick="document.getElementById('modalRetiro').style.display='none'">Cancelar</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- MODAL INGRESO -->
-        <div id="modalIngreso" class="modal-overlay">
-          <div class="modal-box">
-            <h3>Registrar Ingreso de Caja</h3>
-            <div class="form-group">
-              <label>Monto</label>
-              <input type="number" id="montoIngreso" class="abono-input" placeholder="0.00" min="0.01" step="0.01">
-            </div>
-            <div class="form-group">
-              <label>Concepto</label>
-              <input type="text" id="conceptoIngreso" placeholder="Ej: Venta de repuestos usados"
-                style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-            </div>
-            <div class="form-group">
-              <label>Categoría</label>
-              <select id="categoriaIngreso"
-                style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                <option value="venta">Venta</option>
-                <option value="servicio">Servicio</option>
-                <option value="otro">Otro</option>
-              </select>
-            </div>
-            <div class="modal-buttons">
-              <button class="btn btn-success" id="btnConfirmarIngreso">Registrar Ingreso</button>
-              <button class="btn btn-primary"
-                onclick="document.getElementById('modalIngreso').style.display='none'">Cancelar</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- MODAL FACTURAS DEL EQUIPO -->
-        <div id="modalFacturasEquipo" class="modal-overlay">
-          <div class="modal-box" style="max-width: 700px;">
-            <h3 id="tituloModalFacturas">Facturas del Equipo</h3>
-            <div id="listaFacturasEquipo" style="max-height: 400px; overflow-y: auto;">
-              <!-- Aquí se cargarán las facturas -->
-            </div>
-            <div class="modal-buttons">
-              <button class="btn btn-primary"
-                onclick="document.getElementById('modalFacturasEquipo').style.display='none'">Cerrar</button>
-            </div>
-          </div>
-        </div>
-
-        <script type="module" src="js/controllers/VentasController.js"></script>
-      </body>
+  <script type="module" src="js/controllers/VentasController.js"></script>
+</body>
 
 </html>
 ```
