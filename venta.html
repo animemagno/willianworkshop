@@ -478,7 +478,22 @@
           </div>
         </div>
 
+        <!-- MODAL FACTURAS DEL EQUIPO -->
+        <div id="modalFacturasEquipo" class="modal-overlay">
+          <div class="modal-box" style="max-width: 700px;">
+            <h3 id="tituloModalFacturas">Facturas del Equipo</h3>
+            <div id="listaFacturasEquipo" style="max-height: 400px; overflow-y: auto;">
+              <!-- Aquí se cargarán las facturas -->
+            </div>
+            <div class="modal-buttons">
+              <button class="btn btn-primary"
+                onclick="document.getElementById('modalFacturasEquipo').style.display='none'">Cerrar</button>
+            </div>
+          </div>
+        </div>
+
         <script type="module" src="js/controllers/VentasController.js"></script>
       </body>
 
 </html>
+```

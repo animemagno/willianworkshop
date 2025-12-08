@@ -393,7 +393,7 @@ async function loadMiniHistory() {
     });
 
     container.innerHTML = Object.values(groups).map(group => `
-        <div class="mini-card">
+        <div class="mini-card" data-equipo="${group.equipo}" data-ciudad="${group.ciudad || 'LOCAL'}" style="cursor: pointer;">
             <div class="mini-equipo">
                 ${group.equipo}
                 ${group.ciudad ? `<span class="mini-ciudad">${group.ciudad}</span>` : ''}
@@ -401,6 +401,74 @@ async function loadMiniHistory() {
             <div class="mini-total">$${group.total.toFixed(2)}</div>
         </div>
     `).join("");
+
+    // Agregar event listeners a las mini-cards
+    container.querySelectorAll('.mini-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const equipo = card.dataset.equipo;
+            const ciudad = card.dataset.ciudad;
+            mostrarFacturasEquipo(equipo, ciudad);
+        });
+    });
+}
+
+async function mostrarFacturasEquipo(equipo, ciudad) {
+    const modal = document.getElementById('modalFacturasEquipo');
+    const titulo = document.getElementById('tituloModalFacturas');
+    const lista = document.getElementById('listaFacturasEquipo');
+
+    // Actualizar título
+    const ciudadTexto = ciudad && ciudad !== 'LOCAL' ? ` - ${ciudad}` : '';
+    titulo.textContent = `Facturas del Equipo ${equipo}${ciudadTexto}`;
+
+    // Mostrar loading
+    lista.innerHTML = '<p style="text-align:center;padding:20px;">Cargando facturas...</p>';
+    modal.style.display = 'flex';
+
+    try {
+        // Obtener facturas del equipo
+        const sales = await salesService.getDailySales();
+        const facturas = sales.filter(s => {
+            const equipoMatch = s.equipo === equipo;
+            const ciudadMatch = (s.ciudad || 'LOCAL') === ciudad;
+            return equipoMatch && ciudadMatch;
+        });
+
+        if (facturas.length === 0) {
+            lista.innerHTML = '<p style="text-align:center;padding:20px;color:#666;">No hay facturas para este equipo hoy.</p>';
+            return;
+        }
+
+        // Renderizar facturas
+        lista.innerHTML = facturas.map(f => `
+            <div class="factura-item" style="background: #f8f9fa; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 4px solid ${f.saldoPendiente > 0 ? '#f59e0b' : '#10b981'};">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <strong>${f.tipo === 'credito' ? '💳 CRÉDITO' : '💵 EFECTIVO'}</strong>
+                    <span style="color: #666; font-size: 0.9rem;">${new Date(f.fecha.seconds * 1000).toLocaleString()}</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.9rem;">
+                    <div><strong>Total:</strong> $${f.total.toFixed(2)}</div>
+                    <div><strong>Abono:</strong> $${f.abonoInicial.toFixed(2)}</div>
+                    <div><strong>Saldo:</strong> <span style="color: ${f.saldoPendiente > 0 ? '#f59e0b' : '#10b981'}; font-weight: bold;">$${f.saldoPendiente.toFixed(2)}</span></div>
+                    <div><strong>Estado:</strong> ${f.saldoPendiente > 0 ? '⏳ Pendiente' : '✅ Pagado'}</div>
+                </div>
+                <details style="margin-top: 10px;">
+                    <summary style="cursor: pointer; color: #3b82f6; font-weight: 600;">Ver productos (${f.items.length})</summary>
+                    <div style="margin-top: 8px; padding-left: 10px;">
+                        ${f.items.map(item => `
+                            <div style="padding: 4px 0; border-bottom: 1px solid #e5e7eb; font-size: 0.85rem;">
+                                ${item.cantidad}x ${item.desc} - $${item.subtotal.toFixed(2)}
+                            </div>
+                        `).join('')}
+                    </div>
+                </details>
+            </div>
+        `).join('');
+
+    } catch (error) {
+        console.error('Error cargando facturas:', error);
+        lista.innerHTML = '<p style="text-align:center;padding:20px;color:#ef4444;">Error al cargar las facturas.</p>';
+    }
 }
 
 function resetSale() {
