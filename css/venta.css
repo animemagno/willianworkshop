@@ -350,7 +350,7 @@ header h1 {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 120px)
+  height: calc(100vh - 120px);
 }
 
 .section-title {
@@ -360,7 +360,7 @@ header h1 {
   font-size: 1.3rem;
   color: #2c3e50;
   margin-bottom: 20px;
-  padding-bottom: 12px;
+  padding: 0 0 12px 0;
   border-bottom: 3px solid transparent;
   background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
   background-clip: text;
@@ -384,17 +384,22 @@ header h1 {
 .venta-wrapper {
   display: flex;
   gap: 20px;
-  align-items: stretch;
+  align-items: flex-start;
   flex: 1 1 auto;
-  padding: 0 20px;
-  height: 100%
+  padding: 0;
+  height: 100%;
 }
 
 @media (max-width: 768px) {
   .venta-wrapper {
-    padding: 0 10px;
+    padding: 0;
     flex-direction: column;
-    height: auto
+    height: auto;
+    gap: 15px;
+  }
+
+  .venta-form-container {
+    padding: 15px;
   }
 }
 
@@ -404,6 +409,10 @@ header h1 {
   flex-direction: column;
   min-height: 0;
   order: 1;
+  background: rgba(45, 55, 72, 0.6);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 }
 
 .venta-carrito-container {
@@ -411,9 +420,8 @@ header h1 {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  position: sticky;
-  top: 0;
   order: 2;
+  height: 100%;
 }
 
 .venta-wrapper.invertido .venta-form-container {
