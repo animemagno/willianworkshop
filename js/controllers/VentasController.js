@@ -138,11 +138,28 @@ function setupEventListeners() {
         }
     });
 
-    // 6. Botones Principales
+    // 8. Botón Limpiar Carrito
+    document.getElementById('limpiarCarritoBtn')?.addEventListener('click', () => {
+        if (salesService.cart.length === 0) {
+            alert('El carrito ya está vacío');
+            return;
+        }
+
+        if (confirm('¿Estás seguro de vaciar el carrito?\n\nSe perderán todos los productos agregados.')) {
+            salesService.clearCart();
+            ui.clearForm();
+            updateCartView();
+            salesService.clearTempSale(usuarioLogueado);
+            ui.els.equipo.focus();
+            console.log('🗑️ Carrito limpiado');
+        }
+    });
+
+    // 9. Botones Principales
     document.getElementById('efectivoBtn')?.addEventListener('click', () => processSale('efectivo'));
     document.getElementById('creditoBtn')?.addEventListener('click', () => prepareCreditSale());
 
-    // 7. Modales y Movimientos
+    // 10. Modales y Movimientos
     document.getElementById('btnRetiro')?.addEventListener('click', () => ui.showModal('modalRetiro'));
     document.getElementById('btnIngreso')?.addEventListener('click', () => ui.showModal('modalIngreso'));
 

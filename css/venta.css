@@ -1535,6 +1535,39 @@ header h1 {
   font-style: italic;
 }
 
+/* Botón limpiar carrito */
+.btn-limpiar {
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-limpiar:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.btn-limpiar:active {
+  transform: translateY(0);
+}
+
+.btn-limpiar i {
+  font-size: 1rem;
+}
+
 #detalleBox {
   background: #f8f9fa;
   border: 1px solid #ddd;
