@@ -515,5 +515,9 @@ window.imprimirFactura = (ventaId) => {
 
 window.cerrarExito = () => ui.hideModal('modalExito');
 window.cerrarError = () => ui.hideModal('modalError');
+window.cerrarAbonoInicial = () => ui.hideModal('modalAbonoInicial');
+window.cerrarMontoAbono = () => ui.hideModal('modalMontoAbono');
+window.cerrarDetalle = () => ui.hideModal('modalDetalle');
+window.cerrarConfirmarEliminar = () => ui.hideModal('modalConfirmarEliminar');
 
 document.addEventListener('DOMContentLoaded', init);
