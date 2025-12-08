@@ -172,29 +172,6 @@ function setupFormEvents() {
     if (btnRetiro) btnRetiro.addEventListener('click', () => ui.showModal('modalRetiro'));
     if (btnIngreso) btnIngreso.addEventListener('click', () => ui.showModal('modalIngreso'));
 
-    document.getElementById('btnConfirmarRetiro')?.addEventListener('click', () => processMovement('retiro'));
-    document.getElementById('btnConfirmarIngreso')?.addEventListener('click', () => processMovement('ingreso'));
-
-    // Configuración Botón Limpiar Carrito
-    const cleanBtn = document.getElementById('limpiarCarritoBtn');
-    if (cleanBtn) {
-        console.log("✅ Botón Limpiar encontrado");
-        cleanBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (salesService.cart.length === 0 && !ui.els.equipo.value) {
-                ui.els.equipo.focus();
-                return;
-            }
-            if (confirm('¿Limpiar todo el formulario y carrito?')) {
-                resetSale();
-                salesService.clearTempSale(usuarioLogueado);
-                ui.els.equipo.focus();
-            }
-        });
-    } else {
-        console.error("❌ Botón limpiarCarritoBtn NO encontrado");
-    }
-
     const listaCarrito = ui.els.cartItems;
     if (listaCarrito) {
         listaCarrito.addEventListener('input', (e) => {
