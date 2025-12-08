@@ -127,7 +127,7 @@ function setupFormEvents() {
             const abonoInput = document.getElementById('montoAbono');
             const abono = parseFloat(abonoInput?.value) || 0;
             salesService.setAbono(abono);
-            ui.hideModal('modalMontoAbono'); // Ojo: modal correcto es modalMontoAbono según HTML
+            ui.hideModal('modalMontoAbono');
             ui.hideModal('modalAbonoInicial');
             processSale('credito');
         });
@@ -164,10 +164,12 @@ function setupFormEvents() {
     document.getElementById('btnConfirmarRetiro')?.addEventListener('click', () => processMovement('retiro'));
     document.getElementById('btnConfirmarIngreso')?.addEventListener('click', () => processMovement('ingreso'));
 
-    const cleanBtn = document.getElementById('cleanCartBtn');
+    // CORRECCIÓN ID LIMPIAR CARRITO
+    const cleanBtn = document.getElementById('limpiarCarritoBtn');
     if (cleanBtn) {
         cleanBtn.addEventListener('click', (e) => {
             e.preventDefault();
+            console.log("Limpiando carrito...");
             if (salesService.cart.length === 0 && !ui.els.equipo.value) {
                 ui.els.equipo.focus();
                 return;
@@ -178,6 +180,8 @@ function setupFormEvents() {
                 ui.els.equipo.focus();
             }
         });
+    } else {
+        console.error("❌ Botón limpiarCarritoBtn no encontrado en el DOM");
     }
 
     const listaCarrito = ui.els.cartItems;
