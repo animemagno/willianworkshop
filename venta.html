@@ -46,9 +46,14 @@
         <div class="venta-form-container">
           <div class="section-title">
             <span id="tituloVenta">NUEVA VENTA</span>
-            <button class="swap-btn" id="swapBtn" title="Invertir posición Carrito/Formulario">
-              <i class="fas fa-exchange-alt"></i>
-            </button>
+            <div class="header-buttons">
+              <button class="header-icon-btn" id="limpiarCarritoBtn" title="Vaciar carrito">
+                <i class="fas fa-trash-alt"></i>
+              </button>
+              <button class="header-icon-btn" id="swapBtn" title="Invertir posición Carrito/Formulario">
+                <i class="fas fa-exchange-alt"></i>
+              </button>
+            </div>
           </div>
           <form id="ventaForm">
             <div class="equipo-ciudad-group">
@@ -127,9 +132,6 @@
             <div class="cart-total">
               <span id="cart-resumen">Productos: 0 | Total: </span><span id="cart-total">$0.00</span>
             </div>
-            <button type="button" class="btn btn-limpiar" id="limpiarCarritoBtn" title="Vaciar carrito">
-              <i class="fas fa-trash-alt"></i> LIMPIAR CARRITO
-            </button>
           </div>
         </div>
       </div>
