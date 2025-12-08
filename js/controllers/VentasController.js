@@ -106,7 +106,24 @@ function setupEventListeners() {
         el.addEventListener('input', autoSave);
     });
 
-    // 5. Carrito (Eliminar)
+    // 6. Carrito - Editar cantidad y precio
+    ui.els.cartItems.addEventListener('input', (e) => {
+        if (e.target.classList.contains('cart-cantidad')) {
+            const index = parseInt(e.target.dataset.index);
+            const newQty = parseInt(e.target.value) || 1;
+            salesService.updateCartItemQuantity(index, newQty);
+            updateCartView();
+            autoSave();
+        } else if (e.target.classList.contains('cart-precio')) {
+            const index = parseInt(e.target.dataset.index);
+            const newPrice = parseFloat(e.target.value) || 0;
+            salesService.updateCartItemPrice(index, newPrice);
+            updateCartView();
+            autoSave();
+        }
+    });
+
+    // 7. Carrito - Eliminar
     ui.els.cartItems.addEventListener('click', (e) => {
         if (e.target.closest('.delete-item-btn')) {
             const row = e.target.closest('.cart-item');

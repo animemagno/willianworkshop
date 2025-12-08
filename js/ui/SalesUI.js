@@ -52,14 +52,25 @@ export class SalesUI {
 
         this.els.cartItems.innerHTML = cart.map((item, i) => `
             <div class="cart-item" data-index="${i}">
-               <div class="info">
-                   <div class="desc product-desc">${item.desc}</div>
-                   <div class="meta" style="color:#666;font-size:0.8rem">${item.cantidad} x ${formatCurrency(item.precio)}</div>
+               <div class="product-desc">${item.desc}</div>
+               <div class="cant-col">
+                   <input type="number" 
+                          class="cart-input cart-cantidad" 
+                          data-index="${i}" 
+                          value="${item.cantidad}" 
+                          min="1" 
+                          step="1">
                </div>
-               <div class="cant-col" style="text-align:center">${item.cantidad}</div>
-               <div class="price-col" style="text-align:right">${formatCurrency(item.precio)}</div>
-               <div class="subtotal" style="text-align:right">${formatCurrency(item.subtotal)}</div>
-               <div class="actions" style="text-align:right">
+               <div class="price-col">
+                   <input type="number" 
+                          class="cart-input cart-precio" 
+                          data-index="${i}" 
+                          value="${item.precio}" 
+                          min="0" 
+                          step="0.01">
+               </div>
+               <div class="subtotal">${formatCurrency(item.subtotal)}</div>
+               <div class="actions">
                    <button class="delete-item-btn" title="Eliminar"><i class="fas fa-times"></i></button>
                </div>
             </div>

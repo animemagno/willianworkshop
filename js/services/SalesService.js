@@ -57,6 +57,20 @@ export class SalesService {
         }
     }
 
+    updateCartItemQuantity(index, newQuantity) {
+        if (index >= 0 && index < this.cart.length && newQuantity > 0) {
+            this.cart[index].cantidad = newQuantity;
+            this.cart[index].subtotal = this.cart[index].precio * newQuantity;
+        }
+    }
+
+    updateCartItemPrice(index, newPrice) {
+        if (index >= 0 && index < this.cart.length && newPrice >= 0) {
+            this.cart[index].precio = newPrice;
+            this.cart[index].subtotal = newPrice * this.cart[index].cantidad;
+        }
+    }
+
     clearCart() {
         this.cart = [];
         this.abonoInicial = 0;
