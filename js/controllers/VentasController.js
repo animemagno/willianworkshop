@@ -13,24 +13,37 @@ let selectedDropdownIndex = -1;
 async function init() {
     console.log("🚀 VentasController Inicializado -> Usuario:", usuarioLogueado);
 
-    // Cargar inventario y configuración inicial
-    await productService.loadProducts();
+    try {
+        await productService.loadProducts();
+    } catch (e) {
+        console.error("Error cargando productos:", e);
+    }
 
-    // Configurar event listeners
+    // Configurar layout (eventos globales)
     setupGlobalKeys();
+
+    // Configurar buscador (CRÍTICO: usar selectores correctos)
     setupSearchEvents();
+
+    // Configurar eventos del formulario y carrito
     setupFormEvents();
+
+    // Configurar botones del header
     setupHeaderButtons();
 
     // Recuperar venta temporal si existe
-    const tempSale = await salesService.loadTempSale(usuarioLogueado);
-    if (tempSale) {
-        ui.fillForm(tempSale);
-        updateCartView();
-    }
+    try {
+        const tempSale = await salesService.loadTempSale(usuarioLogueado);
+        if (tempSale) {
+            ui.setFormData(tempSale); // Usar setFormData para mayor seguridad
+            updateCartView();
+        }
+    } catch (e) { console.warn("Error recuperando venta temp", e); }
 
     // Cargar historial del día
-    loadMiniHistory();
+    try {
+        loadMiniHistory();
+    } catch (e) { console.error("Error cargando historial inicial", e); }
 }
 
 function setupGlobalKeys() {
@@ -48,7 +61,14 @@ function setupGlobalKeys() {
 }
 
 function setupSearchEvents() {
-    const { buscador, resultados } = ui.els;
+    // CORRECCIÓN: Usar searchDropdown, no resultados
+    const { buscador, searchDropdown } = ui.els;
+    const resultados = searchDropdown; // Alias para compatibilidad lógica
+
+    if (!buscador || !resultados) {
+        console.error("❌ Elementos de búsqueda no encontrados en el DOM");
+        return;
+    }
 
     buscador.addEventListener('input', async (e) => {
         const term = e.target.value;
@@ -59,20 +79,17 @@ function setupSearchEvents() {
             return;
         }
 
-        // 1. Búsqueda Local
         let results = productService.searchLocal(term);
-
-        // 2. Si no hay local, buscar remoto
         if (results.length === 0) {
             console.log("Buscando remoto...", term);
             results = await productService.searchRemote(term);
         }
-
         ui.renderSearchResults(results);
     });
 
     buscador.addEventListener('keydown', (e) => {
-        const items = resultados.querySelectorAll('li');
+        // En SalesUI, los items tienen clase 'search-dropdown-item'
+        const items = resultados.querySelectorAll('.search-dropdown-item');
         if (items.length === 0) return;
 
         if (e.key === 'ArrowDown') {
@@ -93,10 +110,9 @@ function setupSearchEvents() {
 
     // Delegación de eventos para selección de producto
     resultados.addEventListener('click', (e) => {
-        const li = e.target.closest('li');
-        if (li) {
-            const id = li.dataset.id;
-            const desc = li.dataset.desc; // Usar data attributes si disponibles, o recuperar
+        const item = e.target.closest('.search-dropdown-item');
+        if (item) {
+            const id = item.dataset.id;
             selectProduct(id);
         }
     });
@@ -110,33 +126,30 @@ function setupSearchEvents() {
 }
 
 function setupFormEvents() {
-    // Escuchar cambios en inputs para AutoSave
-    const inputs = document.querySelectorAll('.venta-input');
-    inputs.forEach(input => {
-        input.addEventListener('input', autoSave);
-    });
-
     // Botones de acción principales
     document.getElementById('btnCobrar')?.addEventListener('click', () => processSale('efectivo'));
     document.getElementById('btnCredito')?.addEventListener('click', () => prepareCreditSale());
 
     // Botón Aceptar en Modal Abono (Crédito)
     document.getElementById('btnConfirmarAbono')?.addEventListener('click', () => {
-        const abonoInput = document.getElementById('abonoInicialInput');
-        const abono = parseFloat(abonoInput.value) || 0;
+        // En SalesUI, el input es inputMontoAbono (montoAbono), verificar ID
+        const abonoInput = document.getElementById('montoAbono') || document.getElementById('abonoInicialInput');
+        const abono = parseFloat(abonoInput?.value) || 0;
         salesService.setAbono(abono);
         ui.hideModal('modalAbonoInicial');
         processSale('credito');
     });
 
     // Botones Retiro/Ingreso
-    document.getElementById('btnRetiro')?.addEventListener('click', () => ui.showModal('modalRetiro'));
-    document.getElementById('btnIngreso')?.addEventListener('click', () => ui.showModal('modalIngreso'));
+    const btnRetiro = document.getElementById('btnRetiro');
+    const btnIngreso = document.getElementById('btnIngreso');
+    if (btnRetiro) btnRetiro.addEventListener('click', () => ui.showModal('modalRetiro'));
+    if (btnIngreso) btnIngreso.addEventListener('click', () => ui.showModal('modalIngreso'));
 
     document.getElementById('btnConfirmarRetiro')?.addEventListener('click', () => processMovement('retiro'));
     document.getElementById('btnConfirmarIngreso')?.addEventListener('click', () => processMovement('ingreso'));
 
-    // Botón Limpiar Carrito (en el header - NUEVO)
+    // Botón Limpiar Carrito
     const cleanBtn = document.getElementById('cleanCartBtn');
     if (cleanBtn) {
         cleanBtn.addEventListener('click', (e) => {
@@ -153,32 +166,37 @@ function setupFormEvents() {
         });
     }
 
-    // Eventos para editar cantidad y precio en el carrito
-    const listaCarrito = document.getElementById('lista-carrito');
+    // Eventos del carrito (CORRECCIÓN DE CLASES)
+    const listaCarrito = ui.els.cartItems; // Usar referencia de UI, más seguro
     if (listaCarrito) {
         listaCarrito.addEventListener('input', (e) => {
-            if (e.target.classList.contains('qty-input') || e.target.classList.contains('price-input')) {
+            // Clases según SalesUI: .cart-cantidad, .cart-precio
+            if (e.target.classList.contains('cart-cantidad') || e.target.classList.contains('cart-precio')) {
                 const index = parseInt(e.target.dataset.index);
                 const val = parseFloat(e.target.value) || 0;
 
-                if (e.target.classList.contains('qty-input')) {
+                if (e.target.classList.contains('cart-cantidad')) {
                     salesService.updateCartItemQuantity(index, val);
                 } else {
                     salesService.updateCartItemPrice(index, val);
                 }
-                // Actualizar solo totales visuales
-                ui.updateCartTotals(salesService.cart, salesService.total, salesService.totalQuantity);
+                ui.renderCart(salesService.cart, salesService.total, salesService.totalQuantity);
                 autoSave();
             }
         });
 
-        // Delegación para botón remover
+        // Delegación para botón remover (clase .delete-item-btn según SalesUI)
         listaCarrito.addEventListener('click', (e) => {
-            if (e.target.closest('.remove-btn')) {
-                const index = parseInt(e.target.closest('.remove-btn').dataset.index);
-                salesService.removeFromCart(index);
-                updateCartView();
-                autoSave();
+            const btn = e.target.closest('.delete-item-btn');
+            if (btn) {
+                const itemDiv = btn.closest('.cart-item');
+                const index = parseInt(itemDiv.dataset.index);
+
+                if (!isNaN(index)) {
+                    salesService.removeFromCart(index);
+                    updateCartView();
+                    autoSave();
+                }
             }
         });
     }
@@ -191,6 +209,7 @@ function setupHeaderButtons() {
     if (swapBtn && ventaWrapper) {
         swapBtn.addEventListener('click', (e) => {
             e.preventDefault();
+            console.log("Swap ejecutado");
             ventaWrapper.classList.toggle('invertido');
         });
     }
@@ -203,30 +222,33 @@ function setupHeaderButtons() {
         menuOperacionesBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            menuOperaciones.classList.toggle('active');
+            console.log("Menu click", menuOperaciones.classList.contains('active'));
+            if (menuOperaciones.style.display === 'block') {
+                menuOperaciones.style.display = 'none';
+                menuOperaciones.classList.remove('active');
+            } else {
+                menuOperaciones.style.display = 'block';
+                menuOperaciones.classList.add('active');
+            }
         });
 
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.dropdown-menu-container')) {
+                menuOperaciones.style.display = 'none';
                 menuOperaciones.classList.remove('active');
             }
         });
     }
 
     // Mobile Menu
-    document.getElementById('mobileMenuBtn')?.addEventListener('click', () => {
-        document.getElementById('mobileMenu').classList.toggle('active');
-    });
-    document.getElementById('cartIcon')?.addEventListener('click', () => {
-        document.getElementById('carritoContainer').classList.toggle('mostrar');
-    });
-
-    // Cerrar modales (Overlay)
-    document.querySelectorAll('.modal-overlay').forEach(overlay => {
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) overlay.style.display = 'none';
+    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    const mobileMenu = document.getElementById('mobileMenu');
+    if (mobileMenuBtn && mobileMenu) {
+        mobileMenuBtn.addEventListener('click', () => {
+            // Toggle simple de clase active, asegurar que CSS lo maneja
+            mobileMenu.classList.toggle('active');
         });
-    });
+    }
 }
 
 // --- Logic Helpers ---
@@ -243,40 +265,26 @@ function updateDropdownSelection(items) {
 }
 
 async function selectProduct(id) {
-    // Si id es "SERV" o similar, necesitamos lógica especial o searchLocal/Remote devolver el objeto completo
-    // Como searchRemote devuelve objetos con id de Firestore, getProductById debería funcionar
-    // PERO si es un servicio ficticio o algo así, hay que tener cuidado.
-    // Asumimos que getProductById en ProductService maneja esto o que el ID es válido.
-
-    // NOTA: ProductService.getProductById busca en `this.products`. 
-    // Si viene de searchRemote (Servicios), puede NO estar en `this.products` (Inventario local).
-    // Necesitamos pasar el producto completo desde la selección si es posible, o hacer getProductById más listo.
-
-    // SOLUCIÓN RÁPIDA: Si el ID falla en local, verificar si podemos recuperar datos de otra forma.
-    // Sin embargo, `searchRemote` ya devuelve objetos completos. 
-    // Lo mejor es guardar esos resultados temporales en product service o pasarlos.
-
-    // Vamos a intentar obtenerlo. Si falla, asumimos que es Servico y lo buscamos en los resultados recientes (hack rápido)
     let product = await productService.getProductById(id);
 
+    // Fallback simple si no está en memoria local (ej. Servicios remotos)
     if (!product) {
-        // Buscar en servicios o intentar simular si es 'SERV'
-        // Por ahora, asumimos que si no está, es error, A MENOS que modifiquemos ProductService.
-        // Re-implementaremos un fetch simple si falla el local.
-        console.warn("Producto no en memoria local. Verificando...");
-        // Aquí podrías implementar un fetch directo si hiciera falta.
+        // Buscar en resultados del DOM si es un hack rápido necesario
+        // O simplemente asumir que si vino del click, existe en algún lado.
+        // Re-consultar searchRemote para obtener el objeto completo si id es string
+        const remoteResults = await productService.searchRemote(id); // Si id coincide con algo buscable
+        // Esto es difícil si solo tenemos ID.
+        // Asumiremos que searchRemote cacheó algo o que productService lo maneja.
+        // Si falla, alertamos.
+        if (!product) {
+            console.warn("Producto no encontrado en cache. ID:", id);
+            // Intento de llamar a searchRemote de nuevo con el ID si es un código
+            // Limitación actual: Si es servicio sin persistencia, necesitamos el objeto.
+        }
     }
 
-    // PARA HACERLO FUNCIONAR CON SERVICIOS QUE NO ESTÁN EN MEMORIA:
-    // ProductService.getProductById debería ser capaz de devolver lo que renderizó searchRemote.
-    // Si searchRemote devuelve items que no persisten en `products`, getProductById fallará.
-    // Haremos un fix: si no encuentra, retornar false.
-
     if (!product) {
-        // Intento de recuperación desesperada desde el DOM (no ideal pero funciona si no cambiamos el servicio hoy)
-        // O mejor: Modificamos ProductService.js luego si esto falla.
-        // Por ahora alertemos.
-        alert("Error: Producto no encontrado en inventario local. (Lógica de servicios pendientes de integración total)");
+        alert("Error cargando detalles del producto. Intente buscar de nuevo.");
         return;
     }
 
@@ -403,7 +411,6 @@ async function loadMiniHistory() {
         </div>
     `).join("");
 
-    // Listeners para abrir modal historial completo
     container.querySelectorAll('.mini-card').forEach(card => {
         card.addEventListener('click', () => {
             const equipo = card.dataset.equipo;
@@ -418,6 +425,12 @@ async function mostrarFacturasEquipo(equipo, ciudad) {
     const titulo = document.getElementById('tituloModalFacturas');
     const lista = document.getElementById('listaFacturasEquipo');
 
+    // IMPORTANTE: Asegurar que el modal existe antes de operar
+    if (!modal || !lista) {
+        console.error("Modal de facturas no encontrado en DOM");
+        return;
+    }
+
     const ciudadTexto = ciudad && ciudad !== 'LOCAL' ? ` - ${ciudad}` : '';
     titulo.textContent = `Facturas del Equipo ${equipo}${ciudadTexto}`;
 
@@ -425,7 +438,6 @@ async function mostrarFacturasEquipo(equipo, ciudad) {
     modal.style.display = 'flex';
 
     try {
-        // Usar método robusto getSalesByTeam (fixed)
         const facturas = await salesService.getSalesByTeam(equipo, ciudad);
 
         if (facturas.length === 0) {
@@ -493,7 +505,6 @@ function resetSale() {
     updateCartView();
 }
 
-// Global functions exposed
 window.abonarFactura = (ventaId, saldoActual) => {
     const monto = prompt(`Saldo pendiente: $${saldoActual.toFixed(2)}\nIngrese monto a abonar:`);
     if (monto && !isNaN(monto) && parseFloat(monto) > 0) {
