@@ -156,6 +156,9 @@
             <div class="tab-btn" data-target="entradas">
                 <i class="fas fa-truck-loading"></i> Entradas
             </div>
+            <div class="tab-btn" data-target="salidas">
+                <i class="fas fa-sign-out-alt"></i> Salidas
+            </div>
             <div class="tab-btn" data-target="reportes">
                 <i class="fas fa-chart-bar"></i> Reportes
             </div>
@@ -299,7 +302,33 @@
             </div>
         </div>
 
-        <!-- 5. REPORTES -->
+        <!-- 5. SALIDAS (NUEVO) -->
+        <div id="tab-salidas" class="tab-content">
+            <div class="actions-bar">
+                <button class="btn btn-warning" id="btn-open-exit-modal"><i class="fas fa-file-invoice-dollar"></i>
+                    Registrar Salida / Factura</button>
+            </div>
+            <div class="table-responsive">
+                <table class="inventario-table">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Factura #</th>
+                            <th>Items</th>
+                            <th>Total ($)</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="exits-body">
+                        <tr>
+                            <td colspan="5" style="text-align:center;">No hay registros recientes.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 6. REPORTES -->
         <div id="tab-reportes" class="tab-content">
             <h3>Próximamente...</h3>
         </div>
@@ -340,6 +369,131 @@
                     <button type="button" class="btn btn-success" id="btn-update-product">Actualizar</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- MODAL NUEVA SALIDA / FACTURA (REDISEÑO FINAL FINAL - IGUAL A ENTRADA) -->
+    <div id="exit-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content"
+            style="max-width: 95vw; width: 1400px; height: 85vh; padding: 0; display:flex; flex-direction: column;">
+
+            <!-- HEADER (Como Entrada) -->
+            <div class="modal-header" style="padding: 15px 20px; border-bottom: 1px solid #eee;">
+                <h3><i class="fas fa-file-invoice"></i> Registrar Factura Física (Salidas)</h3>
+                <span class="close-modal-btn" id="btn-close-exit-modal"
+                    style="position:static; float:right;">&times;</span>
+            </div>
+
+            <div class="modal-body" style="display: flex; flex: 1; overflow: hidden; padding: 0;">
+
+                <!-- PANEL IZQUIERDO: INPUTS (40%) -->
+                <div
+                    style="width: 40%; padding: 20px; border-right: 1px solid #eee; display: flex; flex-direction: column; gap: 20px; background: #fff;">
+
+                    <!-- 1. Datos Factura (Equivalente a Proveedor) -->
+                    <label style="font-weight:bold; margin-bottom:-10px;">Datos de Factura</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="exit-invoice-number" placeholder="N° Factura"
+                            style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                        <input type="date" id="exit-date"
+                            style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                    </div>
+                    <div id="invoice-warning" style="font-size:0.8rem; color:red; display:none; margin-top:-15px;">
+                    </div>
+
+                    <!-- 1.5 Datos Cliente -->
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                        <label style="font-size:0.9rem; font-weight:bold;">Cliente</label>
+                        <input type="text" id="exit-client-name" placeholder="Nombre del cliente"
+                            style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                    </div>
+
+                    <!-- 2. Inputs Producto (Una linea) -->
+                    <div style="display: flex; gap: 10px; align-items: flex-end;">
+                        <div style="width: 70px;">
+                            <label style="font-size:0.9rem; font-weight:bold;">Cantidad</label>
+                            <input type="number" id="exit-temp-qty" value="1" min="0.1"
+                                style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                        </div>
+
+                        <div style="flex: 1; position: relative;">
+                            <label style="font-size:0.9rem; font-weight:bold;">Buscar nombre del producto</label>
+                            <input type="text" id="exit-temp-search" placeholder="Escribir..."
+                                style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                            <input type="hidden" id="exit-temp-id">
+                            <input type="hidden" id="exit-temp-paper">
+                            <div id="exit-search-results"
+                                style="display:none; position:absolute; z-index:100; background:white; border:1px solid #ccc; width:100%; top:100%; left:0; max-height:200px; overflow:auto;">
+                            </div>
+                        </div>
+
+                        <div style="width: 100px;">
+                            <label style="font-size:0.9rem; font-weight:bold;">Precio/u</label>
+                            <input type="number" id="exit-temp-price" step="0.01" placeholder="0.00"
+                                style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                        </div>
+                    </div>
+
+                    <!-- 3. Opciones (Verticales como imagen) -->
+                    <div>
+                        <label style="font-weight: bold; display:block; margin-bottom:5px;">Factura con crédito
+                            fiscal</label>
+                        <div style="display: flex; gap: 20px;">
+                            <label style="cursor:pointer;"><input type="radio" name="exit-fiscal" value="SI"> SI</label>
+                            <label style="cursor:pointer;"><input type="radio" name="exit-fiscal" value="NO" checked>
+                                NO</label>
+                        </div>
+                    </div>
+
+                    <!-- SPACER EMPUJA BOTONES AL FONDO -->
+                    <div style="flex: 1;"></div>
+
+                    <!-- BOTONES (ABAJO IZQUIERDA - 3 EN LINEA) -->
+                    <div style="display: flex; gap: 8px;">
+                        <button id="btn-cancel-exit"
+                            style="background: #e74c3c; color: white; border: none; padding: 10px 5px; border-radius: 5px; font-weight: bold; flex: 1; font-size: 0.9rem;">Cancelar</button>
+                        <button id="btn-save-exit"
+                            style="background: #2ecc71; color: white; border: none; padding: 10px 5px; border-radius: 5px; font-weight: bold; flex: 1; font-size: 0.9rem;">Guardar</button>
+                        <button id="btn-print-exit"
+                            style="background: #95a5a6; color: white; border: none; padding: 10px 5px; border-radius: 5px; font-weight: bold; flex: 1; font-size: 0.9rem;">Imprimir</button>
+                    </div>
+
+                </div>
+
+                <!-- PANEL DERECHO: LISTA (60%) -->
+                <div style="width: 60%; padding: 20px; display: flex; flex-direction: column; background: #fff;">
+
+                    <!-- Contenedor Borde Azul -->
+                    <div
+                        style="flex: 1; border: 1px solid #3498db; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; background: white;">
+
+                        <div
+                            style="display: flex; padding: 10px; font-weight: bold; color: #333; border-bottom: 1px solid #eee; background:#f8f9fa;">
+                            <div style="width: 80px;">Cod.</div>
+                            <div style="flex: 1;">Descripcion</div>
+                            <div style="width: 100px; text-align: center;">Cantidad</div>
+                            <div style="width: 100px; text-align: right;">Total</div>
+                            <div style="width: 40px;"></div>
+                        </div>
+
+                        <div style="flex: 1; overflow-y: auto;">
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <tbody id="exit-cart-body">
+                                    <!-- Rows JS -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                    </div>
+
+                    <!-- Total Fuera del borde -->
+                    <div
+                        style="text-align: right; padding-top: 10px; font-size: 1.5rem; font-weight: bold; color: #333;">
+                        Total: <span id="exit-total-display" style="border-bottom: 2px solid #333;">$ 0.00</span>
+                    </div>
+
+                </div>
+            </div>
         </div>
     </div>
 

@@ -112,6 +112,179 @@ class InventoryService {
             throw error;
         }
     }
+
+    // Buscar producto por termino (busqueda inteligente: codigo, nombre o alias)
+    async buscarProductoInteligente(term) {
+        if (!term) return [];
+        term = term.toLowerCase().trim();
+
+        try {
+            // Nota: Firestore no tiene "OR" nativo facil ni busqueda full-text en cliente plano.
+            // Traemos todo (ya cacheado en Controller) o hacemos query simple.
+            // Para eficiencia, asumiremos que el Controller le pasa la lista completa o filtrada,
+            // PERO aqui dejare un metodo util si quisieramos ir al server.
+            // En este caso, usaremos la logica de filtrado en el Controller sobre la cache local para velocidad.
+            return [];
+        } catch (e) { return []; }
+    }
+
+    // Registrar Salida / Factura Fisica (Y aprender alias)
+    async registrarSalida(header, items) {
+        const db = firebase.firestore();
+        const exitsRef = db.collection('INVENTARIO_SALIDAS');
+
+        return db.runTransaction(async (transaction) => {
+            const updates = [];
+
+            // FASE 1: LECTURAS (Todo get debe ir antes de cualquier update/set)
+            for (const item of items) {
+                if (!item.productId) continue; // Si no se vinculo a nada, no leemos nada
+
+                const productRef = this.collection.doc(item.productId);
+                const doc = await transaction.get(productRef);
+
+                if (!doc.exists) throw `Producto ${item.productId} no existe.`;
+                updates.push({ ref: productRef, docData: doc.data(), itemInfo: item });
+            }
+
+            // FASE 2: ESCRITURAS
+            // A. Actualizar Stock y Alias de Productos
+            for (const up of updates) {
+                const pData = up.docData;
+                const item = up.itemInfo;
+
+                // Calculo Stock
+                const currentStock = parseFloat(pData.existencia || 0);
+                const qty = parseFloat(item.cantidad || 0);
+                const newStock = currentStock - qty;
+
+                const updatePayload = { existencia: newStock };
+
+                // Logica Alias (Si la descripcion papel es diferente a la oficial)
+                const rawDesc = (item.descripcionPapel || "").trim();
+                if (rawDesc && rawDesc.length > 2) {
+                    const oficial = (pData.descripcion || "").toLowerCase();
+                    const input = rawDesc.toLowerCase();
+                    if (input !== oficial && !oficial.includes(input)) {
+                        let aliases = pData.aliases || [];
+                        if (!aliases.includes(input)) {
+                            aliases.push(input);
+                            updatePayload.aliases = aliases;
+                        }
+                    }
+                }
+
+                transaction.update(up.ref, updatePayload);
+            }
+
+            // B. Guardar Documento de Salida
+            const exitDocRef = exitsRef.doc();
+            transaction.set(exitDocRef, {
+                ...header, // fecha, numeroFactura, CLIENTE
+                items: items,
+                total: items.reduce((sum, i) => sum + (i.total || 0), 0),
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        });
+    }
+
+    async obtenerSalidas() {
+        try {
+            const snapshot = await firebase.firestore()
+                .collection('INVENTARIO_SALIDAS')
+                .orderBy('fecha', 'desc') // Usar fecha de factura
+                .limit(50)
+                .get();
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch (e) {
+            console.error(e);
+            return [];
+        }
+    }
+
+    // Revertir una salida (Devolver stock)
+    async revertirSalida(exitId) {
+        const db = firebase.firestore();
+        const exitRef = db.collection('INVENTARIO_SALIDAS').doc(exitId);
+
+        return db.runTransaction(async (transaction) => {
+            const exitDoc = await transaction.get(exitRef);
+            if (!exitDoc.exists) throw "Registro no encontrado";
+
+            const data = exitDoc.data();
+            if (data.revertida) throw "Esta salida ya fue revertida anteriormente.";
+
+            // Devolver stock item por item
+            for (const item of data.items) {
+                if (item.productId) {
+                    const productRef = this.collection.doc(item.productId);
+                    const pDoc = await transaction.get(productRef);
+                    if (pDoc.exists) {
+                        const currentStock = parseFloat(pDoc.data().existencia || 0);
+                        const qtyToReturn = parseFloat(item.cantidad || 0);
+                        transaction.update(productRef, {
+                            existencia: currentStock + qtyToReturn
+                        });
+                    }
+                }
+            }
+
+            // Marcar como revertida
+            transaction.update(exitRef, {
+                revertida: true,
+                revertidaFecha: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        });
+    }
+
+    // Eliminar registro de salida
+    async eliminarSalida(exitId) {
+        try {
+            await firebase.firestore().collection('INVENTARIO_SALIDAS').doc(exitId).delete();
+            return true;
+        } catch (e) {
+            console.error(e);
+            throw e;
+        }
+    }
+
+    // Obtener el ultimo numero de factura registrado
+    async getLastInvoiceNumber() {
+        try {
+            const snapshot = await firebase.firestore()
+                .collection('INVENTARIO_SALIDAS')
+                .orderBy('fecha', 'desc') // Ordenar por fecha reciente
+                .limit(10) // Traer ultimas 10 para buscar serie
+                .get();
+
+            if (snapshot.empty) return 0;
+
+            // Buscar el maximo numero que sea numerico
+            let maxNum = 0;
+            snapshot.docs.forEach(doc => {
+                const num = parseInt(doc.data().numeroFactura) || 0;
+                if (num > maxNum) maxNum = num;
+            });
+
+            return maxNum;
+        } catch (e) {
+            console.error(e);
+            return 0;
+        }
+    }
+
+    // Verificar si existe factura
+    async checkInvoiceExists(num) {
+        try {
+            const snapshot = await firebase.firestore()
+                .collection('INVENTARIO_SALIDAS')
+                .where('numeroFactura', '==', num.toString())
+                .limit(1)
+                .get();
+            return !snapshot.empty;
+        } catch (e) { return false; }
+    }
+
     // =========================================================
     // NUEVAS FUNCIONES: ENTRADAS, COSTO PROMEDIO Y PROVEEDORES
     // =========================================================
@@ -128,78 +301,63 @@ class InventoryService {
     }
 
     // Registrar entrada MASIVA (Múltiples items)
-    // items: [{ productId, name (if new), qty, cost }, ...]
     async registrarEntradaMasiva(items, providerId, providerName, isCredito) {
         const db = firebase.firestore();
         const entriesRef = db.collection('INVENTARIO_ENTRADAS');
         const providerRef = providerId ? db.collection('cuentas').doc(providerId) : null;
 
         return db.runTransaction(async (transaction) => {
+            // PHASE 1: READS
+            const productReads = [];
+            const newProductOps = []; // Items que son nuevos productos
+
+            // A. Leer Productos Existentes y Proveedor
+            for (const item of items) {
+                if (item.productId) {
+                    const ref = this.collection.doc(item.productId);
+                    const doc = await transaction.get(ref);
+                    if (!doc.exists) throw `Producto ${item.productId} no encontrado.`;
+                    productReads.push({ ref, doc, item });
+                } else {
+                    newProductOps.push(item);
+                }
+            }
+
+            let providerData = null;
+            if (isCredito && providerRef) {
+                const pDoc = await transaction.get(providerRef);
+                if (pDoc.exists) providerData = pDoc.data();
+            }
+
+            // PHASE 2: WRITES & CALCULATIONS
             let totalCostBatch = 0;
 
-            for (const item of items) {
-                let productRef;
-                let currentStock = 0;
-                let currentCost = 0;
-                let finalName = item.name; // Nombre final para historia
+            // 1. Procesar Productos Existentes
+            for (const pRead of productReads) {
+                const pData = pRead.doc.data();
+                const item = pRead.item;
 
-                // A. Manejo del Producto (Existente vs Nuevo)
-                if (item.productId) {
-                    // Producto Existente
-                    productRef = this.collection.doc(item.productId);
-                    const doc = await transaction.get(productRef);
-                    if (!doc.exists) throw `Producto con ID ${item.productId} no encontrado.`;
-
-                    const pData = doc.data();
-                    currentStock = parseFloat(pData.existencia || 0);
-                    currentCost = parseFloat(pData.costo || 0);
-                    finalName = pData.descripcion; // Usar nombre oficial
-                } else {
-                    // Producto Nuevo (Crear al vuelo)
-                    const newProdRef = this.collection.doc();
-                    productRef = newProdRef;
-
-                    // Crear el documento del producto
-                    transaction.set(newProdRef, {
-                        codigo: "GEN-" + Math.floor(Math.random() * 10000), // Código temporal o generico
-                        descripcion: item.name,
-                        descripcionFactura: item.name,
-                        costo: item.cost, // Costo inicial
-                        precio: item.cost * 1.30, // Precio sugerido +30%
-                        existencia: 0, // Se sumará abajo
-                        stockMinimo: 5,
-                        creditoFiscal: false,
-                        proveedor: providerName || ""
-                    });
-
-                    currentStock = 0;
-                    currentCost = item.cost;
-                    item.productId = newProdRef.id; // Asignar ID generado
-                }
-
-                // B. Cálculos
+                const currentStock = parseFloat(pData.existencia || 0);
+                const currentCost = parseFloat(pData.costo || 0);
                 const entryQty = parseFloat(item.qty);
                 const entryCost = parseFloat(item.cost);
-                const newStock = currentStock + entryQty;
 
+                const newStock = currentStock + entryQty;
                 let newCost = currentCost;
+
+                // WAC
                 if (newStock > 0) {
-                    // WAC: (ValorStockActual + ValorEntrada) / NuevoStock
                     const totalValue = (currentStock * currentCost) + (entryQty * entryCost);
                     newCost = totalValue / newStock;
                 }
 
-                // C. Actualizar Producto (Solo stock y costo)
-                transaction.update(productRef, {
-                    existencia: newStock,
-                    costo: newCost
-                });
+                transaction.update(pRead.ref, { existencia: newStock, costo: newCost });
 
-                // D. Log Historial
+                // Log Historial
                 const entryDocRef = entriesRef.doc();
                 transaction.set(entryDocRef, {
                     productId: item.productId,
-                    productName: finalName,
+                    productName: pData.descripcion,
                     cantidad: entryQty,
                     costoUnitario: entryCost,
                     costoAnterior: currentCost,
@@ -215,15 +373,50 @@ class InventoryService {
                 totalCostBatch += (entryQty * entryCost);
             }
 
-            // E. Actualizar Saldo Proveedor (Una sola vez por el total)
-            if (isCredito && providerRef) {
-                const pDoc = await transaction.get(providerRef);
-                if (pDoc.exists) {
-                    const currentBalance = parseFloat(pDoc.data().saldo || 0);
-                    transaction.update(providerRef, {
-                        saldo: currentBalance + totalCostBatch
-                    });
-                }
+            // 2. Procesar Productos Nuevos
+            for (const item of newProductOps) {
+                const newProdRef = this.collection.doc();
+                const entryQty = parseFloat(item.qty);
+                const entryCost = parseFloat(item.cost);
+
+                transaction.set(newProdRef, {
+                    codigo: "GEN-" + Math.floor(Math.random() * 10000),
+                    descripcion: item.name,
+                    descripcionFactura: item.name,
+                    costo: entryCost,
+                    precio: entryCost * 1.30,
+                    existencia: entryQty,
+                    stockMinimo: 5,
+                    creditoFiscal: false,
+                    proveedor: providerName || ""
+                });
+
+                // Log Historial (Nuevo)
+                const entryDocRef = entriesRef.doc();
+                transaction.set(entryDocRef, {
+                    productId: newProdRef.id,
+                    productName: item.name,
+                    cantidad: entryQty,
+                    costoUnitario: entryCost,
+                    costoAnterior: 0,
+                    costoNuevo: entryCost,
+                    stockAnterior: 0,
+                    stockNuevo: entryQty,
+                    providerId: providerId || null,
+                    providerName: providerName || null,
+                    esCredito: isCredito,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                totalCostBatch += (entryQty * entryCost);
+            }
+
+            // 3. Actualizar Saldo Proveedor
+            if (isCredito && providerRef && providerData) {
+                const currentBalance = parseFloat(providerData.saldo || 0);
+                transaction.update(providerRef, {
+                    saldo: currentBalance + totalCostBatch
+                });
             }
         });
     }
@@ -250,65 +443,54 @@ class InventoryService {
         const entryRef = db.collection('INVENTARIO_ENTRADAS').doc(entryId);
 
         return db.runTransaction(async (transaction) => {
-            // 1. Leer Entrada
+            // PHASE 1: READS
             const entryDoc = await transaction.get(entryRef);
-            if (!entryDoc.exists) throw "La entrada no existe o ya fue borrada.";
+            if (!entryDoc.exists) throw "La entrada no existe.";
             const entry = entryDoc.data();
+            if (entry.revertida) throw "Entrada ya revertida.";
 
-            if (entry.revertida) throw "Esta entrada ya fue revertida.";
-
-            // 2. Leer Producto
             const productRef = this.collection.doc(entry.productId);
             const productDoc = await transaction.get(productRef);
 
+            let providerDoc = null;
+            let providerRef = null;
+            if (entry.esCredito && entry.providerId) {
+                providerRef = db.collection('cuentas').doc(entry.providerId);
+                providerDoc = await transaction.get(providerRef);
+            }
+
+            // PHASE 2: WRITES
+            // Revertir Producto
             if (productDoc.exists) {
-                const product = productDoc.data();
-                const currentStock = parseFloat(product.existencia || 0);
-                const currentAvgCost = parseFloat(product.costo || 0);
+                const pData = productDoc.data();
+                const currentStock = parseFloat(pData.existencia || 0);
+                const currentAvgCost = parseFloat(pData.costo || 0);
                 const qtyToRemove = parseFloat(entry.cantidad);
                 const costToRemove = parseFloat(entry.costoUnitario);
-
-                // Matematica Inversa WAC:
-                // NuevoTotal = (StockActual * CostoPromActual) - (CantEntrada * CostoEntrada)
-                // NuevoStock = StockActual - CantEntrada
 
                 const finalStock = currentStock - qtyToRemove;
                 let finalCost = currentAvgCost;
 
                 if (finalStock > 0) {
-                    const currentTotalValue = currentStock * currentAvgCost;
-                    const valueToRemove = qtyToRemove * costToRemove;
-                    finalCost = (currentTotalValue - valueToRemove) / finalStock;
-
-                    // Sanity check: Cost shouldn't be negative (floating point errors)
+                    const currentTotalVal = currentStock * currentAvgCost;
+                    const valToRemove = qtyToRemove * costToRemove;
+                    finalCost = (currentTotalVal - valToRemove) / finalStock;
                     if (finalCost < 0) finalCost = 0;
                 } else {
-                    finalCost = 0; // O mantener el ultimo conocido, pero si no hay stock, costo 0 es seguro
+                    finalCost = 0;
                 }
 
-                transaction.update(productRef, {
-                    existencia: finalStock,
-                    costo: finalCost
-                });
+                transaction.update(productRef, { existencia: finalStock, costo: finalCost });
             }
 
-            // 3. Revertir Saldo Proveedor (Si fue crédito)
-            if (entry.esCredito && entry.providerId) {
-                const providerRef = db.collection('cuentas').doc(entry.providerId);
-                const providerDoc = await transaction.get(providerRef);
-
-                if (providerDoc.exists) {
-                    const currentBalance = parseFloat(providerDoc.data().saldo || 0);
-                    const amountDeducted = parseFloat(entry.cantidad) * parseFloat(entry.costoUnitario);
-                    transaction.update(providerRef, {
-                        saldo: currentBalance - amountDeducted
-                    });
-                }
+            // Revertir Proveedor
+            if (providerRef && providerDoc && providerDoc.exists) {
+                const currentBalance = parseFloat(providerDoc.data().saldo || 0);
+                const amount = parseFloat(entry.cantidad) * parseFloat(entry.costoUnitario);
+                transaction.update(providerRef, { saldo: currentBalance - amount });
             }
 
-            // 4. Marcar entrada como revertida (o borrarla, pero mejor marcarla)
-            // User asked "Opción de REVERTIR", history is usually kept.
-            // Para mantener el historial limpio, podemos marcarla como "ANULADA" en el UI.
+            // Marcar Revertida
             transaction.update(entryRef, {
                 revertida: true,
                 revertidaFecha: firebase.firestore.FieldValue.serverTimestamp()
@@ -330,3 +512,4 @@ class InventoryService {
 
 // Exponer globalmente
 window.InventoryService = InventoryService;
+

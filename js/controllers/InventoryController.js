@@ -44,6 +44,7 @@ class InventoryController {
                 const target = btn.dataset.target;
                 this.ui.activateTab(target);
                 if (target === 'entradas') this.loadEntries();
+                if (target === 'salidas') this.loadExitsLog();
             });
         });
 
@@ -106,6 +107,64 @@ class InventoryController {
 
         const btnProcessEntry = document.getElementById('btn-process-entry');
         if (btnProcessEntry) btnProcessEntry.addEventListener('click', () => this.processEntry());
+
+        // SALIDAS EVENTS (NUEVO REFACTOR)
+        const btnOpenExit = document.getElementById('btn-open-exit-modal');
+        if (btnOpenExit) btnOpenExit.addEventListener('click', () => this.openExitModal());
+
+        const btnCloseExit = document.getElementById('btn-close-exit-modal');
+        if (btnCloseExit) btnCloseExit.addEventListener('click', () => this.closeExitModal());
+
+        const btnCancelExit = document.getElementById('btn-cancel-exit');
+        if (btnCancelExit) btnCancelExit.addEventListener('click', () => this.closeExitModal());
+
+        const btnSaveExit = document.getElementById('btn-save-exit');
+        if (btnSaveExit) btnSaveExit.addEventListener('click', () => this.saveExit());
+
+        const btnPrintExit = document.getElementById('btn-print-exit');
+        if (btnPrintExit) btnPrintExit.addEventListener('click', () => alert("Funcion Imprimir en desarrollo..."));
+
+        // Lógica de Inputs Salida (Enter Navigation)
+        const exitQty = document.getElementById('exit-temp-qty');
+        if (exitQty) {
+            exitQty.addEventListener('keydown', (e) => this.handleExitInputKey(e, 'qty'));
+            // Seleccionar texto al enfocar para sobreescribir facil
+            exitQty.addEventListener('focus', () => exitQty.select());
+        }
+
+        const exitSearch = document.getElementById('exit-temp-search');
+        if (exitSearch) {
+            exitSearch.addEventListener('input', (e) => this.searchProductExit(e.target.value));
+            exitSearch.addEventListener('keydown', (e) => this.handleExitInputKey(e, 'search'));
+            // Close suggestion logic
+            document.addEventListener('click', (e) => {
+                if (e.target !== exitSearch && !e.target.closest('#exit-search-results')) {
+                    const res = document.getElementById('exit-search-results');
+                    if (res) res.style.display = 'none';
+                }
+            });
+        }
+
+        const exitPrice = document.getElementById('exit-temp-price');
+        if (exitPrice) {
+            exitPrice.addEventListener('keydown', (e) => this.handleExitInputKey(e, 'price'));
+            exitPrice.addEventListener('focus', () => exitPrice.select());
+        }
+
+        // Validacion Factura en tiempo real
+        const invNumInput = document.getElementById('exit-invoice-number');
+        if (invNumInput) {
+            invNumInput.addEventListener('blur', async () => {
+                const val = parseInt(invNumInput.value) || 0;
+                if (val > 0) {
+                    const last = await this.svc.getLastInvoiceNumber(); // Podriamos optimizar esto cacheando el lastNum
+                    this.checkInvoiceJump(val, last);
+                }
+            });
+        }
+
+
+
 
         // Cost Input Enter
         const costInput = document.getElementById('entry-temp-cost');
@@ -650,6 +709,343 @@ class InventoryController {
             this.loadData();
         }
     }
+
+    // =========================================
+    // MODULO SALIDAS / FACTURAS FISICAS
+    // =========================================
+
+    async openExitModal() {
+        this.exitCart = [];
+        document.getElementById('exit-modal').style.display = 'flex';
+
+        // Reset Inputs
+        document.getElementById('exit-date').valueAsDate = new Date();
+        const invoiceInput = document.getElementById('exit-invoice-number');
+        invoiceInput.value = 'Cargando...';
+
+        // Cargar ultimo numero
+        const lastNum = await this.svc.getLastInvoiceNumber();
+        const nextNum = lastNum + 1;
+
+        invoiceInput.value = nextNum;
+        this.checkInvoiceJump(nextNum, lastNum); // Check visual
+
+        this.clearExitInputs();
+        this.renderExitCart();
+
+        // Focus first logical input (after date/invoice setup) -> Cantidad
+        setTimeout(() => document.getElementById('exit-temp-qty').focus(), 100);
+    }
+
+    clearExitInputs() {
+        document.getElementById('exit-temp-qty').value = 1;
+        document.getElementById('exit-temp-search').value = '';
+        document.getElementById('exit-temp-id').value = '';
+        document.getElementById('exit-temp-paper').value = '';
+        document.getElementById('exit-temp-price').value = ''; // Empty so placeholder shows
+    }
+
+    closeExitModal() {
+        document.getElementById('exit-modal').style.display = 'none';
+        this.exitCart = [];
+    }
+
+    // --- LOGICA DE FACTURA ----
+    async checkInvoiceJump(current, last) {
+        const warningParams = document.getElementById('invoice-warning');
+        if (!warningParams) return;
+
+        warningParams.style.display = 'none';
+        warningParams.innerText = '';
+
+        if (current > (last + 1) && last > 0) {
+            const jump = current - last - 1;
+            warningParams.innerText = `⚠️ Salto de ${jump} facturas (Ultima: ${last})`;
+            warningParams.style.display = 'block';
+        }
+
+        // Validar si existe (duplicada)
+        const exists = await this.svc.checkInvoiceExists(current);
+        if (exists) {
+            warningParams.innerText = `⛔ LA FACTURA ${current} YA EXISTE`;
+            warningParams.style.color = 'red';
+            warningParams.style.display = 'block';
+            document.getElementById('btn-save-exit').disabled = true;
+        } else {
+            document.getElementById('btn-save-exit').disabled = false;
+            if (warningParams.style.color === 'red') warningParams.style.display = 'none'; // Clear error
+        }
+    }
+
+    // --- LOGICA DE INPUTS (ENTER NAVIGATION) ----
+    handleExitInputKey(e, field) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (field === 'qty') document.getElementById('exit-temp-search').focus();
+            if (field === 'search') {
+                // Si selecciono algo del dropdown, eso ya maneja el foco. 
+                // Si escribio texto libre y dio enter, pasa a precio.
+                document.getElementById('exit-temp-price').focus();
+            }
+            if (field === 'price') this.addExitItem();
+        }
+    }
+
+    // --- BUSQUEDA UNIFICADA ----
+    searchProductExit(term) {
+        const resDiv = document.getElementById('exit-search-results');
+        const hiddenId = document.getElementById('exit-temp-id');
+        const hiddenPaper = document.getElementById('exit-temp-paper');
+
+        // Siempre actualizar "Paper Description" con lo que escribe el usuario (fallback)
+        hiddenPaper.value = term;
+        hiddenId.value = ''; // Reset ID match until user clicks one
+
+        if (!term) { resDiv.style.display = 'none'; return; }
+
+        const matches = this.findCachedMatches(term);
+
+        resDiv.innerHTML = '';
+        if (matches.length > 0) {
+            resDiv.style.display = 'block';
+            matches.forEach(p => {
+                const div = document.createElement('div');
+                div.style.padding = '8px'; div.style.borderBottom = '1px solid #eee'; div.style.cursor = 'pointer';
+                div.innerHTML = `<b>${p.codigo}</b> - ${p.descripcion}<br><small>Precio: $${p.precio} | Stock: ${p.existencia}</small>`;
+                div.onmouseover = () => div.style.backgroundColor = '#f0f0f0';
+                div.onmouseout = () => div.style.backgroundColor = 'white';
+                div.onclick = () => {
+                    this.selectExitProduct(p);
+                    resDiv.style.display = 'none';
+                };
+                resDiv.appendChild(div);
+            });
+        } else {
+            resDiv.style.display = 'none';
+        }
+    }
+
+    selectExitProduct(p) {
+        // Al seleccionar, llenamos con datos oficiales
+        document.getElementById('exit-temp-search').value = p.descripcion;
+        document.getElementById('exit-temp-id').value = p.id;
+        document.getElementById('exit-temp-paper').value = p.descripcion; // Override paper with exact match logic
+
+        // Auto fill price
+        document.getElementById('exit-temp-price').value = p.precio || 0;
+
+        // Focus Price directly
+        document.getElementById('exit-temp-price').focus();
+    }
+
+    // --- AGREGAR ITEMS ----
+    addExitItem() {
+        const qty = parseFloat(document.getElementById('exit-temp-qty').value) || 0;
+        const sysId = document.getElementById('exit-temp-id').value;
+        const paperDesc = document.getElementById('exit-temp-paper').value; // Lo que escribio o selecciono
+        const price = parseFloat(document.getElementById('exit-temp-price').value) || 0;
+
+        if (qty <= 0) { alert("Cantidad inválida"); return; }
+        if (!paperDesc && !sysId) { alert("Debe ingresar una descripción."); return; }
+        if (price < 0) { alert("Precio inválido"); return; }
+
+        this.exitCart.push({
+            tempId: Date.now(),
+            cantidad: qty,
+            descripcionPapel: paperDesc,
+            productId: sysId || null,
+            precioUnitario: price,
+            total: qty * price
+        });
+
+        this.clearExitInputs();
+        document.getElementById('exit-temp-qty').focus(); // Vuelta al inicio (Ciclo Rapido)
+        this.renderExitCart();
+    }
+
+    renderExitCart() {
+        const tbody = document.getElementById('exit-cart-body');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        let totalVal = 0;
+
+        this.exitCart.forEach(item => {
+            totalVal += item.total;
+
+            // Render Description Column
+            let desc = item.descripcionPapel;
+            let code = item.productId ? '<i class="fas fa-check" style="color:green"></i>' : '<i class="fas fa-pen" style="color:orange"></i>';
+            // Try to find code from cache for display if linked
+            if (item.productId) {
+                const p = this.cache.find(x => x.id === item.productId);
+                if (p) { code = p.codigo || "LINK"; }
+            }
+
+            tbody.innerHTML += `
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td>${code}</td>
+                    <td>${desc}</td>
+                    <td style="text-align:center;">${item.cantidad}</td>
+                    <td style="text-align:right;">$${item.total.toFixed(2)}</td>
+                    <td style="width:30px;">
+                        <button onclick="app.removeExitItem(${item.tempId})" style="color:red;border:none;background:none;cursor:pointer;">
+                            &times;
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        document.getElementById('exit-total-display').innerText = "$ " + totalVal.toFixed(2);
+    }
+
+    removeExitItem(tid) {
+        this.exitCart = this.exitCart.filter(i => i.tempId !== tid);
+        this.renderExitCart();
+    }
+
+    async saveExit() {
+        const date = document.getElementById('exit-date').value;
+        const invoice = document.getElementById('exit-invoice-number').value;
+        // Get Fiscal Credit Status
+        const fiscalRadio = document.querySelector('input[name="exit-fiscal"]:checked');
+        const isFiscal = fiscalRadio ? fiscalRadio.value : "NO";
+
+        if (!date || !invoice) { alert("Falta Fecha o Número de Factura"); return; }
+        if (this.exitCart.length === 0) { alert("La lista está vacía"); return; }
+
+        if (confirm(`¿Guardar Factura #${invoice}?`)) {
+            try {
+                const btn = document.getElementById('btn-save-exit');
+                if (btn) { btn.disabled = true; btn.innerText = "Guardando..."; }
+
+                // Add header info
+                const clientName = document.getElementById('exit-client-name').value || "CLIENTES VARIOS";
+                const header = {
+                    fecha: date,
+                    numeroFactura: invoice,
+                    cliente: clientName,
+                    creditoFiscal: isFiscal === "SI"
+                };
+
+                await this.svc.registrarSalida(header, this.exitCart);
+
+                alert("Guardada Correctamente!");
+                this.closeExitModal();
+                this.loadData();
+                this.ui.activateTab('salidas');
+                this.loadExitsLog();
+
+            } catch (e) {
+                alert("Error: " + e);
+            } finally {
+                const btn = document.getElementById('btn-save-exit');
+                if (btn) { btn.disabled = false; btn.innerText = "Guardar"; }
+            }
+        }
+    }
+
+    async loadExitsLog() {
+        const tbody = document.getElementById('exits-body');
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center">Cargando...</td></tr>';
+
+        const exits = await this.svc.obtenerSalidas();
+
+        tbody.innerHTML = '';
+        if (exits.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center">No hay registros</td></tr>';
+            return;
+        }
+
+        exits.forEach(e => {
+            // Formato de fecha completo
+            let dateStr = e.fecha || "Sin Fecha";
+            if (e.timestamp) {
+                const d = new Date(e.timestamp.seconds * 1000);
+                dateStr = d.toLocaleString(); // Muestra fecha y hora local
+            } else if (e.fecha) {
+                // Si solo hay fecha STRING YYYY-MM-DD
+                const parts = e.fecha.split('-');
+                if (parts.length === 3) dateStr = `${parts[2]}/${parts[1]}/${parts[0]}`;
+            }
+
+            // Generate Items Summary
+            const itemsList = e.items.map(i => {
+                const productUsed = i.productId ? "" : "<span style='color:red'>(Sin Match)</span>";
+                return `<div>${i.descripcionPapel} ${productUsed} <small style="color:#888">(${i.cantidad})</small></div>`;
+            }).join('');
+
+            // Status Badge
+            const statusBadge = e.revertida
+                ? '<span style="background: #ffebee; color: #c62828; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">ANULADA</span>'
+                : '<span style="background: #e0f2f1; color: #00695c; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">ACTIVA</span>';
+
+            // Actions Buttons
+            let actionBtns = '';
+
+            if (!e.revertida) {
+                // Si esta activa: Permitir Revertir
+                actionBtns += `<button class="btn btn-sm btn-warning" onclick="app.revertExit('${e.id}')" title="Revertir Stock"><i class="fas fa-undo"></i></button> `;
+            } else {
+                // Si esta revertida: Permitir eliminar historial
+                actionBtns += `<button class="btn btn-sm btn-danger" onclick="app.deleteExit('${e.id}')" title="Eliminar Registro"><i class="fas fa-trash"></i></button>`;
+            }
+
+            tbody.innerHTML += `
+                <tr style="vertical-align:middle; border-bottom:1px solid #eee;">
+                    <td style="font-size:0.9rem;">${dateStr}</td>
+                    <td style="text-align:center;">
+                        <strong>${e.numeroFactura || 'S/N'}</strong><br>
+                        ${statusBadge}
+                    </td>
+                    <td>
+                        <div style="font-weight:bold; margin-bottom:5px; color:#555;">${e.cliente || 'CLIENTES VARIOS'}</div>
+                        ${itemsList}
+                    </td>
+                    <td style="text-align:right; font-weight:bold;">$${e.total.toFixed(2)}</td>
+                    <td style="text-align:center;">
+                        ${actionBtns}
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    async revertExit(id) {
+        if (confirm("¿Seguro que desea REVERTIR esta salida? El stock será devuelto al inventario.")) {
+            try {
+                await this.svc.revertirSalida(id);
+                alert("Salida revertida y stock restaurado.");
+                this.loadExitsLog();
+                this.loadData();
+            } catch (e) { alert("Error: " + e); }
+        }
+    }
+
+    async deleteExit(id) {
+        if (confirm("¿Eliminar este registro del historial permanentemente?")) {
+            try {
+                await this.svc.eliminarSalida(id);
+                this.loadExitsLog();
+            } catch (e) { alert("Error: " + e); }
+        }
+    }
+
+
+
+    findCachedMatches(term) {
+        term = term.toLowerCase();
+        return this.cache.filter(p => {
+            const codigo = (p.codigo || "").toLowerCase();
+            const desc = (p.descripcion || "").toLowerCase();
+            const aliases = (p.aliases || []).map(a => a.toLowerCase()); // Check aliases too!
+
+            return codigo.includes(term) || desc.includes(term) || aliases.some(a => a.includes(term));
+        }).slice(0, 8);
+    }
+
+
 }
 
 // Inicializar cuando el DOM esté listo o inmediatamente si script al final
