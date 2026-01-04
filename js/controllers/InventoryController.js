@@ -1,159 +1,134 @@
-import { InventoryService } from "../services/InventoryService.js";
-import { InventoryUI } from "../ui/InventoryUI.js";
+import { InventoryService } from '../services/InventoryService.js';
 
-const service = new InventoryService();
-const ui = new InventoryUI();
-let searchTimeout = null;
-let excelData = []; // Store parsed excel data
+export class InventoryController {
+    constructor() {
+        this.inventoryService = new InventoryService();
+        this.tablaCuerpo = document.getElementById('inventario-body');
+        this.productosExcel = [];
+        this.init();
+    }
 
-async function init() {
-    console.log("📦 Inicializando Módulo de Inventario...");
-    await service.loadAll();
-    ui.renderTable(service.products);
-    setupEventListeners();
+    async init() {
+        console.log('Iniciando Inventario...');
+        this.setupEventListeners();
+        await this.cargarYMostrarProductos();
+    }
 
-    // Expose global functions for HTML attributes
-    window.inventario = {
-        cambiarTab: (tabId) => ui.activateTab(tabId)
-    };
+    setupEventListeners() {
+        // Pestañas
+        const botonesMenu = document.querySelectorAll('.inventario-sidebar-item');
+        botonesMenu.forEach(boton => {
+            boton.addEventListener('click', () => {
+                const tabId = boton.getAttribute('data-tab');
+                this.cambiarPestana(tabId);
+            });
+        });
 
-    // Global actions called from HTML onclick
-    window.editarProducto = async (id) => {
-        const product = service.products.find(p => p.id === id);
-        if (product) ui.showEditModal(product);
-    };
+        // Botón Actualizar
+        const btnActualizar = document.getElementById('actualizar-inventario-btn');
+        if (btnActualizar) {
+            btnActualizar.addEventListener('click', () => this.cargarYMostrarProductos());
+        }
 
-    window.eliminarProducto = async (id) => {
-        if (confirm("¿Estás seguro de eliminar este producto? Esta acción no se puede deshacer.")) {
-            try {
-                await service.deleteProduct(id);
-                ui.renderTable(service.products); // Update table locally
-                alert("✅ Producto eliminado");
-            } catch (e) {
-                alert("Error eliminando: " + e.message);
+        // --- BOTÓN BORRAR TODO (NUEVO) ---
+        // Lo buscaré o lo crearé dinámicamente si no existe en HTML
+        let btnBorrar = document.getElementById('borrar-todo-btn');
+        if (!btnBorrar) {
+            // Inyectar botón si no existe (para probar rápido)
+            const contenedorAcciones = document.querySelector('.inventario-actions div');
+            if (contenedorAcciones) {
+                btnBorrar = document.createElement('button');
+                btnBorrar.id = 'borrar-todo-btn';
+                btnBorrar.className = 'btn btn-danger';
+                btnBorrar.innerHTML = '<i class="fas fa-trash-alt"></i> BORRAR TODO';
+                btnBorrar.style.marginLeft = '10px';
+                contenedorAcciones.appendChild(btnBorrar);
             }
         }
-    };
 
-    window.cerrarModalEditar = () => ui.hideEditModal();
-}
+        if (btnBorrar) {
+            btnBorrar.addEventListener('click', async () => {
+                const seguro = confirm("⚠️ ¿ESTÁS SEGURO? \n\nEsto borrará TODOS los productos del inventario permanentemente. \n\n¿Continuar?");
+                if (seguro) {
+                    await this.borrarInventarioCompleto();
+                }
+            });
+        }
+    }
 
-function setupEventListeners() {
-    // 1. Search
-    ui.els.searchInput.addEventListener('input', (e) => {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => {
-            const results = service.search(e.target.value);
-            ui.renderTable(results);
-        }, 300);
-    });
+    cambiarPestana(tabId) {
+        document.querySelectorAll('.inventario-sidebar-item').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 
-    // 2. New Product Form
-    ui.els.formNew.addEventListener('submit', async (e) => {
-        e.preventDefault();
+        const botonActivo = document.querySelector(`.inventario-sidebar-item[data-tab="${tabId}"]`);
+        if (botonActivo) botonActivo.classList.add('active');
+
+        const contenidoActivo = document.getElementById(`tab-${tabId}`);
+        if (contenidoActivo) contenidoActivo.classList.add('active');
+    }
+
+    async cargarYMostrarProductos() {
         try {
-            const data = ui.getNewFormData();
-            await service.addProduct(data);
-            alert("✅ Producto agregado correctamente");
-            ui.clearNewForm();
-            ui.renderTable(service.products); // Refresh list
+            this.tablaCuerpo.innerHTML = '<tr><td colspan="10">Cargando productos...</td></tr>';
+            const productos = await this.inventoryService.obtenerTodos();
+            this.renderizarTabla(productos);
+        } catch (error) {
+            console.error("Falló la carga:", error);
+            this.tablaCuerpo.innerHTML = '<tr><td colspan="10">Error cargando datos.</td></tr>';
+        }
+    }
+
+    async borrarInventarioCompleto() {
+        try {
+            this.tablaCuerpo.innerHTML = '<tr><td colspan="10">Borrando todo el inventario... Espere...</td></tr>';
+            const exito = await this.inventoryService.borrarTodo();
+            if (exito) {
+                alert("Inventario borrado correctamente.");
+                this.cargarYMostrarProductos(); // Recargar (debería salir vacío)
+            } else {
+                alert("Hubo un error al borrar.");
+                this.cargarYMostrarProductos();
+            }
         } catch (error) {
             alert("Error: " + error.message);
-        }
-    });
-
-    // 3. Edit Product Form
-    ui.els.formEdit.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        try {
-            const data = ui.getEditFormData();
-            const id = data.id;
-            delete data.id; // Don't update ID field in DB doc body usually
-
-            await service.updateProduct(id, data);
-            alert("✅ Producto actualizado");
-            ui.hideEditModal();
-            ui.renderTable(service.search(ui.els.searchInput.value));
-        } catch (error) {
-            alert("Error: " + error.message);
-        }
-    });
-
-    // 4. Excel Upload
-    setupExcelHandlers();
-
-    // 5. Update Button
-    document.getElementById('actualizar-inventario-btn')?.addEventListener('click', async () => {
-        await service.loadAll();
-        ui.renderTable(service.products);
-        alert("Lista actualizada");
-    });
-}
-
-function setupExcelHandlers() {
-    const dropArea = ui.els.dropArea;
-
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        dropArea.addEventListener(eventName, preventDefaults, false);
-    });
-
-    function preventDefaults(e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-
-    dropArea.addEventListener('drop', handleDrop, false);
-    dropArea.addEventListener('click', () => ui.els.fileInput.click());
-    ui.els.fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
-
-    function handleDrop(e) {
-        const dt = e.dataTransfer;
-        handleFiles(dt.files);
-    }
-
-    function handleFiles(files) {
-        if (files.length > 0) {
-            const file = files[0];
-            processExcel(file);
+            this.cargarYMostrarProductos();
         }
     }
 
-    document.getElementById('confirmar-carga-btn')?.addEventListener('click', async () => {
-        if (excelData.length === 0) return;
+    renderizarTabla(productos) {
+        this.tablaCuerpo.innerHTML = '';
 
-        if (!confirm(`¿Cargar ${excelData.length} productos? Esto puede tardar unos segundos.`)) return;
-
-        try {
-            const result = await service.bulkUpload(excelData);
-            alert(`✅ Carga completada. Procesados: ${result.count}`);
-            ui.els.excelPreview.style.display = 'none';
-            excelData = [];
-            ui.renderTable(service.products);
-            ui.activateTab('lista');
-        } catch (e) {
-            alert("Error en carga masiva: " + e.message);
+        if (!productos || productos.length === 0) {
+            this.tablaCuerpo.innerHTML = '<tr><td colspan="10" class="empty-cart">No hay productos en inventario</td></tr>';
+            return;
         }
-    });
 
-    document.getElementById('cancelar-carga-btn')?.addEventListener('click', () => {
-        ui.els.excelPreview.style.display = 'none';
-        excelData = [];
-    });
+        productos.forEach(prod => {
+            const fila = document.createElement('tr');
+
+            const costo = parseFloat(prod.costo || 0).toFixed(2);
+            const venta = parseFloat(prod.precio || 0).toFixed(2);
+            let esFiscal = (prod.creditoFiscal === true || prod.creditoFiscal === 'SI') ? 'SI' : 'NO';
+
+            fila.innerHTML = `
+                <td>${prod.codigo || '-'}</td>
+                <td>${prod.descripcion || '-'}</td>
+                <td>${prod.descripcionFactura || '-'}</td>
+                <td>$${costo}</td>
+                <td>$${venta}</td>
+                <td>${prod.existencia || 0}</td>
+                <td>${prod.stockMinimo || 0}</td>
+                <td>${esFiscal}</td>
+                <td>${prod.proveedor || '-'}</td>
+                <td>
+                    <button class="btn-icon btn-edit"><i class="fas fa-edit"></i></button>
+                    <button class="btn-icon btn-delete"><i class="fas fa-trash"></i></button>
+                </td>
+            `;
+            this.tablaCuerpo.appendChild(fila);
+        });
+    }
 }
 
-function processExcel(file) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        excelData = XLSX.utils.sheet_to_json(worksheet, { raw: false });
-
-        ui.renderExcelPreview(excelData);
-    };
-    reader.readAsArrayBuffer(file);
-}
-
-// Init
-document.addEventListener('DOMContentLoaded', init);
+// Inicializar
+new InventoryController();
