@@ -1,0 +1,22 @@
+# REGLAS DE TRABAJO - PROYECTO TALLER WILLIAN
+
+Este archivo contiene las normas obligatorias que debe seguir el Agente (IA) durante el desarrollo de este proyecto.
+
+## 1. Comunicación
+*   **Lenguaje Sencillo:** No usar palabras técnicas complejas (como "DOM", "Listeners", "Refactorización"). Explicar todo de forma simple y para un usuario no experto.
+*   **Concisión:** Resumir las explicaciones de forma entendible y directa. Ir al grano.
+
+## 2. Flujo de Desarrollo
+*   **Consulta Previa:** Siempre preguntar o comentar "cómo se puede mejorar algo" ANTES de aplicar cambios. No asumir ni actuar por cuenta propia fuera de lo solicitado.
+*   **Commit Controlado:** NUNCA hacer un commit sin preguntar antes. El usuario debe autorizar explícitamente cada guardado en el historial.
+
+## 3. Estrategia de Estabilidad ("Punto de Guardado")
+Para evitar la degradación del código por errores acumulados:
+1.  Trabajar en una funcionalidad hasta que esté **completamente funcional y probada**.
+2.  Solicitar autorización para hacer un **COMMIT COMPLETO** (Punto de restauración).
+3.  Una vez guardado, recomendar **CERRAR SESIÓN** y abrir un **NUEVO CHAT**.
+4.  Continuar el trabajo en el nuevo chat con la memoria limpia.
+
+## 4. Estética y Calidad
+*   **Diseño Premium:** Priorizar una estética moderna, limpia y profesional (buenos colores, sombras, espaciado). Nada de diseños "básicos".
+*   **Funcionalidad Móvil:** Toda pantalla debe verse y funcionar bien en dispositivos móviles.

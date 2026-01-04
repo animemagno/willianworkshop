@@ -83,14 +83,16 @@ header h1 {
 .container {
     flex: 1;
     padding: 20px;
-    max-width: 100%;
-    margin: 0 auto;
+    width: 100%;
+    margin: 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-    /* Para que el scroll sea interno si es necesario */
+    overflow-x: hidden;
 }
 
+/* =========================================
+   SISTEMA DE PESTAÑAS (TABS)
+   ========================================= */
 /* =========================================
    SISTEMA DE PESTAÑAS (TABS)
    ========================================= */
@@ -100,6 +102,10 @@ header h1 {
     border-bottom: 2px solid #3498db;
     padding-bottom: 0;
     margin-bottom: 0;
+    width: 100%;
+    /* Ensure full width for tabs line */
+    justify-content: flex-start;
+    /* Always align left */
 }
 
 .tab-btn {
@@ -140,6 +146,8 @@ header h1 {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     display: none;
     /* Oculto por defecto */
+    width: 100%;
+    /* Fill the container */
     flex: 1;
     overflow-y: auto;
 }
