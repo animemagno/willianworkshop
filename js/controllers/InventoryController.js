@@ -8,6 +8,11 @@ class InventoryController {
         // Excel Cache
         this.excelData = [];
 
+        // Excel Cache
+        this.excelData = [];
+
+        // Entry Cart
+        this.entryCart = [];
         this.init();
     }
 
@@ -24,9 +29,43 @@ class InventoryController {
         // TABS
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                const target = btn.dataset.target; // "lista", "nuevo", "excel"
+                const target = btn.dataset.target; // "lista", "nuevo", "excel", "entradas"
                 this.switchTab(target);
             });
+        });
+
+        // ENTRADAS EVENTS
+        document.getElementById('btn-open-entry-modal').addEventListener('click', () => this.openEntryModal());
+        document.getElementById('btn-close-entry-modal').addEventListener('click', () => this.closeEntryModal());
+        document.getElementById('btn-cancel-entry').addEventListener('click', () => this.closeEntryModal());
+
+        // Cost Input: ENTER to Add Item
+        const costInput = document.getElementById('entry-temp-cost');
+        if (costInput) {
+            costInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.addEntryItem();
+                }
+            });
+        }
+
+        // Process
+        document.getElementById('btn-process-entry').addEventListener('click', () => this.processEntry());
+
+        // Product Search Autocomplete (New ID)
+        const searchInput = document.getElementById('entry-temp-name');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => this.handleEntryProductSearch(e.target.value));
+            searchInput.addEventListener('focus', (e) => this.handleEntryProductSearch(e.target.value));
+        }
+
+        // Hide search results on click outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#entry-temp-name') && !e.target.closest('#entry-search-results')) {
+                const results = document.getElementById('entry-search-results');
+                if (results) results.style.display = 'none';
+            }
         });
 
         // REFRESH
@@ -86,6 +125,10 @@ class InventoryController {
             c.classList.remove('active');
         });
         document.getElementById(`tab-${tabName}`).classList.add('active');
+
+        if (tabName === 'entradas') {
+            this.loadEntries();
+        }
     }
 
     // =========================================
@@ -483,6 +526,320 @@ class InventoryController {
 
         container.appendChild(btnCF);
         container.appendChild(btnDel);
+    }
+    // =========================================
+    // 6. ENTRADAS LOGIC
+    // =========================================
+
+    async loadEntries() {
+        const tbody = document.getElementById('entries-body');
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center">Cargando historial...</td></tr>';
+        try {
+            const entries = await this.svc.obtenerEntradas();
+            this.renderEntriesTable(entries);
+        } catch (error) {
+            console.error(error);
+            tbody.innerHTML = `<tr><td colspan="8" style="color:red; text-align:center">Error: ${error}</td></tr>`;
+        }
+    }
+
+    renderEntriesTable(entries) {
+        const tbody = document.getElementById('entries-body');
+        tbody.innerHTML = '';
+
+        if (entries.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center">No hay entradas registradas.</td></tr>';
+            return;
+        }
+
+        entries.forEach(e => {
+            const tr = document.createElement('tr');
+            const dateStr = e.timestamp ? new Date(e.timestamp.seconds * 1000).toLocaleString() : "Reciente";
+
+            const isReverted = e.revertida ? '<span class="badge-no">REVERTIDA</span>' : '<span class="badge-si">OK</span>';
+
+            // Action Buttons
+            let actionBtn = '-';
+            if (!e.revertida) {
+                // Button to Revert
+                actionBtn = `<button class="btn btn-warning" style="padding:4px 8px; font-size:0.85rem;" title="Revertir Entrada" onclick="app.revertEntry('${e.id}')"><i class="fas fa-undo"></i></button>`;
+            } else {
+                // Button to Delete (only if reverted)
+                actionBtn = `<button class="btn btn-danger" style="padding:4px 10px; font-size:0.85rem;" title="Eliminar Registro" onclick="app.deleteEntry('${e.id}')"><i class="fas fa-trash"></i></button>`;
+            }
+
+            tr.innerHTML = `
+                <td>${dateStr}</td>
+                <td>${e.productName || "Desconocido"}</td>
+                <td style="text-align:center;">${e.cantidad}</td>
+                <td style="text-align:center;">$${parseFloat(e.costoUnitario || 0).toFixed(2)}</td>
+                <td style="text-align:center;">
+                    <small>$${parseFloat(e.costoAnterior || 0).toFixed(2)} ➝ $${parseFloat(e.costoNuevo || 0).toFixed(2)}</small>
+                </td>
+                <td>
+                    ${e.providerName || "N/A"}<br>
+                    <small>${e.esCredito ? '<span style="color:#d35400; font-weight:bold;">CRÉDITO</span>' : 'CONTADO'}</small>
+                </td>
+                <td style="text-align:center;">${isReverted}</td>
+                <td style="text-align:center;">${actionBtn}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    async openEntryModal() {
+        this.entryCart = [];
+        this.renderEntryCart();
+
+        // Load providers into datalist
+        const dataList = document.getElementById('provider-list');
+        dataList.innerHTML = '';
+
+        try {
+            this.providersCache = await this.svc.obtenerProveedores(); // Cache for lookup later
+            this.providersCache.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.nombre || "Sin Nombre";
+                dataList.appendChild(opt);
+            });
+        } catch (e) {
+            console.error("Error loading providers", e);
+            this.providersCache = [];
+        }
+
+        document.getElementById('entry-modal').style.display = 'flex';
+        document.getElementById('entry-provider-input').focus();
+    }
+
+    closeEntryModal() {
+        document.getElementById('entry-modal').style.display = 'none';
+        // Reset Inputs
+        document.getElementById('entry-provider-input').value = '';
+        document.getElementById('entry-temp-qty').value = 1;
+        document.getElementById('entry-temp-name').value = '';
+        document.getElementById('entry-temp-id').value = '';
+        document.getElementById('entry-temp-cost').value = '';
+        // Reset radio to default
+        const radios = document.getElementsByName('entry-payment-status');
+        if (radios.length > 0) radios[0].checked = true;
+
+        this.entryCart = [];
+    }
+
+    handleEntryProductSearch(query) {
+        const resultsDiv = document.getElementById('entry-search-results');
+        resultsDiv.innerHTML = '';
+        if (!query) {
+            resultsDiv.style.display = 'none';
+            return;
+        }
+
+        const q = query.toLowerCase();
+        // Limit results to 8
+        const matches = this.cache.filter(p =>
+            (p.codigo || "").toLowerCase().includes(q) ||
+            (p.descripcion || "").toLowerCase().includes(q)
+        ).slice(0, 8);
+
+        if (matches.length > 0) {
+            resultsDiv.style.display = 'block';
+            matches.forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'search-result-item';
+                div.innerHTML = `<strong>${p.codigo}</strong> - ${p.descripcion} <br><small>Stock: ${p.existencia} | Costo: $${(p.costo || 0).toFixed(2)}</small>`;
+                div.onclick = () => {
+                    this.selectEntryProduct(p);
+                    resultsDiv.style.display = 'none';
+                };
+                resultsDiv.appendChild(div);
+            });
+        } else {
+            resultsDiv.style.display = 'none'; // User cans still type new name
+        }
+    }
+
+    selectEntryProduct(product) {
+        document.getElementById('entry-temp-name').value = product.codigo + " - " + product.descripcion;
+        document.getElementById('entry-temp-id').value = product.id;
+        document.getElementById('entry-temp-cost').value = product.costo || 0;
+        document.getElementById('entry-temp-cost').focus(); // Focus cost so user can just hit Enter
+    }
+
+    // --- CART LOGIC ---
+
+    addEntryItem() {
+        const qty = parseFloat(document.getElementById('entry-temp-qty').value);
+        const nameInput = document.getElementById('entry-temp-name').value.trim();
+        const id = document.getElementById('entry-temp-id').value;
+        let cost = parseFloat(document.getElementById('entry-temp-cost').value);
+
+        if (qty <= 0) { alert("Cantidad inválida"); return; }
+        if (!nameInput) { alert("Ingrese un nombre de producto"); return; }
+        if (isNaN(cost)) { alert("Ingrese costo unitario"); return; }
+
+        // IVA Check
+        // If "Include IVA" is NO, we must ADD IT (Cost * 1.13) because Inventory stores Gross Cost.
+        // If "Include IVA" is YES, we use it as is (Gross Cost).
+        const taxesIncluded = document.querySelector('input[name="entry-tax-included"]:checked');
+        if (taxesIncluded && taxesIncluded.value === 'no') {
+            cost = cost * 1.13;
+        }
+
+        this.entryCart.push({
+            tempId: Date.now(),
+            productId: id || null,
+            name: nameInput,
+            qty: qty,
+            cost: cost,
+            subtotal: qty * cost
+        });
+
+
+        // Reset inputs
+        document.getElementById('entry-temp-qty').value = 1;
+        document.getElementById('entry-temp-name').value = '';
+        document.getElementById('entry-temp-id').value = '';
+        document.getElementById('entry-temp-cost').value = '';
+        document.getElementById('entry-temp-name').focus();
+
+        this.renderEntryCart();
+    }
+
+    removeEntryItem(tempId) {
+        this.entryCart = this.entryCart.filter(i => i.tempId !== tempId);
+        this.renderEntryCart();
+    }
+
+    renderEntryCart() {
+        const tbody = document.getElementById('entry-cart-body');
+        tbody.innerHTML = '';
+        let total = 0;
+
+        this.entryCart.forEach((item, index) => {
+            total += item.subtotal;
+            const tr = document.createElement('tr');
+
+            // Try to find code if we have ID
+            let code = "NUEVO";
+            if (item.productId) {
+                const p = this.cache.find(p => p.id === item.productId);
+                if (p) code = p.codigo;
+            }
+
+            tr.innerHTML = `
+                <td><small>${code}</small></td>
+                <td>${item.name}</td>
+                <td style="text-align:center">${item.qty}</td>
+                <td style="text-align:right">$${item.subtotal.toFixed(2)}</td>
+                <td>
+                    <button class="action-btn" style="color:red;" onclick="app.removeEntryItem(${item.tempId})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        document.getElementById('entry-total-value').innerText = total.toFixed(2);
+    }
+
+    // --- PROCESS LOGIC ---
+
+    async processEntry() {
+        if (this.entryCart.length === 0) { alert("La lista está vacía."); return; }
+
+        // 1. Get Provider
+        const providerNameInput = document.getElementById('entry-provider-input').value.trim();
+        if (!providerNameInput) { alert("Ingrese o seleccione un proveedor."); return; }
+
+        // Try to match provider name to ID
+        let providerId = null;
+        let providerName = providerNameInput;
+
+        if (this.providersCache) {
+            const match = this.providersCache.find(p => (p.nombre || "").toLowerCase() === providerNameInput.toLowerCase());
+            if (match) {
+                providerId = match.id;
+                providerName = match.nombre; // Normalize case
+            }
+        }
+
+        // 2. Resolve Unknown Items
+        for (let item of this.entryCart) {
+            if (!item.productId) {
+                // Item desconocido: Preguntar
+                const action = confirm(`El producto "${item.name}" no está vinculado a un producto existente.\n\n` +
+                    `¿Desea vincularlo a uno existente? (Aceptar)\n` +
+                    `¿O crearlo como NUEVO producto después? (Cancelar) -> (Se tratará como nuevo en sistema)`);
+
+                if (action) {
+                    // Vincular: Prompt simple por ahora
+                    const search = prompt(`Busque el código exacto o nombre para vincular "${item.name}":`);
+                    if (search) {
+                        const match = this.cache.find(p =>
+                            p.codigo.toLowerCase() === search.toLowerCase() ||
+                            p.descripcion.toLowerCase() === search.toLowerCase()
+                        );
+                        if (match) {
+                            if (confirm(`¿Vincular "${item.name}" con "${match.descripcion} (${match.codigo})"?`)) {
+                                item.productId = match.id;
+                            }
+                        } else {
+                            alert("No se encontró coincidencia. Se procederá como producto nuevo/sin vínculo.");
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Payment Status (Contado vs Credito)
+        const statusRadio = document.querySelector('input[name="entry-payment-status"]:checked');
+        const isCredit = (statusRadio && statusRadio.value === 'credito');
+
+        const btn = document.getElementById('btn-process-entry');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerText = "Procesando...";
+        }
+
+        try {
+            await this.svc.registrarEntradaMasiva(this.entryCart, providerId, providerName, isCredit);
+            alert("Entrada registrada correctamente.");
+            this.closeEntryModal();
+            this.loadEntries();
+            this.loadData();
+        } catch (e) {
+            alert("Error procesando entrada: " + e.message);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = "Registrar Entrada";
+            }
+        }
+    }
+
+    async revertEntry(id) {
+        if (!confirm("¿Está seguro de REVERTIR esta entrada? Se descontará el stock y se recalculará el costo.")) return;
+        try {
+            await this.svc.revertirEntrada(id);
+            alert("Entrada revertida.");
+            this.loadEntries();
+            this.loadData();
+        } catch (e) {
+            alert("Error: " + e);
+        }
+    }
+
+    async deleteEntry(id) {
+        if (!confirm("¿Está seguro de ELIMINAR esta entrada de historial permanentemente?")) return;
+        try {
+            await this.svc.eliminarEntrada(id);
+            alert("Registro eliminado.");
+            this.loadEntries();
+        } catch (e) {
+            console.error(e);
+            alert("Error: " + e);
+        }
     }
 }
 
