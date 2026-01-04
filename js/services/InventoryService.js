@@ -1,8 +1,9 @@
-import { db } from '../config/firebase-config.js';
 
-export class InventoryService {
+// Servicio de Inventario (Global)
+class InventoryService {
     constructor() {
-        this.collection = db.collection("INVENTARIO");
+        // Usamos la db global inicializada en el HTML
+        this.collection = firebase.firestore().collection("INVENTARIO");
     }
 
     // Obtener todos los productos
@@ -19,22 +20,38 @@ export class InventoryService {
     // Borrar todo el inventario (PELIGROSO)
     async borrarTodo() {
         try {
-            // Firestore obliga a borrar de a pocos (batches)
             const snapshot = await this.collection.get();
 
-            if (snapshot.empty) return true; // Ya estaba vacío
+            if (snapshot.empty) return true;
 
-            // Borramos en grupos de 500 (límite de Firestore)
-            const batch = db.batch();
+            const batch = firebase.firestore().batch(); // batch desde instancia global
             let count = 0;
+            // OJO: Firestore batch limit is 500. Si hay más, fallará.
+            // Para simplicidad ahora: Borrar de 500 en 500.
 
-            snapshot.docs.forEach(doc => {
-                batch.delete(doc.ref);
-                count++;
-            });
+            // Implementación simple para < 500
+            if (snapshot.size <= 500) {
+                snapshot.docs.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+                await batch.commit();
+            } else {
+                // Borrado recursivo o múltiple batches (TODO si es necesario)
+                // Por ahora asumimos < 500 o que el usuario borre varias veces.
+                let i = 0;
+                let currentBatch = firebase.firestore().batch();
+                for (const doc of snapshot.docs) {
+                    currentBatch.delete(doc.ref);
+                    i++;
+                    if (i % 490 === 0) {
+                        await currentBatch.commit();
+                        currentBatch = firebase.firestore().batch();
+                    }
+                }
+                await currentBatch.commit();
+            }
 
-            await batch.commit();
-            console.log(`Borrados ${count} productos.`);
+            console.log(`Inventario borrado.`);
             return true;
         } catch (error) {
             console.error("Error borrando inventario:", error);
@@ -53,3 +70,6 @@ export class InventoryService {
         }
     }
 }
+
+// Exponer globalmente
+window.InventoryService = InventoryService;

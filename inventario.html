@@ -6,8 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Inventario - Taller Wilian</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-    <!-- SheetJS para Excel -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="css/inventario.css">
 </head>
 
@@ -38,44 +36,40 @@
         <div class="dashboard-section">
             <div class="section-title">INVENTARIO</div>
 
-            <!-- 🔥 Contenedor con ancho completo -->
             <div class="inventario-wrapper">
                 <div class="inventario-layout">
-                    <!-- Menú lateral para pestañas -->
+                    <!-- Menú lateral -->
                     <div class="inventario-sidebar">
                         <div class="inventario-sidebar-menu">
-                            <div class="inventario-sidebar-item active" data-tab="lista"
-                                onclick="inventario.cambiarTab('lista')">
+                            <div class="inventario-sidebar-item active" data-tab="lista">
                                 <i class="fas fa-list"></i>
                                 <span>Lista de Productos</span>
                             </div>
-                            <div class="inventario-sidebar-item" data-tab="cargar-excel"
-                                onclick="inventario.cambiarTab('cargar-excel')">
+                            <div class="inventario-sidebar-item" data-tab="cargar-excel">
                                 <i class="fas fa-file-excel"></i>
                                 <span>Cargar Excel</span>
                             </div>
-                            <div class="inventario-sidebar-item" data-tab="nuevo-producto"
-                                onclick="inventario.cambiarTab('nuevo-producto')">
+                            <div class="inventario-sidebar-item" data-tab="nuevo-producto">
                                 <i class="fas fa-plus-circle"></i>
                                 <span>Nuevo Producto</span>
                             </div>
-                            <div class="inventario-sidebar-item" data-tab="reportes"
-                                onclick="inventario.cambiarTab('reportes')">
+                            <div class="inventario-sidebar-item" data-tab="reportes">
                                 <i class="fas fa-chart-bar"></i>
                                 <span>Reportes</span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Contenido de las pestañas -->
+                    <!-- Contenido -->
                     <div class="inventario-content">
-                        <!-- PESTAÑA LISTA DE PRODUCTOS -->
+                        <!-- PESTAÑA LISTA -->
                         <div class="tab-content active" id="tab-lista">
                             <div class="inventario-actions">
                                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                                     <button class="btn btn-success" id="actualizar-inventario-btn">
                                         <i class="fas fa-sync-alt"></i> ACTUALIZAR
                                     </button>
+                                    <!-- Aquí se inyectará el botón BORRAR TODO desde JS -->
                                 </div>
                                 <div class="form-group">
                                     <input type="text" id="buscar-producto" placeholder="Buscar producto...">
@@ -100,11 +94,7 @@
                                     </thead>
                                     <tbody id="inventario-body">
                                         <tr>
-                                            <td colspan="10" class="empty-cart">
-                                                <i class="fas fa-boxes"
-                                                    style="font-size:2rem;margin-bottom:10px;opacity:.5;"></i>
-                                                <div>No hay productos en inventario</div>
-                                            </td>
+                                            <td colspan="10" class="empty-cart">Cargando...</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -116,142 +106,21 @@
                             <h3>Cargar Inventario desde Excel</h3>
                             <div class="excel-upload-area" id="excel-drop-area">
                                 <i class="fas fa-file-excel"></i>
-                                <p>Haz clic aquí o arrastra tu archivo Excel</p>
-                                <p><small>Formato esperado: Código, Descripción Inventario, Descripción Factura, Precio
-                                        Costo, Precio Venta, Existencia, Crédito Fiscal</small></p>
-                                <p><small><strong>Nota:</strong> Los productos sin código se mantendrán vacíos. Crédito
-                                        Fiscal por defecto: SI</small></p>
+                                <p>Haz clic o arrastra tu archivo Excel</p>
                                 <input type="file" id="excel-file" accept=".xlsx, .xls" style="display: none;">
                             </div>
-
-                            <div class="btn-container">
-                                <button class="btn btn-primary" id="descargar-plantilla-btn">
-                                    <i class="fas fa-download"></i> DESCARGAR PLANTILLA
-                                </button>
-                            </div>
-
-                            <div id="excel-preview" class="excel-preview" style="display: none;">
-                                <h4>Vista previa de datos</h4>
-                                <div id="excel-advertencias"></div>
-                                <div id="excel-preview-content"></div>
-                                <div class="btn-container">
-                                    <button class="btn btn-success" id="confirmar-carga-btn">
-                                        <i class="fas fa-check"></i> CONFIRMAR CARGA
-                                    </button>
-                                    <button class="btn btn-danger" id="cancelar-carga-btn">
-                                        <i class="fas fa-times"></i> CANCELAR
-                                    </button>
-                                </div>
-                            </div>
+                            <!-- Vista previa y botones se generarán dinámicamente -->
                         </div>
 
-                        <!-- PESTAÑA NUEVO PRODUCTO -->
+                        <!-- PESTAÑA NUEVO -->
                         <div class="tab-content" id="tab-nuevo-producto">
-                            <form id="form-nuevo-producto">
-                                <div class="form-group">
-                                    <label for="codigo">Código *</label>
-                                    <input type="text" id="codigo" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="codigos-proveedor">Códigos de Proveedor (separados por coma)</label>
-                                    <input type="text" id="codigos-proveedor" placeholder="COD1, COD2, COD3">
-                                </div>
-                                <div class="form-group">
-                                    <label for="desc-inventario">Descripción según Inventario *</label>
-                                    <input type="text" id="desc-inventario" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="desc-factura">Descripción según Factura *</label>
-                                    <input type="text" id="desc-factura" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="precio-costo">Precio Costo *</label>
-                                    <input type="number" id="precio-costo" step="0.01" min="0" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="precio-venta">Precio Venta *</label>
-                                    <input type="number" id="precio-venta" step="0.01" min="0" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="existencia">Existencia *</label>
-                                    <input type="number" id="existencia" min="0" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="stock-minimo">Stock Mínimo</label>
-                                    <input type="number" id="stock-minimo" min="0" value="0">
-                                </div>
-                                <div class="form-group">
-                                    <div class="checkbox-group">
-                                        <input type="checkbox" id="credito-fiscal" checked>
-                                        <label for="credito-fiscal">Crédito Fiscal</label>
-                                    </div>
-                                </div>
-                                <div class="form-group">
-                                    <label for="proveedor">Proveedor</label>
-                                    <input type="text" id="proveedor">
-                                </div>
-                                <div class="form-group">
-                                    <label for="categoria">Categoría</label>
-                                    <input type="text" id="categoria">
-                                </div>
-                                <div class="btn-container">
-                                    <button type="submit" class="btn btn-success">
-                                        <i class="fas fa-save"></i> GUARDAR PRODUCTO
-                                    </button>
-                                    <button type="button" class="btn btn-danger" id="limpiar-form-btn">
-                                        <i class="fas fa-broom"></i> LIMPIAR
-                                    </button>
-                                </div>
-                            </form>
+                            <h3>Nuevo Producto</h3>
+                            <p>Formulario aquí...</p>
                         </div>
 
                         <!-- PESTAÑA REPORTES -->
                         <div class="tab-content" id="tab-reportes">
-                            <div class="inventario-actions">
-                                <div class="form-group">
-                                    <label for="fecha-inicio">Fecha Inicio</label>
-                                    <input type="date" id="fecha-inicio">
-                                </div>
-                                <div class="form-group">
-                                    <label for="fecha-fin">Fecha Fin</label>
-                                    <input type="date" id="fecha-fin">
-                                </div>
-                                <div class="form-group">
-                                    <label for="tipo-reporte">Tipo de Reporte</label>
-                                    <select id="tipo-reporte">
-                                        <option value="stock">Stock Actual</option>
-                                        <option value="bajo-stock">Productos con Stock Bajo</option>
-                                        <option value="valorizacion">Valorización de Inventario</option>
-                                        <option value="sin-codigo">Productos sin Código</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="btn-container">
-                                <button class="btn btn-info" id="generar-reporte-btn">
-                                    <i class="fas fa-chart-bar"></i> GENERAR REPORTE
-                                </button>
-                                <button class="btn btn-primary" id="imprimir-reporte-btn">
-                                    <i class="fas fa-print"></i> IMPRIMIR
-                                </button>
-                            </div>
-
-                            <div id="reporte-contenido" class="inventario-table-container"
-                                style="margin-top: 20px; display: none;">
-                                <!-- Aquí se mostrará el reporte -->
-                            </div>
-                        </div>
-
-                        <!-- PESTAÑA INGRESO (Placeholder) -->
-                        <div class="tab-content" id="tab-ingreso">
-                            <h3>Ingreso de Productos</h3>
-                            <p>Formulario de ingreso pendiente de implementación.</p>
-                        </div>
-
-                        <!-- PESTAÑA SALIDA (Placeholder) -->
-                        <div class="tab-content" id="tab-salida">
-                            <h3>Salida de Productos</h3>
-                            <p>Formulario de salida pendiente de implementación.</p>
+                            <h3>Reportes</h3>
                         </div>
                     </div>
                 </div>
@@ -259,168 +128,35 @@
         </div>
     </div>
 
-    <!-- MODAL REGISTRAR MOVIMIENTO -->
-    <div id="modalRegistrarMovimiento" class="modal-overlay">
-        <div class="modal-box">
-            <h3>REGISTRAR MOVIMIENTO DE INVENTARIO</h3>
-            <form id="form-movimiento">
-                <div class="form-group">
-                    <label for="mov-tipo">Tipo de Movimiento</label>
-                    <select id="mov-tipo" required>
-                        <option value="entrada">ENTRADA (Compra/Devolución)</option>
-                        <option value="salida">SALIDA (Venta/Merma)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="mov-producto-busqueda">Buscar Producto</label>
-                    <input type="text" id="mov-producto-busqueda" placeholder="Escribe nombre o código...">
-                    <div id="mov-resultados-busqueda"
-                        style="border: 1px solid #ddd; max-height: 150px; overflow-y: auto; display: none;">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Producto Seleccionado</label>
-                    <input type="text" id="mov-producto-nombre" readonly style="background: #f9f9f9;">
-                    <input type="hidden" id="mov-producto-id">
-                </div>
-                <div class="form-group">
-                    <label for="mov-cantidad">Cantidad</label>
-                    <input type="number" id="mov-cantidad" min="1" required>
-                </div>
-                <div class="form-group">
-                    <label for="mov-referencia">Referencia (Factura/Nota)</label>
-                    <input type="text" id="mov-referencia" placeholder="Ej: Factura #123">
-                </div>
-                <div class="modal-buttons">
-                    <button type="submit" class="btn btn-primary">REGISTRAR</button>
-                    <button type="button" class="btn btn-danger"
-                        onclick="document.getElementById('modalRegistrarMovimiento').style.display='none'">CANCELAR</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
-    <!-- MODAL ESCANEAR PEDIDO -->
-    <div id="modalEscanearPedido" class="modal-overlay">
-        <div class="modal-box" style="max-width: 800px;">
-            <h3>ESCANEAR PEDIDO (CÁMARA)</h3>
-            <div style="display: flex; flex-direction: column; gap: 20px;">
-                <div id="reader" style="width: 100%; min-height: 300px; background: #000;"></div>
+    <!-- SheetJS (Excel) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-                <div id="scan-result-container"
-                    style="display: none; background: #e8f4fd; padding: 15px; border-radius: 8px;">
-                    <h4>Producto Detectado:</h4>
-                    <p id="scan-producto-info" style="font-weight: bold; font-size: 1.1rem;"></p>
-                    <div class="form-group" style="margin-top: 10px;">
-                        <label>Cantidad Recibida:</label>
-                        <input type="number" id="scan-cantidad" value="1" min="1"
-                            style="font-size: 1.2rem; width: 100px;">
-                    </div>
-                    <div class="btn-container">
-                        <button class="btn btn-success" id="scan-confirmar-btn">CONFIRMAR Y
-                            AGREGAR</button>
-                        <button class="btn btn-warning" id="scan-cancelar-btn">IGNORAR</button>
-                    </div>
-                </div>
+    <!-- Init Firebase -->
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCaZdPPYddeMPTiNm5cCdFL6m9b9swX0-c",
+            authDomain: "williantaller-1426b.firebaseapp.com",
+            projectId: "williantaller-1426b",
+            storageBucket: "williantaller-1426b.firebasestorage.app",
+            messagingSenderId: "757966587061",
+            appId: "1:757966587061:web:6c700e862317119d64aafc"
+        };
+        // Inicializar si no existe ya
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.firestore();
+        // Exponer db globalmente por si acaso los módulos viejos la buscan
+        window.db = db;
+    </script>
 
-                <div id="scan-unknown-container"
-                    style="display: none; background: #fff3cd; padding: 15px; border-radius: 8px;">
-                    <h4>Producto NO Encontrado</h4>
-                    <p>El código <strong id="scan-unknown-code"></strong> no existe en el
-                        inventario.</p>
-                    <div class="btn-container">
-                        <button class="btn btn-primary" id="scan-asociar-btn">ASOCIAR A PRODUCTO
-                            EXISTENTE</button>
-                        <button class="btn btn-info" id="scan-crear-btn">CREAR NUEVO
-                            PRODUCTO</button>
-                    </div>
-                </div>
-
-                <div style="margin-top: 20px;">
-                    <h4>Lista de Pedido Actual</h4>
-                    <table class="inventario-table">
-                        <thead>
-                            <tr>
-                                <th>Producto</th>
-                                <th>Cant.</th>
-                                <th>Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody id="pedido-lista-body"></tbody>
-                    </table>
-                    <div class="btn-container" style="margin-top: 15px;">
-                        <button class="btn btn-success" id="procesar-pedido-btn">PROCESAR TODO EL
-                            PEDIDO</button>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-buttons">
-                <button type="button" class="btn btn-danger"
-                    onclick="document.getElementById('modalEscanearPedido').style.display='none'">CERRAR</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Script para código de barras -->
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-
-    <!-- MODAL EDITAR PRODUCTO -->
-    <div id="modalEditarProducto" class="modal-overlay">
-        <div class="modal-box">
-            <h3>EDITAR PRODUCTO</h3>
-            <form id="form-editar-producto">
-                <input type="hidden" id="edit-id">
-                <div class="form-group">
-                    <label for="edit-codigo">Código</label>
-                    <input type="text" id="edit-codigo" required>
-                </div>
-                <div class="form-group">
-                    <label for="edit-codigos-proveedor">Códigos de Proveedor</label>
-                    <input type="text" id="edit-codigos-proveedor">
-                </div>
-                <div class="form-group">
-                    <label for="edit-desc-inventario">Descripción Inventario</label>
-                    <input type="text" id="edit-desc-inventario" required>
-                </div>
-                <div class="form-group">
-                    <label for="edit-desc-factura">Descripción Factura</label>
-                    <input type="text" id="edit-desc-factura" required>
-                </div>
-                <div class="form-group">
-                    <label for="edit-precio-costo">Precio Costo</label>
-                    <input type="number" id="edit-precio-costo" step="0.01" required>
-                </div>
-                <div class="form-group">
-                    <label for="edit-precio-venta">Precio Venta</label>
-                    <input type="number" id="edit-precio-venta" step="0.01" required>
-                </div>
-                <div class="form-group">
-                    <label for="edit-existencia">Existencia</label>
-                    <input type="number" id="edit-existencia" required>
-                </div>
-                <div class="form-group">
-                    <label for="edit-stock-minimo">Stock Mínimo</label>
-                    <input type="number" id="edit-stock-minimo">
-                </div>
-                <div class="form-group">
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="edit-credito-fiscal">
-                        <label for="edit-credito-fiscal">Crédito Fiscal</label>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="edit-proveedor">Proveedor</label>
-                    <input type="text" id="edit-proveedor">
-                </div>
-                <div class="modal-buttons">
-                    <button type="submit" class="btn btn-success">GUARDAR CAMBIOS</button>
-                    <button type="button" class="btn btn-danger" onclick="cerrarModalEditar()">CANCELAR</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <script type="module" src="js/controllers/InventoryController.js"></script>
+    <!-- App Scripts (Orden Importante) -->
+    <script src="js/services/InventoryService.js"></script>
+    <script src="js/controllers/InventoryController.js"></script>
 </body>
 
 </html>
