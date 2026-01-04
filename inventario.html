@@ -2,140 +2,199 @@
 <html lang="es">
 
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Inventario - Taller Wilian</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario - Taller Willian</title>
+    <!-- CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/inventario.css">
 </head>
 
-<body class="main-wrapper">
+<body>
 
+    <!-- HEADER GLOBAL -->
     <header>
-        <button class="menu-toggle" id="mobileMenuBtn"><i class="fas fa-bars"></i></button>
-        <h1>Taller Willian</h1>
-        <div class="header-actions">
-            <!-- Sin carrito -->
+        <div style="display: flex; align-items: center;">
+            <button class="menu-toggle" id="mobileMenuBtn"><i class="fas fa-bars"></i></button>
+            <h1><i class="fas fa-boxes"></i> Inventario Taller Willian</h1>
+        </div>
+        <div class="user-info">
+            <!-- Espacio para usuario o logout -->
+            <button id="logoutBtn" class="btn btn-danger" style="font-size: 0.8rem;"><i class="fas fa-sign-out-alt"></i>
+                Salir</button>
         </div>
     </header>
 
-    <div class="mobile-menu" id="mobileMenu">
+    <!-- MENU MÓVIL (Offcanvas) -->
+    <nav class="mobile-menu" id="mobileMenu">
         <a href="index.html"><i class="fas fa-home"></i> Inicio</a>
-        <a href="venta.html"><i class="fas fa-cash-register"></i> Nueva Venta</a>
-        <a href="facturas.html"><i class="fas fa-file-invoice-dollar"></i> Facturas Pendientes</a>
-        <a href="historial.html"><i class="fas fa-history"></i> Historial de Ventas</a>
-        <a href="inventario.html" class="active"><i class="fas fa-boxes"></i> Inventario</a>
-        <a href="servicios.html"><i class="fas fa-tools"></i> Servicios</a>
-        <a href="entregas.html"><i class="fas fa-truck"></i> Entregas</a>
-        <a href="cuentas.html"><i class="fas fa-sticky-note"></i> Memos y Cuentas</a>
+        <a href="venta.html"><i class="fas fa-cash-register"></i> Ventas</a>
+        <a href="facturas.html"><i class="fas fa-file-invoice-dollar"></i> Facturas</a>
+        <a href="historial.html"><i class="fas fa-history"></i> Historial</a>
+        <a href="inventario.html" style="background:#f0f0f0; color:#3498db;"><i class="fas fa-boxes"></i> Inventario</a>
         <a href="configuracion.html"><i class="fas fa-cog"></i> Configuración</a>
-        <a href="#" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
-    </div>
+    </nav>
 
+    <!-- CONTENEDOR PRINCIPAL -->
     <div class="container">
-        <div class="dashboard-section">
-            <div class="section-title">INVENTARIO</div>
 
-            <div class="inventario-wrapper">
-                <div class="inventario-layout">
-                    <!-- Menú lateral -->
-                    <div class="inventario-sidebar">
-                        <div class="inventario-sidebar-menu">
-                            <div class="inventario-sidebar-item active" data-tab="lista">
-                                <i class="fas fa-list"></i>
-                                <span>Lista de Productos</span>
-                            </div>
-                            <div class="inventario-sidebar-item" data-tab="cargar-excel">
-                                <i class="fas fa-file-excel"></i>
-                                <span>Cargar Excel</span>
-                            </div>
-                            <div class="inventario-sidebar-item" data-tab="nuevo-producto">
-                                <i class="fas fa-plus-circle"></i>
-                                <span>Nuevo Producto</span>
-                            </div>
-                            <div class="inventario-sidebar-item" data-tab="reportes">
-                                <i class="fas fa-chart-bar"></i>
-                                <span>Reportes</span>
-                            </div>
-                        </div>
-                    </div>
+        <!-- PESTAÑAS DE NAVEGACIÓN -->
+        <div class="tabs-header">
+            <div class="tab-btn active" data-target="lista">
+                <i class="fas fa-list"></i> Lista de Productos
+            </div>
+            <div class="tab-btn" data-target="nuevo">
+                <i class="fas fa-plus-circle"></i> Nuevo Producto
+            </div>
+            <div class="tab-btn" data-target="excel">
+                <i class="fas fa-file-excel"></i> Cargar Excel
+            </div>
+            <div class="tab-btn" data-target="reportes">
+                <i class="fas fa-chart-bar"></i> Reportes
+            </div>
+        </div>
 
-                    <!-- Contenido -->
-                    <div class="inventario-content">
-                        <!-- PESTAÑA LISTA -->
-                        <div class="tab-content active" id="tab-lista">
-                            <div class="inventario-actions">
-                                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                                    <button class="btn btn-success" id="actualizar-inventario-btn">
-                                        <i class="fas fa-sync-alt"></i> ACTUALIZAR
-                                    </button>
-                                    <!-- Aquí se inyectará el botón BORRAR TODO desde JS -->
-                                </div>
-                                <div class="form-group">
-                                    <input type="text" id="buscar-producto" placeholder="Buscar producto...">
-                                </div>
-                            </div>
+        <!-- CONTENIDO: LISTA -->
+        <div id="tab-lista" class="tab-content active">
+            <!-- Barra de Acciones y Filtros -->
+            <div class="actions-bar">
+                <div class="buttons">
+                    <button class="btn btn-success" id="btn-refresh"><i class="fas fa-sync-alt"></i> Actualizar</button>
+                    <!-- Inyectados por JS: Activar CF, Borrar Todo -->
+                    <span id="extra-actions"></span>
+                </div>
+                <div class="search-box">
+                    <input type="text" id="input-search" placeholder="Buscar por código, nombre o proveedor...">
+                </div>
+            </div>
 
-                            <div class="inventario-table-container">
-                                <table class="inventario-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Código</th>
-                                            <th>Descripción Inventario</th>
-                                            <th>Descripción Factura</th>
-                                            <th>Precio Costo</th>
-                                            <th>Precio Venta</th>
-                                            <th>Existencia</th>
-                                            <th>Stock Mínimo</th>
-                                            <th>Crédito Fiscal</th>
-                                            <th>Proveedor</th>
-                                            <th width="100">Acciones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="inventario-body">
-                                        <tr>
-                                            <td colspan="10" class="empty-cart">Cargando...</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+            <!-- Tabla -->
+            <div class="table-responsive">
+                <table class="inventario-table">
+                    <thead>
+                        <tr>
+                            <th data-sort="codigo">Código <i class="fas fa-sort sort-icon"></i></th>
+                            <th data-sort="descripcion">Descripción <i class="fas fa-sort sort-icon"></i></th>
+                            <th data-sort="descripcionFactura">Desc. Factura <i class="fas fa-sort sort-icon"></i></th>
+                            <th data-sort="costo">Costo <i class="fas fa-sort sort-icon"></i></th>
+                            <th data-sort="precio">Precio <i class="fas fa-sort sort-icon"></i></th>
+                            <th data-sort="existencia">Exist. <i class="fas fa-sort sort-icon"></i></th>
+                            <th data-sort="stockMinimo">Min <i class="fas fa-sort sort-icon"></i></th>
+                            <th data-sort="creditoFiscal">CF <i class="fas fa-sort sort-icon"></i></th>
+                            <th data-sort="proveedor">Proveedor <i class="fas fa-sort sort-icon"></i></th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventory-body">
+                        <tr>
+                            <td colspan="10" style="text-align: center; padding: 20px;">Cargando inventario...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-                        <!-- PESTAÑA CARGAR EXCEL -->
-                        <div class="tab-content" id="tab-cargar-excel">
-                            <h3>Cargar Inventario desde Excel</h3>
-                            <div class="excel-upload-area" id="excel-drop-area">
-                                <i class="fas fa-file-excel"></i>
-                                <p>Haz clic o arrastra tu archivo Excel</p>
-                                <input type="file" id="excel-file" accept=".xlsx, .xls" style="display: none;">
-                            </div>
-                            <!-- Vista previa y botones se generarán dinámicamente -->
-                        </div>
+        <!-- CONTENIDO: NUEVO PRODUCTO -->
+        <div id="tab-nuevo" class="tab-content">
+            <h3 style="margin-bottom: 20px; color: #3498db;"><i class="fas fa-edit"></i> <span
+                    id="form-mode-title">Registrar Nuevo Producto</span></h3>
 
-                        <!-- PESTAÑA NUEVO -->
-                        <div class="tab-content" id="tab-nuevo-producto">
-                            <h3>Nuevo Producto</h3>
-                            <p>Formulario aquí...</p>
-                        </div>
+            <input type="hidden" id="field-id"> <!-- ID oculto para edición -->
 
-                        <!-- PESTAÑA REPORTES -->
-                        <div class="tab-content" id="tab-reportes">
-                            <h3>Reportes</h3>
-                        </div>
-                    </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Código</label>
+                    <input type="text" id="field-codigo" placeholder="Ej: A-001">
+                </div>
+                <div class="form-group">
+                    <label>Proveedor</label>
+                    <input type="text" id="field-proveedor" placeholder="Ej: Repuestos SA">
+                </div>
+                <div class="form-group" style="grid-column: span 2;">
+                    <label>Descripción Principal (Inventario)</label>
+                    <input type="text" id="field-descripcion" placeholder="Nombre completo del producto">
+                </div>
+                <!-- Fila 2 -->
+                <div class="form-group" style="grid-column: span 2;">
+                    <label>Descripción Factura (Opcional)</label>
+                    <input type="text" id="field-desc-fact" placeholder="Nombre corto para facturas">
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Precio Costo ($)</label>
+                    <input type="number" id="field-costo" step="0.01" value="0.00">
+                </div>
+                <div class="form-group">
+                    <label>Precio Venta ($)</label>
+                    <input type="number" id="field-precio" step="0.01" value="0.00">
+                </div>
+                <div class="form-group">
+                    <label>Existencia</label>
+                    <input type="number" id="field-existencia" value="0">
+                </div>
+                <div class="form-group">
+                    <label>Stock Mínimo</label>
+                    <input type="number" id="field-minimo" value="5">
+                </div>
+                <div class="form-group">
+                    <label>Crédito Fiscal</label>
+                    <select id="field-cf">
+                        <option value="false">NO</option>
+                        <option value="true">SI</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="btn btn-danger" id="btn-cancel-form">Cancelar / Limpiar</button>
+                <button class="btn btn-success" id="btn-save-product"><i class="fas fa-save"></i> GUARDAR
+                    PRODUCTO</button>
+            </div>
+        </div>
+
+        <!-- CONTENIDO: EXCEL -->
+        <div id="tab-excel" class="tab-content">
+            <h3 style="margin-bottom: 20px; color: #27ae60;"><i class="fas fa-file-excel"></i> Importar Masivamente
+                desde Excel</h3>
+
+            <div id="drop-area" class="drop-area">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <p>Arrastra tu archivo Excel aquí o haz clic para seleccionar</p>
+                <input type="file" id="file-excel" accept=".xlsx, .xls" style="display: none;">
+            </div>
+
+            <div id="excel-preview" style="margin-top: 20px; display: none;">
+                <!-- Aquí se renderiza la vista previa del Excel -->
+                <h4>Vista Previa</h4>
+                <div style="max-height: 300px; overflow: auto; border: 1px solid #ccc; margin: 10px 0;">
+                    <table class="inventario-table" id="preview-table">
+                        <!-- JS Llenará esto -->
+                    </table>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-danger" id="btn-cancel-excel">Cancelar</button>
+                    <button class="btn btn-success" id="btn-confirm-excel">Confirmar Importación</button>
                 </div>
             </div>
         </div>
+
+        <!-- CONTENIDO: REPORTES -->
+        <div id="tab-reportes" class="tab-content">
+            <h3><i class="fas fa-chart-line"></i> Reportes de Inventario</h3>
+            <p style="color: #777;">Próximamente: Gráficas de movimiento, productos bajo stock y valoración total del
+                inventario.</p>
+        </div>
+
     </div>
 
-    <!-- Firebase SDK (Compat) -->
+    <!-- FIREBASE & IDIOMAS -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-
-    <!-- SheetJS (Excel) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-    <!-- Init Firebase -->
+    <!-- CONFIG FIREBASE -->
     <script>
         const firebaseConfig = {
             apiKey: "AIzaSyCaZdPPYddeMPTiNm5cCdFL6m9b9swX0-c",
@@ -145,18 +204,14 @@
             messagingSenderId: "757966587061",
             appId: "1:757966587061:web:6c700e862317119d64aafc"
         };
-        // Inicializar si no existe ya
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-        // Exponer db globalmente por si acaso los módulos viejos la buscan
-        window.db = db;
     </script>
 
-    <!-- App Scripts (Orden Importante) -->
-    <script src="js/services/InventoryService.js"></script>
+    <!-- CONTROLADORES -->
+    <script src="js/services/InventoryService.js"></script> <!-- Reusamos el servicio que funciona bien -->
     <script src="js/controllers/InventoryController.js"></script>
+
 </body>
 
 </html>

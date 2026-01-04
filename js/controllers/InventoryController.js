@@ -1,348 +1,491 @@
-
-// Controlador de Inventario (Global)
 class InventoryController {
     constructor() {
-        this.inventoryService = new InventoryService();
-        this.tablaCuerpo = document.getElementById('inventario-body');
-        // Almacén temporal de datos leídos del Excel
-        this.datosExcelCargados = [];
+        this.svc = new InventoryService(); // Servicio existente
+        this.cache = []; // Todos los productos
+        this.filtered = []; // Filtrados
+        this.sortState = { key: 'codigo', dir: 'asc' };
+
+        // Excel Cache
+        this.excelData = [];
+
         this.init();
     }
 
     async init() {
-        console.log('Iniciando Inventario...');
-        this.setupEventListeners();
-        await this.cargarYMostrarProductos();
+        console.log("INVENTORY CONTROLLER v2.0 STARTED");
+        this.bindEvents();
+        await this.loadData();
     }
 
-    setupEventListeners() {
-        // --- NAVEGACIÓN DE PESTAÑAS ---
-        const botonesMenu = document.querySelectorAll('.inventario-sidebar-item');
-        botonesMenu.forEach(boton => {
-            boton.addEventListener('click', () => {
-                const tabId = boton.getAttribute('data-tab');
-                this.cambiarPestana(tabId);
+    // =========================================
+    // 1. EVENTOS Y TABS
+    // =========================================
+    bindEvents() {
+        // TABS
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = btn.dataset.target; // "lista", "nuevo", "excel"
+                this.switchTab(target);
             });
         });
 
-        // --- BOTONES DE ACCIÓN ---
-        const btnActualizar = document.getElementById('actualizar-inventario-btn');
-        if (btnActualizar) btnActualizar.addEventListener('click', () => this.cargarYMostrarProductos());
+        // REFRESH
+        document.getElementById('btn-refresh').addEventListener('click', () => this.loadData());
 
-        // Botón borrar (inyectado)
-        this.inyectarBotonBorrar();
+        // BUSQUEDA
+        document.getElementById('input-search').addEventListener('input', (e) => this.filterData(e.target.value));
 
-        // --- LÓGICA DE EXCEL ---
-        const excelInput = document.getElementById('excel-file');
-        const dropArea = document.getElementById('excel-drop-area');
+        // SORTING
+        document.querySelectorAll('th[data-sort]').forEach(th => {
+            th.addEventListener('click', () => this.handleSort(th.dataset.sort));
+        });
 
-        if (dropArea && excelInput) {
-            // Click en el área abre el selector de archivo
-            dropArea.addEventListener('click', () => excelInput.click());
+        // FORMULARIO NUEVO
+        document.getElementById('btn-save-product').addEventListener('click', () => this.saveProduct());
+        document.getElementById('btn-cancel-form').addEventListener('click', () => this.resetForm());
 
-            // Al seleccionar archivo
-            excelInput.addEventListener('change', (e) => this.manejarArchivoExcel(e.target.files[0]));
+        // EXCEL DROP
+        const dropArea = document.getElementById('drop-area');
+        const fileInput = document.getElementById('file-excel');
 
-            // Drag & Drop visual
-            dropArea.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                dropArea.classList.add('drag-over');
-            });
-            dropArea.addEventListener('dragleave', () => dropArea.classList.remove('drag-over'));
-            dropArea.addEventListener('drop', (e) => {
-                e.preventDefault();
-                dropArea.classList.remove('drag-over');
-                if (e.dataTransfer.files.length) {
-                    this.manejarArchivoExcel(e.dataTransfer.files[0]);
-                }
-            });
+        dropArea.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => this.handleExcelFile(e.target.files[0]));
+
+        dropArea.addEventListener('dragover', (e) => { e.preventDefault(); dropArea.classList.add('dragover'); });
+        dropArea.addEventListener('dragleave', () => dropArea.classList.remove('dragover'));
+        dropArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length) this.handleExcelFile(e.dataTransfer.files[0]);
+        });
+
+        document.getElementById('btn-confirm-excel').addEventListener('click', () => this.uploadExcelData());
+        document.getElementById('btn-cancel-excel').addEventListener('click', () => {
+            document.getElementById('excel-preview').style.display = 'none';
+            document.getElementById('drop-area').style.display = 'block';
+            this.excelData = [];
+        });
+
+        // MENU MÓVIL
+        document.getElementById('mobileMenuBtn').addEventListener('click', () => {
+            document.getElementById('mobileMenu').classList.toggle('show');
+        });
+
+        // Inject Extra actions (Borrar Todo, CF)
+        this.injectExtraActions();
+    }
+
+    switchTab(tabName) {
+        // 1. Update Buttons
+        document.querySelectorAll('.tab-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.target === tabName);
+        });
+
+        // 2. Update Content
+        document.querySelectorAll('.tab-content').forEach(c => {
+            c.classList.remove('active');
+        });
+        document.getElementById(`tab-${tabName}`).classList.add('active');
+    }
+
+    // =========================================
+    // 2. DATOS Y RENDER
+    // =========================================
+    async loadData() {
+        const tbody = document.getElementById('inventory-body');
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center">Cargando datos...</td></tr>';
+
+        try {
+            this.cache = await this.svc.obtenerTodos(); // Fetch from Firestore
+            this.filtered = [...this.cache];
+            this.applySort(); // Ordena y Pinta
+        } catch (error) {
+            console.error(error);
+            tbody.innerHTML = `<tr><td colspan="10" style="color:red; text-align:center">Error: ${error.message}</td></tr>`;
         }
     }
 
-    inyectarBotonBorrar() {
-        let btnBorrar = document.getElementById('borrar-todo-btn');
-        if (!btnBorrar) {
-            const contenedorAcciones = document.querySelector('.inventario-actions div');
-            if (contenedorAcciones) {
-                btnBorrar = document.createElement('button');
-                btnBorrar.id = 'borrar-todo-btn';
-                btnBorrar.className = 'btn btn-danger';
-                btnBorrar.innerHTML = '<i class="fas fa-trash-alt"></i> BORRAR TODO';
-                btnBorrar.style.marginLeft = '10px';
-                contenedorAcciones.appendChild(btnBorrar);
+    filterData(query) {
+        if (!query) {
+            this.filtered = [...this.cache];
+        } else {
+            const q = query.toLowerCase();
+            this.filtered = this.cache.filter(p =>
+                (p.codigo || "").toLowerCase().includes(q) ||
+                (p.descripcion || "").toLowerCase().includes(q) ||
+                (p.proveedor || "").toLowerCase().includes(q)
+            );
+        }
+        this.applySort();
+    }
+
+    handleSort(key) {
+        if (this.sortState.key === key) {
+            this.sortState.dir = this.sortState.dir === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.sortState.key = key;
+            this.sortState.dir = 'asc';
+        }
+        this.updateSortIcons();
+        this.applySort();
+    }
+
+    updateSortIcons() {
+        document.querySelectorAll('th[data-sort]').forEach(th => {
+            th.className = ''; // reset classes
+            if (th.dataset.sort === this.sortState.key) {
+                th.classList.add(this.sortState.dir === 'asc' ? 'active-asc' : 'active-desc');
+            }
+        });
+    }
+
+    applySort() {
+        const { key, dir } = this.sortState;
+        this.filtered.sort((a, b) => {
+            let valA = a[key] || "";
+            let valB = b[key] || "";
+
+            if (typeof valA === 'number' && typeof valB === 'number') {
+                return dir === 'asc' ? valA - valB : valB - valA;
+            }
+            valA = valA.toString().toLowerCase();
+            valB = valB.toString().toLowerCase();
+            if (valA < valB) return dir === 'asc' ? -1 : 1;
+            if (valA > valB) return dir === 'asc' ? 1 : -1;
+            return 0;
+        });
+        this.renderTable();
+    }
+
+    renderTable() {
+        const tbody = document.getElementById('inventory-body');
+        tbody.innerHTML = '';
+        const limit = 200; // Render limit
+
+        const data = this.filtered.slice(0, limit);
+
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center">No se encontraron productos.</td></tr>';
+            return;
+        }
+
+        data.forEach(p => {
+            const tr = document.createElement('tr');
+
+            const cfBadge = p.creditoFiscal ?
+                '<span class="badge-si">SI</span>' : '<span class="badge-no">NO</span>';
+
+            const precio = (p.precio || 0).toFixed(2);
+            const costo = (p.costo || 0).toFixed(2);
+
+            tr.innerHTML = `
+                <td><b>${p.codigo || "--"}</b></td>
+                <td>${p.descripcion || "--"}</td>
+                <td>${p.descripcionFactura || ""}</td>
+                <td>$${costo}</td>
+                <td style="color:#27ae60; font-weight:bold;">$${precio}</td>
+                <td style="text-align:center">${p.existencia || 0}</td>
+                <td style="text-align:center">${p.stockMinimo || 0}</td>
+                <td style="text-align:center">${cfBadge}</td>
+                <td>${p.proveedor || ""}</td>
+                <td style="text-align:center; position:relative;">
+                    <button class="action-btn" onclick="app.toggleActionMenu('${p.id}')">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <div id="menu-${p.id}" class="action-menu">
+                        <button onclick="app.loadForm('${p.id}')"><i class="fas fa-edit"></i> Editar</button>
+                        <button class="delete" onclick="app.deleteProduct('${p.id}')"><i class="fas fa-trash"></i> Eliminar</button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // =========================================
+    // 3. CRUD (CREATE / UPDATE / DELETE)
+    // =========================================
+
+    // Abrir menú de acciones (3 puntos)
+    toggleActionMenu(id) {
+        // Cerrar otros
+        document.querySelectorAll('.action-menu').forEach(m => m.classList.remove('show'));
+
+        const menu = document.getElementById(`menu-${id}`);
+        if (menu) {
+            menu.classList.add('show');
+            // Auto-cerrar al clickar fuera
+            setTimeout(() => {
+                const closeNav = (e) => {
+                    if (!menu.contains(e.target)) {
+                        menu.classList.remove('show');
+                        document.removeEventListener('click', closeNav);
+                    }
+                }
+                document.addEventListener('click', closeNav);
+            }, 0);
+        }
+    }
+
+    // CARGAR DATOS EN FORMULARIO (Edit)
+    loadForm(id) {
+        const p = this.cache.find(item => item.id === id);
+        if (!p) return;
+
+        document.getElementById('field-id').value = id;
+        document.getElementById('field-codigo').value = p.codigo || "";
+        document.getElementById('field-proveedor').value = p.proveedor || "";
+        document.getElementById('field-descripcion').value = p.descripcion || "";
+        document.getElementById('field-desc-fact').value = p.descripcionFactura || "";
+        document.getElementById('field-costo').value = p.costo || 0;
+        document.getElementById('field-precio').value = p.precio || 0;
+        document.getElementById('field-existencia').value = p.existencia || 0;
+        document.getElementById('field-minimo').value = p.stockMinimo || 5;
+        document.getElementById('field-cf').value = p.creditoFiscal ? "true" : "false";
+
+        document.getElementById('form-mode-title').innerText = "Editar Producto";
+        this.switchTab('nuevo');
+    }
+
+    resetForm() {
+        document.getElementById('field-id').value = "";
+        document.getElementById('field-codigo').value = "";
+        document.getElementById('field-proveedor').value = "";
+        document.getElementById('field-descripcion').value = "";
+        document.getElementById('field-desc-fact').value = "";
+        document.getElementById('field-costo').value = 0;
+        document.getElementById('field-precio').value = 0;
+        document.getElementById('field-existencia').value = 0;
+        document.getElementById('field-minimo').value = 5;
+        document.getElementById('field-cf').value = "false";
+        document.getElementById('form-mode-title').innerText = "Registrar Nuevo Producto";
+
+        this.switchTab('lista');
+    }
+
+    async saveProduct() {
+        const id = document.getElementById('field-id').value;
+        const data = {
+            codigo: document.getElementById('field-codigo').value,
+            proveedor: document.getElementById('field-proveedor').value,
+            descripcion: document.getElementById('field-descripcion').value,
+            descripcionFactura: document.getElementById('field-desc-fact').value,
+            costo: parseFloat(document.getElementById('field-costo').value) || 0,
+            precio: parseFloat(document.getElementById('field-precio').value) || 0,
+            existencia: parseFloat(document.getElementById('field-existencia').value) || 0,
+            stockMinimo: parseFloat(document.getElementById('field-minimo').value) || 5,
+            creditoFiscal: document.getElementById('field-cf').value === "true"
+        };
+
+        if (!data.codigo || !data.descripcion) {
+            alert("El código y la descripción son obligatorios.");
+            return;
+        }
+
+        const btn = document.getElementById('btn-save-product');
+        btn.disabled = true;
+        btn.innerHTML = "Guardando...";
+
+        try {
+            if (id) {
+                await this.svc.actualizarProducto(id, data); // Update
+            } else {
+                await this.svc.guardarProducto(data); // Create
+            }
+            alert("Producto guardado correctamente.");
+            this.resetForm();
+            this.loadData();
+        } catch (error) {
+            alert("Error: " + error.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save"></i> GUARDAR PRODUCTO';
+        }
+    }
+
+    async deleteProduct(id) {
+        if (confirm("¿Estás seguro de eliminar este producto?")) {
+            try {
+                await this.svc.eliminarProducto(id);
+                this.cache = this.cache.filter(p => p.id !== id);
+                this.filtered = this.filtered.filter(p => p.id !== id);
+                this.applySort();
+            } catch (error) {
+                alert("Error eliminando: " + error.message);
             }
         }
-        if (btnBorrar) {
-            // Clonar para limpiar eventos antiguos
-            const newBtn = btnBorrar.cloneNode(true);
-            btnBorrar.parentNode.replaceChild(newBtn, btnBorrar);
-            newBtn.addEventListener('click', async () => {
-                const seguro = confirm("⚠️ ¿ESTÁS SEGURO? \n\nEsto borrará TODOS los productos.\n\nAcción irreversible.");
-                if (seguro) await this.borrarInventarioCompleto();
-            });
-        }
     }
 
-    async manejarArchivoExcel(archivo) {
-        if (!archivo) return;
+    // =========================================
+    // 4. EXCEL LOGIC (Ported)
+    // =========================================
+    handleExcelFile(file) {
+        if (!file) return;
 
         const reader = new FileReader();
         reader.onload = (e) => {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
-            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
 
-            // Usamos 'sheet_to_json' con defval:"" para que NO ignore celdas vacías
-            // Esto es CLAVE: si no ponemos defval, las desplaza
-            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
+            // Lógica de detección inteligente (simplificada del código anterior)
+            // 1. Buscar hoja con headers
+            const keywords = ['codigo', 'descrip', 'venta', 'precio', 'stock'];
+            let bestSheet = null;
 
-            this.procesarDatosExcel(jsonData);
+            for (const name of workbook.SheetNames) {
+                const sheet = workbook.Sheets[name];
+                // Convert to JSON
+                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                // Scan for keywords
+                let matches = 0;
+                rows.slice(0, 20).forEach(row => {
+                    const txt = JSON.stringify(row).toLowerCase();
+                    if (keywords.some(k => txt.includes(k))) matches++;
+                });
+                if (matches > 1) {
+                    bestSheet = rows;
+                    break;
+                }
+            }
+
+            if (!bestSheet) { alert("No se detectó una hoja válida de inventario."); return; }
+            this.processExcelRows(bestSheet);
         };
-        reader.readAsArrayBuffer(archivo);
+        reader.readAsArrayBuffer(file);
     }
 
-    procesarDatosExcel(datosCrudos) {
-        if (!datosCrudos || datosCrudos.length === 0) {
-            alert("El archivo parece vacío.");
-            return;
+    processExcelRows(rows) {
+        // Encontrar header row
+        let headerIdx = -1;
+        const keywords = ['codigo', 'descrip', 'venta', 'precio', 'stock'];
+        for (let i = 0; i < Math.min(rows.length, 50); i++) {
+            const rowStr = JSON.stringify(rows[i]).toLowerCase();
+            if (keywords.some(k => rowStr.includes(k))) {
+                headerIdx = i;
+                break;
+            }
         }
 
-        // Mapeo Inteligente de Columnas
-        // Buscamos qué propiedad del JSON corresponde a cada campo nuestro
-        const primeraFila = datosCrudos[0]; // Usamos la primera fila de datos para ver las keys (encabezados)
-        const keys = Object.keys(primeraFila);
+        if (headerIdx === -1) { alert("No se encontraron encabezados."); return; }
 
-        // Helper para buscar key parecida
-        const buscarKey = (palabrasClave) => {
-            const keyEncontrada = keys.find(k => {
-                const kMin = k.toLowerCase();
-                return palabrasClave.some(p => kMin.includes(p));
-            });
-            return keyEncontrada;
+        const headers = rows[headerIdx].map(h => String(h).toLowerCase().trim());
+        const dataRows = rows.slice(headerIdx + 1);
+
+        // Mapear columnas
+        const colMap = {
+            codigo: headers.findIndex(h => h.includes('cod') || h.includes('id')),
+            desc: headers.findIndex(h => h.includes('desc') || h.includes('prod')),
+            costo: headers.findIndex(h => h.includes('costo') || h.includes('compra')),
+            precio: headers.findIndex(h => (h.includes('precio') || h.includes('venta')) && !h.includes('costo')),
+            exist: headers.findIndex(h => h.includes('exist') || h.includes('cant') || h.includes('stock')),
+            prov: headers.findIndex(h => h.includes('prov'))
         };
 
-        const keyCodigo = buscarKey(['cod', 'código', 'id']);
-        const keyDescInv = buscarKey(['inv', 'taller', 'descrip', 'prod']); // Prioridad inventario
-        const keyDescFact = buscarKey(['fact', 'fiscal']);
-        const keyCosto = buscarKey(['costo', 'compra']);
-        const keyVenta = buscarKey(['venta', 'precio', 'públ']);
-        const keyExistencia = buscarKey(['exist', 'cant', 'stock']);
-        const keyMinimo = buscarKey(['min', 'mín']);
-        const keyCredito = buscarKey(['créd', 'fisc']);
-        const keyProveedor = buscarKey(['prov']);
+        this.excelData = dataRows.map(row => {
+            if (!row[colMap.codigo] && !row[colMap.desc]) return null; // Filtro filas vacías
 
-        // Convertir al formato interno
-        this.datosExcelCargados = datosCrudos.map(fila => {
-            // Función segura para obtener valor y limpiar
-            const val = (k) => {
-                if (!k) return "";
-                let v = fila[k];
-                if (v === undefined || v === null) return "";
-                return v.toString().trim();
-            };
-
-            // Parsear numeros
-            const parseNum = (k) => {
-                const v = val(k).replace('$', '').replace(',', '');
+            const cleanNum = (val) => {
+                if (!val) return 0;
+                if (typeof val === 'number') return val;
+                const v = String(val).replace(/[^0-9.]/g, '');
                 return parseFloat(v) || 0;
             };
 
             return {
-                codigo: val(keyCodigo),
-                descripcion: val(keyDescInv) || "SIN DESCRIPCIÓN", // Fallback si no hay desc
-                descripcionFactura: val(keyDescFact),
-                costo: parseNum(keyCosto),
-                precio: parseNum(keyVenta),
-                existencia: parseNum(keyExistencia),
-                stockMinimo: parseNum(keyMinimo),
-                creditoFiscal: val(keyCredito).toUpperCase() === 'SI',
-                proveedor: val(keyProveedor)
+                codigo: row[colMap.codigo] ? String(row[colMap.codigo]) : "GEN-" + Math.floor(Math.random() * 10000),
+                descripcion: row[colMap.desc] || "Sin Descripción",
+                descripcionFactura: "",
+                costo: cleanNum(row[colMap.costo]),
+                precio: cleanNum(row[colMap.precio]),
+                existencia: cleanNum(row[colMap.exist]),
+                stockMinimo: 5,
+                creditoFiscal: false,
+                proveedor: row[colMap.prov] || ""
             };
+        }).filter(item => item !== null);
+
+        this.showExcelPreview();
+    }
+
+    showExcelPreview() {
+        document.getElementById('drop-area').style.display = 'none';
+        document.getElementById('excel-preview').style.display = 'block';
+
+        const table = document.getElementById('preview-table');
+        let html = `<thead><tr><th>Código</th><th>Descripción</th><th>Costo</th><th>Precio</th><th>Stock</th></tr></thead><tbody>`;
+
+        this.excelData.slice(0, 50).forEach(p => {
+            html += `<tr><td>${p.codigo}</td><td>${p.descripcion}</td><td>${p.costo}</td><td>${p.precio}</td><td>${p.existencia}</td></tr>`;
         });
-
-        // Mostrar Vista Previa
-        this.mostrarVistaPreviaExcel();
+        html += `</tbody>`;
+        table.innerHTML = html;
     }
 
-    mostrarVistaPreviaExcel() {
-        const contenedor = document.getElementById('tab-cargar-excel');
+    async uploadExcelData() {
+        if (this.excelData.length === 0) return;
 
-        // Crear tabla de preview si no existe
-        let previewContainer = document.getElementById('excel-preview-container');
-        if (!previewContainer) {
-            previewContainer = document.createElement('div');
-            previewContainer.id = 'excel-preview-container';
-            previewContainer.style.marginTop = '20px';
-            contenedor.appendChild(previewContainer);
-        }
+        const btn = document.getElementById('btn-confirm-excel');
+        btn.disabled = true;
+        btn.innerText = "Subiendo...";
 
-        // Generar HTML de la tabla
-        let h = `
-            <h3>Vista Previa (${this.datosExcelCargados.length} productos)</h3>
-            <p>Por favor revisa que las columnas coincidan. Las celdas vacías deben verse vacías.</p>
-            <div style="max-height: 400px; overflow: auto; border: 1px solid #ccc;">
-            <table class="inventario-table">
-                <thead>
-                    <tr>
-                        <th>Código</th>
-                        <th>Desc. Inventario</th>
-                        <th>Desc. Factura</th>
-                        <th>Costo</th>
-                        <th>Venta</th>
-                        <th>Exist.</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-
-        // Mostrar primeros 50 para no trabar el navegador
-        this.datosExcelCargados.slice(0, 50).forEach(d => {
-            h += `
-                <tr>
-                    <td>${d.codigo}</td>
-                    <td>${d.descripcion}</td>
-                    <td>${d.descripcionFactura}</td>
-                    <td>$${d.costo}</td>
-                    <td>$${d.precio}</td>
-                    <td>${d.existencia}</td>
-                </tr>
-            `;
-        });
-
-        h += `</tbody></table></div>`;
-
-        // Botones de Confirmar
-        h += `
-            <div class="inventario-actions" style="margin-top: 20px; justify-content: flex-end;">
-                <button class="btn btn-danger" onclick="window.inventario.cancelarCarga()">CANCELAR</button>
-                <button class="btn btn-success" onclick="window.inventario.guardarCargaExcel()">
-                    <i class="fas fa-save"></i> GUARDAR EN BASE DE DATOS
-                </button>
-            </div>
-        `;
-
-        previewContainer.innerHTML = h;
-    }
-
-    cancelarCarga() {
-        document.getElementById('excel-preview-container').innerHTML = '';
-        this.datosExcelCargados = [];
-        document.getElementById('excel-file').value = ''; // Reset input
-    }
-
-    async guardarCargaExcel() {
-        if (this.datosExcelCargados.length === 0) return;
-
-        const btnGuardar = document.querySelector('#excel-preview-container .btn-success');
-        if (btnGuardar) {
-            btnGuardar.disabled = true;
-            btnGuardar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-        }
-
+        const batchSize = 400;
         try {
-            // Guardar uno por uno (o batch)
-            // Para ser robustos, uno por uno o batches pequeños
-            let guardados = 0;
-            const batchSize = 400;
-            const chunks = [];
-
-            for (let i = 0; i < this.datosExcelCargados.length; i += batchSize) {
-                chunks.push(this.datosExcelCargados.slice(i, i + batchSize));
-            }
-
-            for (const chunk of chunks) {
-                const batch = firebase.firestore().batch();
-                chunk.forEach(prod => {
-                    const ref = firebase.firestore().collection("INVENTARIO").doc(); // ID auto
-                    batch.set(ref, prod);
+            for (let i = 0; i < this.excelData.length; i += batchSize) {
+                const chunk = this.excelData.slice(i, i + batchSize);
+                const batch = db.batch();
+                chunk.forEach(data => {
+                    const ref = db.collection('INVENTARIO').doc();
+                    batch.set(ref, data);
                 });
                 await batch.commit();
-                guardados += chunk.length;
-                console.log(`Guardados ${guardados} productos...`);
             }
-
-            alert(`✅ Éxito: Se guardaron ${guardados} productos correctamente.`);
-            this.cancelarCarga();
-            this.cambiarPestana('lista'); // Volver a la lista
-            this.cargarYMostrarProductos(); // Actualizar lista
-
-        } catch (error) {
-            console.error("Error al guardar:", error);
-            alert("❌ Error al guardar datos: " + error.message);
-            if (btnGuardar) {
-                btnGuardar.disabled = false;
-                btnGuardar.innerHTML = 'Reintentar';
-            }
+            alert(`Importación completada: ${this.excelData.length} productos.`);
+            this.switchTab('lista');
+            this.loadData();
+            // Reset excel UI
+            document.getElementById('drop-area').style.display = 'block';
+            document.getElementById('excel-preview').style.display = 'none';
+        } catch (e) {
+            alert("Error subiendo: " + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "Confirmar Importación";
         }
     }
 
-    cambiarPestana(tabId) {
-        document.querySelectorAll('.inventario-sidebar-item').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    // =========================================
+    // 5. UTILS / EXTRA
+    // =========================================
+    injectExtraActions() {
+        const container = document.getElementById('extra-actions');
 
-        const botonActivo = document.querySelector(`.inventario-sidebar-item[data-tab="${tabId}"]`);
-        if (botonActivo) botonActivo.classList.add('active');
-
-        const contenidoActivo = document.getElementById(`tab-${tabId}`);
-        if (contenidoActivo) contenidoActivo.classList.add('active');
-    }
-
-    async cargarYMostrarProductos() {
-        try {
-            this.tablaCuerpo.innerHTML = '<tr><td colspan="10">Cargando productos...</td></tr>';
-            const productos = await this.inventoryService.obtenerTodos();
-            this.renderizarTabla(productos);
-        } catch (error) {
-            console.error("Falló la carga:", error);
-            this.tablaCuerpo.innerHTML = '<tr><td colspan="10">Error cargando datos.</td></tr>';
-        }
-    }
-
-    // ... borrarInventarioCompleto y renderizarTabla se mantienen igual ...
-    async borrarInventarioCompleto() {
-        try {
-            this.tablaCuerpo.innerHTML = '<tr><td colspan="10">Borrando...</td></tr>';
-            const exito = await this.inventoryService.borrarTodo();
-            if (exito) {
-                alert("Inventario borrado.");
-                this.cargarYMostrarProductos();
-            } else {
-                alert("Error al borrar.");
-                this.cargarYMostrarProductos();
+        // BORRAR TODO
+        const btnDel = document.createElement('button');
+        btnDel.className = 'btn btn-danger';
+        btnDel.innerHTML = '<i class="fas fa-trash"></i> Borrar Todo';
+        btnDel.onclick = async () => {
+            if (confirm("⚠️ PELIGRO: ¿Borrar TODO el inventario?")) {
+                await this.svc.borrarTodo();
+                this.loadData();
             }
-        } catch (e) { alert(e.message); this.cargarYMostrarProductos(); }
-    }
+        };
 
-    renderizarTabla(productos) {
-        this.tablaCuerpo.innerHTML = '';
-        if (!productos || productos.length === 0) {
-            this.tablaCuerpo.innerHTML = '<tr><td colspan="10" class="empty-cart">No hay productos</td></tr>';
-            return;
-        }
-        productos.forEach(prod => {
-            const tr = document.createElement('tr');
-            // Checkeo de seguridad para valores null
-            const c = (prod.costo || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-            const v = (prod.precio || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-            tr.innerHTML = `
-                <td>${prod.codigo || ''}</td>
-                <td>${prod.descripcion || ''}</td>
-                <td>${prod.descripcionFactura || ''}</td>
-                <td>${c}</td>
-                <td>${v}</td>
-                <td>${prod.existencia || 0}</td>
-                <td>${prod.stockMinimo || 0}</td>
-                <td>${prod.creditoFiscal ? 'SI' : 'NO'}</td>
-                <td>${prod.proveedor || ''}</td>
-                <td> <button class="btn-icon"><i class="fas fa-edit"></i></button> </td>
-            `;
-            this.tablaCuerpo.appendChild(tr);
-        });
+        // ACTIVAR CF
+        const btnCF = document.createElement('button');
+        btnCF.className = 'btn btn-info';
+        btnCF.innerHTML = 'Activar CF Masivo';
+        btnCF.onclick = async () => {
+            if (confirm("¿Activar CF para todos?")) {
+                await this.svc.actualizarCreditoFiscalTodos();
+                this.loadData();
+            }
+        };
+
+        container.appendChild(btnCF);
+        container.appendChild(btnDel);
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    const controller = new InventoryController();
-    controller.init();
-    window.inventario = controller;
-});
+// INICIALIZACIÓN GLOBAL
+const app = new InventoryController();
+window.app = app; // Expose for inline onclicks
