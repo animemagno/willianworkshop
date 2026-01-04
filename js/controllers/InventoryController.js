@@ -1,150 +1,151 @@
+// NO IMPORTS -> Usamos window.InventoryService y window.InventoryUI
+
 class InventoryController {
     constructor() {
-        this.svc = new InventoryService(); // Servicio existente
-        this.cache = []; // Todos los productos
-        this.filtered = []; // Filtrados
+        // Fallback checks
+        if (!window.InventoryService) { console.error("InventoryService no cargado"); return; }
+        if (!window.InventoryUI) { console.error("InventoryUI no cargado"); return; }
+
+        this.svc = new window.InventoryService();
+        this.ui = new window.InventoryUI(); // Instancia Global
+
+        this.cache = [];
+        this.filtered = [];
         this.sortState = { key: 'codigo', dir: 'asc' };
 
-        // Excel Cache
-        this.excelData = [];
-
-        // Excel Cache
-        this.excelData = [];
-
-        // Entry Cart
+        // Entradas Cache
         this.entryCart = [];
+        this.excelData = [];
+
+        // Providers Cache
+        this.providersCache = [];
+
         this.init();
     }
 
     async init() {
-        console.log("INVENTORY CONTROLLER v2.0 STARTED");
+        console.log("INVENTORY CONTROLLER (GLOBAL) STARTED");
         this.bindEvents();
+        this.exposeGlobalFunctions();
         await this.loadData();
     }
 
-    // =========================================
-    // 1. EVENTOS Y TABS
-    // =========================================
+    exposeGlobalFunctions() {
+        // Funciones para onclick="" del HTML
+        window.editarProducto = (id) => this.openEditModal(id);
+        window.eliminarProducto = (id) => this.deleteProduct(id);
+        window.app = this;
+    }
+
     bindEvents() {
         // TABS
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                const target = btn.dataset.target; // "lista", "nuevo", "excel", "entradas"
-                this.switchTab(target);
+                const target = btn.dataset.target;
+                this.ui.activateTab(target);
+                if (target === 'entradas') this.loadEntries();
             });
         });
 
-        // ENTRADAS EVENTS
-        document.getElementById('btn-open-entry-modal').addEventListener('click', () => this.openEntryModal());
-        document.getElementById('btn-close-entry-modal').addEventListener('click', () => this.closeEntryModal());
-        document.getElementById('btn-cancel-entry').addEventListener('click', () => this.closeEntryModal());
+        // SEARCH
+        const searchInput = document.getElementById('buscar-producto');
+        if (searchInput) searchInput.addEventListener('input', (e) => this.filterData(e.target.value));
 
-        // Cost Input: ENTER to Add Item
-        const costInput = document.getElementById('entry-temp-cost');
-        if (costInput) {
-            costInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    this.addEntryItem();
-                }
-            });
-        }
+        const refreshBtn = document.getElementById('btn-refresh');
+        if (refreshBtn) refreshBtn.addEventListener('click', () => this.loadData());
 
-        // Process
-        document.getElementById('btn-process-entry').addEventListener('click', () => this.processEntry());
-
-        // Product Search Autocomplete (New ID)
-        const searchInput = document.getElementById('entry-temp-name');
-        if (searchInput) {
-            searchInput.addEventListener('input', (e) => this.handleEntryProductSearch(e.target.value));
-            searchInput.addEventListener('focus', (e) => this.handleEntryProductSearch(e.target.value));
-        }
-
-        // Hide search results on click outside
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('#entry-temp-name') && !e.target.closest('#entry-search-results')) {
-                const results = document.getElementById('entry-search-results');
-                if (results) results.style.display = 'none';
-            }
-        });
-
-        // REFRESH
-        document.getElementById('btn-refresh').addEventListener('click', () => this.loadData());
-
-        // BUSQUEDA
-        document.getElementById('input-search').addEventListener('input', (e) => this.filterData(e.target.value));
-
-        // SORTING
+        // SORT
         document.querySelectorAll('th[data-sort]').forEach(th => {
             th.addEventListener('click', () => this.handleSort(th.dataset.sort));
         });
 
-        // FORMULARIO NUEVO
-        document.getElementById('btn-save-product').addEventListener('click', () => this.saveProduct());
-        document.getElementById('btn-cancel-form').addEventListener('click', () => this.resetForm());
+        // SAVE NEW
+        const btnSaveNew = document.getElementById('btn-save-new');
+        if (btnSaveNew) btnSaveNew.addEventListener('click', () => this.saveNewProduct());
 
-        // EXCEL DROP
-        const dropArea = document.getElementById('drop-area');
-        const fileInput = document.getElementById('file-excel');
+        // UPDATE EXISTING (Modal)
+        const btnUpdate = document.getElementById('btn-update-product');
+        if (btnUpdate) btnUpdate.addEventListener('click', () => this.updateProduct());
 
-        dropArea.addEventListener('click', () => fileInput.click());
-        fileInput.addEventListener('change', (e) => this.handleExcelFile(e.target.files[0]));
+        // EXCEL
+        const dropArea = document.getElementById('excel-drop-area');
+        const fileInput = document.getElementById('excel-file');
 
-        dropArea.addEventListener('dragover', (e) => { e.preventDefault(); dropArea.classList.add('dragover'); });
-        dropArea.addEventListener('dragleave', () => dropArea.classList.remove('dragover'));
-        dropArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropArea.classList.remove('dragover');
-            if (e.dataTransfer.files.length) this.handleExcelFile(e.dataTransfer.files[0]);
-        });
+        // Validar que existan, por si acaso
+        if (dropArea && fileInput) {
+            dropArea.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => this.handleExcelFile(e.target.files[0]));
 
-        document.getElementById('btn-confirm-excel').addEventListener('click', () => this.uploadExcelData());
-        document.getElementById('btn-cancel-excel').addEventListener('click', () => {
+            dropArea.addEventListener('dragover', (e) => { e.preventDefault(); dropArea.classList.add('dragover'); });
+            dropArea.addEventListener('dragleave', () => dropArea.classList.remove('dragover'));
+            dropArea.addEventListener('drop', (e) => {
+                e.preventDefault(); dropArea.classList.remove('dragover');
+                if (e.dataTransfer.files.length) this.handleExcelFile(e.dataTransfer.files[0]);
+            });
+        }
+
+        const btnConfirmExcel = document.getElementById('btn-confirm-excel');
+        if (btnConfirmExcel) btnConfirmExcel.addEventListener('click', () => this.uploadExcelData());
+
+        const btnCancelExcel = document.getElementById('btn-cancel-excel');
+        if (btnCancelExcel) btnCancelExcel.addEventListener('click', () => {
             document.getElementById('excel-preview').style.display = 'none';
-            document.getElementById('drop-area').style.display = 'block';
+            if (dropArea) dropArea.style.display = 'block';
             this.excelData = [];
         });
 
-        // MENU MÓVIL
-        document.getElementById('mobileMenuBtn').addEventListener('click', () => {
-            document.getElementById('mobileMenu').classList.toggle('show');
-        });
+        // ENTRADAS EVENTS
+        const btnOpenEntry = document.getElementById('btn-open-entry-modal');
+        if (btnOpenEntry) btnOpenEntry.addEventListener('click', () => this.openEntryModal());
 
-        // Inject Extra actions (Borrar Todo, CF)
+        const btnCloseEntry = document.getElementById('btn-close-entry-modal');
+        if (btnCloseEntry) btnCloseEntry.addEventListener('click', () => this.closeEntryModal());
+
+        const btnCancelEntry = document.getElementById('btn-cancel-entry');
+        if (btnCancelEntry) btnCancelEntry.addEventListener('click', () => this.closeEntryModal());
+
+        const btnProcessEntry = document.getElementById('btn-process-entry');
+        if (btnProcessEntry) btnProcessEntry.addEventListener('click', () => this.processEntry());
+
+        // Cost Input Enter
+        const costInput = document.getElementById('entry-temp-cost');
+        if (costInput) {
+            costInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); this.addEntryItem(); }
+            });
+        }
+
+        // Search Product for Entry
+        const entrySearch = document.getElementById('entry-temp-name');
+        if (entrySearch) {
+            entrySearch.addEventListener('input', (e) => this.handleEntryProductSearch(e.target.value));
+            // Close search on blur/click outside is handled by CSS or generic click
+            document.addEventListener('click', (e) => {
+                if (e.target !== entrySearch && !e.target.closest('#entry-search-results')) {
+                    const res = document.getElementById('entry-search-results');
+                    if (res) res.style.display = 'none';
+                }
+            });
+        }
+
+        // Extra Actions Injection (Borrar todo)
         this.injectExtraActions();
     }
 
-    switchTab(tabName) {
-        // 1. Update Buttons
-        document.querySelectorAll('.tab-btn').forEach(b => {
-            b.classList.toggle('active', b.dataset.target === tabName);
-        });
-
-        // 2. Update Content
-        document.querySelectorAll('.tab-content').forEach(c => {
-            c.classList.remove('active');
-        });
-        document.getElementById(`tab-${tabName}`).classList.add('active');
-
-        if (tabName === 'entradas') {
-            this.loadEntries();
-        }
-    }
-
     // =========================================
-    // 2. DATOS Y RENDER
+    // DATA HANDLING
     // =========================================
     async loadData() {
-        const tbody = document.getElementById('inventory-body');
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center">Cargando datos...</td></tr>';
+        const tbody = document.getElementById('inventario-body');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center">Cargando datos...</td></tr>';
 
         try {
-            this.cache = await this.svc.obtenerTodos(); // Fetch from Firestore
+            this.cache = await this.svc.obtenerTodos();
             this.filtered = [...this.cache];
-            this.applySort(); // Ordena y Pinta
+            this.applySort();
         } catch (error) {
             console.error(error);
-            tbody.innerHTML = `<tr><td colspan="10" style="color:red; text-align:center">Error: ${error.message}</td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="10" style="color:red; text-align:center">Error: ${error.message}</td></tr>`;
         }
     }
 
@@ -169,244 +170,185 @@ class InventoryController {
             this.sortState.key = key;
             this.sortState.dir = 'asc';
         }
-        this.updateSortIcons();
         this.applySort();
-    }
-
-    updateSortIcons() {
-        document.querySelectorAll('th[data-sort]').forEach(th => {
-            th.className = ''; // reset classes
-            if (th.dataset.sort === this.sortState.key) {
-                th.classList.add(this.sortState.dir === 'asc' ? 'active-asc' : 'active-desc');
-            }
-        });
     }
 
     applySort() {
         const { key, dir } = this.sortState;
+
         this.filtered.sort((a, b) => {
             let valA = a[key] || "";
             let valB = b[key] || "";
 
+            // Si es numérico
             if (typeof valA === 'number' && typeof valB === 'number') {
                 return dir === 'asc' ? valA - valB : valB - valA;
             }
-            valA = valA.toString().toLowerCase();
-            valB = valB.toString().toLowerCase();
+            // Strings
+            valA = String(valA).toLowerCase();
+            valB = String(valB).toLowerCase();
             if (valA < valB) return dir === 'asc' ? -1 : 1;
             if (valA > valB) return dir === 'asc' ? 1 : -1;
             return 0;
         });
-        this.renderTable();
+
+        this.render();
     }
 
-    renderTable() {
-        const tbody = document.getElementById('inventory-body');
-        tbody.innerHTML = '';
-        const limit = 200; // Render limit
+    render() {
+        // Adapter: Convert Service Data to UI Data
+        const uiData = this.filtered.slice(0, 200).map(p => ({
+            id: p.id,
+            codigo: p.codigo,
+            codigosProveedor: [],
+            descInventario: p.descripcion,
+            descFactura: p.descripcionFactura,
+            precioCosto: p.costo || 0,
+            precioVenta: p.precio || 0,
+            existencia: p.existencia || 0,
+            stockMinimo: p.stockMinimo || 5,
+            creditoFiscal: p.creditoFiscal,
+            proveedor: p.proveedor
+        }));
 
-        const data = this.filtered.slice(0, limit);
+        this.ui.renderTable(uiData);
+    }
 
-        if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center">No se encontraron productos.</td></tr>';
+    // =========================================
+    // CRUD
+    // =========================================
+
+    async saveNewProduct() {
+        const formData = this.ui.getNewFormData();
+
+        const serviceData = {
+            codigo: formData.codigo,
+            descripcion: formData.descInventario,
+            descripcionFactura: formData.descFactura,
+            costo: formData.precioCosto,
+            precio: formData.precioVenta,
+            existencia: formData.existencia,
+            stockMinimo: formData.stockMinimo,
+            creditoFiscal: formData.creditoFiscal,
+            proveedor: formData.proveedor
+            // categoria...
+        };
+
+        if (!serviceData.codigo || !serviceData.descripcion) {
+            alert("Código y Descripción son obligatorios");
             return;
         }
 
-        data.forEach(p => {
-            const tr = document.createElement('tr');
-
-            const cfBadge = p.creditoFiscal ?
-                '<span class="badge-si">SI</span>' : '<span class="badge-no">NO</span>';
-
-            const precio = (p.precio || 0).toFixed(2);
-            const costo = (p.costo || 0).toFixed(2);
-
-            tr.innerHTML = `
-                <td><b>${p.codigo || "--"}</b></td>
-                <td>${p.descripcion || "--"}</td>
-                <td>${p.descripcionFactura || ""}</td>
-                <td>$${costo}</td>
-                <td style="color:#27ae60; font-weight:bold;">$${precio}</td>
-                <td style="text-align:center">${p.existencia || 0}</td>
-                <td style="text-align:center">${p.stockMinimo || 0}</td>
-                <td style="text-align:center">${cfBadge}</td>
-                <td>${p.proveedor || ""}</td>
-                <td style="text-align:center; position:relative;">
-                    <button class="action-btn" onclick="app.toggleActionMenu('${p.id}')">
-                        <i class="fas fa-ellipsis-v"></i>
-                    </button>
-                    <div id="menu-${p.id}" class="action-menu">
-                        <button onclick="app.loadForm('${p.id}')"><i class="fas fa-edit"></i> Editar</button>
-                        <button class="delete" onclick="app.deleteProduct('${p.id}')"><i class="fas fa-trash"></i> Eliminar</button>
-                    </div>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
-    }
-
-    // =========================================
-    // 3. CRUD (CREATE / UPDATE / DELETE)
-    // =========================================
-
-    // Abrir menú de acciones (3 puntos)
-    toggleActionMenu(id) {
-        // Cerrar otros
-        document.querySelectorAll('.action-menu').forEach(m => m.classList.remove('show'));
-
-        const menu = document.getElementById(`menu-${id}`);
-        if (menu) {
-            menu.classList.add('show');
-            // Auto-cerrar al clickar fuera
-            setTimeout(() => {
-                const closeNav = (e) => {
-                    if (!menu.contains(e.target)) {
-                        menu.classList.remove('show');
-                        document.removeEventListener('click', closeNav);
-                    }
-                }
-                document.addEventListener('click', closeNav);
-            }, 0);
+        if (confirm("¿Guardar nuevo producto?")) {
+            try {
+                await this.svc.guardarProducto(serviceData);
+                alert("Guardado!");
+                this.ui.clearNewForm();
+                this.loadData();
+            } catch (e) {
+                alert("Error: " + e.message);
+            }
         }
     }
 
-    // CARGAR DATOS EN FORMULARIO (Edit)
-    loadForm(id) {
+    openEditModal(id) {
         const p = this.cache.find(item => item.id === id);
         if (!p) return;
 
-        document.getElementById('field-id').value = id;
-        document.getElementById('field-codigo').value = p.codigo || "";
-        document.getElementById('field-proveedor').value = p.proveedor || "";
-        document.getElementById('field-descripcion').value = p.descripcion || "";
-        document.getElementById('field-desc-fact').value = p.descripcionFactura || "";
-        document.getElementById('field-costo').value = p.costo || 0;
-        document.getElementById('field-precio').value = p.precio || 0;
-        document.getElementById('field-existencia').value = p.existencia || 0;
-        document.getElementById('field-minimo').value = p.stockMinimo || 5;
-        document.getElementById('field-cf').value = p.creditoFiscal ? "true" : "false";
-
-        document.getElementById('form-mode-title').innerText = "Editar Producto";
-        this.switchTab('nuevo');
-    }
-
-    resetForm() {
-        document.getElementById('field-id').value = "";
-        document.getElementById('field-codigo').value = "";
-        document.getElementById('field-proveedor').value = "";
-        document.getElementById('field-descripcion').value = "";
-        document.getElementById('field-desc-fact').value = "";
-        document.getElementById('field-costo').value = 0;
-        document.getElementById('field-precio').value = 0;
-        document.getElementById('field-existencia').value = 0;
-        document.getElementById('field-minimo').value = 5;
-        document.getElementById('field-cf').value = "false";
-        document.getElementById('form-mode-title').innerText = "Registrar Nuevo Producto";
-
-        this.switchTab('lista');
-    }
-
-    async saveProduct() {
-        const id = document.getElementById('field-id').value;
-        const data = {
-            codigo: document.getElementById('field-codigo').value,
-            proveedor: document.getElementById('field-proveedor').value,
-            descripcion: document.getElementById('field-descripcion').value,
-            descripcionFactura: document.getElementById('field-desc-fact').value,
-            costo: parseFloat(document.getElementById('field-costo').value) || 0,
-            precio: parseFloat(document.getElementById('field-precio').value) || 0,
-            existencia: parseFloat(document.getElementById('field-existencia').value) || 0,
-            stockMinimo: parseFloat(document.getElementById('field-minimo').value) || 5,
-            creditoFiscal: document.getElementById('field-cf').value === "true"
+        // Adapter
+        const uiProduct = {
+            id: p.id,
+            codigo: p.codigo,
+            codigosProveedor: [],
+            descInventario: p.descripcion,
+            descFactura: p.descripcionFactura,
+            precioCosto: p.costo,
+            precioVenta: p.precio,
+            existencia: p.existencia,
+            stockMinimo: p.stockMinimo,
+            creditoFiscal: p.creditoFiscal,
+            proveedor: p.proveedor
         };
 
-        if (!data.codigo || !data.descripcion) {
-            alert("El código y la descripción son obligatorios.");
-            return;
-        }
+        this.ui.showEditModal(uiProduct);
+    }
 
-        const btn = document.getElementById('btn-save-product');
-        btn.disabled = true;
-        btn.innerHTML = "Guardando...";
+    async updateProduct() {
+        const formData = this.ui.getEditFormData();
+
+        const serviceData = {
+            codigo: formData.codigo,
+            descripcion: formData.descInventario,
+            descripcionFactura: formData.descFactura,
+            costo: formData.precioCosto,
+            precio: formData.precioVenta,
+            existencia: formData.existencia,
+            stockMinimo: formData.stockMinimo,
+            creditoFiscal: formData.creditoFiscal,
+            proveedor: formData.proveedor
+        };
 
         try {
-            if (id) {
-                await this.svc.actualizarProducto(id, data); // Update
-            } else {
-                await this.svc.guardarProducto(data); // Create
-            }
-            alert("Producto guardado correctamente.");
-            this.resetForm();
+            await this.svc.actualizarProducto(formData.id, serviceData);
+            alert("Actualizado correctamente");
+            this.ui.hideEditModal();
             this.loadData();
-        } catch (error) {
-            alert("Error: " + error.message);
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-save"></i> GUARDAR PRODUCTO';
+        } catch (e) {
+            alert("Error al actualizar: " + e.message);
         }
     }
 
     async deleteProduct(id) {
-        if (confirm("¿Estás seguro de eliminar este producto?")) {
+        if (confirm("¿Eliminar producto permanentemente?")) {
             try {
                 await this.svc.eliminarProducto(id);
+                // Remove from cache instantly
                 this.cache = this.cache.filter(p => p.id !== id);
-                this.filtered = this.filtered.filter(p => p.id !== id);
-                this.applySort();
-            } catch (error) {
-                alert("Error eliminando: " + error.message);
+                // Re-apply filter to update view without network call
+                const searchVal = document.getElementById('buscar-producto').value;
+                this.filterData(searchVal);
+            } catch (e) {
+                alert("Error: " + e.message);
             }
         }
     }
 
     // =========================================
-    // 4. EXCEL LOGIC (Ported)
+    // EXCEL
     // =========================================
     handleExcelFile(file) {
         if (!file) return;
-
         const reader = new FileReader();
         reader.onload = (e) => {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
 
-            // Lógica de detección inteligente (simplificada del código anterior)
-            // 1. Buscar hoja con headers
+            // Logic ported
             const keywords = ['codigo', 'descrip', 'venta', 'precio', 'stock'];
             let bestSheet = null;
-
             for (const name of workbook.SheetNames) {
                 const sheet = workbook.Sheets[name];
-                // Convert to JSON
                 const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-                // Scan for keywords
                 let matches = 0;
                 rows.slice(0, 20).forEach(row => {
                     const txt = JSON.stringify(row).toLowerCase();
                     if (keywords.some(k => txt.includes(k))) matches++;
                 });
-                if (matches > 1) {
-                    bestSheet = rows;
-                    break;
-                }
+                if (matches > 1) { bestSheet = rows; break; }
             }
 
-            if (!bestSheet) { alert("No se detectó una hoja válida de inventario."); return; }
+            if (!bestSheet) { alert("No se detectó hoja válida."); return; }
             this.processExcelRows(bestSheet);
         };
         reader.readAsArrayBuffer(file);
     }
 
     processExcelRows(rows) {
-        // Encontrar header row
         let headerIdx = -1;
         const keywords = ['codigo', 'descrip', 'venta', 'precio', 'stock'];
         for (let i = 0; i < Math.min(rows.length, 50); i++) {
             const rowStr = JSON.stringify(rows[i]).toLowerCase();
-            if (keywords.some(k => rowStr.includes(k))) {
-                headerIdx = i;
-                break;
-            }
+            if (keywords.some(k => rowStr.includes(k))) { headerIdx = i; break; }
         }
 
         if (headerIdx === -1) { alert("No se encontraron encabezados."); return; }
@@ -414,7 +356,6 @@ class InventoryController {
         const headers = rows[headerIdx].map(h => String(h).toLowerCase().trim());
         const dataRows = rows.slice(headerIdx + 1);
 
-        // Mapear columnas
         const colMap = {
             codigo: headers.findIndex(h => h.includes('cod') || h.includes('id')),
             desc: headers.findIndex(h => h.includes('desc') || h.includes('prod')),
@@ -425,15 +366,12 @@ class InventoryController {
         };
 
         this.excelData = dataRows.map(row => {
-            if (!row[colMap.codigo] && !row[colMap.desc]) return null; // Filtro filas vacías
-
+            if (!row[colMap.codigo] && !row[colMap.desc]) return null;
             const cleanNum = (val) => {
                 if (!val) return 0;
                 if (typeof val === 'number') return val;
-                const v = String(val).replace(/[^0-9.]/g, '');
-                return parseFloat(v) || 0;
+                return parseFloat(String(val).replace(/[^0-9.]/g, '')) || 0;
             };
-
             return {
                 codigo: row[colMap.codigo] ? String(row[colMap.codigo]) : "GEN-" + Math.floor(Math.random() * 10000),
                 descripcion: row[colMap.desc] || "Sin Descripción",
@@ -447,402 +385,272 @@ class InventoryController {
             };
         }).filter(item => item !== null);
 
-        this.showExcelPreview();
-    }
-
-    showExcelPreview() {
-        document.getElementById('drop-area').style.display = 'none';
-        document.getElementById('excel-preview').style.display = 'block';
-
-        const table = document.getElementById('preview-table');
-        let html = `<thead><tr><th>Código</th><th>Descripción</th><th>Costo</th><th>Precio</th><th>Stock</th></tr></thead><tbody>`;
-
-        this.excelData.slice(0, 50).forEach(p => {
-            html += `<tr><td>${p.codigo}</td><td>${p.descripcion}</td><td>${p.costo}</td><td>${p.precio}</td><td>${p.existencia}</td></tr>`;
-        });
-        html += `</tbody>`;
-        table.innerHTML = html;
+        this.ui.renderExcelPreview(this.excelData);
     }
 
     async uploadExcelData() {
         if (this.excelData.length === 0) return;
-
         const btn = document.getElementById('btn-confirm-excel');
-        btn.disabled = true;
-        btn.innerText = "Subiendo...";
-
-        const batchSize = 400;
+        btn.disabled = true; btn.innerText = "Subiendo...";
         try {
+            const batchSize = 400;
             for (let i = 0; i < this.excelData.length; i += batchSize) {
                 const chunk = this.excelData.slice(i, i + batchSize);
-                const batch = db.batch();
+                const batch = db.batch(); // window.db provided by html
                 chunk.forEach(data => {
                     const ref = db.collection('INVENTARIO').doc();
                     batch.set(ref, data);
                 });
                 await batch.commit();
             }
-            alert(`Importación completada: ${this.excelData.length} productos.`);
-            this.switchTab('lista');
+            alert(`Importados ${this.excelData.length} productos.`);
+            this.ui.activateTab('lista');
             this.loadData();
-            // Reset excel UI
-            document.getElementById('drop-area').style.display = 'block';
-            document.getElementById('excel-preview').style.display = 'none';
-        } catch (e) {
-            alert("Error subiendo: " + e.message);
-        } finally {
-            btn.disabled = false;
-            btn.innerText = "Confirmar Importación";
-        }
+        } catch (e) { alert("Error: " + e.message); }
+        finally { btn.disabled = false; btn.innerText = "Confirmar Importación"; }
     }
 
-    // =========================================
-    // 5. UTILS / EXTRA
-    // =========================================
-    injectExtraActions() {
-        const container = document.getElementById('extra-actions');
 
-        // BORRAR TODO
-        const btnDel = document.createElement('button');
-        btnDel.className = 'btn btn-danger';
-        btnDel.innerHTML = '<i class="fas fa-trash"></i> Borrar Todo';
-        btnDel.onclick = async () => {
-            if (confirm("⚠️ PELIGRO: ¿Borrar TODO el inventario?")) {
-                await this.svc.borrarTodo();
-                this.loadData();
-            }
-        };
-
-        // ACTIVAR CF
-        const btnCF = document.createElement('button');
-        btnCF.className = 'btn btn-info';
-        btnCF.innerHTML = 'Activar CF Masivo';
-        btnCF.onclick = async () => {
-            if (confirm("¿Activar CF para todos?")) {
-                await this.svc.actualizarCreditoFiscalTodos();
-                this.loadData();
-            }
-        };
-
-        container.appendChild(btnCF);
-        container.appendChild(btnDel);
-    }
     // =========================================
-    // 6. ENTRADAS LOGIC
+    // ENTRADAS (CLASS-ADAPTED)
     // =========================================
-
     async loadEntries() {
         const tbody = document.getElementById('entries-body');
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center">Cargando historial...</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center">Cargando...</td></tr>';
         try {
             const entries = await this.svc.obtenerEntradas();
             this.renderEntriesTable(entries);
-        } catch (error) {
-            console.error(error);
-            tbody.innerHTML = `<tr><td colspan="8" style="color:red; text-align:center">Error: ${error}</td></tr>`;
+        } catch (e) {
+            if (tbody) tbody.innerHTML = `<tr><td colspan="8">Error: ${e}</td></tr>`;
         }
     }
 
     renderEntriesTable(entries) {
         const tbody = document.getElementById('entries-body');
+        if (!tbody) return;
         tbody.innerHTML = '';
-
-        if (entries.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center">No hay entradas registradas.</td></tr>';
-            return;
-        }
+        if (entries.length === 0) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center">Sin entradas.</td></tr>'; return; }
 
         entries.forEach(e => {
-            const tr = document.createElement('tr');
             const dateStr = e.timestamp ? new Date(e.timestamp.seconds * 1000).toLocaleString() : "Reciente";
+            const isReverted = e.revertida ? '<span class="badge-no" style="background:#fee;color:red;padding:2px 5px;">REVERTIDA</span>' : '<span class="badge-si" style="background:#efe;color:green;padding:2px 5px;">OK</span>';
+            let actionBtn = !e.revertida ?
+                `<button class="btn btn-warning" onclick="app.revertEntry('${e.id}')" title="Revertir"><i class="fas fa-undo"></i></button>` :
+                `<button class="btn btn-danger" onclick="app.deleteEntry('${e.id}')" title="Borrar Historial"><i class="fas fa-trash"></i></button>`;
 
-            const isReverted = e.revertida ? '<span class="badge-no">REVERTIDA</span>' : '<span class="badge-si">OK</span>';
-
-            // Action Buttons
-            let actionBtn = '-';
-            if (!e.revertida) {
-                // Button to Revert
-                actionBtn = `<button class="btn btn-warning" style="padding:4px 8px; font-size:0.85rem;" title="Revertir Entrada" onclick="app.revertEntry('${e.id}')"><i class="fas fa-undo"></i></button>`;
-            } else {
-                // Button to Delete (only if reverted)
-                actionBtn = `<button class="btn btn-danger" style="padding:4px 10px; font-size:0.85rem;" title="Eliminar Registro" onclick="app.deleteEntry('${e.id}')"><i class="fas fa-trash"></i></button>`;
-            }
-
-            tr.innerHTML = `
+            tbody.innerHTML += `<tr>
                 <td>${dateStr}</td>
-                <td>${e.productName || "Desconocido"}</td>
-                <td style="text-align:center;">${e.cantidad}</td>
-                <td style="text-align:center;">$${parseFloat(e.costoUnitario || 0).toFixed(2)}</td>
-                <td style="text-align:center;">
-                    <small>$${parseFloat(e.costoAnterior || 0).toFixed(2)} ➝ $${parseFloat(e.costoNuevo || 0).toFixed(2)}</small>
-                </td>
-                <td>
-                    ${e.providerName || "N/A"}<br>
-                    <small>${e.esCredito ? '<span style="color:#d35400; font-weight:bold;">CRÉDITO</span>' : 'CONTADO'}</small>
-                </td>
-                <td style="text-align:center;">${isReverted}</td>
-                <td style="text-align:center;">${actionBtn}</td>
-            `;
-            tbody.appendChild(tr);
+                <td>${e.productName}</td>
+                <td style="text-align:center">${e.cantidad}</td>
+                <td style="text-align:right">$${Number(e.costoUnitario).toFixed(2)}</td>
+                <td style="text-align:center"><small>$${Number(e.costoAnterior).toFixed(2)} -> $${Number(e.costoNuevo).toFixed(2)}</small></td>
+                <td>${e.providerName || '-'}<br><small>${e.esCredito ? 'CREDITO' : 'CONTADO'}</small></td>
+                <td style="text-align:center">${isReverted}</td>
+                <td style="text-align:center">${actionBtn}</td>
+             </tr>`;
         });
     }
 
     async openEntryModal() {
         this.entryCart = [];
         this.renderEntryCart();
-
-        // Load providers into datalist
-        const dataList = document.getElementById('provider-list');
-        dataList.innerHTML = '';
-
-        try {
-            this.providersCache = await this.svc.obtenerProveedores(); // Cache for lookup later
-            this.providersCache.forEach(p => {
-                const opt = document.createElement('option');
-                opt.value = p.nombre || "Sin Nombre";
-                dataList.appendChild(opt);
-            });
-        } catch (e) {
-            console.error("Error loading providers", e);
-            this.providersCache = [];
+        // Load Providers
+        const dl = document.getElementById('provider-list');
+        if (dl) {
+            dl.innerHTML = '';
+            try {
+                // If not cached or reload necessary
+                const provs = await this.svc.obtenerProveedores();
+                this.providersCache = provs;
+                provs.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.nombre || "";
+                    dl.appendChild(opt);
+                });
+            } catch (e) { }
         }
-
         document.getElementById('entry-modal').style.display = 'flex';
-        document.getElementById('entry-provider-input').focus();
+        // Focus provider
+        const provInput = document.getElementById('entry-provider-input');
+        if (provInput) provInput.focus();
     }
 
     closeEntryModal() {
         document.getElementById('entry-modal').style.display = 'none';
-        // Reset Inputs
-        document.getElementById('entry-provider-input').value = '';
-        document.getElementById('entry-temp-qty').value = 1;
-        document.getElementById('entry-temp-name').value = '';
-        document.getElementById('entry-temp-id').value = '';
-        document.getElementById('entry-temp-cost').value = '';
-        // Reset radio to default
-        const radios = document.getElementsByName('entry-payment-status');
-        if (radios.length > 0) radios[0].checked = true;
+        // Reset fields
+        const inputs = ['entry-provider-input', 'entry-temp-qty', 'entry-temp-name', 'entry-temp-id', 'entry-temp-cost'];
+        inputs.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = (id === 'entry-temp-qty') ? 1 : '';
+        });
 
-        this.entryCart = [];
     }
 
     handleEntryProductSearch(query) {
-        const resultsDiv = document.getElementById('entry-search-results');
-        resultsDiv.innerHTML = '';
-        if (!query) {
-            resultsDiv.style.display = 'none';
-            return;
-        }
+        const resDiv = document.getElementById('entry-search-results');
+        if (!resDiv) return;
+        resDiv.innerHTML = '';
+        if (!query) { resDiv.style.display = 'none'; return; }
 
         const q = query.toLowerCase();
-        // Limit results to 8
-        const matches = this.cache.filter(p =>
-            (p.codigo || "").toLowerCase().includes(q) ||
-            (p.descripcion || "").toLowerCase().includes(q)
-        ).slice(0, 8);
+        const matches = this.cache.filter(p => matchedProduct(p, q)).slice(0, 8);
+
+        function matchedProduct(p, q) {
+            return (p.codigo || "").toLowerCase().includes(q) || (p.descripcion || "").toLowerCase().includes(q);
+        }
 
         if (matches.length > 0) {
-            resultsDiv.style.display = 'block';
+            resDiv.style.display = 'block';
             matches.forEach(p => {
                 const div = document.createElement('div');
-                div.className = 'search-result-item';
-                div.innerHTML = `<strong>${p.codigo}</strong> - ${p.descripcion} <br><small>Stock: ${p.existencia} | Costo: $${(p.costo || 0).toFixed(2)}</small>`;
+                div.style.padding = '8px'; div.style.cursor = 'pointer'; div.style.borderBottom = '1px solid #eee';
+                div.innerHTML = `<strong>${p.codigo}</strong> - ${p.descripcion}`;
+                div.onmouseover = () => { div.style.background = "#f0f0f0"; };
+                div.onmouseout = () => { div.style.background = "white"; };
                 div.onclick = () => {
-                    this.selectEntryProduct(p);
-                    resultsDiv.style.display = 'none';
+                    document.getElementById('entry-temp-name').value = p.codigo + " - " + p.descripcion;
+                    document.getElementById('entry-temp-id').value = p.id;
+                    document.getElementById('entry-temp-cost').value = p.costo;
+                    resDiv.style.display = 'none';
+                    // Focus next
+                    const costIn = document.getElementById('entry-temp-cost');
+                    if (costIn && (!p.costo || p.costo === 0)) costIn.focus();
                 };
-                resultsDiv.appendChild(div);
+                resDiv.appendChild(div);
             });
-        } else {
-            resultsDiv.style.display = 'none'; // User cans still type new name
-        }
+        } else { resDiv.style.display = 'none'; }
     }
-
-    selectEntryProduct(product) {
-        document.getElementById('entry-temp-name').value = product.codigo + " - " + product.descripcion;
-        document.getElementById('entry-temp-id').value = product.id;
-        document.getElementById('entry-temp-cost').value = product.costo || 0;
-        document.getElementById('entry-temp-cost').focus(); // Focus cost so user can just hit Enter
-    }
-
-    // --- CART LOGIC ---
 
     addEntryItem() {
         const qty = parseFloat(document.getElementById('entry-temp-qty').value);
-        const nameInput = document.getElementById('entry-temp-name').value.trim();
+        const name = document.getElementById('entry-temp-name').value;
         const id = document.getElementById('entry-temp-id').value;
         let cost = parseFloat(document.getElementById('entry-temp-cost').value);
 
-        if (qty <= 0) { alert("Cantidad inválida"); return; }
-        if (!nameInput) { alert("Ingrese un nombre de producto"); return; }
-        if (isNaN(cost)) { alert("Ingrese costo unitario"); return; }
+        if (!name) { alert("Nombre requerido"); return; }
+        if (isNaN(cost)) { alert("Costo requerido"); return; }
 
-        // IVA Check
-        // If "Include IVA" is NO, we must ADD IT (Cost * 1.13) because Inventory stores Gross Cost.
-        // If "Include IVA" is YES, we use it as is (Gross Cost).
-        const taxesIncluded = document.querySelector('input[name="entry-tax-included"]:checked');
-        if (taxesIncluded && taxesIncluded.value === 'no') {
-            cost = cost * 1.13;
+        // Extract Code from Name (format "CODE - Desc")
+        let displayCode = "NUEVO";
+        let displayName = name;
+
+        if (id && name.includes(" - ")) {
+            const parts = name.split(" - ");
+            displayCode = parts[0];
+            displayName = parts.slice(1).join(" - ");
         }
+
+        // IVA Logic
+        const taxEl = document.querySelector('input[name="entry-tax-included"]:checked');
+        const taxIncluded = taxEl ? taxEl.value === 'yes' : false;
+
+        if (!taxIncluded) cost = cost * 1.13;
 
         this.entryCart.push({
             tempId: Date.now(),
             productId: id || null,
-            name: nameInput,
-            qty: qty,
-            cost: cost,
+            displayCode: displayCode, // Store Code
+            name: displayName,        // Store Clean Name
+            qty,
+            cost,
             subtotal: qty * cost
         });
 
-
-        // Reset inputs
-        document.getElementById('entry-temp-qty').value = 1;
+        // Clear temp
         document.getElementById('entry-temp-name').value = '';
         document.getElementById('entry-temp-id').value = '';
         document.getElementById('entry-temp-cost').value = '';
+        document.getElementById('entry-temp-qty').value = 1;
+
         document.getElementById('entry-temp-name').focus();
-
-        this.renderEntryCart();
-    }
-
-    removeEntryItem(tempId) {
-        this.entryCart = this.entryCart.filter(i => i.tempId !== tempId);
         this.renderEntryCart();
     }
 
     renderEntryCart() {
         const tbody = document.getElementById('entry-cart-body');
+        if (!tbody) return;
         tbody.innerHTML = '';
         let total = 0;
-
-        this.entryCart.forEach((item, index) => {
+        this.entryCart.forEach(item => {
             total += item.subtotal;
-            const tr = document.createElement('tr');
-
-            // Try to find code if we have ID
-            let code = "NUEVO";
-            if (item.productId) {
-                const p = this.cache.find(p => p.id === item.productId);
-                if (p) code = p.codigo;
-            }
-
-            tr.innerHTML = `
-                <td><small>${code}</small></td>
+            tbody.innerHTML += `<tr>
+                <td><small>${item.displayCode || 'NUEVO'}</small></td>
                 <td>${item.name}</td>
                 <td style="text-align:center">${item.qty}</td>
                 <td style="text-align:right">$${item.subtotal.toFixed(2)}</td>
-                <td>
-                    <button class="action-btn" style="color:red;" onclick="app.removeEntryItem(${item.tempId})">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </td>
-            `;
-            tbody.appendChild(tr);
+                <td style="text-align:center"><button onclick="app.removeEntryItem(${item.tempId})" style="color:red;border:none;background:none;cursor:pointer;"><i class="fas fa-times"></i></button></td>
+            </tr>`;
         });
-
         document.getElementById('entry-total-value').innerText = total.toFixed(2);
     }
 
-    // --- PROCESS LOGIC ---
+    removeEntryItem(tid) {
+        this.entryCart = this.entryCart.filter(i => i.tempId !== tid);
+        this.renderEntryCart();
+    }
 
     async processEntry() {
-        if (this.entryCart.length === 0) { alert("La lista está vacía."); return; }
+        if (this.entryCart.length === 0) return alert("Carrito vacío");
+        const provName = document.getElementById('entry-provider-input').value;
+        if (!provName) return alert("Ingrese Proveedor");
 
-        // 1. Get Provider
-        const providerNameInput = document.getElementById('entry-provider-input').value.trim();
-        if (!providerNameInput) { alert("Ingrese o seleccione un proveedor."); return; }
-
-        // Try to match provider name to ID
-        let providerId = null;
-        let providerName = providerNameInput;
-
+        // Provider Match Logic
+        let provId = null;
         if (this.providersCache) {
-            const match = this.providersCache.find(p => (p.nombre || "").toLowerCase() === providerNameInput.toLowerCase());
-            if (match) {
-                providerId = match.id;
-                providerName = match.nombre; // Normalize case
-            }
+            const m = this.providersCache.find(p => p.nombre === provName);
+            if (m) provId = m.id;
         }
 
-        // 2. Resolve Unknown Items
-        for (let item of this.entryCart) {
-            if (!item.productId) {
-                // Item desconocido: Preguntar
-                const action = confirm(`El producto "${item.name}" no está vinculado a un producto existente.\n\n` +
-                    `¿Desea vincularlo a uno existente? (Aceptar)\n` +
-                    `¿O crearlo como NUEVO producto después? (Cancelar) -> (Se tratará como nuevo en sistema)`);
+        const payRadio = document.querySelector('input[name="entry-payment-status"]:checked');
+        const isCredit = payRadio ? payRadio.value === 'credito' : false;
 
-                if (action) {
-                    // Vincular: Prompt simple por ahora
-                    const search = prompt(`Busque el código exacto o nombre para vincular "${item.name}":`);
-                    if (search) {
-                        const match = this.cache.find(p =>
-                            p.codigo.toLowerCase() === search.toLowerCase() ||
-                            p.descripcion.toLowerCase() === search.toLowerCase()
-                        );
-                        if (match) {
-                            if (confirm(`¿Vincular "${item.name}" con "${match.descripcion} (${match.codigo})"?`)) {
-                                item.productId = match.id;
-                            }
-                        } else {
-                            alert("No se encontró coincidencia. Se procederá como producto nuevo/sin vínculo.");
-                        }
-                    }
-                }
-            }
-        }
-
-        // 3. Payment Status (Contado vs Credito)
-        const statusRadio = document.querySelector('input[name="entry-payment-status"]:checked');
-        const isCredit = (statusRadio && statusRadio.value === 'credito');
-
-        const btn = document.getElementById('btn-process-entry');
-        if (btn) {
-            btn.disabled = true;
-            btn.innerText = "Procesando...";
-        }
-
-        try {
-            await this.svc.registrarEntradaMasiva(this.entryCart, providerId, providerName, isCredit);
-            alert("Entrada registrada correctamente.");
-            this.closeEntryModal();
-            this.loadEntries();
-            this.loadData();
-        } catch (e) {
-            alert("Error procesando entrada: " + e.message);
-        } finally {
-            if (btn) {
-                btn.disabled = false;
-                btn.innerText = "Registrar Entrada";
-            }
+        if (confirm(`¿Procesar Entrada de ${this.entryCart.length} items?`)) {
+            const btn = document.getElementById('btn-process-entry');
+            if (btn) { btn.disabled = true; btn.innerText = "Procesando..."; }
+            try {
+                await this.svc.registrarEntradaMasiva(this.entryCart, provId, provName, isCredit);
+                alert("Entrada registrada!");
+                this.closeEntryModal();
+                this.loadData();
+                this.loadEntries();
+            } catch (e) { alert("Error: " + e.message); }
+            finally { if (btn) { btn.disabled = false; btn.innerText = "Procesar"; } }
         }
     }
 
     async revertEntry(id) {
-        if (!confirm("¿Está seguro de REVERTIR esta entrada? Se descontará el stock y se recalculará el costo.")) return;
-        try {
-            await this.svc.revertirEntrada(id);
-            alert("Entrada revertida.");
-            this.loadEntries();
-            this.loadData();
-        } catch (e) {
-            alert("Error: " + e);
+        if (confirm("¿Revertir entrada? Se descontará stock.")) {
+            try {
+                await this.svc.revertirEntrada(id);
+                alert("Revertida correctamente.");
+                this.loadEntries();
+                this.loadData();
+            } catch (e) { alert(e); }
         }
     }
 
     async deleteEntry(id) {
-        if (!confirm("¿Está seguro de ELIMINAR esta entrada de historial permanentemente?")) return;
-        try {
+        if (confirm("¿Eliminar registro historial?")) {
             await this.svc.eliminarEntrada(id);
-            alert("Registro eliminado.");
             this.loadEntries();
-        } catch (e) {
-            console.error(e);
-            alert("Error: " + e);
+        }
+    }
+
+    injectExtraActions() {
+        const c = document.getElementById('extra-actions');
+        if (!c) return;
+        c.innerHTML = `
+            <button class="btn btn-danger" style="padding:5px 10px; font-size:0.8rem;" onclick="app.borrarTodo()"><i class="fas fa-bomb"></i> Reset</button>
+        `;
+    }
+
+    async borrarTodo() {
+        if (confirm("⚠️ PELIGRO: ¿Borrar TODO el inventario? Esta acción no se puede deshacer.")) {
+            await this.svc.borrarTodo();
+            this.loadData();
         }
     }
 }
 
-// INICIALIZACIÓN GLOBAL
-const app = new InventoryController();
-window.app = app; // Expose for inline onclicks
+// Inicializar cuando el DOM esté listo o inmediatamente si script al final
+new InventoryController();

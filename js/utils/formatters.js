@@ -1,9 +1,10 @@
+// Namespace Global para Utilidades
+window.Utils = window.Utils || {};
+
 /**
  * Formatea un número como moneda USD
- * @param {number} amount 
- * @returns {string}
  */
-export const formatCurrency = (amount) => {
+window.Utils.formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
         style: 'currency',
         currency: 'USD',
@@ -13,10 +14,8 @@ export const formatCurrency = (amount) => {
 
 /**
  * Parsea un string de moneda a float
- * @param {string} str 
- * @returns {number}
  */
-export const parseCurrency = (str) => {
+window.Utils.parseCurrency = (str) => {
     if (!str) return 0;
     return parseFloat(str.replace(/[^0-9.-]+/g, ""));
 };

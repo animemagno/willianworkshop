@@ -8,6 +8,97 @@
     <!-- CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/inventario.css">
+    <!-- Modal Styles -->
+    <style>
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .close-modal-btn {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #666;
+        }
+
+        /* Stock helpers */
+        .stock-bajo {
+            color: #d35400;
+            font-weight: bold;
+        }
+
+        .stock-critico {
+            color: #c0392b;
+            font-weight: bold;
+            background: #fadbd8;
+            padding: 2px 5px;
+            border-radius: 4px;
+        }
+
+        .stock-normal {
+            color: #27ae60;
+            font-weight: bold;
+        }
+
+        .credito-si {
+            background: #d4edda;
+            color: #155724;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        .credito-no {
+            background: #f8f9fa;
+            color: #6c757d;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        .icon-btn {
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 1.1rem;
+            margin: 0 5px;
+            transition: transform 0.2s;
+        }
+
+        .icon-btn:hover {
+            transform: scale(1.2);
+        }
+
+        .btn-edit {
+            color: #3498db;
+        }
+
+        .btn-delete {
+            color: #e74c3c;
+        }
+    </style>
 </head>
 
 <body>
@@ -19,13 +110,12 @@
             <h1><i class="fas fa-boxes"></i> Inventario Taller Willian</h1>
         </div>
         <div class="user-info">
-            <!-- Espacio para usuario o logout -->
             <button id="logoutBtn" class="btn btn-danger" style="font-size: 0.8rem;"><i class="fas fa-sign-out-alt"></i>
                 Salir</button>
         </div>
     </header>
 
-    <!-- MENU MÓVIL (Offcanvas) -->
+    <!-- MENU MÓVIL -->
     <nav class="mobile-menu" id="mobileMenu">
         <a href="index.html"><i class="fas fa-home"></i> Inicio</a>
         <a href="venta.html"><i class="fas fa-cash-register"></i> Ventas</a>
@@ -38,169 +128,144 @@
     <!-- CONTENEDOR PRINCIPAL -->
     <div class="container">
 
-        <!-- PESTAÑAS DE NAVEGACIÓN -->
+        <!-- PESTAÑAS -->
         <div class="tabs-header">
             <div class="tab-btn active" data-target="lista">
-                <i class="fas fa-list"></i> Lista de Productos
+                <i class="fas fa-list"></i> Lista
             </div>
             <div class="tab-btn" data-target="nuevo">
-                <i class="fas fa-plus-circle"></i> Nuevo Producto
+                <i class="fas fa-plus-circle"></i> Nuevo
             </div>
             <div class="tab-btn" data-target="excel">
-                <i class="fas fa-file-excel"></i> Cargar Excel
-            </div>
-            <div class="tab-btn" data-target="reportes">
-                <i class="fas fa-chart-bar"></i> Reportes
+                <i class="fas fa-file-excel"></i> Excel
             </div>
             <div class="tab-btn" data-target="entradas">
                 <i class="fas fa-truck-loading"></i> Entradas
             </div>
+            <div class="tab-btn" data-target="reportes">
+                <i class="fas fa-chart-bar"></i> Reportes
+            </div>
         </div>
 
-        <!-- CONTENIDO: LISTA -->
+        <!-- 1. LISTA -->
         <div id="tab-lista" class="tab-content active">
-            <!-- Barra de Acciones y Filtros -->
             <div class="actions-bar">
                 <div class="buttons">
                     <button class="btn btn-success" id="btn-refresh"><i class="fas fa-sync-alt"></i> Actualizar</button>
-                    <!-- Inyectados por JS: Activar CF, Borrar Todo -->
-                    <span id="extra-actions"></span>
+                    <span id="extra-actions"></span> <!-- Borrar Todo btn injected here -->
                 </div>
                 <div class="search-box">
-                    <input type="text" id="input-search" placeholder="Buscar por código, nombre o proveedor...">
+                    <input type="text" id="buscar-producto" placeholder="Buscar por código, nombre o proveedor...">
                 </div>
             </div>
 
-            <!-- Tabla -->
             <div class="table-responsive">
                 <table class="inventario-table">
                     <thead>
                         <tr>
-                            <th data-sort="codigo">Código <i class="fas fa-sort sort-icon"></i></th>
-                            <th data-sort="descripcion">Descripción <i class="fas fa-sort sort-icon"></i></th>
-                            <th data-sort="descripcionFactura">Desc. Factura <i class="fas fa-sort sort-icon"></i></th>
-                            <th data-sort="costo">Costo <i class="fas fa-sort sort-icon"></i></th>
-                            <th data-sort="precio">Precio <i class="fas fa-sort sort-icon"></i></th>
-                            <th data-sort="existencia">Exist. <i class="fas fa-sort sort-icon"></i></th>
-                            <th data-sort="stockMinimo">Min <i class="fas fa-sort sort-icon"></i></th>
-                            <th data-sort="creditoFiscal">CF <i class="fas fa-sort sort-icon"></i></th>
-                            <th data-sort="proveedor">Proveedor <i class="fas fa-sort sort-icon"></i></th>
+                            <th data-sort="codigo">Código</th>
+                            <th data-sort="descripcion">Descripción</th>
+                            <th data-sort="descripcionFactura">Desc. Factura</th>
+                            <th data-sort="costo">Costo</th>
+                            <th data-sort="precio">Precio</th>
+                            <th data-sort="existencia">Exist.</th>
+                            <th data-sort="stockMinimo">Min</th>
+                            <th data-sort="creditoFiscal">CF</th>
+                            <th data-sort="proveedor">Prov.</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
-                    <tbody id="inventory-body">
+                    <tbody id="inventario-body">
                         <tr>
-                            <td colspan="10" style="text-align: center; padding: 20px;">Cargando inventario...</td>
+                            <td colspan="10" style="text-align:center;">Cargando...</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
-        <!-- CONTENIDO: NUEVO PRODUCTO -->
+        <!-- 2. NUEVO PRODUCTO -->
         <div id="tab-nuevo" class="tab-content">
-            <h3 style="margin-bottom: 20px; color: #3498db;"><i class="fas fa-edit"></i> <span
-                    id="form-mode-title">Registrar Nuevo Producto</span></h3>
+            <h3 style="margin-bottom: 20px; color: #3498db;"><i class="fas fa-plus-circle"></i> Registrar Nuevo Producto
+            </h3>
 
-            <input type="hidden" id="field-id"> <!-- ID oculto para edición -->
+            <form id="form-nuevo-producto" onsubmit="event.preventDefault();">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Código *</label>
+                        <input type="text" id="codigo" placeholder="Ej: A-001" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Cód. Proveedor</label>
+                        <input type="text" id="codigos-proveedor" placeholder="Opcional">
+                    </div>
+                    <div class="form-group">
+                        <label>Proveedor</label>
+                        <input type="text" id="proveedor" placeholder="Ej: Repuestos SA">
+                    </div>
+                    <div class="form-group">
+                        <label>Categoría</label>
+                        <input type="text" id="categoria" placeholder="General">
+                    </div>
 
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>Código</label>
-                    <input type="text" id="field-codigo" placeholder="Ej: A-001">
-                </div>
-                <div class="form-group">
-                    <label>Proveedor</label>
-                    <input type="text" id="field-proveedor" placeholder="Ej: Repuestos SA">
-                </div>
-                <div class="form-group" style="grid-column: span 2;">
-                    <label>Descripción Principal (Inventario)</label>
-                    <input type="text" id="field-descripcion" placeholder="Nombre completo del producto">
-                </div>
-                <!-- Fila 2 -->
-                <div class="form-group" style="grid-column: span 2;">
-                    <label>Descripción Factura (Opcional)</label>
-                    <input type="text" id="field-desc-fact" placeholder="Nombre corto para facturas">
-                </div>
-            </div>
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Descripción Inventario *</label>
+                        <input type="text" id="desc-inventario" required>
+                    </div>
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Descripción Factura</label>
+                        <input type="text" id="desc-factura">
+                    </div>
 
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>Precio Costo ($)</label>
-                    <input type="number" id="field-costo" step="0.01" value="0.00">
+                    <div class="form-group"><label>Costo ($)</label><input type="number" id="precio-costo" step="0.01"
+                            value="0"></div>
+                    <div class="form-group"><label>Venta ($)</label><input type="number" id="precio-venta" step="0.01"
+                            value="0"></div>
+                    <div class="form-group"><label>Existencia</label><input type="number" id="existencia" value="0">
+                    </div>
+                    <div class="form-group"><label>Mínimo</label><input type="number" id="stock-minimo" value="5"></div>
+                    <div class="form-group">
+                        <label>Crédito Fiscal</label>
+                        <div style="margin-top:5px;">
+                            <input type="checkbox" id="credito-fiscal"> Aplicar
+                        </div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>Precio Venta ($)</label>
-                    <input type="number" id="field-precio" step="0.01" value="0.00">
+                <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+                    <button class="btn btn-danger" type="button"
+                        onclick="document.getElementById('form-nuevo-producto').reset()">Limpiar</button>
+                    <button class="btn btn-success" id="btn-save-new" type="button"><i class="fas fa-save"></i>
+                        GUARDAR</button>
                 </div>
-                <div class="form-group">
-                    <label>Existencia</label>
-                    <input type="number" id="field-existencia" value="0">
-                </div>
-                <div class="form-group">
-                    <label>Stock Mínimo</label>
-                    <input type="number" id="field-minimo" value="5">
-                </div>
-                <div class="form-group">
-                    <label>Crédito Fiscal</label>
-                    <select id="field-cf">
-                        <option value="false">NO</option>
-                        <option value="true">SI</option>
-                    </select>
-                </div>
-            </div>
-
-            <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
-                <button class="btn btn-danger" id="btn-cancel-form">Cancelar / Limpiar</button>
-                <button class="btn btn-success" id="btn-save-product"><i class="fas fa-save"></i> GUARDAR
-                    PRODUCTO</button>
-            </div>
+            </form>
         </div>
 
-        <!-- CONTENIDO: EXCEL -->
+        <!-- 3. EXCEL -->
         <div id="tab-excel" class="tab-content">
-            <h3 style="margin-bottom: 20px; color: #27ae60;"><i class="fas fa-file-excel"></i> Importar Masivamente
-                desde Excel</h3>
+            <h3 style="margin-bottom: 20px; color: #27ae60;"><i class="fas fa-file-excel"></i> Importar Masivamente</h3>
 
-            <div id="drop-area" class="drop-area">
+            <div id="excel-drop-area" class="drop-area">
                 <i class="fas fa-cloud-upload-alt"></i>
-                <p>Arrastra tu archivo Excel aquí o haz clic para seleccionar</p>
-                <input type="file" id="file-excel" accept=".xlsx, .xls" style="display: none;">
+                <p>Arrastra archivo Excel aquí</p>
+                <input type="file" id="excel-file" accept=".xlsx, .xls" style="display: none;">
             </div>
 
-            <div id="excel-preview" style="margin-top: 20px; display: none;">
-                <!-- Aquí se renderiza la vista previa del Excel -->
+            <div id="excel-preview" style="display: none; margin-top:20px;">
                 <h4>Vista Previa</h4>
-                <div style="max-height: 300px; overflow: auto; border: 1px solid #ccc; margin: 10px 0;">
-                    <table class="inventario-table" id="preview-table">
-                        <!-- JS Llenará esto -->
-                    </table>
+                <div id="excel-preview-content" style="max-height: 300px; overflow: auto; border: 1px solid #ccc;">
                 </div>
-                <div style="display: flex; gap: 10px;">
-                    <button class="btn btn-danger" id="btn-cancel-excel">Cancelar</button>
-                    <button class="btn btn-success" id="btn-confirm-excel">Confirmar Importación</button>
-                </div>
+                <br>
+                <button class="btn btn-danger" id="btn-cancel-excel">Cancelar</button>
+                <button class="btn btn-success" id="btn-confirm-excel">Confirmar Importación</button>
             </div>
         </div>
 
-        <!-- CONTENIDO: REPORTES -->
-        <div id="tab-reportes" class="tab-content">
-            <h3><i class="fas fa-chart-line"></i> Reportes de Inventario</h3>
-            <p style="color: #777;">Próximamente: Gráficas de movimiento, productos bajo stock y valoración total del
-                inventario.</p>
-        </div>
-
-        <!-- CONTENIDO: ENTRADAS -->
+        <!-- 4. ENTRADAS (HISTORIAL) -->
         <div id="tab-entradas" class="tab-content">
             <div class="actions-bar">
-                <button class="btn btn-primary" id="btn-open-entry-modal">
-                    <i class="fas fa-plus"></i> Nueva Entrada
-                </button>
-                <div style="margin-left:auto;">
-                    <small>Historial de Entradas (Últimas 100)</small>
-                </div>
+                <button class="btn btn-primary" id="btn-open-entry-modal"><i class="fas fa-plus"></i> Nueva
+                    Entrada</button>
             </div>
-
             <div class="table-responsive">
                 <table class="inventario-table">
                     <thead>
@@ -208,31 +273,71 @@
                             <th>Fecha</th>
                             <th>Producto</th>
                             <th>Cant.</th>
-                            <th>Costo Unit.</th>
-                            <th>Costo Nuevo vs Ant.</th>
+                            <th>Cost/U</th>
+                            <th>Costo Delta</th>
                             <th>Prov / Tipo</th>
                             <th>Estado</th>
                             <th>Acción</th>
                         </tr>
                     </thead>
-                    <tbody id="entries-body">
-                        <!-- JS Load -->
-                    </tbody>
+                    <tbody id="entries-body"></tbody>
                 </table>
             </div>
         </div>
 
+        <!-- 5. REPORTES -->
+        <div id="tab-reportes" class="tab-content">
+            <h3>Próximamente...</h3>
+        </div>
+
     </div>
 
-    <!-- MODAL NUEVA ENTRADA (Carrito) -->
-    <!-- MODAL NUEVA ENTRADA (Diseño 2 Columnas) -->
+    <!-- MODAL EDITAR PRODUCTO -->
+    <div id="modalEditarProducto" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <span class="close-modal-btn"
+                onclick="document.getElementById('modalEditarProducto').style.display='none'">&times;</span>
+            <h3>Editar Producto</h3>
+            <form id="form-editar-producto">
+                <input type="hidden" id="edit-id">
+                <div class="form-grid">
+                    <div class="form-group"><label>Código</label><input type="text" id="edit-codigo"></div>
+                    <div class="form-group"><label>Cod. Prov</label><input type="text" id="edit-codigos-proveedor">
+                    </div>
+                    <div class="form-group"><label>Proveedor</label><input type="text" id="edit-proveedor"></div>
+
+                    <div class="form-group" style="grid-column: span 2;"><label>Desc. Inventario</label><input
+                            type="text" id="edit-desc-inventario"></div>
+                    <div class="form-group" style="grid-column: span 2;"><label>Desc. Factura</label><input type="text"
+                            id="edit-desc-factura"></div>
+
+                    <div class="form-group"><label>Costo</label><input type="number" id="edit-precio-costo" step="0.01">
+                    </div>
+                    <div class="form-group"><label>Venta</label><input type="number" id="edit-precio-venta" step="0.01">
+                    </div>
+                    <div class="form-group"><label>Exist.</label><input type="number" id="edit-existencia"></div>
+                    <div class="form-group"><label>Min.</label><input type="number" id="edit-stock-minimo"></div>
+                    <div class="form-group">
+                        <label>Credito F.</label>
+                        <div style="margin-top:5px;"><input type="checkbox" id="edit-credito-fiscal"> SI</div>
+                    </div>
+                </div>
+                <div style="margin-top:20px; text-align:right;">
+                    <button type="button" class="btn btn-success" id="btn-update-product">Actualizar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL ENTRADAS (RESTORED ORIGINAL DESIGN) -->
     <div id="entry-modal" class="modal-overlay" style="display: none;">
         <div class="modal-content"
             style="max-width: 95vw; width: 1400px; height: 85vh; padding: 0; display:flex; flex-direction: column;">
 
             <div class="modal-header" style="padding: 15px 20px; border-bottom: 1px solid #eee;">
                 <h3><i class="fas fa-truck-loading"></i> Registrar Entrada</h3>
-                <span class="close-modal" id="btn-close-entry-modal">&times;</span>
+                <span class="close-modal-btn" id="btn-close-entry-modal"
+                    style="position:static; float:right;">&times;</span>
             </div>
 
             <div class="modal-body" style="display: flex; flex: 1; overflow: hidden; padding: 0;">
@@ -263,7 +368,9 @@
                         <div class="form-group" style="flex: 1; position: relative;">
                             <label>Buscar nombre del producto</label>
                             <input type="text" id="entry-temp-name" placeholder="Escribir..." autocomplete="off">
-                            <div id="entry-search-results" class="search-results-dropdown" style="display:none;"></div>
+                            <div id="entry-search-results" class="search-results-dropdown"
+                                style="display:none; position:absolute; z-index:100; background:white; border:1px solid #ccc; width:100%; max-height:200px; overflow:auto;">
+                            </div>
                             <input type="hidden" id="entry-temp-id">
                         </div>
 
@@ -291,7 +398,7 @@
                             </div>
                         </div>
 
-                        <!-- Factura por Pagar -->
+                        <!-- Factura por Pagar (RESTAURADO) -->
                         <div>
                             <label style="display: block; font-weight: bold; margin-bottom: 5px;">Facturas por
                                 pagar</label>
@@ -349,12 +456,11 @@
         </div>
     </div>
 
-    <!-- FIREBASE & IDIOMAS -->
+    <!-- SCRIPTS -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-    <!-- CONFIG FIREBASE -->
     <script>
         const firebaseConfig = {
             apiKey: "AIzaSyCaZdPPYddeMPTiNm5cCdFL6m9b9swX0-c",
@@ -364,12 +470,14 @@
             messagingSenderId: "757966587061",
             appId: "1:757966587061:web:6c700e862317119d64aafc"
         };
-        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
+        firebase.initializeApp(firebaseConfig);
+        window.db = firebase.firestore();
     </script>
 
-    <!-- CONTROLADORES -->
-    <script src="js/services/InventoryService.js"></script> <!-- Reusamos el servicio que funciona bien -->
+    <!-- LOAD ORDER IS IMPORTANT -->
+    <script src="js/utils/formatters.js"></script>
+    <script src="js/services/InventoryService.js"></script>
+    <script src="js/ui/InventoryUI.js"></script>
     <script src="js/controllers/InventoryController.js"></script>
 
 </body>

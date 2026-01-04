@@ -1,6 +1,5 @@
-import { formatCurrency } from "../utils/formatters.js";
-
-export class InventoryUI {
+// Clase UI Global (Sin Import/Export)
+class InventoryUI {
     constructor() {
         this.els = {
             tableBody: document.getElementById('inventario-body'),
@@ -8,10 +7,6 @@ export class InventoryUI {
             modalEdit: document.getElementById('modalEditarProducto'),
             formEdit: document.getElementById('form-editar-producto'),
             formNew: document.getElementById('form-nuevo-producto'),
-
-            // Pestañas
-            tabs: document.querySelectorAll('.tab-btn, .inventario-sidebar-item'),
-            contents: document.querySelectorAll('.tab-content'),
 
             // Excel
             dropArea: document.getElementById('excel-drop-area'),
@@ -25,9 +20,9 @@ export class InventoryUI {
         if (!products || products.length === 0) {
             this.els.tableBody.innerHTML = `
                 <tr>
-                    <td colspan="10" class="empty-cart">
-                        <i class="fas fa-boxes" style="font-size:2rem;margin-bottom:10px;opacity:.5;"></i>
-                        <div>No se encontraron productos</div>
+                    <td colspan="10" style="text-align:center; padding:30px; color:#888;">
+                        <i class="fas fa-box-open" style="font-size:2rem;margin-bottom:10px;"></i><br>
+                        No se encontraron productos
                     </td>
                 </tr>
             `;
@@ -42,18 +37,23 @@ export class InventoryUI {
                 '<span class="credito-si">SI</span>' :
                 '<span class="credito-no">NO</span>';
 
+            // Usamos window.Utils si existe, o fallback simple
+            const precioFmt = window.Utils && window.Utils.formatCurrency ?
+                window.Utils.formatCurrency(p.precioVenta) :
+                "$" + p.precioVenta.toFixed(2);
+
             return `
                 <tr data-id="${p.id}">
                     <td><strong>${p.codigo}</strong></td>
                     <td>${p.descInventario}</td>
-                    <td><small>${p.descFactura}</small></td>
-                    <td>$${p.precioCosto.toFixed(2)}</td>
-                    <td class="precio">${formatCurrency(p.precioVenta)}</td>
-                    <td class="${stockClass}">${p.existencia}</td>
-                    <td>${p.stockMinimo || 0}</td>
-                    <td>${creditoBadge}</td>
+                    <td><small>${p.descFactura || ''}</small></td>
+                    <td>$${(p.precioCosto || 0).toFixed(2)}</td>
+                    <td class="precio" style="font-weight:bold; color:#2c3e50;">${precioFmt}</td>
+                    <td class="${stockClass}" style="text-align:center;">${p.existencia}</td>
+                    <td style="text-align:center;">${p.stockMinimo || 0}</td>
+                    <td style="text-align:center;">${creditoBadge}</td>
                     <td>${p.proveedor || '-'}</td>
-                    <td>
+                    <td style="text-align:center;">
                         <button class="icon-btn btn-edit" title="Editar" onclick="window.editarProducto('${p.id}')">
                             <i class="fas fa-edit"></i>
                         </button>
@@ -67,17 +67,16 @@ export class InventoryUI {
     }
 
     showEditModal(product) {
-        const f = this.els.formEdit;
         // Llenar campos
         document.getElementById('edit-id').value = product.id;
-        document.getElementById('edit-codigo').value = product.codigo;
+        document.getElementById('edit-codigo').value = product.codigo || "";
         document.getElementById('edit-codigos-proveedor').value = Array.isArray(product.codigosProveedor) ? product.codigosProveedor.join(', ') : '';
-        document.getElementById('edit-desc-inventario').value = product.descInventario;
-        document.getElementById('edit-desc-factura').value = product.descFactura;
-        document.getElementById('edit-precio-costo').value = product.precioCosto;
-        document.getElementById('edit-precio-venta').value = product.precioVenta;
-        document.getElementById('edit-existencia').value = product.existencia;
-        document.getElementById('edit-stock-minimo').value = product.stockMinimo;
+        document.getElementById('edit-desc-inventario').value = product.descInventario || "";
+        document.getElementById('edit-desc-factura').value = product.descFactura || "";
+        document.getElementById('edit-precio-costo').value = product.precioCosto || 0;
+        document.getElementById('edit-precio-venta').value = product.precioVenta || 0;
+        document.getElementById('edit-existencia').value = product.existencia || 0;
+        document.getElementById('edit-stock-minimo').value = product.stockMinimo || 5;
         document.getElementById('edit-credito-fiscal').checked = product.creditoFiscal;
         document.getElementById('edit-proveedor').value = product.proveedor || '';
 
@@ -96,26 +95,25 @@ export class InventoryUI {
             codigosProveedor: document.getElementById('edit-codigos-proveedor').value,
             descInventario: document.getElementById('edit-desc-inventario').value,
             descFactura: document.getElementById('edit-desc-factura').value,
-            precioCosto: parseFloat(document.getElementById('edit-precio-costo').value),
-            precioVenta: parseFloat(document.getElementById('edit-precio-venta').value),
-            existencia: parseInt(document.getElementById('edit-existencia').value),
-            stockMinimo: parseInt(document.getElementById('edit-stock-minimo').value),
+            precioCosto: parseFloat(document.getElementById('edit-precio-costo').value) || 0,
+            precioVenta: parseFloat(document.getElementById('edit-precio-venta').value) || 0,
+            existencia: parseFloat(document.getElementById('edit-existencia').value) || 0,
+            stockMinimo: parseFloat(document.getElementById('edit-stock-minimo').value) || 0,
             creditoFiscal: document.getElementById('edit-credito-fiscal').checked,
             proveedor: document.getElementById('edit-proveedor').value
         };
     }
 
     getNewFormData() {
-        // Similar al edit, recolectar de form-nuevo-producto
         return {
             codigo: document.getElementById('codigo').value,
             codigosProveedor: document.getElementById('codigos-proveedor').value,
             descInventario: document.getElementById('desc-inventario').value,
             descFactura: document.getElementById('desc-factura').value,
-            precioCosto: parseFloat(document.getElementById('precio-costo').value),
-            precioVenta: parseFloat(document.getElementById('precio-venta').value),
-            existencia: parseInt(document.getElementById('existencia').value),
-            stockMinimo: parseInt(document.getElementById('stock-minimo').value),
+            precioCosto: parseFloat(document.getElementById('precio-costo').value) || 0,
+            precioVenta: parseFloat(document.getElementById('precio-venta').value) || 0,
+            existencia: parseFloat(document.getElementById('existencia').value) || 0,
+            stockMinimo: parseFloat(document.getElementById('stock-minimo').value) || 0,
             creditoFiscal: document.getElementById('credito-fiscal').checked,
             proveedor: document.getElementById('proveedor').value,
             categoria: document.getElementById('categoria').value
@@ -128,33 +126,29 @@ export class InventoryUI {
 
     // Tabs logic
     activateTab(tabId) {
-        // Remover activos
-        document.querySelectorAll('.inventario-sidebar-item').forEach(el => el.classList.remove('active'));
+        // Update Buttons
+        document.querySelectorAll('.tab-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.target === tabId);
+        });
+
+        // Update Content
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-
-        // Activar
-        const trigger = document.querySelector(`[data-tab="${tabId}"]`);
         const content = document.getElementById(`tab-${tabId}`);
-
-        if (trigger) trigger.classList.add('active');
         if (content) content.classList.add('active');
     }
 
     renderExcelPreview(data) {
         this.els.excelPreview.style.display = 'block';
-        let html = '<table class="inventario-table"><thead><tr>';
+        this.els.dropArea.style.display = 'none'; // ocultar drop area
 
+        let html = '<table class="inventario-table"><thead><tr>';
         if (data.length > 0) {
-            Object.keys(data[0]).forEach(key => {
-                html += `<th>${key}</th>`;
-            });
+            Object.keys(data[0]).forEach(key => html += `<th>${key}</th>`);
             html += '</tr></thead><tbody>';
 
             data.slice(0, 10).forEach(row => {
                 html += '<tr>';
-                Object.values(row).forEach(val => {
-                    html += `<td>${val}</td>`;
-                });
+                Object.values(row).forEach(val => html += `<td>${val}</td>`);
                 html += '</tr>';
             });
             html += '</tbody></table>';
@@ -165,7 +159,9 @@ export class InventoryUI {
         } else {
             html = '<p>Archivo vacío o formato no reconocido</p>';
         }
-
         this.els.excelContent.innerHTML = html;
     }
 }
+
+// Exponer globalmente
+window.InventoryUI = InventoryUI;
