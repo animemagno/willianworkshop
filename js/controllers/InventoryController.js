@@ -11,7 +11,7 @@ class InventoryController {
 
         this.cache = [];
         this.filtered = [];
-        this.sortState = { key: 'codigo', dir: 'asc' };
+        this.sortState = { key: 'descripcion', dir: 'asc' };
 
         // Entradas Cache
         this.entryCart = [];

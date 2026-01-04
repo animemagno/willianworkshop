@@ -98,6 +98,20 @@
         .btn-delete {
             color: #e74c3c;
         }
+
+        /* Table Styles Adjustment */
+        .inventario-table th {
+            text-align: center !important;
+            padding: 6px 8px !important;
+        }
+
+        .inventario-table td {
+            padding: 6px 8px !important;
+        }
+
+        .inventario-table tbody tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
     </style>
 </head>
 
@@ -164,10 +178,10 @@
                     <thead>
                         <tr>
                             <th data-sort="codigo">Código</th>
-                            <th data-sort="descripcion">Descripción</th>
+                            <th data-sort="descripcion">Descripción Taller</th>
                             <th data-sort="descripcionFactura">Desc. Factura</th>
-                            <th data-sort="costo">Costo</th>
-                            <th data-sort="precio">Precio</th>
+                            <th data-sort="costo" style="text-align:left!important">Costo</th>
+                            <th data-sort="precio" style="text-align:left!important">Venta</th>
                             <th data-sort="existencia">Exist.</th>
                             <th data-sort="stockMinimo">Min</th>
                             <th data-sort="creditoFiscal">CF</th>
