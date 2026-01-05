@@ -9,6 +9,7 @@ Este archivo contiene las normas obligatorias que debe seguir el Agente (IA) dur
 ## 2. Flujo de Desarrollo
 *   **Consulta Previa:** Siempre preguntar o comentar "cómo se puede mejorar algo" ANTES de aplicar cambios. No asumir ni actuar por cuenta propia fuera de lo solicitado.
 *   **Commit Controlado:** NUNCA hacer un commit sin preguntar antes. El usuario debe autorizar explícitamente cada guardado en el historial.
+*   **Guardado Completo:** Al proceder con un guardado (commit), siempre se deben incluir **todos** los archivos modificados del proyecto en el repositorio.
 
 ## 3. Estrategia de Estabilidad ("Punto de Guardado")
 Para evitar la degradación del código por errores acumulados:
