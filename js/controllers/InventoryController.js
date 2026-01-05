@@ -151,6 +151,33 @@ class InventoryController {
             exitPrice.addEventListener('focus', () => exitPrice.select());
         }
 
+        // Salidas Excel Import Events
+        const btnOpenExitExcel = document.getElementById('btn-open-exit-excel-modal');
+        if (btnOpenExitExcel) btnOpenExitExcel.addEventListener('click', () => {
+            document.getElementById('modalImportarSalidas').style.display = 'flex';
+            document.getElementById('exit-excel-preview-container').style.display = 'none';
+            document.getElementById('exit-excel-drop-area').style.display = 'block';
+        });
+
+        const dropAreaExit = document.getElementById('exit-excel-drop-area');
+        const fileInputExit = document.getElementById('exit-excel-file');
+
+        if (dropAreaExit && fileInputExit) {
+            dropAreaExit.addEventListener('click', () => fileInputExit.click());
+
+            fileInputExit.addEventListener('change', (e) => this.handleExitExcelFile(e.target.files[0]));
+
+            dropAreaExit.addEventListener('dragover', (e) => { e.preventDefault(); dropAreaExit.classList.add('dragover'); });
+            dropAreaExit.addEventListener('dragleave', () => dropAreaExit.classList.remove('dragover'));
+            dropAreaExit.addEventListener('drop', (e) => {
+                e.preventDefault(); dropAreaExit.classList.remove('dragover');
+                if (e.dataTransfer.files.length) this.handleExitExcelFile(e.dataTransfer.files[0]);
+            });
+        }
+
+        const btnProcessExitExcel = document.getElementById('btn-process-exit-excel');
+        if (btnProcessExitExcel) btnProcessExitExcel.addEventListener('click', () => this.saveBatchExits());
+
         // Validacion Factura en tiempo real
         const invNumInput = document.getElementById('exit-invoice-number');
         if (invNumInput) {
@@ -798,38 +825,41 @@ class InventoryController {
         const hiddenPaper = document.getElementById('exit-temp-paper');
 
         // Siempre actualizar "Paper Description" con lo que escribe el usuario (fallback)
-        hiddenPaper.value = term;
-        hiddenId.value = ''; // Reset ID match until user clicks one
+        if (hiddenPaper) hiddenPaper.value = term;
 
+        if (!resDiv) return;
+        resDiv.innerHTML = '';
         if (!term) { resDiv.style.display = 'none'; return; }
 
-        const matches = this.findCachedMatches(term);
+        const q = term.toLowerCase();
+        // Exclude generic items or ensure they don't clog
+        const matches = this.cache.filter(p =>
+            (p.codigo || "").toLowerCase().includes(q) ||
+            (p.descripcion || "").toLowerCase().includes(q)
+        ).slice(0, 10);
 
-        resDiv.innerHTML = '';
         if (matches.length > 0) {
             resDiv.style.display = 'block';
             matches.forEach(p => {
                 const div = document.createElement('div');
-                div.style.padding = '8px'; div.style.borderBottom = '1px solid #eee'; div.style.cursor = 'pointer';
-                div.innerHTML = `<b>${p.codigo}</b> - ${p.descripcion}<br><small>Precio: $${p.precio} | Stock: ${p.existencia}</small>`;
-                div.onmouseover = () => div.style.backgroundColor = '#f0f0f0';
-                div.onmouseout = () => div.style.backgroundColor = 'white';
+                div.style.padding = '8px'; div.style.cursor = 'pointer'; div.style.borderBottom = '1px solid #eee';
+                div.innerHTML = `<strong>${p.codigo}</strong> - ${p.descripcion} <span style="float:right;color:green">$${p.precio}</span>`;
+                div.onmouseover = () => div.style.background = "#f0f0f0";
+                div.onmouseout = () => div.style.background = "white";
                 div.onclick = () => {
                     this.selectExitProduct(p);
                     resDiv.style.display = 'none';
                 };
                 resDiv.appendChild(div);
             });
-        } else {
-            resDiv.style.display = 'none';
-        }
+        } else { resDiv.style.display = 'none'; }
     }
 
     selectExitProduct(p) {
         // Al seleccionar, llenamos con datos oficiales
         document.getElementById('exit-temp-search').value = p.descripcion;
         document.getElementById('exit-temp-id').value = p.id;
-        document.getElementById('exit-temp-paper').value = p.descripcion; // Override paper with exact match logic
+        document.getElementById('exit-temp-paper').value = p.descripcion;
 
         // Auto fill price
         document.getElementById('exit-temp-price').value = p.precio || 0;
@@ -948,6 +978,7 @@ class InventoryController {
 
     async loadExitsLog() {
         const tbody = document.getElementById('exits-body');
+        if (!tbody) return;
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center">Cargando...</td></tr>';
 
         const exits = await this.svc.obtenerSalidas();
@@ -971,10 +1002,10 @@ class InventoryController {
             }
 
             // Generate Items Summary
-            const itemsList = e.items.map(i => {
+            const itemsList = e.items ? e.items.map(i => {
                 const productUsed = i.productId ? "" : "<span style='color:red'>(Sin Match)</span>";
-                return `<div>${i.descripcionPapel} ${productUsed} <small style="color:#888">(${i.cantidad})</small></div>`;
-            }).join('');
+                return `<div>${i.name || i.descripcionPapel} ${productUsed} <small style="color:#888">(${i.qty || i.cantidad})</small></div>`;
+            }).join('') : 'Sin Items';
 
             // Status Badge
             const statusBadge = e.revertida
@@ -985,11 +1016,9 @@ class InventoryController {
             let actionBtns = '';
 
             if (!e.revertida) {
-                // Si esta activa: Permitir Revertir
-                actionBtns += `<button class="btn btn-sm btn-warning" onclick="app.revertExit('${e.id}')" title="Revertir Stock"><i class="fas fa-undo"></i></button> `;
+                actionBtns += `<button class="btn btn-sm btn-warning icon-btn" onclick="app.revertExit('${e.id}')" title="Revertir Stock"><i class="fas fa-undo"></i></button> `;
             } else {
-                // Si esta revertida: Permitir eliminar historial
-                actionBtns += `<button class="btn btn-sm btn-danger" onclick="app.deleteExit('${e.id}')" title="Eliminar Registro"><i class="fas fa-trash"></i></button>`;
+                actionBtns += `<button class="btn btn-sm btn-danger icon-btn" onclick="app.deleteExit('${e.id}')" title="Eliminar Registro"><i class="fas fa-trash"></i></button>`;
             }
 
             tbody.innerHTML += `
@@ -1000,10 +1029,10 @@ class InventoryController {
                         ${statusBadge}
                     </td>
                     <td>
-                        <div style="font-weight:bold; margin-bottom:5px; color:#555;">${e.cliente || 'CLIENTES VARIOS'}</div>
-                        ${itemsList}
+                        <div style="font-weight:bold; margin-bottom:5px; color:#555;">${e.clientName || e.cliente || 'CLIENTES VARIOS'}</div>
+                        <div style="max-height:100px; overflow-y:auto; font-size:0.85rem;">${itemsList}</div>
                     </td>
-                    <td style="text-align:right; font-weight:bold;">$${e.total.toFixed(2)}</td>
+                    <td style="text-align:right; font-weight:bold;">$${(e.totalValue || e.total || 0).toFixed(2)}</td>
                     <td style="text-align:center;">
                         ${actionBtns}
                     </td>
@@ -1032,21 +1061,348 @@ class InventoryController {
         }
     }
 
+    // =========================================
+    // SALIDAS MASIVAS (EXCEL)
+    // =========================================
 
+    handleExitExcelFile(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
 
-    findCachedMatches(term) {
-        term = term.toLowerCase();
-        return this.cache.filter(p => {
-            const codigo = (p.codigo || "").toLowerCase();
-            const desc = (p.descripcion || "").toLowerCase();
-            const aliases = (p.aliases || []).map(a => a.toLowerCase()); // Check aliases too!
+            // Asumimos primera hoja
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
 
-            return codigo.includes(term) || desc.includes(term) || aliases.some(a => a.includes(term));
-        }).slice(0, 8);
+            this.parseExitExcel(rows);
+        };
+        reader.readAsArrayBuffer(file);
     }
 
+    parseExitExcel(rows) {
+        this.batchExitsData = [];
+        let currentFecha = null;
+        let currentFactura = null;
+        let currentClient = "Cliente General";
 
+        // Indices
+        const IDX_FECHA = 0;
+        const IDX_FACTURA = 1;
+        const IDX_CANT = 2;
+        const IDX_DESC = 3;
+        const IDX_PRECIO = 4;
+
+        rows.forEach((row, index) => {
+            if (index < 1) return; // Skip header
+
+            // 1. Detectar Nueva Factura o Bloque (Por Fecha en Col A)
+            if (row[IDX_FECHA]) {
+                let val = row[IDX_FECHA];
+                // Excel dates are numbers (~45000), Strings are "DD/MM/YYYY"
+                if ((typeof val === 'number' && val > 20000) || (typeof val === 'string' && val.includes('/'))) {
+                    // Es un nuevo bloque
+                    if (typeof val === 'number') {
+                        const jsDate = new Date(Math.round((val - 25569) * 86400 * 1000));
+                        jsDate.setMinutes(jsDate.getMinutes() + jsDate.getTimezoneOffset());
+                        currentFecha = jsDate;
+                    } else {
+                        currentFecha = new Date(val);
+                    }
+
+                    // Asumimos que la factura está en la misma fila que la fecha
+                    if (row[IDX_FACTURA]) {
+                        currentFactura = String(row[IDX_FACTURA]);
+                    }
+                }
+            }
+
+            // CRITICO: Ignorar filas vacias o filas de TOTALES
+            // Si Col A vacia, Factura Col tiene algo? Verifiquemos si es un monto.
+            if (!row[IDX_FECHA] && row[IDX_FACTURA]) {
+                const valStr = String(row[IDX_FACTURA]);
+                // Si parece dinero ($ o ,), lo ignoramos, es el total visual del excel
+                if (valStr.includes('$') || valStr.includes(',')) {
+                    // Es fila de total, saltar
+                    return;
+                }
+            }
+
+            // 2. Detectar Item (Tiene Descripcion y Cantidad)
+            const desc = row[IDX_DESC];
+            const cant = row[IDX_CANT];
+
+            // Validar que tengamos una factura activa y datos de item
+            if (desc && cant && currentFactura) {
+                // MATCHING
+                const match = this.findBestMatch(desc);
+
+                this.batchExitsData.push({
+                    fecha: currentFecha || new Date(),
+                    factura: currentFactura,
+                    cliente: currentClient,
+                    itemExcel: desc,
+                    cant: parseFloat(cant),
+                    precio: parseFloat(row[IDX_PRECIO] || 0),
+                    match: match,
+                    status: match ? 'OK' : 'NEW' // 'NEW' means we will create it
+                });
+            }
+        });
+
+        this.renderExitExcelPreview();
+    }
+
+    findBestMatch(desc) {
+        if (!desc) return null;
+        const cleanDesc = String(desc).toLowerCase().trim();
+
+        // 1. Check Aliases (Saved connections)
+        let aliasMatch = this.cache.find(p => (p.aliases || []).some(a => a.toLowerCase() === cleanDesc));
+        if (aliasMatch) return aliasMatch;
+
+        // 2. Exact Name Match
+        let exact = this.cache.find(p => p.descripcion.toLowerCase() === cleanDesc || p.codigo.toLowerCase() === cleanDesc);
+        if (exact) return exact;
+
+        // 3. Contains Match (Product contains Excel desc)
+        let partial = this.cache.find(p => p.descripcion.toLowerCase().includes(cleanDesc));
+        if (partial) return partial;
+
+        return null;
+    }
+
+    renderExitExcelPreview() {
+        document.getElementById('exit-excel-drop-area').style.display = 'none';
+        document.getElementById('exit-excel-preview-container').style.display = 'block';
+
+        const tbody = document.getElementById('exit-excel-preview-body');
+        tbody.innerHTML = '';
+
+        let validCount = 0;
+
+        this.batchExitsData.forEach((row, i) => {
+            const fechaStr = row.fecha instanceof Date && !isNaN(row.fecha) ? row.fecha.toLocaleDateString() : '???';
+
+            let matchInfo, statusIcon, rowStyle;
+
+            if (row.match) {
+                validCount++;
+                // UPDATE: Only show Description, not Code
+                matchInfo = `<span style="color:green; font-weight:bold;">${row.match.descripcion}</span>`;
+                statusIcon = '<i class="fas fa-check-circle" style="color:green"></i>';
+                rowStyle = '';
+            } else {
+                // Action Link
+                matchInfo = `<button class="btn btn-sm btn-outline-primary" onclick="app.promptLinkItem(${i})">🔗 Vincular Producto</button> <span style="font-size:0.8rem; color:#666;">"${row.itemExcel}"</span>`;
+                statusIcon = '<i class="fas fa-link" style="color:orange"></i>';
+                rowStyle = 'background:#fffbf0';
+            }
+
+            tbody.innerHTML += `
+                 <tr style="${rowStyle}">
+                    <td>${fechaStr}</td>
+                    <td>${row.factura}</td>
+                    <td>${row.itemExcel}</td>
+                    <td>${row.cant}</td>
+                    <td>${matchInfo}</td>
+                    <td>${statusIcon}</td>
+                 </tr>
+             `;
+        });
+
+        const btn = document.getElementById('btn-process-exit-excel');
+        btn.disabled = false;
+        const total = this.batchExitsData.length;
+        btn.innerText = `Procesar (${validCount}/${total} Listos)`;
+    }
+
+    // --- LINKING MODAL LOGIC ---
+
+    promptLinkItem(index) {
+        this.currentLinkIndex = index;
+        const item = this.batchExitsData[index];
+
+        // Open Modal (Flex for centering)
+        const modal = document.getElementById('modalLinkProduct');
+        document.getElementById('link-excel-name').innerText = item.itemExcel;
+        document.getElementById('link-search-input').value = "";
+
+        modal.style.display = 'flex'; // Changed from block to flex for CSS centering
+        document.getElementById('link-search-input').focus();
+
+        // Setup live search and trigger initial load
+        document.getElementById('link-search-input').onkeyup = (e) => this.searchLinkProduct(e.target.value);
+        this.searchLinkProduct(""); // Load all (capped)
+    }
+
+    searchLinkProduct(term) {
+        const tbody = document.getElementById('link-results-body');
+        const cleanTerm = term ? term.toLowerCase().trim() : "";
+
+        let matches;
+        if (!cleanTerm) {
+            matches = this.cache.slice(0, 50);
+        } else {
+            matches = this.cache.filter(p =>
+                p.codigo.toLowerCase().includes(cleanTerm) ||
+                p.descripcion.toLowerCase().includes(cleanTerm)
+            ).slice(0, 50);
+        }
+
+        tbody.innerHTML = '';
+        if (matches.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center">No se encontraron coincidencias.</td></tr>';
+            return;
+        }
+
+        matches.forEach(p => {
+            const row = `
+                <tr>
+                    <td><strong>${p.codigo}</strong></td>
+                    <td>${p.descripcion}</td>
+                    <td>${p.existencia}</td>
+                    <td>$${p.precio}</td>
+                    <td>
+                        <button class="btn btn-sm btn-success" onclick="app.selectLinkProduct('${p.id}')">
+                            <i class="fas fa-check"></i> Seleccionar
+                        </button>
+                    </td>
+                </tr>
+             `;
+            tbody.innerHTML += row;
+        });
+    }
+
+    async selectLinkProduct(productId) {
+        const product = this.cache.find(p => p.id === productId);
+        if (!product || this.currentLinkIndex === null) return;
+
+        const itemExcel = this.batchExitsData[this.currentLinkIndex].itemExcel;
+
+        if (!confirm(`¿Vincular "${itemExcel}" con "${product.descripcion}"?`)) return;
+
+        await this.linkProductAlias(itemExcel, product);
+
+        // Update ALL local items with this name
+        this.batchExitsData.forEach(d => {
+            if (d.itemExcel === itemExcel) {
+                d.match = product;
+                d.status = 'OK';
+            }
+        });
+
+        // Close Modal and Refresh
+        document.getElementById('modalLinkProduct').style.display = 'none';
+        this.renderExitExcelPreview();
+    }
+
+    async linkProductAlias(excelName, product) {
+        try {
+            const ref = db.collection('INVENTARIO').doc(product.id);
+            await ref.update({
+                aliases: firebase.firestore.FieldValue.arrayUnion(excelName)
+            });
+
+            if (!product.aliases) product.aliases = [];
+            product.aliases.push(excelName);
+
+            // Optional: nice toast
+            // alert(`✅ Vinculado exitosamente`);
+        } catch (e) {
+            console.error(e);
+            alert("Error al guardar vinculación: " + e.message);
+        }
+    }
+
+    async saveBatchExits() {
+        // Filter ONLY matched items
+        const validItems = this.batchExitsData.filter(x => x.match);
+        const unresolved = this.batchExitsData.length - validItems.length;
+
+        if (validItems.length === 0) return alert("No hay items vinculados para procesar.");
+
+        if (unresolved > 0) {
+            if (!confirm(`⚠️ Hay ${unresolved} items SIN VINCULAR que serán IGNORADOS.\n(No se registrarán en las salidas)\n\n¿Desea continuar solo con los ${validItems.length} items vinculados?`)) return;
+        }
+
+        const btn = document.getElementById('btn-process-exit-excel');
+        btn.disabled = true; btn.innerText = "Procesando...";
+
+        try {
+            const batch = db.batch();
+            const invoicesMap = {};
+
+            for (const item of validItems) {
+                // Use the MATCHED product
+                const prodId = item.match.id;
+                const prodCode = item.match.codigo;
+                const prodName = item.match.descripcion;
+
+                // Update Stock
+                const existingRef = db.collection('INVENTARIO').doc(prodId);
+                batch.update(existingRef, {
+                    existencia: firebase.firestore.FieldValue.increment(-item.cant)
+                });
+
+                // Group by Invoice
+                const key = item.factura;
+                if (!invoicesMap[key]) {
+                    invoicesMap[key] = {
+                        factura: key,
+                        fecha: item.fecha,
+                        cliente: item.cliente,
+                        items: [],
+                        total: 0
+                    };
+                }
+
+                invoicesMap[key].items.push({
+                    productId: prodId,
+                    displayCode: prodCode,
+                    name: prodName,
+                    qty: item.cant,
+                    price: item.precio, // Utilizar precio del Excel
+                    subtotal: item.cant * item.precio
+                });
+                invoicesMap[key].total += (item.cant * item.precio);
+            }
+
+            // Create Invoice Docs
+            for (const key in invoicesMap) {
+                const inv = invoicesMap[key];
+                const salidaRef = db.collection('SALIDAS').doc();
+                batch.set(salidaRef, {
+                    invoiceNumber: inv.factura,
+                    clientName: inv.cliente,
+                    date: inv.fecha,
+                    fiscal: false,
+                    items: inv.items,
+                    totalValue: inv.total,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+
+            await batch.commit();
+
+            alert(`✅ Importación completada.\nSe procesaron ${Object.keys(invoicesMap).length} facturas vinculadas.`);
+            document.getElementById('modalImportarSalidas').style.display = 'none';
+            this.loadData();
+            this.loadExitsLog();
+
+        } catch (e) {
+            console.error(e);
+            alert("Error crítico al guardar: " + e.message);
+        } finally {
+            btn.disabled = false;
+            // Recalculate counts
+            const valid = this.batchExitsData.filter(x => x.match).length;
+            const total = this.batchExitsData.length;
+            btn.innerText = `Procesar (${valid}/${total} Listos)`;
+        }
+    }
 }
 
-// Inicializar cuando el DOM esté listo o inmediatamente si script al final
 new InventoryController();
