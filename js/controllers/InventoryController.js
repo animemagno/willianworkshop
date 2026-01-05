@@ -1022,7 +1022,7 @@ class InventoryController {
             }
 
             tbody.innerHTML += `
-                <tr style="vertical-align:middle; border-bottom:1px solid #eee;">
+                <tr style="vertical-align:middle; border-bottom:1px solid #eee; cursor:pointer;" onclick="app.showExitHistoryDetails('${e.id}')">
                     <td style="font-size:0.9rem;">${dateStr}</td>
                     <td style="text-align:center;">
                         <strong>${e.numeroFactura || 'S/N'}</strong><br>
@@ -1030,10 +1030,12 @@ class InventoryController {
                     </td>
                     <td>
                         <div style="font-weight:bold; margin-bottom:5px; color:#555;">${e.clientName || e.cliente || 'CLIENTES VARIOS'}</div>
-                        <div style="max-height:100px; overflow-y:auto; font-size:0.85rem;">${itemsList}</div>
+                        <div style="max-height:100px; overflow-y:auto; font-size:0.85rem;">
+                             <i class="fas fa-eye"></i> Ver ${itemsList.length > 0 ? 'Detalles' : 'Items'}
+                        </div>
                     </td>
                     <td style="text-align:right; font-weight:bold;">$${(e.totalValue || e.total || 0).toFixed(2)}</td>
-                    <td style="text-align:center;">
+                    <td style="text-align:center;" onclick="event.stopPropagation()">
                         ${actionBtns}
                     </td>
                 </tr>
@@ -1181,7 +1183,7 @@ class InventoryController {
         const tbody = document.getElementById('exit-excel-preview-body');
         tbody.innerHTML = '';
 
-        let validCount = 0;
+        let readyCount = 0;
 
         this.batchExitsData.forEach((row, i) => {
             const fechaStr = row.fecha instanceof Date && !isNaN(row.fecha) ? row.fecha.toLocaleDateString() : '???';
@@ -1189,11 +1191,15 @@ class InventoryController {
             let matchInfo, statusIcon, rowStyle;
 
             if (row.match) {
-                validCount++;
-                // UPDATE: Only show Description, not Code
+                readyCount++;
                 matchInfo = `<span style="color:green; font-weight:bold;">${row.match.descripcion}</span>`;
                 statusIcon = '<i class="fas fa-check-circle" style="color:green"></i>';
                 rowStyle = '';
+            } else if (row.skipped) {
+                readyCount++;
+                matchInfo = `<span style="color:#7f8c8d; font-style:italic;">(Omitido: No es producto)</span>`;
+                statusIcon = '<i class="fas fa-forward" style="color:#7f8c8d"></i>';
+                rowStyle = 'background:#f2f2f2; color:#777;';
             } else {
                 // Action Link
                 matchInfo = `<button class="btn btn-sm btn-outline-primary" onclick="app.promptLinkItem(${i})">🔗 Vincular Producto</button> <span style="font-size:0.8rem; color:#666;">"${row.itemExcel}"</span>`;
@@ -1216,7 +1222,7 @@ class InventoryController {
         const btn = document.getElementById('btn-process-exit-excel');
         btn.disabled = false;
         const total = this.batchExitsData.length;
-        btn.innerText = `Procesar (${validCount}/${total} Listos)`;
+        btn.innerText = `Procesar (${readyCount}/${total} Listos)`;
     }
 
     // --- LINKING MODAL LOGIC ---
@@ -1310,22 +1316,40 @@ class InventoryController {
             product.aliases.push(excelName);
 
             // Optional: nice toast
-            // alert(`✅ Vinculado exitosamente`);
         } catch (e) {
             console.error(e);
             alert("Error al guardar vinculación: " + e.message);
         }
     }
 
-    async saveBatchExits() {
-        // Filter ONLY matched items
-        const validItems = this.batchExitsData.filter(x => x.match);
-        const unresolved = this.batchExitsData.length - validItems.length;
+    skipLinkItem() {
+        if (this.currentLinkIndex === null) return;
 
-        if (validItems.length === 0) return alert("No hay items vinculados para procesar.");
+        const currentItem = this.batchExitsData[this.currentLinkIndex];
+        const targetName = currentItem.itemExcel; // El nombre a omitir masivamente
+
+        // Aplicar a TODOS los ítems de la lista que tengan el mismo nombre
+        this.batchExitsData.forEach(item => {
+            if (item.itemExcel === targetName) {
+                item.match = null;
+                item.skipped = true;
+                item.status = 'OMITIDO';
+            }
+        });
+
+        document.getElementById('modalLinkProduct').style.display = 'none';
+        this.renderExitExcelPreview();
+    }
+
+    async saveBatchExits() {
+        // Filter Items that are either MATCHED or SKIPPED
+        const readyItems = this.batchExitsData.filter(x => x.match || x.skipped);
+        const unresolved = this.batchExitsData.length - readyItems.length;
+
+        if (readyItems.length === 0) return alert("No hay items listos para procesar.");
 
         if (unresolved > 0) {
-            if (!confirm(`⚠️ Hay ${unresolved} items SIN VINCULAR que serán IGNORADOS.\n(No se registrarán en las salidas)\n\n¿Desea continuar solo con los ${validItems.length} items vinculados?`)) return;
+            if (!confirm(`⚠️ Hay ${unresolved} items PENDIENTES (Sin vincular ni omitir).\n\n¿Desea PROCESAR SOLO LOS ${readyItems.length} items listos e ignorar el resto?`)) return;
         }
 
         const btn = document.getElementById('btn-process-exit-excel');
@@ -1335,24 +1359,29 @@ class InventoryController {
             const batch = db.batch();
             const invoicesMap = {};
 
-            for (const item of validItems) {
-                // Use the MATCHED product
-                const prodId = item.match.id;
-                const prodCode = item.match.codigo;
-                const prodName = item.match.descripcion;
+            // IMPORTANTE: Agrupar
+            for (const item of readyItems) {
+                // Determine Product Data
+                let prodId = null;
+                let prodName = item.itemExcel; // Default to Excel Name
 
-                // Update Stock
-                const existingRef = db.collection('INVENTARIO').doc(prodId);
-                batch.update(existingRef, {
-                    existencia: firebase.firestore.FieldValue.increment(-item.cant)
-                });
+                if (item.match) {
+                    prodId = item.match.id;
+                    prodName = item.match.descripcion; // Official Name
 
-                // Group by Invoice
+                    // Solo descontar stock si existe match
+                    const existingRef = db.collection('INVENTARIO').doc(prodId);
+                    batch.update(existingRef, {
+                        existencia: firebase.firestore.FieldValue.increment(-item.cant)
+                    });
+                }
+
+                // Group by Invoice Number
                 const key = item.factura;
                 if (!invoicesMap[key]) {
                     invoicesMap[key] = {
-                        factura: key,
-                        fecha: item.fecha,
+                        numeroFactura: key, // SCHEMANAME MATCHES SERVICE
+                        fecha: item.fecha, // Date Object
                         cliente: item.cliente,
                         items: [],
                         total: 0
@@ -1361,33 +1390,44 @@ class InventoryController {
 
                 invoicesMap[key].items.push({
                     productId: prodId,
-                    displayCode: prodCode,
-                    name: prodName,
-                    qty: item.cant,
-                    price: item.precio, // Utilizar precio del Excel
-                    subtotal: item.cant * item.precio
+                    descripcionPapel: item.itemExcel, // Keep original name
+                    name: prodName, // Display name
+                    cantidad: item.cant,
+                    precioUnitario: item.precio,
+                    total: item.cant * item.precio
                 });
+
                 invoicesMap[key].total += (item.cant * item.precio);
             }
 
-            // Create Invoice Docs
+            // Create Invoice Documents in INVENTARIO_SALIDAS
             for (const key in invoicesMap) {
                 const inv = invoicesMap[key];
-                const salidaRef = db.collection('SALIDAS').doc();
+                const salidaRef = db.collection('INVENTARIO_SALIDAS').doc();
+
+                // Convert Date Object to String YYYY-MM-DD for consistency if needed, 
+                // BUT Service uses whatever is passed. Let's keep it consistent with manual entry if possible.
+                // Manual entry sends a string YYYY-MM-DD.
+                // Excel 'fecha' is a Date Object. Let's convert to string to match manual schema visually
+                let dateStr = inv.fecha;
+                if (inv.fecha instanceof Date) {
+                    dateStr = inv.fecha.toISOString().split('T')[0];
+                }
+
                 batch.set(salidaRef, {
-                    invoiceNumber: inv.factura,
-                    clientName: inv.cliente,
-                    date: inv.fecha,
-                    fiscal: false,
+                    numeroFactura: inv.numeroFactura,
+                    cliente: inv.cliente,
+                    fecha: dateStr,
+                    creditoFiscal: false,
                     items: inv.items,
-                    totalValue: inv.total,
+                    total: inv.total,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 });
             }
 
             await batch.commit();
 
-            alert(`✅ Importación completada.\nSe procesaron ${Object.keys(invoicesMap).length} facturas vinculadas.`);
+            alert(`✅ Importación completada.\nSe generaron ${Object.keys(invoicesMap).length} facturas.`);
             document.getElementById('modalImportarSalidas').style.display = 'none';
             this.loadData();
             this.loadExitsLog();
@@ -1398,9 +1438,66 @@ class InventoryController {
         } finally {
             btn.disabled = false;
             // Recalculate counts
-            const valid = this.batchExitsData.filter(x => x.match).length;
+            const valid = this.batchExitsData.filter(x => x.match || x.skipped).length;
             const total = this.batchExitsData.length;
             btn.innerText = `Procesar (${valid}/${total} Listos)`;
+        }
+    }
+    // =========================================
+    // DETAILS MODAL
+    // =========================================
+    async showExitHistoryDetails(id) {
+        // Enforce cache check? We might have it in loadExitsLog scope but better fetch or find inside a cache if available.
+        // For now, let's just re-fetch specific doc or find in UI. 
+        // We don't have a global cache of Exits in controller, only `exits` local variable in `loadExitsLog`.
+        // Let's assume we can fetch it or we make `exits` global. 
+        // Making a quick fetch is safer.
+
+        try {
+            const doc = await db.collection('INVENTARIO_SALIDAS').doc(id).get();
+            if (!doc.exists) return; // Deleted?
+
+            const data = doc.data();
+
+            document.getElementById('detail-exit-title').innerText = "Detalles Factura #" + (data.numeroFactura || "S/N");
+            document.getElementById('detail-exit-date').innerText = data.fecha || "-";
+            document.getElementById('detail-exit-client').innerText = data.cliente || "-";
+            document.getElementById('detail-exit-total').innerText = "$" + (data.total || 0).toFixed(2);
+
+            const tbody = document.getElementById('detail-exit-body');
+            tbody.innerHTML = "";
+
+            if (data.items && data.items.length > 0) {
+                data.items.forEach(item => {
+                    // Check schema (manual uses 'cantidad', 'precioUnitario')
+                    // Excel import schema also standardized to 'cantidad', 'precioUnitario'
+                    // Manual Schema: { cantidad, descripcionPapel, name, productId, precioUnitario, total }
+
+                    const qty = item.cantidad || item.qty || 0;
+                    const price = item.precioUnitario || item.price || 0;
+                    const total = item.total || (qty * price);
+
+                    const isSystem = item.productId ? '<span class="badge-si" style="background:#def;color:#027;padding:2px 5px;">SISTEMA</span>' : '<span class="badge-no" style="background:#eee;color:#777;padding:2px 5px;">MANUAL/OMITIDO</span>';
+
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${item.descripcionPapel || item.itemExcel || item.name}</td>
+                            <td>${isSystem} <br> <small>${item.name || ''}</small></td>
+                            <td style="text-align:center">${qty}</td>
+                            <td style="text-align:right">$${parseFloat(price).toFixed(2)}</td>
+                            <td style="text-align:right">$${parseFloat(total).toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                tbody.innerHTML = "<tr><td colspan='5'>Sin items</td></tr>";
+            }
+
+            document.getElementById('modalExitDetails').style.display = 'flex';
+
+        } catch (e) {
+            console.error(e);
+            alert("Error cargando detalles: " + e);
         }
     }
 }
