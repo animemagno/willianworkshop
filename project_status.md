@@ -1,42 +1,44 @@
 # Estado del Proyecto - Taller Willian
-*Última actualización: 05 Enero 2026*
+*Última actualización: 06 Enero 2026*
 
 Este documento técnico resume el estado actual del desarrollo "Brain Dump" para facilitar la continuidad entre sesiones.
 
 ## 1. Estado Actual (Resumen)
-El módulo de **Inventario (`inventario.html`)** está estable y modernizado (Fase 0 completada). Se ha implementado un sistema robusto de estabilidad (Kardex) y búsqueda avanzada (Alias). El módulo de **Ventas** está pendiente de refactorización total.
+El módulo de **Inventario** avanza positivamente, incluyendo ahora herramientas de "Aprendizaje de Alias" desde historial. El foco se está moviendo hacia la limpieza del módulo de **Historial (`historial.html`)** y posteriormente la refactorización total de **Ventas**.
 
 ## 2. Implementado (Hecho)
-### Módulo Inventario (`inventario.html` + `InventoryApp.js`)
+### Módulo Inventario & Configuración
+*   **Herramienta de Vinculación de Historial:**
+    *   Nuevo acceso en `configuracion.html` > "Herramientas de Mantenimiento".
+    *   Modal en `inventario.html` que escanea las últimas 500 salidas.
+    *   Detecta items sin vincular (texto plano) y permite asociarlos a productos reales.
+    *   Al confirmar, guarda el nombre "raro" como un **Alias** permanente.
+    *   **ESTADO:** Implementado en código, pendiente de prueba de integración (falta de datos reales).
 *   **Estabilidad (Kardex):**
-    *   Colección `INVENTORY_LOG` en Firestore creada.
-    *   Servicio `KardexService.js` activo: registra entradas, salidas (manuales), y ajustes.
-    *   Funciones de **Revertir Movimiento** (Safe Revert) y **Reconstruir Stock** implementadas y funcionales.
-    *   **Corrección Bug Crítico:** Eliminar entradas ya no deja stock negativo; ahora se revierte el movimiento.
-*   **Vinculación de Productos (Alias):**
-    *   Campo `aliases` (Array) en Firestore.
-    *   Editor de producto actualizado con campo "Palabras Clave / Alias".
-    *   Buscadores (Principal y Modal Pedidos) actualizados para buscar dentro de los alias.
-*   **UI/UX:**
-    *   Modal de Edición de Productos corregido (ya no está comprimido).
-    *   Diseño visual limpio y responsive.
+    *   Sistema base estable y corregido (entradas, salidas, reversiones).
+
+### Módulo Inventario (General)
+*   Soporte completo para Importación/Exportación Excel con lógica de vinculación.
+*   Búsqueda inteligente por Alias activa en controladores.
 
 ## 3. Pendiente (Por Hacer)
 ### Inmediato (Próxima Sesión)
+*   **Prueba de Vinculación de Historial:** Verificar que la herramienta funcione correctamente cuando existan facturas con items no vinculados.
+*   **Mejora de Historial (`historial.html`):**
+    *   El usuario quiere trabajar en este módulo.
+    *   Ideas: Mejor diseño visual, detalles expandibles, mejores filtros de estado.
 *   **Refactorización Ventas (`ventas.html`):**
-    *   El archivo actual es código heredado (legacy).
-    *   Necesita reescribirse usando arquitectura modular (similar a Inventario).
-    *   **CRÍTICO:** Integrar búsqueda por Alias en el carrito de ventas.
-    *   **CRÍTICO:** Integrar `KardexService.logMovement('salida')` al finalizar una venta para descontar stock real y mantener historial.
+    *   Sigue siendo código legacy. Necesita reescritura modular.
+    *   Integración crítica con KardexService.
 
 ### Mediano Plazo
 *   **Cuentas y Facturación:** Módulos aún no iniciados.
 *   **Roles:** Definición de permisos (Admin vs Mecánico).
 
 ## 4. Problemas Conocidos & Riesgos
-*   **Desincronización de Ventas:** Actualmente, si se vende algo en `ventas.html`, **NO** se descuenta correctamente usando el Kardex Log, lo que puede causar que la herramienta "Reconstruir Stock" devuelva valores incorrectos (ya que no "sabe" que hubo una venta). La reconstrucción solo es fiable para Entradas/Ajustes manuales por ahora.
-*   **Código Legacy:** Archivos como `ventas_old.html` o scripts antiguos pueden confundir. Se debe priorizar la limpieza.
+*   **Desincronización de Ventas:** Las ventas en `ventas.html` **NO** descuentan stock vía Kardex Log todavía.
+*   **Prueba Pendiente:** La herramienta de vinculación de historial no se pudo probar "end-to-end" por falta de datos de ejemplo en la sesión actual.
 
-## 5. Mejoras Sugeridas (Proactividad)
-*   **Migración a Módulos ES6:** El proyecto usa muchos `<script src="...">` globales. A medida que crezca, sería mejor usar `import/export` nativo si el servidor lo permite, o mantener la separación clara en carpetas como `js/inventory/`, `js/sales/`.
-*   **Validación de Tipos:** El manejo de precios/cantidades a veces mezcla strings y numbers. Se han puesto parches (`parseInt`, `parseFloat`), pero una validación centralizada de datos (Data Models) sería más segura.
+## 5. Notas Técnicas
+*   Se ha limpiado `InventoryController.js` eliminando código duplicado.
+*   La lógica de vinculación ahora maneja dos escenarios: Importación Excel (Batch) y Vinculación Histórica (Single/Retroactive).
