@@ -69,10 +69,26 @@
                     <!-- PESTAÑA CUENTAS -->
                     <div class="tab-content" id="tab-cuentas">
                         <h2 class="section-title">CONTROL DE CUENTAS</h2>
+
+                        <!-- TARJETA CUENTA JEFE (CAPITAL) -->
+                        <div class="capital-card">
+                            <div class="capital-info">
+                                <h3><i class="fas fa-user-tie"></i> CUENTA JEFE</h3>
+                                <p>Fondo de Capital e Inversión</p>
+                            </div>
+                            <div class="capital-balance">
+                                <span class="currency">$</span>
+                                <span id="capital-total">0.00</span>
+                            </div>
+                            <button class="btn-capital" id="btn-add-capital">
+                                <i class="fas fa-plus-circle"></i> INGRESAR DINERO
+                            </button>
+                        </div>
+
                         <div class="cuentas-actions">
                             <div>
                                 <button class="btn btn-primary" id="nueva-cuenta-btn"><i class="fas fa-plus"></i> NUEVA
-                                    CUENTA</button>
+                                    CUENTA (Proveedor)</button>
                             </div>
                             <div class="form-group">
                                 <input type="text" id="buscar-cuenta" placeholder="Buscar cuenta...">
@@ -83,9 +99,9 @@
                             <table class="cuentas-table">
                                 <thead>
                                     <tr>
-                                        <th>Cuenta</th>
+                                        <th>Cuenta / Proveedor</th>
                                         <th>Descripción</th>
-                                        <th>Saldo</th>
+                                        <th>Saldo Pendiente</th>
                                         <th>Estado</th>
                                         <th width="120">Acciones</th>
                                     </tr>
@@ -97,6 +113,34 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL INYECCIÓN CAPITAL -->
+    <div class="modal-overlay" id="capitalModal">
+        <div class="modal-content glass-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-money-bill-wave"></i> Nuevo Aporte de Capital</h3>
+                <button class="close-modal" id="closeCapitalModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Monto a Ingresar ($)</label>
+                    <input type="number" id="capital-monto" placeholder="0.00" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label>Descripción / Motivo</label>
+                    <input type="text" id="capital-desc" placeholder="Ej: Dinero inicial para caja, Aporte extra...">
+                </div>
+                <div class="form-group">
+                    <label>Fecha</label>
+                    <input type="date" id="capital-fecha">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-cancel" id="cancelCapitalBtn">Cancelar</button>
+                <button class="btn btn-confirm" id="saveCapitalBtn">Registrar Aporte</button>
             </div>
         </div>
     </div>
