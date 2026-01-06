@@ -128,6 +128,22 @@
             if (this.els.lblAbonoCliente) this.els.lblAbonoCliente.textContent = cliente || '-';
         }
 
+        highlightSearchResult(index) {
+            if (!this.els.searchDropdown) return;
+            const items = this.els.searchDropdown.querySelectorAll('.search-dropdown-item');
+            items.forEach((item, i) => {
+                if (i === index) {
+                    item.style.backgroundColor = '#bdc3c7';
+                    item.classList.add('selected');
+                    // Scroll to item if hidden
+                    item.scrollIntoView({ block: 'nearest' });
+                } else {
+                    item.style.backgroundColor = '';
+                    item.classList.remove('selected');
+                }
+            });
+        }
+
         getFormData() {
             return {
                 equipo: this.els.equipo ? this.els.equipo.value.trim() : '',

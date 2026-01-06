@@ -56,10 +56,14 @@
 
     function setupSearchEvents() {
         const { buscador, searchDropdown } = ui.els;
+        let selectedIndex = -1;
+
         if (!buscador) return;
 
+        // Búsqueda con input
         buscador.addEventListener('input', async (e) => {
             const term = e.target.value;
+            selectedIndex = -1; // Reset index
             if (term.length < 2) {
                 ui.hideSearchResults();
                 return;
@@ -68,8 +72,38 @@
             ui.renderSearchResults(results);
         });
 
+        // Navegación con Teclado
+        buscador.addEventListener('keydown', (e) => {
+            const items = searchDropdown ? searchDropdown.querySelectorAll('.search-dropdown-item') : [];
+            if (items.length === 0) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                selectedIndex++;
+                if (selectedIndex >= items.length) selectedIndex = 0;
+                ui.highlightSearchResult(selectedIndex);
+            }
+            else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                selectedIndex--;
+                if (selectedIndex < 0) selectedIndex = items.length - 1;
+                ui.highlightSearchResult(selectedIndex);
+            }
+            else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (selectedIndex >= 0 && items[selectedIndex]) {
+                    const id = items[selectedIndex].dataset.id;
+                    selectProduct(id);
+                }
+            }
+            else if (e.key === 'Escape') {
+                ui.hideSearchResults();
+            }
+        });
+
+        // Selección con Click (Usamos mousedown para evitar conflicto con blur)
         if (searchDropdown) {
-            searchDropdown.addEventListener('click', (e) => {
+            searchDropdown.addEventListener('mousedown', (e) => {
                 const item = e.target.closest('.search-dropdown-item');
                 if (item) {
                     const id = item.dataset.id;
@@ -78,10 +112,11 @@
             });
         }
 
-        document.addEventListener('click', (e) => {
-            if (searchDropdown && !buscador.contains(e.target) && !searchDropdown.contains(e.target)) {
+        // Ocultar al perder foco (Blur) con delay para permitir click
+        buscador.addEventListener('blur', () => {
+            setTimeout(() => {
                 ui.hideSearchResults();
-            }
+            }, 200);
         });
     }
 
