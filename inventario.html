@@ -726,6 +726,58 @@
         </div>
     </div>
 
+    <!-- MODAL VINCULACION HISTORIAL -->
+    <div id="modalLinkHistory" class="modal-overlay"
+        style="display: none; align-items: flex-start; padding-top: 50px; overflow-y: auto;">
+        <div class="modal-content" style="width: 90%; max-width: 900px; margin-bottom: 50px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #f39c12, #d35400); color: white;">
+                <h2><i class="fas fa-magic"></i> Aprendizaje de Productos</h2>
+                <span class="close-modal-btn" onclick="document.getElementById('modalLinkHistory').style.display='none'"
+                    style="color:white;">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div
+                    style="background: #fff3cd; color: #856404; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: flex-start; gap: 10px;">
+                    <i class="fas fa-lightbulb" style="font-size: 1.5rem; margin-top: 5px;"></i>
+                    <div>
+                        <strong>¿Cómo funciona?</strong><br>
+                        El sistema ha detectado estos nombres en tus facturas que no están vinculados a ningún producto
+                        del inventario.
+                        Si los vinculas ahora, el sistema "aprenderá" que <em>"Nombre Raro"</em> = <em>"Producto
+                            Real"</em>, y lo reconocerá automáticamente en futuras importaciones o búsquedas.
+                    </div>
+                </div>
+
+                <div
+                    style="max-height: 500px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; box-shadow: inset 0 0 10px rgba(0,0,0,0.05);">
+                    <table class="inventario-table" style="margin-top: 0; border: none;">
+                        <thead style="position: sticky; top: 0; background: #eee; z-index: 10;">
+                            <tr>
+                                <th style="text-align: left;">Nombre Texto ("Raro")</th>
+                                <th style="text-align: center;">Veces Encontrado</th>
+                                <th style="text-align: left;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="link-history-body" style="background: white;">
+                            <!-- JS Renders here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="link-history-loading" style="text-align: center; padding: 20px; display: none;">
+                    <i class="fas fa-spinner fa-spin fa-2x"></i> Analizando historial...
+                </div>
+
+                <div style="margin-top: 20px; text-align: right;">
+                    <button class="btn btn-secondary"
+                        onclick="document.getElementById('modalLinkHistory').style.display='none'">
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL DETALLES SALIDA (HISTORIAL) -->
     <div id="modalExitDetails" class="modal-overlay" style="display: none;">
         <div class="modal-content" style="max-width: 800px;">

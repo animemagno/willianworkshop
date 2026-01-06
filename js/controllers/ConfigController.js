@@ -40,6 +40,14 @@ function setupEventListeners() {
         });
     }
 
+    // Botón de Vinculación de Historial
+    const linkBtn = document.getElementById('btn-goto-linking');
+    if (linkBtn) {
+        linkBtn.addEventListener('click', () => {
+            window.location.href = 'inventario.html?tool=link-history';
+        });
+    }
+
     // Menú móvil
     const mobileBtn = document.getElementById('mobileMenuBtn');
     if (mobileBtn) {

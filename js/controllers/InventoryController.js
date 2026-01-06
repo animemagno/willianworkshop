@@ -20,6 +20,9 @@ class InventoryController {
         // Providers Cache
         this.providersCache = [];
 
+        // History Linking Cache
+        this.historyUnlinked = [];
+
         this.init();
     }
 
@@ -28,7 +31,132 @@ class InventoryController {
         this.bindEvents();
         this.exposeGlobalFunctions();
         await this.loadData();
+
+        // Check for tools in URL
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('tool') === 'link-history') {
+            // Remove param clean
+            window.history.replaceState({}, document.title, window.location.pathname);
+            this.ui.activateTab('salidas');
+            this.openLinkHistoryTool();
+        }
     }
+
+    // ... [resto del código sin cambios hasta el final]
+
+    // =========================================
+    // HERRAMIENTA DE APRENDIZAJE DE ALIAS (HISTORIAL)
+    // =========================================
+
+    async openLinkHistoryTool() {
+        const modal = document.getElementById('modalLinkHistory');
+        const listBody = document.getElementById('link-history-body');
+        const loading = document.getElementById('link-history-loading');
+
+        if (!modal) return;
+        modal.style.display = 'flex';
+        listBody.innerHTML = '';
+        loading.style.display = 'block';
+
+        // 1. Obtener Historial (Profundo, más de 50)
+        // Usaremos acceso directo a Firestore aquí para no modificar el service standard 'obtenerSalidas' que tiene limite 50
+        try {
+            // Traemos ultimas 500 salidas para analizar
+            const snapshot = await db.collection('INVENTARIO_SALIDAS')
+                .orderBy('timestamp', 'desc')
+                .limit(500)
+                .get();
+
+            const allExits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            // 2. Analizar Items
+            const stats = {}; // Map: "Nombre Raro" -> { count: 0, examples: [] }
+
+            allExits.forEach(exit => {
+                if (!exit.items) return;
+                exit.items.forEach(item => {
+                    // Si NO tiene productId, es candidato
+                    if (!item.productId) {
+                        const rawName = (item.descripcionPapel || item.name || item.itemExcel || "").trim();
+                        if (rawName.length > 1) { // Ignorar vacios
+                            if (!stats[rawName]) stats[rawName] = { count: 0, ids: [] };
+                            stats[rawName].count++;
+                        }
+                    }
+                });
+            });
+
+            // Convertir a Array y Ordenar
+            this.historyUnlinked = Object.keys(stats).map(key => ({
+                name: key,
+                count: stats[key].count
+            })).sort((a, b) => b.count - a.count);
+
+            loading.style.display = 'none';
+            this.renderLinkHistoryList();
+
+        } catch (e) {
+            console.error("Error analizando historial:", e);
+            loading.innerText = "Error: " + e.message;
+        }
+    }
+
+    renderLinkHistoryList() {
+        const tbody = document.getElementById('link-history-body');
+        tbody.innerHTML = '';
+
+        if (this.historyUnlinked.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:30px; color:green;"><i class="fas fa-check-circle" style="font-size:2rem"></i><br>¡Excelente! Todo el historial reciente está vinculado.</td></tr>';
+            return;
+        }
+
+        this.historyUnlinked.forEach((item, index) => {
+            // Verificar si YA lo tenemos en caché de productos (por si el usuario vinculó uno y recargamos la lista)
+            // Si el nombre YA existe como alias en algun producto, deberiamos ocultarlo o marcarlo como "Listo"
+            const alreadyLinked = this.cache.some(p => (p.aliases || []).includes(item.name.toLowerCase()));
+
+            if (alreadyLinked) return; // Ya se aprendió en esta sesión
+
+            tbody.innerHTML += `
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="font-weight:bold; color:#444;">${item.name}</td>
+                    <td style="text-align:center;">${item.count}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" onclick="app.prepareLinkFromHistory('${item.name.replace(/'/g, "\\'")}')">
+                            <i class="fas fa-link"></i> Vincular
+                        </button>
+                    </td>
+                </tr>
+             `;
+        });
+    }
+
+    prepareLinkFromHistory(name) {
+        // Reutilizamos el modal de Excel
+        // Ponemos un flag para saber que venimos de historial
+        this.isHistoryLinking = true;
+        this.currentHistoryName = name;
+
+        const modal = document.getElementById('modalLinkProduct');
+        document.getElementById('link-excel-name').innerText = name;
+        document.getElementById('link-search-input').value = "";
+
+        modal.style.display = 'flex';
+        document.getElementById('link-search-input').focus();
+
+        // Setup search logic (misma que excel)
+        document.getElementById('link-search-input').onkeyup = (e) => this.searchLinkProduct(e.target.value);
+        this.searchLinkProduct("");
+    }
+
+    // Sobreescribir o adaptar selectLinkProduct para manejar el flag isHistoryLinking
+    // Modificaremos selectLinkProduct abajo...
+
+    // ...
+    // Modificaremos selectLinkProduct abajo...
+
+    // ...
+
 
     exposeGlobalFunctions() {
         // Funciones para onclick="" del HTML
@@ -1284,6 +1412,25 @@ class InventoryController {
 
     async selectLinkProduct(productId) {
         const product = this.cache.find(p => p.id === productId);
+
+        // 1. SCENARIO: HISTORY LINKING
+        if (this.isHistoryLinking) {
+            if (!this.currentHistoryName || !product) return;
+
+            if (!confirm(`¿Vincular permanentemente "${this.currentHistoryName}" con el producto "${product.descripcion}"?\n\nEl sistema aprenderá este alias y actualizará futuras búsquedas.`)) return;
+
+            await this.linkProductAlias(this.currentHistoryName, product);
+
+            alert("✅ Vinculado correctamente. El sistema ahora reconoce este nombre.");
+
+            // Close standard modal
+            document.getElementById('modalLinkProduct').style.display = 'none';
+            // Refresh history list to remove the linked item
+            this.openLinkHistoryTool();
+            return;
+        }
+
+        // 2. SCENARIO: EXCEL IMPORT
         if (!product || this.currentLinkIndex === null) return;
 
         const itemExcel = this.batchExitsData[this.currentLinkIndex].itemExcel;
@@ -1323,6 +1470,13 @@ class InventoryController {
     }
 
     skipLinkItem() {
+        // 1. HISTORY SCENARIO
+        if (this.isHistoryLinking) {
+            document.getElementById('modalLinkProduct').style.display = 'none';
+            return;
+        }
+
+        // 2. EXCEL SCENARIO
         if (this.currentLinkIndex === null) return;
 
         const currentItem = this.batchExitsData[this.currentLinkIndex];
@@ -1340,6 +1494,7 @@ class InventoryController {
         document.getElementById('modalLinkProduct').style.display = 'none';
         this.renderExitExcelPreview();
     }
+
 
     async saveBatchExits() {
         // Filter Items that are either MATCHED or SKIPPED
