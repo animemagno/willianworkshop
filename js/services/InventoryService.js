@@ -93,8 +93,43 @@ class InventoryService {
 
     // Actualizar un producto existente
     async actualizarProducto(id, datos) {
+        const db = firebase.firestore();
+        const ref = this.collection.doc(id);
+
         try {
-            await this.collection.doc(id).update(datos);
+            await db.runTransaction(async (transaction) => {
+                const doc = await transaction.get(ref);
+                if (!doc.exists) throw "Producto no encontrado";
+
+                const oldData = doc.data();
+                const oldStock = parseFloat(oldData.existencia || 0);
+                const newStock = parseFloat(datos.existencia);
+
+                // Actualizar
+                transaction.update(ref, datos);
+
+                // Log de Ajuste (Si hubo cambio de stock)
+                if (!isNaN(newStock) && Math.abs(newStock - oldStock) > 0.001) {
+                    const diff = newStock - oldStock;
+                    const entryRef = db.collection('INVENTARIO_ENTRADAS').doc();
+
+                    transaction.set(entryRef, {
+                        productId: id,
+                        productName: oldData.descripcion,
+                        cantidad: diff, // Puede ser negativo
+                        costoUnitario: oldData.costo || 0,
+                        costoAnterior: oldData.costo || 0,
+                        costoNuevo: oldData.costo || 0,
+                        stockAnterior: oldStock,
+                        stockNuevo: newStock,
+                        providerId: null,
+                        providerName: "AJUSTE MANUAL",
+                        esCredito: false,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                        tipo: 'AJUSTE'
+                    });
+                }
+            });
             return true;
         } catch (error) {
             console.error("Error actualizando producto:", error);

@@ -36,9 +36,12 @@ El módulo de **Inventario** avanza positivamente, incluyendo ahora herramientas
 *   **Roles:** Definición de permisos (Admin vs Mecánico).
 
 ## 4. Problemas Conocidos & Riesgos
-*   **Desincronización de Ventas:** Las ventas en `ventas.html` **NO** descuentan stock vía Kardex Log todavía.
 *   **Prueba Pendiente:** La herramienta de vinculación de historial no se pudo probar "end-to-end" por falta de datos de ejemplo en la sesión actual.
 
 ## 5. Notas Técnicas
+*   **CORE FIXED:** Se ha implementado consistencia transaccional total (ACID) en:
+    *   Ventas (Descuenta Stock al instante).
+    *   Edición Manual (Genera Log de Ajuste "AJUSTE MANUAL").
+    *   Reversiones y Entradas/Salidas.
 *   Se ha limpiado `InventoryController.js` eliminando código duplicado.
 *   La lógica de vinculación ahora maneja dos escenarios: Importación Excel (Batch) y Vinculación Histórica (Single/Retroactive).

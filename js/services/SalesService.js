@@ -107,9 +107,34 @@
             };
 
             const idVenta = `equipo_${ventaData.equipo}_${Date.now()}`;
-            console.log("💾 Guardando venta (v8):", idVenta, ventaData);
+            console.log("💾 Guardando venta (Transaccional):", idVenta, ventaData);
 
-            await this.db.collection("VENTAS").doc(idVenta).set(ventaData);
+            // Transacción: Guardar Venta + Descontar Stock
+            await this.db.runTransaction(async (transaction) => {
+                // 1. Lecturas (Stock actual)
+                const productReads = [];
+                for (const item of cleanItems) {
+                    if (item.id && item.id !== 'unknown') {
+                        const ref = this.db.collection("INVENTARIO").doc(item.id);
+                        const doc = await transaction.get(ref);
+                        if (doc.exists) {
+                            productReads.push({ ref, doc, qty: item.cantidad });
+                        }
+                    }
+                }
+
+                // 2. Escrituras
+                // A. Actualizar Stock
+                for (const p of productReads) {
+                    const currentStock = parseFloat(p.doc.data().existencia || 0);
+                    const newStock = currentStock - p.qty;
+                    transaction.update(p.ref, { existencia: newStock });
+                }
+
+                // B. Guardar Venta
+                const ventaRef = this.db.collection("VENTAS").doc(idVenta);
+                transaction.set(ventaRef, ventaData);
+            });
 
             this.clearTempSale(usuario);
             return idVenta;

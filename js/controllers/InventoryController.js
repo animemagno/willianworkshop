@@ -173,6 +173,7 @@ class InventoryController {
                 this.ui.activateTab(target);
                 if (target === 'entradas') this.loadEntries();
                 if (target === 'salidas') this.loadExitsLog();
+                if (target === 'reportes') this.loadReports();
             });
         });
 
@@ -305,6 +306,9 @@ class InventoryController {
 
         const btnProcessExitExcel = document.getElementById('btn-process-exit-excel');
         if (btnProcessExitExcel) btnProcessExitExcel.addEventListener('click', () => this.saveBatchExits());
+
+        const btnViewBatches = document.getElementById('btn-view-batches');
+        if (btnViewBatches) btnViewBatches.addEventListener('click', () => this.openBatchHistory());
 
         // Validacion Factura en tiempo real
         const invNumInput = document.getElementById('exit-invoice-number');
@@ -513,7 +517,14 @@ class InventoryController {
     }
 
     async deleteProduct(id) {
-        if (confirm("¿Eliminar producto permanentemente?")) {
+        const p = this.cache.find(x => x.id === id);
+        let msg = "¿Eliminar producto permanentemente?";
+
+        if (p && p.existencia > 0) {
+            msg = `⚠️ CUIDADO: Este producto tiene EXISTENCIA (${p.existencia}).\n\nEliminarlo borrará el registro de inventario sin generar una salida.\n¿Está SEGURO de eliminarlo?`;
+        }
+
+        if (confirm(msg)) {
             try {
                 await this.svc.eliminarProducto(id);
                 // Remove from cache instantly
@@ -1469,7 +1480,7 @@ class InventoryController {
         }
     }
 
-    skipLinkItem() {
+    async skipLinkItem() {
         // 1. HISTORY SCENARIO
         if (this.isHistoryLinking) {
             document.getElementById('modalLinkProduct').style.display = 'none';
@@ -1482,12 +1493,40 @@ class InventoryController {
         const currentItem = this.batchExitsData[this.currentLinkIndex];
         const targetName = currentItem.itemExcel; // El nombre a omitir masivamente
 
-        // Aplicar a TODOS los ítems de la lista que tengan el mismo nombre
+        // PREGUNTA CLAVE: ¿Es BASURA/NO ES STOCK o es SERVICIO (Mano de Obra)?
+        // BASURA -> OMITIR DEL REPORTE FINAL (Omitir)
+        // SERVICIO -> INCLUIR EN FACTURA PERO NO DESCUENTA STOCK (Servicio)
+
+        // Creamos un modal o usamos confirm simple con opciones?
+        // JS nativo no tiene confirm con 3 botones. Usaremos un hack de Confirm secuencial o asumiremos por defecto.
+        // MEJOR: Implementar UI en el modalLinkProduct para estos botones.
+        // Pero dado que esta función se llama desde un botón generico "Omitir" ya existente,
+        // lo transformaremos aquí.
+
+        // * NOTA: Para UX fluida, usaremos confirm() simple para preguntar si es servicio.
+
+        let isService = false;
+        let isSkip = false;
+
+        if (confirm(`¿Este ítem "${targetName}" es un SERVICIO (Mano de Obra)?\n\n[ACEPTAR] = SI, es Servicio (Aparecerá en Factura, No descuenta stock)\n[CANCELAR] = NO, es Basura/Error (Omitir completamente)`)) {
+            isService = true;
+        } else {
+            isSkip = true;
+        }
+
+        // Aplicar cambio masivo
         this.batchExitsData.forEach(item => {
             if (item.itemExcel === targetName) {
-                item.match = null;
-                item.skipped = true;
-                item.status = 'OMITIDO';
+                item.match = null; // No hay ID de producto
+                if (isService) {
+                    item.skipped = true; // Flag technical
+                    item.isService = true; // Flag logic
+                    item.status = 'SERVICIO';
+                } else {
+                    item.skipped = true;
+                    item.isService = false;
+                    item.status = 'OMITIDO';
+                }
             }
         });
 
@@ -1524,11 +1563,18 @@ class InventoryController {
                     prodId = item.match.id;
                     prodName = item.match.descripcion; // Official Name
 
-                    // Solo descontar stock si existe match
+                    // Solo descontar stock si existe match (Y NO ES PROPIAMENTE SERVICIO TIPO PRODUCTO)
                     const existingRef = db.collection('INVENTARIO').doc(prodId);
                     batch.update(existingRef, {
                         existencia: firebase.firestore.FieldValue.increment(-item.cant)
                     });
+                } else if (item.isService) {
+                    prodId = null; // Sin ID
+                    prodName = item.itemExcel + " (SERVICIO)";
+                    // NO DESCONTAMOS STOCK
+                } else if (item.skipped && !item.isService) {
+                    // Es OMITIDO/BASURA, saltar procesamiento de este item en la factura
+                    continue;
                 }
 
                 // Group by Invoice Number
@@ -1555,15 +1601,18 @@ class InventoryController {
                 invoicesMap[key].total += (item.cant * item.precio);
             }
 
+            const batchId = `lote_${Date.now()}`;
+            const summaryRef = db.collection('INVENTARIO_LOTES').doc(batchId);
+            const totalInvoices = Object.keys(invoicesMap).length;
+            let totalAmount = 0;
+
             // Create Invoice Documents in INVENTARIO_SALIDAS
             for (const key in invoicesMap) {
                 const inv = invoicesMap[key];
                 const salidaRef = db.collection('INVENTARIO_SALIDAS').doc();
 
-                // Convert Date Object to String YYYY-MM-DD for consistency if needed, 
-                // BUT Service uses whatever is passed. Let's keep it consistent with manual entry if possible.
-                // Manual entry sends a string YYYY-MM-DD.
-                // Excel 'fecha' is a Date Object. Let's convert to string to match manual schema visually
+                totalAmount += inv.total;
+
                 let dateStr = inv.fecha;
                 if (inv.fecha instanceof Date) {
                     dateStr = inv.fecha.toISOString().split('T')[0];
@@ -1576,16 +1625,28 @@ class InventoryController {
                     creditoFiscal: false,
                     items: inv.items,
                     total: inv.total,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    importBatchId: batchId // LINK TO BATCH
                 });
             }
 
+            // Save Master Batch Record
+            batch.set(summaryRef, {
+                fecha: firebase.firestore.FieldValue.serverTimestamp(),
+                cantidadFacturas: totalInvoices,
+                montoTotal: totalAmount,
+                usuario: localStorage.getItem('usuario') || 'Admin', // Asumiendo local storage
+                revertido: false
+            });
+
             await batch.commit();
 
-            alert(`✅ Importación completada.\nSe generaron ${Object.keys(invoicesMap).length} facturas.`);
+            alert(`✅ Importación completada.\nSe generaron ${totalInvoices} facturas bajo el Lote #${batchId.slice(-6)}.`);
             document.getElementById('modalImportarSalidas').style.display = 'none';
             this.loadData();
             this.loadExitsLog();
+            // Opcional: Cargar lista de lotes si estuviéramos mostrándola
+            // this.loadBatchesLog(); 
 
         } catch (e) {
             console.error(e);
@@ -1653,6 +1714,210 @@ class InventoryController {
         } catch (e) {
             console.error(e);
             alert("Error cargando detalles: " + e);
+        }
+    }
+    // =========================================
+    // LOTES / BATCHES HISTORY MANAGEMENT
+    // =========================================
+
+    async openBatchHistory() {
+        document.getElementById('modalBatchHistory').style.display = 'flex';
+        this.loadBatchesLog();
+    }
+
+    async loadBatchesLog() {
+        const tbody = document.getElementById('batch-history-body');
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">Cargando...</td></tr>';
+
+        try {
+            const snapshot = await db.collection('INVENTARIO_LOTES')
+                .orderBy('fecha', 'desc')
+                .limit(20)
+                .get();
+
+            tbody.innerHTML = '';
+            if (snapshot.empty) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">No hay lotes registrados.</td></tr>';
+                return;
+            }
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const d = data.fecha ? new Date(data.fecha.seconds * 1000).toLocaleString() : '-';
+                const status = data.revertido ?
+                    '<span style="color:red; font-weight:bold;">REVERTIDO</span>' :
+                    '<span style="color:green; font-weight:bold;">ACTIVO</span>';
+
+                const btn = !data.revertido ?
+                    `<button class="btn btn-danger btn-sm" onclick="app.revertBatch('${doc.id}')">REVERTIR LOTE</button>` :
+                    '<span style="color:#aaa;">-</span>';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${d}</td>
+                        <td><small>${doc.id}</small></td>
+                        <td style="text-align:center">${data.cantidadFacturas}</td>
+                        <td style="text-align:right">$${(data.montoTotal || 0).toFixed(2)}</td>
+                        <td>${status}</td>
+                        <td style="text-align:center">${btn}</td>
+                    </tr>
+                `;
+            });
+
+        } catch (e) {
+            tbody.innerHTML = `<tr><td colspan="6" style="color:red">Error: ${e.message}</td></tr>`;
+        }
+    }
+
+    async revertBatch(batchId) {
+        if (!confirm(`⚠️ PELIGRO:\n\nEsto ELIMINARÁ PERMANENTEMENTE TODAS las facturas asociadas al Lote "${batchId}".\n\n- Se devolverá el stock a todos los productos.\n- Las facturas desaparecerán del historial.\n- Esta acción NO se puede deshacer.\n\n¿Estás 100% seguro de proceder?`)) return;
+
+        const btn = document.querySelector(`button[onclick="app.revertBatch('${batchId}')"]`);
+        if (btn) { btn.disabled = true; btn.innerText = "Revirtiendo..."; }
+
+        try {
+            // 1. Buscar todas las facturas de este lote
+            const invoicesSnap = await db.collection('INVENTARIO_SALIDAS')
+                .where('importBatchId', '==', batchId)
+                .get();
+
+            if (invoicesSnap.empty) {
+                alert("No se encontraron facturas activas para este lote (¿Ya fueron borradas?). Se marcará como revertido.");
+                await db.collection('INVENTARIO_LOTES').doc(batchId).update({ revertido: true });
+                this.loadBatchesLog();
+                return;
+            }
+
+            const totalDocs = invoicesSnap.size;
+            console.log(`Iniciando reversión de lote ${batchId} con ${totalDocs} facturas...`);
+
+            // 2. Procesar en Batches de Firestore (Limit 500 ops)
+
+            // A. Mapa de devoluciones (ProductId -> Cantidad a devolver)
+            const stockReturns = {};
+            const invoiceIdsToDelete = [];
+
+            invoicesSnap.forEach(doc => {
+                const inv = doc.data();
+                invoiceIdsToDelete.push(doc.ref);
+
+                if (inv.items && Array.isArray(inv.items)) {
+                    inv.items.forEach(item => {
+                        if (item.productId) { // Solo si tiene ID de sistema
+                            if (!stockReturns[item.productId]) stockReturns[item.productId] = 0;
+                            stockReturns[item.productId] += parseFloat(item.cantidad || 0);
+                        }
+                    });
+                }
+            });
+
+            const batch = db.batch();
+
+            // Updates de Stock
+            for (const pid of Object.keys(stockReturns)) {
+                const qty = stockReturns[pid];
+                const ref = db.collection('INVENTARIO').doc(pid);
+                batch.update(ref, {
+                    existencia: firebase.firestore.FieldValue.increment(qty)
+                });
+            }
+
+            // Deletes de Facturas
+            for (const ref of invoiceIdsToDelete) {
+                batch.delete(ref);
+            }
+
+            // Mark Batch as Reverted
+            const batchRef = db.collection('INVENTARIO_LOTES').doc(batchId);
+            batch.update(batchRef, { revertido: true });
+
+            await batch.commit();
+
+            alert(`✅ Lote revertido correctamente.\n- ${totalDocs} facturas eliminadas.\n- Stock restaurado.`);
+            this.loadBatchesLog();
+            this.loadExitsLog(); // Refresh main table too
+
+        } catch (e) {
+            console.error(e);
+            alert("Error al revertir lote: " + e.message);
+            if (btn) { btn.disabled = false; btn.innerText = "Error (Reintentar)"; }
+        }
+    }
+
+    // =========================================
+    // REPORTES LOGIC
+    // =========================================
+    loadReports() {
+        if (this.cache.length === 0) {
+            // Try to load if empty (rare case if refreshed on tab directly)
+        }
+
+        const critical = [];
+        const negative = [];
+        let totalValue = 0;
+
+        this.cache.forEach(p => {
+            const stock = parseFloat(p.existencia || 0);
+            const min = parseFloat(p.stockMinimo || 5);
+            const cost = parseFloat(p.costo || 0);
+
+            // Total Value (Only count positive stock)
+            if (stock > 0) {
+                totalValue += (stock * cost);
+            }
+
+            // Negative
+            if (stock < 0) {
+                negative.push(p);
+            }
+            // Critical (Below or Equal min and Positive/Zero)
+            // Note: Negatives are handled separately, so critical usually implies 0 <= stock <= min
+            else if (stock <= min) {
+                critical.push(p);
+            }
+        });
+
+        // Update Counters
+        document.getElementById('report-critical-count').innerText = critical.length;
+        document.getElementById('report-negative-count').innerText = negative.length;
+        document.getElementById('report-total-value').innerText = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalValue);
+
+        // Render Critical Table
+        const critBody = document.getElementById('report-critical-body');
+        critBody.innerHTML = '';
+        if (critical.length === 0) {
+            critBody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:15px; color:green;"><i class="fas fa-check-circle"></i> Todo el stock está saludable.</td></tr>';
+        } else {
+            critical.forEach(p => {
+                critBody.innerHTML += `
+                    <tr>
+                        <td><small>${p.codigo}</small></td>
+                        <td>${p.descripcion}</td>
+                        <td style="color:#c0392b; font-weight:bold;">${p.existencia}</td>
+                        <td>${p.stockMinimo || 5}</td>
+                        <td>$${(p.costo || 0).toFixed(2)}</td>
+                        <td><button class="btn btn-sm btn-primary" onclick="app.ui.activateTab('entradas'); app.openEntryModal(); setTimeout(()=>{ document.getElementById('entry-temp-name').value='${p.codigo} - ${p.descripcion}'; document.getElementById('entry-temp-id').value='${p.id}'; document.getElementById('entry-temp-cost').value='${p.costo}'; }, 500);">Abastecer</button></td>
+                    </tr>
+                `;
+            });
+        }
+
+        // Render Negative Table
+        const negBody = document.getElementById('report-negative-body');
+        negBody.innerHTML = '';
+        if (negative.length === 0) {
+            negBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:15px; color:green;"><i class="fas fa-check-circle"></i> Sin stock negativo.</td></tr>';
+        } else {
+            negative.forEach(p => {
+                negBody.innerHTML += `
+                    <tr>
+                        <td><small>${p.codigo}</small></td>
+                        <td>${p.descripcion}</td>
+                        <td style="color:#8e44ad; font-weight:bold;">${p.existencia}</td>
+                        <td><button class="btn btn-sm btn-outline-primary" onclick="app.ui.activateTab('entradas'); app.openEntryModal(); setTimeout(()=>{ document.getElementById('entry-temp-name').value='${p.codigo} - ${p.descripcion}'; document.getElementById('entry-temp-id').value='${p.id}'; document.getElementById('entry-temp-cost').value='${p.costo}'; document.getElementById('entry-temp-qty').value='${Math.abs(p.existencia)}'; }, 500);">Corregir</button></td>
+                    </tr>
+                `;
+            });
         }
     }
 }
