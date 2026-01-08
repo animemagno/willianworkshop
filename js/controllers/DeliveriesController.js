@@ -90,6 +90,10 @@ function setupGlobalHandlers() {
             }
         }
     };
+
+    window.imprimirEntrega = (id) => {
+        service.printReceipt(id);
+    };
 }
 
 document.addEventListener('DOMContentLoaded', init);

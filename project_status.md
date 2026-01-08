@@ -1,5 +1,5 @@
 # Estado del Proyecto - Taller Willian
-*Última actualización: 06 Enero 2026*
+*Última actualización: 08 Enero 2026*
 
 Este documento técnico resume el estado actual del desarrollo "Brain Dump" para facilitar la continuidad entre sesiones.
 
@@ -13,7 +13,12 @@ El módulo de **Inventario** avanza positivamente, incluyendo ahora herramientas
     *   Modal en `inventario.html` que escanea las últimas 500 salidas.
     *   Detecta items sin vincular (texto plano) y permite asociarlos a productos reales.
     *   Al confirmar, guarda el nombre "raro" como un **Alias** permanente.
-    *   **ESTADO:** Implementado en código, pendiente de prueba de integración (falta de datos reales).
+    *   **ESTADO:** Implementado.
+*   **Módulo de Entradas Refactorizado:**
+    *   **Agrupación por Factura:** Las entradas ahora se guardan como un único documento maestro con items anidados (tipo factura), igual que las salidas.
+    *   **Historial Expandible:** La tabla de historial muestra facturas agrupadas y permite ver el detalle completo en un modal.
+    *   **Flujo Proactivo de Códigos:** Al registrar un producto nuevo, el sistema pregunta obligatoriamente si posee el código, permitiendo ingresarlo manual, omitirlo (dejar en blanco) o generarlo automáticamente.
+    *   **Navegación Fluida:** Ciclo de tabulación optimizado (Cantidad > Descripción > Precio > Cantidad) y botón de agregar rápido.
 *   **Estabilidad (Kardex):**
     *   Sistema base estable y corregido (entradas, salidas, reversiones).
 
@@ -45,3 +50,22 @@ El módulo de **Inventario** avanza positivamente, incluyendo ahora herramientas
     *   Reversiones y Entradas/Salidas.
 *   Se ha limpiado `InventoryController.js` eliminando código duplicado.
 *   La lógica de vinculación ahora maneja dos escenarios: Importación Excel (Batch) y Vinculación Histórica (Single/Retroactive).
+
+## 🏗️ Nueva Arquitectura de Base de Datos (Historial)
+
+Para optimizar las consultas de historial, se ha migrado a un esquema centrado en **Perfiles**:
+
+### Colección: `PERFILES`
+Representa un cliente o equipo único.
+- `id`: String (ej: `perfil_63`, `perfil_2_tejute`)
+- `nombre`: String (ej: "63", "2 - Tejute")
+- `saldo`: Number (Total acumulado)
+- `ultimaActividad`: Timestamp
+- `migrado`: Boolean (true)
+
+### Sub-colección: `MOVIMIENTOS`
+Contiene las facturas individuales asociadas a ese perfil.
+- Ubicación: `PERFILES/{perfilId}/MOVIMIENTOS/{facturaId}`
+- Datos: Copia fiel de la factura original de `VENTAS`.
+
+---

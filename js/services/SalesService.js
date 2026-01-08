@@ -131,9 +131,62 @@
                     transaction.update(p.ref, { existencia: newStock });
                 }
 
-                // B. Guardar Venta
+                // B. Guardar Venta (Legacy)
                 const ventaRef = this.db.collection("VENTAS").doc(idVenta);
                 transaction.set(ventaRef, ventaData);
+
+                // C. DUAL WRITE: Guardar en Historial Nuevo (PERFILES)
+                // Usar lógica V3 para determinar nombre de perfil
+                let nombrePerfil = "Sin Identificar";
+                const equipo = String(ventaData.equipo || "").trim();
+                const clienteRaw = String(ventaData.cliente || "").trim();
+
+                if (equipo && equipo !== "0" && equipo !== "Sin Asignar") {
+                    const clienteClean = clienteRaw.replace(/^Equipo\s*/i, "").trim();
+                    const esRedundante = (clienteRaw === equipo) ||
+                        (clienteClean === equipo) ||
+                        (clienteRaw.toUpperCase() === "LOCAL") ||
+                        (clienteRaw.toUpperCase() === "MOSTRADOR");
+
+                    if (esRedundante) {
+                        nombrePerfil = equipo;
+                    } else {
+                        if (clienteRaw.startsWith(equipo)) {
+                            nombrePerfil = clienteRaw;
+                        } else {
+                            nombrePerfil = `${equipo} - ${clienteRaw}`;
+                        }
+                    }
+                } else {
+                    if (clienteRaw && clienteRaw !== "LOCAL" && clienteRaw !== "MOSTRADOR") {
+                        nombrePerfil = clienteRaw;
+                    } else {
+                        nombrePerfil = "Ventas Mostrador";
+                    }
+                }
+                nombrePerfil = nombrePerfil.replace(/\s+-\s+Equipo\s+\d+$/i, "");
+
+                // ID Sanitizado
+                const perfilId = "perfil_" + nombrePerfil.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_');
+                const perfilRef = this.db.collection("PERFILES").doc(perfilId);
+                const movimientoRef = perfilRef.collection("MOVIMIENTOS").doc(idVenta);
+
+                // Leer datos actuales del perfil para actualizar saldo (READ antes de WRITE en transacciones)
+                // OJO: Firestore requiere todas las lecturas antes de escrituras. 
+                // Esto complica la transacción única si leemos PERFILES aquí porque ya escribimos en INVENTARIO (update).
+                // SOLUCIÓN: Usar un `.set({ ... }, { merge: true })` con FieldValue.increment
+                // No necesitamos leer el saldo anterior, solo incrementarlo.
+
+                transaction.set(perfilRef, {
+                    id: perfilId,
+                    nombre: nombrePerfil,
+                    ultimaActividad: firebase.firestore.FieldValue.serverTimestamp(), // Update time
+                    migrado: true,
+                    // Incrementamos el saldo con lo de esta factura
+                    saldo: firebase.firestore.FieldValue.increment(ventaData.saldoPendiente || 0)
+                }, { merge: true });
+
+                transaction.set(movimientoRef, { ...ventaData, _migrado: false });
             });
 
             this.clearTempSale(usuario);

@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Migración y Mantenimiento</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #162447;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 {
+            color: #e94560;
+            border-bottom: 2px solid #e94560;
+            padding-bottom: 10px;
+        }
+
+        .card {
+            background: #1f4068;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background: #e94560;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background: #c0354e;
+        }
+
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        #console-output {
+            background: #000;
+            color: #0f0;
+            font-family: 'Consolas', monospace;
+            padding: 15px;
+            border-radius: 5px;
+            height: 300px;
+            overflow-y: auto;
+            font-size: 0.9rem;
+            border: 1px solid #333;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            border-bottom: 1px solid #111;
+            padding-bottom: 2px;
+        }
+
+        .log-success {
+            color: #00ff00;
+            font-weight: bold;
+        }
+
+        .log-info {
+            color: #aaa;
+        }
+
+        .log-warn {
+            color: #ffcc00;
+        }
+
+        .log-error {
+            color: #ff3333;
+            font-weight: bold;
+        }
+
+        .status-bar {
+            height: 5px;
+            background: #333;
+            margin-top: 10px;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress {
+            height: 100%;
+            background: #e94560;
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        #app-badges {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .badge {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .badge-source {
+            background: #4caf50;
+            color: #fff;
+        }
+
+        .badge-dest {
+            background: #2196f3;
+            color: #fff;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🛠️ Mantenimiento: Migración Cruzada v3</h1>
+
+        <div id="app-badges">
+            <span class="badge badge-source">ORIGEN: TallerWilliam</span>
+            <span class="badge badge-dest">DESTINO: WillianWorkshop</span>
+        </div>
+
+        <div class="card">
+            <h3>Migrar Facturas a Perfiles (V3 Limpia)</h3>
+            <p>Se usarán los campos correctos y se eliminarán redundancias tipo <i>'63 - Equipo 63'</i>.</p>
+            <button onclick="startMigration()" id="btn-start">
+                <i class="fas fa-rocket"></i> Iniciar Migración v3
+            </button>
+            <div class="status-bar">
+                <div class="progress" id="progress-bar"></div>
+            </div>
+        </div>
+
+        <div id="console-output">Esperando confirmación de usuario...</div>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURACIÓN FIREBASE DESTINO (WillianWorkshop - NUEVO) ---
+        const configDestino = {
+            apiKey: "AIzaSyCaZdPPYddeMPTiNm5cCdFL6m9b9swX0-c",
+            authDomain: "williantaller-1426b.firebaseapp.com",
+            projectId: "williantaller-1426b",
+            storageBucket: "williantaller-1426b.firebasestorage.app",
+            messagingSenderId: "757966587061",
+            appId: "1:757966587061:web:6c700e862317119d64aafc"
+        };
+
+        // --- 2. CONFIGURACIÓN FIREBASE ORIGEN (TallerWilliam - VIEJO) ---
+        const configOrigen = {
+            apiKey: "AIzaSyDh074AarXaYCc-Htw-lsCeIc_95QQNSnY",
+            authDomain: "tallerwilliam-732b3.firebaseapp.com",
+            projectId: "tallerwilliam-732b3",
+            storageBucket: "tallerwilliam-732b3.firebasestorage.app",
+            messagingSenderId: "822262666247",
+            appId: "1:822262666247:web:6680487bbf1108006b86a2"
+        };
+
+        let dbDestino, dbOrigen;
+
+        try {
+            const appDestino = firebase.initializeApp(configDestino, "appDestino");
+            const appOrigen = firebase.initializeApp(configOrigen, "appOrigen");
+            dbDestino = appDestino.firestore();
+            dbOrigen = appOrigen.firestore();
+        } catch (error) {
+            console.error(error);
+            document.getElementById('console-output').innerHTML = "<span style='color:red'>Error Crítico: " + error.message + "</span>";
+        }
+
+        function log(msg, type = 'info') {
+            const div = document.getElementById('console-output');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry log-' + type;
+            const time = new Date().toLocaleTimeString();
+            entry.innerText = `[${time}] ${msg}`;
+            div.appendChild(entry);
+            div.scrollTop = div.scrollHeight;
+        }
+
+        async function startMigration() {
+            const btn = document.getElementById('btn-start');
+            btn.disabled = true;
+            btn.innerText = "Conectando...";
+
+            try {
+                log("🚀 INICIANDO MIGRACIÓN v3...", 'success');
+                const batchSize = 400;
+
+                // 1. Leer VENTAS
+                log("Leyendo desde TallerWilliam...");
+                const snapshot = await dbOrigen.collection("VENTAS").get();
+
+                let docs = [];
+                if (snapshot.size > 0) {
+                    docs = snapshot.docs;
+                } else {
+                    log("VENTAS (mayuscula) vacía, probando 'ventas' (minuscula)...", 'warn');
+                    const snap2 = await dbOrigen.collection("ventas").get();
+                    docs = snap2.docs;
+                }
+
+                if (docs.length === 0) throw new Error("No se encontraron facturas en 'VENTAS' ni en 'ventas'.");
+                log(`📂 Total Facturas a Procesar: ${docs.length}`, 'success');
+
+                // 2. Agrupar
+                log("Agrupando con lógica mejorada (Limpiando nombres)...", 'info');
+                const perfiles = {};
+
+                docs.forEach(doc => {
+                    const venta = doc.data();
+
+                    // Normalizar campos
+                    const equipo = String(venta.equipoNumber || venta.equipo || "").trim();
+                    const clienteRaw = String(venta.clientName || venta.cliente || "").trim();
+
+                    // REGLA DE NOMBRE MEJORADA V3
+                    let nombrePerfil = "Sin Identificar";
+
+                    if (equipo && equipo !== "0" && equipo !== "Sin Asignar") {
+                        // Limpieza inteligente del nombre del cliente
+                        // 1. Si el cliente es literalmente igual al equipo ("63" == "63")
+                        // 2. Si el cliente es "Equipo X" y X es el numero
+                        // 3. Si el cliente es "LOCAL" o "MOSTRADOR"
+
+                        // Normalizar cliente para comparación
+                        const clienteClean = clienteRaw.replace(/^Equipo\s*/i, "").trim();
+
+                        const esRedundante = (clienteRaw === equipo) ||
+                            (clienteClean === equipo) ||
+                            (clienteRaw.toUpperCase() === "LOCAL") ||
+                            (clienteRaw.toUpperCase() === "MOSTRADOR");
+
+                        if (esRedundante) {
+                            // Caso Local normal: "63"
+                            nombrePerfil = equipo;
+                        } else {
+                            // Caso Ciudad/Otro: "2 - Tejute"
+                            // Evitar doble prefijo
+                            if (clienteRaw.startsWith(equipo)) {
+                                nombrePerfil = clienteRaw;
+                            } else {
+                                nombrePerfil = `${equipo} - ${clienteRaw}`;
+                            }
+                        }
+                    } else {
+                        // Sin número de equipo confiable
+                        if (clienteRaw && clienteRaw !== "LOCAL" && clienteRaw !== "MOSTRADOR" && clienteRaw !== "Sin Asignar") {
+                            nombrePerfil = clienteRaw;
+                        } else {
+                            nombrePerfil = "Ventas Mostrador";
+                        }
+                    }
+
+                    // Limpieza final de seguridad
+                    nombrePerfil = nombrePerfil.replace(/\s+-\s+Equipo\s+\d+$/i, "");
+
+                    if (!perfiles[nombrePerfil]) {
+                        perfiles[nombrePerfil] = { nombre: nombrePerfil, saldo: 0, movimientos: [], ultimaFecha: 0 };
+                    }
+
+                    let saldoDoc = 0;
+                    if (venta.saldoPendiente !== undefined) {
+                        saldoDoc = parseFloat(venta.saldoPendiente);
+                    } else {
+                        saldoDoc = parseFloat(venta.total || 0);
+                    }
+
+                    perfiles[nombrePerfil].saldo += saldoDoc;
+
+                    const fechaVenta = venta.fecha ? (venta.fecha.seconds * 1000) : (venta.timestamp ? venta.timestamp.seconds * 1000 : 0);
+                    if (fechaVenta > perfiles[nombrePerfil].ultimaFecha) perfiles[nombrePerfil].ultimaFecha = fechaVenta;
+
+                    perfiles[nombrePerfil].movimientos.push({ idOriginal: doc.id, data: venta });
+                });
+
+                const totalPerfiles = Object.keys(perfiles).length;
+                log(`📊 Perfiles Detectados: ${totalPerfiles}`, 'success');
+
+                // 3. Escribir
+                log("Escribiendo en WillianWorkshop...", 'warn');
+                let processedCount = 0;
+
+                for (const nombrePerfil of Object.keys(perfiles)) {
+                    const perfilData = perfiles[nombrePerfil];
+
+                    const docId = "perfil_" + nombrePerfil.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_');
+                    const perfilRef = dbDestino.collection("PERFILES").doc(docId);
+
+                    await perfilRef.set({
+                        id: docId,
+                        nombre: nombrePerfil,
+                        saldo: parseFloat(perfilData.saldo.toFixed(2)),
+                        ultimaActividad: new Date(perfilData.ultimaFecha),
+                        migrado: true,
+                        migradoFecha: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+
+                    const movimientos = perfilData.movimientos;
+                    for (let i = 0; i < movimientos.length; i += batchSize) {
+                        const batch = dbDestino.batch();
+                        const chunk = movimientos.slice(i, i + batchSize);
+                        chunk.forEach(mov => {
+                            const movRef = perfilRef.collection("MOVIMIENTOS").doc(mov.idOriginal);
+                            batch.set(movRef, { ...mov.data, _migrado: true });
+                        });
+                        await batch.commit();
+                    }
+
+                    processedCount++;
+                    const percent = (processedCount / totalPerfiles) * 100;
+                    document.getElementById('progress-bar').style.width = percent + '%';
+
+                    if (processedCount % 10 === 0) log(`... Migrado: ${nombrePerfil}`, 'info');
+                }
+
+                log("✅✅ PROCESO FINALIZADO ✅✅", 'success');
+                alert("Migración v3 completada.");
+
+            } catch (e) {
+                log("❌ ERROR: " + e.message, 'error');
+                console.error(e);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Intentar de nuevo";
+            }
+        }
+    </script>
+</body>
+
+</html>

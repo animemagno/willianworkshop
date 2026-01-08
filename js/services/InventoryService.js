@@ -365,7 +365,8 @@ class InventoryService {
             }
 
             // PHASE 2: WRITES & CALCULATIONS
-            let totalCostBatch = 0;
+            const historyItems = [];
+            let totalCostInvoice = 0;
 
             // 1. Procesar Productos Existentes
             for (const pRead of productReads) {
@@ -388,24 +389,18 @@ class InventoryService {
 
                 transaction.update(pRead.ref, { existencia: newStock, costo: newCost });
 
-                // Log Historial
-                const entryDocRef = entriesRef.doc();
-                transaction.set(entryDocRef, {
+                historyItems.push({
                     productId: item.productId,
+                    productCode: pData.codigo || "",
                     productName: pData.descripcion,
                     cantidad: entryQty,
                     costoUnitario: entryCost,
                     costoAnterior: currentCost,
                     costoNuevo: newCost,
-                    stockAnterior: currentStock,
-                    stockNuevo: newStock,
-                    providerId: providerId || null,
-                    providerName: providerName || null,
-                    esCredito: isCredito,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    total: entryQty * entryCost
                 });
 
-                totalCostBatch += (entryQty * entryCost);
+                totalCostInvoice += (entryQty * entryCost);
             }
 
             // 2. Procesar Productos Nuevos
@@ -413,9 +408,10 @@ class InventoryService {
                 const newProdRef = this.collection.doc();
                 const entryQty = parseFloat(item.qty);
                 const entryCost = parseFloat(item.cost);
+                const finalCode = item.displayCode || ""; // NO MAS GEN-XXXX
 
                 transaction.set(newProdRef, {
-                    codigo: "GEN-" + Math.floor(Math.random() * 10000),
+                    codigo: finalCode,
                     descripcion: item.name,
                     descripcionFactura: item.name,
                     costo: entryCost,
@@ -426,31 +422,36 @@ class InventoryService {
                     proveedor: providerName || ""
                 });
 
-                // Log Historial (Nuevo)
-                const entryDocRef = entriesRef.doc();
-                transaction.set(entryDocRef, {
+                historyItems.push({
                     productId: newProdRef.id,
+                    productCode: finalCode,
                     productName: item.name,
                     cantidad: entryQty,
                     costoUnitario: entryCost,
                     costoAnterior: 0,
                     costoNuevo: entryCost,
-                    stockAnterior: 0,
-                    stockNuevo: entryQty,
-                    providerId: providerId || null,
-                    providerName: providerName || null,
-                    esCredito: isCredito,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    total: entryQty * entryCost
                 });
 
-                totalCostBatch += (entryQty * entryCost);
+                totalCostInvoice += (entryQty * entryCost);
             }
 
-            // 3. Actualizar Saldo Proveedor
+            // 3. Guardar Registro Maestro de Entrada
+            const masterEntryRef = entriesRef.doc();
+            transaction.set(masterEntryRef, {
+                providerId: providerId || null,
+                providerName: providerName || null,
+                esCredito: isCredito,
+                items: historyItems,
+                total: totalCostInvoice,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            // 4. Actualizar Saldo Proveedor
             if (isCredito && providerRef && providerData) {
                 const currentBalance = parseFloat(providerData.saldo || 0);
                 transaction.update(providerRef, {
-                    saldo: currentBalance + totalCostBatch
+                    saldo: currentBalance + totalCostInvoice
                 });
             }
         });
@@ -484,45 +485,52 @@ class InventoryService {
             const entry = entryDoc.data();
             if (entry.revertida) throw "Entrada ya revertida.";
 
-            const productRef = this.collection.doc(entry.productId);
-            const productDoc = await transaction.get(productRef);
-
-            let providerDoc = null;
-            let providerRef = null;
-            if (entry.esCredito && entry.providerId) {
-                providerRef = db.collection('cuentas').doc(entry.providerId);
-                providerDoc = await transaction.get(providerRef);
-            }
+            // Normalize items (Handle legacy single-item entries)
+            const items = entry.items || [{
+                productId: entry.productId,
+                cantidad: entry.cantidad,
+                costoUnitario: entry.costoUnitario
+            }];
 
             // PHASE 2: WRITES
-            // Revertir Producto
-            if (productDoc.exists) {
-                const pData = productDoc.data();
-                const currentStock = parseFloat(pData.existencia || 0);
-                const currentAvgCost = parseFloat(pData.costo || 0);
-                const qtyToRemove = parseFloat(entry.cantidad);
-                const costToRemove = parseFloat(entry.costoUnitario);
+            for (const item of items) {
+                if (item.productId) {
+                    const productRef = this.collection.doc(item.productId);
+                    const productDoc = await transaction.get(productRef);
+                    if (productDoc.exists) {
+                        const pData = productDoc.data();
+                        const currentStock = parseFloat(pData.existencia || 0);
+                        const currentAvgCost = parseFloat(pData.costo || 0);
+                        const qtyToRemove = parseFloat(item.cantidad);
+                        const costToRemove = parseFloat(item.costoUnitario);
 
-                const finalStock = currentStock - qtyToRemove;
-                let finalCost = currentAvgCost;
+                        const finalStock = currentStock - qtyToRemove;
+                        let finalCost = currentAvgCost;
 
-                if (finalStock > 0) {
-                    const currentTotalVal = currentStock * currentAvgCost;
-                    const valToRemove = qtyToRemove * costToRemove;
-                    finalCost = (currentTotalVal - valToRemove) / finalStock;
-                    if (finalCost < 0) finalCost = 0;
-                } else {
-                    finalCost = 0;
+                        if (finalStock > 0) {
+                            const currentTotalVal = currentStock * currentAvgCost;
+                            const valToRemove = qtyToRemove * costToRemove;
+                            finalCost = (currentTotalVal - valToRemove) / finalStock;
+                            if (finalCost < 0) finalCost = 0;
+                        } else {
+                            finalCost = 0;
+                        }
+
+                        transaction.update(productRef, { existencia: finalStock, costo: finalCost });
+                    }
                 }
-
-                transaction.update(productRef, { existencia: finalStock, costo: finalCost });
             }
 
             // Revertir Proveedor
-            if (providerRef && providerDoc && providerDoc.exists) {
-                const currentBalance = parseFloat(providerDoc.data().saldo || 0);
-                const amount = parseFloat(entry.cantidad) * parseFloat(entry.costoUnitario);
-                transaction.update(providerRef, { saldo: currentBalance - amount });
+            if (entry.esCredito && entry.providerId) {
+                const providerRef = db.collection('cuentas').doc(entry.providerId);
+                const providerDoc = await transaction.get(providerRef);
+                if (providerDoc.exists) {
+                    const currentBalance = parseFloat(providerDoc.data().saldo || 0);
+                    // Legacy entries didn't always have .total, so we fallback
+                    const entryTotal = entry.total || (parseFloat(entry.cantidad) * parseFloat(entry.costoUnitario));
+                    transaction.update(providerRef, { saldo: currentBalance - entryTotal });
+                }
             }
 
             // Marcar Revertida

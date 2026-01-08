@@ -325,26 +325,40 @@ class InventoryController {
 
 
 
-        // Cost Input Enter
-        const costInput = document.getElementById('entry-temp-cost');
-        if (costInput) {
-            costInput.addEventListener('keydown', (e) => {
+        // ENTRADA: Navegación Reforzada (Tab y Enter)
+        const entryQty = document.getElementById('entry-temp-qty');
+        const entryName = document.getElementById('entry-temp-name');
+        const entryCost = document.getElementById('entry-temp-cost');
+
+        if (entryQty) {
+            entryQty.addEventListener('keydown', (e) => {
+                if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); if (entryName) entryName.focus(); }
+                if (e.key === 'Enter') { e.preventDefault(); if (entryName) entryName.focus(); }
+            });
+        }
+        if (entryName) {
+            entryName.addEventListener('keydown', (e) => {
+                if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); if (entryCost) entryCost.focus(); }
+                if (e.key === 'Tab' && e.shiftKey) { e.preventDefault(); if (entryQty) entryQty.focus(); }
+                if (e.key === 'Enter') { e.preventDefault(); if (entryCost) entryCost.focus(); }
+            });
+            entryName.addEventListener('input', (e) => this.handleEntryProductSearch(e.target.value));
+        }
+        if (entryCost) {
+            entryCost.addEventListener('keydown', (e) => {
+                if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); if (entryQty) entryQty.focus(); }
+                if (e.key === 'Tab' && e.shiftKey) { e.preventDefault(); if (entryName) entryName.focus(); }
                 if (e.key === 'Enter') { e.preventDefault(); this.addEntryItem(); }
             });
         }
 
-        // Search Product for Entry
-        const entrySearch = document.getElementById('entry-temp-name');
-        if (entrySearch) {
-            entrySearch.addEventListener('input', (e) => this.handleEntryProductSearch(e.target.value));
-            // Close search on blur/click outside is handled by CSS or generic click
-            document.addEventListener('click', (e) => {
-                if (e.target !== entrySearch && !e.target.closest('#entry-search-results')) {
-                    const res = document.getElementById('entry-search-results');
-                    if (res) res.style.display = 'none';
-                }
-            });
-        }
+        // Close search results when clicking outside
+        document.addEventListener('click', (e) => {
+            if (entryName && e.target !== entryName && !e.target.closest('#entry-search-results')) {
+                const res = document.getElementById('entry-search-results');
+                if (res) res.style.display = 'none';
+            }
+        });
 
         // Extra Actions Injection (Borrar todo)
         this.injectExtraActions();
@@ -654,32 +668,84 @@ class InventoryController {
         const tbody = document.getElementById('entries-body');
         if (!tbody) return;
         tbody.innerHTML = '';
-        if (entries.length === 0) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center">Sin entradas.</td></tr>'; return; }
+        if (entries.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">Sin entradas.</td></tr>';
+            return;
+        }
 
         entries.forEach(e => {
             const dateStr = e.timestamp ? new Date(e.timestamp.seconds * 1000).toLocaleString() : "Reciente";
             const isReverted = e.revertida ? '<span class="badge-no" style="background:#fee;color:red;padding:2px 5px;">REVERTIDA</span>' : '<span class="badge-si" style="background:#efe;color:green;padding:2px 5px;">OK</span>';
-            let actionBtn = !e.revertida ?
-                `<button class="btn btn-warning" onclick="app.revertEntry('${e.id}')" title="Revertir"><i class="fas fa-undo"></i></button>` :
-                `<button class="btn btn-danger" onclick="app.deleteEntry('${e.id}')" title="Borrar Historial"><i class="fas fa-trash"></i></button>`;
 
-            tbody.innerHTML += `<tr>
+            // Items count or fallback for legacy
+            const itemsCount = e.items ? e.items.length : 1;
+            const totalVal = e.total || (parseFloat(e.cantidad) * parseFloat(e.costoUnitario)) || 0;
+
+            let actionBtn = !e.revertida ?
+                `<button class="btn btn-warning" onclick="event.stopPropagation(); app.revertEntry('${e.id}')" title="Revertir"><i class="fas fa-undo"></i></button>` :
+                `<button class="btn btn-danger" onclick="event.stopPropagation(); app.deleteEntry('${e.id}')" title="Borrar Historial"><i class="fas fa-trash"></i></button>`;
+
+            const row = document.createElement('tr');
+            row.style.cursor = 'pointer';
+            row.innerHTML = `
                 <td>${dateStr}</td>
-                <td>${e.productName}</td>
-                <td style="text-align:center">${e.cantidad}</td>
-                <td style="text-align:right">$${Number(e.costoUnitario).toFixed(2)}</td>
-                <td style="text-align:center"><small>$${Number(e.costoAnterior).toFixed(2)} -> $${Number(e.costoNuevo).toFixed(2)}</small></td>
                 <td>${e.providerName || '-'}<br><small>${e.esCredito ? 'CREDITO' : 'CONTADO'}</small></td>
+                <td style="text-align:center">${itemsCount} item(s)</td>
+                <td style="text-align:right">$${parseFloat(totalVal).toFixed(2)}</td>
                 <td style="text-align:center">${isReverted}</td>
                 <td style="text-align:center">${actionBtn}</td>
-             </tr>`;
+            `;
+            row.onclick = () => this.showEntryHistoryDetails(e.id);
+            tbody.appendChild(row);
         });
     }
 
+    async showEntryHistoryDetails(id) {
+        try {
+            const doc = await db.collection('INVENTARIO_ENTRADAS').doc(id).get();
+            if (!doc.exists) return;
+            const data = doc.data();
+
+            document.getElementById('detail-entry-title').innerText = "Detalles Entrada";
+            document.getElementById('detail-entry-date').innerText = data.timestamp ? new Date(data.timestamp.seconds * 1000).toLocaleString() : (data.fecha || "Reciente");
+            document.getElementById('detail-entry-provider').innerText = data.providerName || "Sin Proveedor";
+            document.getElementById('detail-entry-total').innerText = "$" + (data.total || 0).toFixed(2);
+
+            const tbody = document.getElementById('detail-entry-body');
+            tbody.innerHTML = "";
+
+            const items = data.items || [{
+                productCode: data.productId?.substring(0, 8) || 'LEGACY',
+                productName: data.productName,
+                cantidad: data.cantidad,
+                costoUnitario: data.costoUnitario,
+                total: (parseFloat(data.cantidad) * parseFloat(data.costoUnitario))
+            }];
+
+            items.forEach(item => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${item.productCode || '---'}</td>
+                        <td>${item.productName}</td>
+                        <td style="text-align:center">${item.cantidad}</td>
+                        <td style="text-align:right">$${parseFloat(item.costoUnitario).toFixed(2)}</td>
+                        <td style="text-align:right">$${parseFloat(item.total || (item.cantidad * item.costoUnitario)).toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('modalEntryDetails').style.display = 'flex';
+        } catch (e) {
+            console.error(e);
+            alert("Error cargando detalles: " + e);
+        }
+    }
+
     async openEntryModal() {
+        this.closeEntryModal(); // Resetea campos e ID
         this.entryCart = [];
         this.renderEntryCart();
-        // Load Providers
+        // ... (resto del código)
         const dl = document.getElementById('provider-list');
         if (dl) {
             dl.innerHTML = '';
@@ -712,6 +778,9 @@ class InventoryController {
     }
 
     handleEntryProductSearch(query) {
+        // Limpiar ID residual si el usuario empieza a escribir algo nuevo
+        document.getElementById('entry-temp-id').value = '';
+
         const resDiv = document.getElementById('entry-search-results');
         if (!resDiv) return;
         resDiv.innerHTML = '';
@@ -756,10 +825,34 @@ class InventoryController {
         if (isNaN(cost)) { alert("Costo requerido"); return; }
 
         // Extract Code from Name (format "CODE - Desc")
-        let displayCode = "NUEVO";
+        let displayCode = "";
         let displayName = name;
 
-        if (id && name.includes(" - ")) {
+        // Reset ID logic: if it's not a selection from the dropdown (CODE - NAME), it MUST be treated as new
+        const isExisting = id && name.includes(" - ");
+
+        if (!isExisting) {
+            // EL SISTEMA LE PREGUNTA PROACTIVAMENTE PORQUE EL PRODUCTO ES NUEVO
+            console.log("Producto detectado como NUEVO, iniciando secuencia de preguntas...");
+            const tieneCodigo = confirm(`El producto "${name}" es nuevo.\n\n¿Posee usted el CÓDIGO de este producto?`);
+
+            if (tieneCodigo) {
+                const userCode = prompt("Ingrese el CÓDIGO del producto:", "");
+                displayCode = userCode ? userCode.trim().toUpperCase() : "";
+            } else {
+                const autoGen = confirm("¿Desea que el sistema le GENERE un código automático?\n\n(Aceptar = Generar / Cancelar = Dejar en blanco)");
+                if (autoGen) {
+                    displayCode = "GEN-" + Math.floor(1000 + Math.random() * 9000);
+                } else {
+                    displayCode = "";
+                }
+            }
+
+            if (displayCode) {
+                displayName = `[${displayCode}] ${name}`;
+            }
+        } else {
+            // Producto Existente seleccionado de la lista
             const parts = name.split(" - ");
             displayCode = parts[0];
             displayName = parts.slice(1).join(" - ");
@@ -787,7 +880,7 @@ class InventoryController {
         document.getElementById('entry-temp-cost').value = '';
         document.getElementById('entry-temp-qty').value = 1;
 
-        document.getElementById('entry-temp-name').focus();
+        document.getElementById('entry-temp-qty').focus();
         this.renderEntryCart();
     }
 
