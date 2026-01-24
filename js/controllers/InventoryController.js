@@ -2160,6 +2160,122 @@ class InventoryController {
             });
         }
     }
+
+    // =========================================
+    // IMPRESIÓN DE INVENTARIO
+    // =========================================
+    openPrintModal() {
+        document.getElementById('modalPrintInventory').style.display = 'flex';
+    }
+
+    executePrint() {
+        // Obtener columnas seleccionadas
+        const selectedCols = Array.from(document.querySelectorAll('.print-col:checked')).map(cb => cb.value);
+
+        if (selectedCols.length === 0) {
+            alert('Selecciona al menos una columna para imprimir');
+            return;
+        }
+
+        // Cerrar modal
+        document.getElementById('modalPrintInventory').style.display = 'none';
+
+        // Crear ventana de impresión
+        const printWindow = window.open('', '', 'height=600,width=800');
+        printWindow.document.write('<html><head><title>Inventario - Taller Willian</title>');
+        printWindow.document.write('<style>');
+        printWindow.document.write('body { font-family: Arial, sans-serif; margin: 20px; }');
+        printWindow.document.write('h1 { text-align: center; margin-bottom: 20px; }');
+        printWindow.document.write('table { width: 100%; border-collapse: collapse; font-size: 12px; }');
+        printWindow.document.write('th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }');
+        printWindow.document.write('th { background-color: #34495e; color: white; }');
+        printWindow.document.write('tr:nth-child(even) { background-color: #f2f2f2; }');
+        printWindow.document.write('.stock-bajo { color: #d35400; font-weight: bold; }');
+        printWindow.document.write('.stock-critico { color: #c0392b; font-weight: bold; background: #fadbd8; }');
+        printWindow.document.write('.stock-normal { color: #27ae60; }');
+        printWindow.document.write('@media print { body { margin: 0; } }');
+        printWindow.document.write('</style></head><body>');
+
+        printWindow.document.write('<h1>Inventario - Taller Willian</h1>');
+        printWindow.document.write('<p style="text-align:center; color:#666; font-size:11px;">Fecha: ' + new Date().toLocaleString() + '</p>');
+
+        printWindow.document.write('<table>');
+        printWindow.document.write('<thead><tr>');
+
+        // Headers
+        const headers = {
+            codigo: 'Código',
+            descripcion: 'Descripción',
+            costo: 'P. Costo',
+            precio: 'P. Venta',
+            existencia: 'Existencia',
+            stockMinimo: 'Stock Mín.',
+            creditoFiscal: 'C.F.',
+            proveedor: 'Proveedor'
+        };
+
+        selectedCols.forEach(col => {
+            printWindow.document.write('<th>' + headers[col] + '</th>');
+        });
+
+        printWindow.document.write('</tr></thead><tbody>');
+
+        // Data rows
+        this.filtered.forEach(p => {
+            printWindow.document.write('<tr>');
+
+            selectedCols.forEach(col => {
+                let value = '';
+                let className = '';
+
+                switch (col) {
+                    case 'codigo':
+                        value = p.codigo || '-';
+                        break;
+                    case 'descripcion':
+                        value = p.descripcion || '-';
+                        break;
+                    case 'costo':
+                        value = '$' + (p.costo || 0).toFixed(2);
+                        break;
+                    case 'precio':
+                        value = '$' + (p.precio || 0).toFixed(2);
+                        break;
+                    case 'existencia':
+                        value = p.existencia || 0;
+                        className = (p.existencia <= 0) ? 'stock-critico' :
+                            (p.existencia <= (p.stockMinimo || 0)) ? 'stock-bajo' :
+                                'stock-normal';
+                        break;
+                    case 'stockMinimo':
+                        value = p.stockMinimo || 0;
+                        break;
+                    case 'creditoFiscal':
+                        value = p.creditoFiscal ? 'SI' : 'NO';
+                        break;
+                    case 'proveedor':
+                        value = p.proveedor || '-';
+                        break;
+                }
+
+                printWindow.document.write('<td class="' + className + '">' + value + '</td>');
+            });
+
+            printWindow.document.write('</tr>');
+        });
+
+        printWindow.document.write('</tbody></table>');
+        printWindow.document.write('<p style="margin-top:20px; text-align:center; font-size:11px; color:#666;">Total de productos: ' + this.filtered.length + '</p>');
+        printWindow.document.write('</body></html>');
+
+        printWindow.document.close();
+        printWindow.focus();
+
+        // Esperar a que cargue e imprimir
+        setTimeout(() => {
+            printWindow.print();
+        }, 250);
+    }
 }
 
-new InventoryController();
+window.app = new InventoryController();

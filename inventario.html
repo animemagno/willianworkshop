@@ -175,6 +175,8 @@
                             class="fas fa-database"></i> Ver Historial Backups</button>
                     <button class="btn" style="background: #f39c12; color: white;" id="btn-open-alias-manager"><i
                             class="fas fa-project-diagram"></i> Gestionar Alias</button>
+                    <button class="btn" style="background: #16a085; color: white;" id="btn-print-inventory"><i
+                            class="fas fa-print"></i> Imprimir</button>
                     <span id="extra-actions"></span> <!-- Borrar Todo btn injected here -->
                 </div>
                 <div class="search-box">
@@ -1069,11 +1071,70 @@
         window.db = firebase.firestore();
     </script>
 
-    <!-- LOAD ORDER IS IMPORTANT -->
+    <!-- MODAL IMPRIMIR INVENTARIO -->
+    <div id="modalPrintInventory" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="close-modal-btn"
+                onclick="document.getElementById('modalPrintInventory').style.display='none'">&times;</span>
+            <h3><i class="fas fa-print"></i> Imprimir Inventario</h3>
+
+            <p style="margin: 15px 0; color: #666;">Selecciona las columnas que deseas imprimir:</p>
+
+            <div style="display: flex; flex-direction: column; gap: 10px; margin: 20px 0;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" class="print-col" value="codigo" checked> Código
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" class="print-col" value="descripcion" checked> Descripción Taller
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" class="print-col" value="costo"> P. Costo
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" class="print-col" value="precio" checked> P. Venta
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" class="print-col" value="existencia" checked> Existencia
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" class="print-col" value="stockMinimo"> Stock Mínimo
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" class="print-col" value="creditoFiscal"> Crédito Fiscal
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" class="print-col" value="proveedor"> Proveedor
+                </label>
+            </div>
+
+            <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="btn btn-danger"
+                    onclick="document.getElementById('modalPrintInventory').style.display='none'">Cancelar</button>
+                <button class="btn btn-success" onclick="app.executePrint()"><i class="fas fa-print"></i>
+                    Imprimir</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Config and Init -->
     <script src="js/utils/formatters.js"></script>
     <script src="js/services/InventoryService.js"></script>
     <script src="js/ui/InventoryUI.js"></script>
     <script src="js/controllers/InventoryController.js"></script>
+
+    <script>
+        // Event listener para botón de impresión
+        document.addEventListener('DOMContentLoaded', function () {
+            const btnPrint = document.getElementById('btn-print-inventory');
+            if (btnPrint) {
+                btnPrint.addEventListener('click', () => {
+                    if (window.app) {
+                        window.app.openPrintModal();
+                    }
+                });
+            }
+        });
+    </script>
 
 </body>
 
