@@ -4,349 +4,714 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Migración y Mantenimiento</title>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    <title>Migración de Datos - Taller Willian</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #1a1a2e;
-            color: #fff;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
             padding: 20px;
         }
 
         .container {
-            max-width: 800px;
+            max-width: 1200px;
             margin: 0 auto;
-            background: #162447;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
             padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            text-align: center;
         }
 
-        h1 {
-            color: #e94560;
-            border-bottom: 2px solid #e94560;
-            padding-bottom: 10px;
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
         }
 
-        .card {
-            background: #1f4068;
+        .header p {
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            background: #f8f9fa;
+            border-radius: 10px;
             padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .section h2 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .stat-card .number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-card .label {
+            color: #666;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .progress-container {
+            margin: 20px 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .log-container {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+
+        .log-entry {
+            margin: 5px 0;
+            line-height: 1.5;
+        }
+
+        .log-entry.error {
+            color: #ff6b6b;
+        }
+
+        .log-entry.success {
+            color: #51cf66;
+        }
+
+        .log-entry.warning {
+            color: #ffd43b;
+        }
+
+        .connection-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .connection-status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .connection-status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .actions {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .alert {
+            padding: 15px;
             border-radius: 8px;
             margin-bottom: 20px;
         }
 
-        button {
-            background: #e94560;
-            color: white;
-            border: none;
-            padding: 12px 25px;
-            font-size: 1rem;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: 0.3s;
+        .alert-warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            color: #856404;
         }
 
-        button:hover {
-            background: #c0354e;
-        }
-
-        button:disabled {
-            background: #555;
-            cursor: not-allowed;
-        }
-
-        #console-output {
-            background: #000;
-            color: #0f0;
-            font-family: 'Consolas', monospace;
-            padding: 15px;
-            border-radius: 5px;
-            height: 300px;
-            overflow-y: auto;
-            font-size: 0.9rem;
-            border: 1px solid #333;
-        }
-
-        .log-entry {
-            margin-bottom: 5px;
-            border-bottom: 1px solid #111;
-            padding-bottom: 2px;
-        }
-
-        .log-success {
-            color: #00ff00;
-            font-weight: bold;
-        }
-
-        .log-info {
-            color: #aaa;
-        }
-
-        .log-warn {
-            color: #ffcc00;
-        }
-
-        .log-error {
-            color: #ff3333;
-            font-weight: bold;
-        }
-
-        .status-bar {
-            height: 5px;
-            background: #333;
-            margin-top: 10px;
-            border-radius: 3px;
-            overflow: hidden;
-        }
-
-        .progress {
-            height: 100%;
-            background: #e94560;
-            width: 0%;
-            transition: width 0.3s;
-        }
-
-        #app-badges {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        .badge {
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            font-weight: bold;
-        }
-
-        .badge-source {
-            background: #4caf50;
-            color: #fff;
-        }
-
-        .badge-dest {
-            background: #2196f3;
-            color: #fff;
+        .alert-info {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            color: #0c5460;
         }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <h1>🛠️ Mantenimiento: Migración Cruzada v3</h1>
-
-        <div id="app-badges">
-            <span class="badge badge-source">ORIGEN: TallerWilliam</span>
-            <span class="badge badge-dest">DESTINO: WillianWorkshop</span>
+        <div class="header">
+            <h1><i class="fas fa-database"></i> Herramienta de Migración de Datos</h1>
+            <p>Taller Willian - Sistema de Perfiles por Equipo</p>
         </div>
 
-        <div class="card">
-            <h3>Migrar Facturas a Perfiles (V3 Limpia)</h3>
-            <p>Se usarán los campos correctos y se eliminarán redundancias tipo <i>'63 - Equipo 63'</i>.</p>
-            <button onclick="startMigration()" id="btn-start">
-                <i class="fas fa-rocket"></i> Iniciar Migración v3
-            </button>
-            <div class="status-bar">
-                <div class="progress" id="progress-bar"></div>
+        <div class="content">
+            <!-- Alert -->
+            <div class="alert alert-warning">
+                <strong><i class="fas fa-exclamation-triangle"></i> Advertencia:</strong>
+                Esta herramienta migrar&#225; datos de la base de datos antigua a la nueva. Asegúrate de tener un backup
+                antes de continuar.
+            </div>
+
+            <!-- Estado de Conexi&#243;n -->
+            <div class="section">
+                <h2><i class="fas fa-plug"></i> Estado de Conexi&#243;n</h2>
+                <div class="status-grid">
+                    <div class="stat-card">
+                        <div class="connection-status disconnected" id="status-old">
+                            <i class="fas fa-circle"></i> DB Antigua
+                        </div>
+                        <div class="label">tallerwilliam-732b3</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="connection-status disconnected" id="status-new">
+                            <i class="fas fa-circle"></i> DB Nueva
+                        </div>
+                        <div class="label">williantaller-1426b</div>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="app.connectDatabases()" id="btn-connect">
+                    <i class="fas fa-link"></i> Conectar Bases de Datos
+                </button>
+            </div>
+
+            <!-- Estad&#237;sticas -->
+            <div class="section">
+                <h2><i class="fas fa-chart-bar"></i> Estad&#237;sticas</h2>
+                <div class="status-grid">
+                    <div class="stat-card">
+                        <div class="number" id="stat-ventas-old">0</div>
+                        <div class="label">Ventas en DB Antigua</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number" id="stat-equipos">0</div>
+                        <div class="label">Equipos Detectados</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number" id="stat-perfiles">0</div>
+                        <div class="label">Perfiles Creados</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number" id="stat-migrados">0</div>
+                        <div class="label">Movimientos Migrados</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Acciones de Migraci&#243;n -->
+            <div class="section">
+                <h2><i class="fas fa-cogs"></i> Acciones</h2>
+                <div class="actions">
+                    <button class="btn btn-primary" onclick="app.analyzeData()" id="btn-analyze" disabled>
+                        <i class="fas fa-search"></i> Analizar Datos
+                    </button>
+                    <button class="btn btn-success" onclick="app.startMigration()" id="btn-migrate" disabled>
+                        <i class="fas fa-play"></i> Iniciar Migraci&#243;n
+                    </button>
+                    <button class="btn btn-primary" onclick="app.updateDatabase()" id="btn-update" disabled
+                        style="background: #f39c12;">
+                        <i class="fas fa-sync-alt"></i> Actualizar/Sincronizar
+                    </button>
+                    <button class="btn btn-danger" onclick="app.clearNewDatabase()" id="btn-clear" disabled>
+                        <i class="fas fa-trash"></i> Limpiar DB Nueva
+                    </button>
+                </div>
+
+                <!-- Progreso -->
+                <div class="progress-container" id="progress-container" style="display:none;">
+                    <h3 style="margin-bottom: 10px;">Progreso de Migraci&#243;n</h3>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill">0%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Log -->
+            <div class="section">
+                <h2><i class="fas fa-terminal"></i> Log de Actividad</h2>
+                <div class="log-container" id="log-container">
+                    <div class="log-entry">Sistema inicializado. Esperando conexi&#243;n...</div>
+                </div>
             </div>
         </div>
-
-        <div id="console-output">Esperando confirmación de usuario...</div>
     </div>
 
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
     <script>
-        // --- 1. CONFIGURACIÓN FIREBASE DESTINO (WillianWorkshop - NUEVO) ---
-        const configDestino = {
-            apiKey: "AIzaSyCaZdPPYddeMPTiNm5cCdFL6m9b9swX0-c",
-            authDomain: "williantaller-1426b.firebaseapp.com",
-            projectId: "williantaller-1426b",
-            storageBucket: "williantaller-1426b.firebasestorage.app",
-            messagingSenderId: "757966587061",
-            appId: "1:757966587061:web:6c700e862317119d64aafc"
-        };
+        class MigrationTool {
+            constructor() {
+                this.dbOld = null;
+                this.dbNew = null;
+                this.ventasAntiguas = [];
+                this.equiposAgrupados = new Map();
+                this.stats = {
+                    ventasOld: 0,
+                    equipos: 0,
+                    perfiles: 0,
+                    migrados: 0
+                };
+            }
 
-        // --- 2. CONFIGURACIÓN FIREBASE ORIGEN (TallerWilliam - VIEJO) ---
-        const configOrigen = {
-            apiKey: "AIzaSyDh074AarXaYCc-Htw-lsCeIc_95QQNSnY",
-            authDomain: "tallerwilliam-732b3.firebaseapp.com",
-            projectId: "tallerwilliam-732b3",
-            storageBucket: "tallerwilliam-732b3.firebasestorage.app",
-            messagingSenderId: "822262666247",
-            appId: "1:822262666247:web:6680487bbf1108006b86a2"
-        };
+            log(message, type = 'info') {
+                const logContainer = document.getElementById('log-container');
+                const entry = document.createElement('div');
+                entry.className = `log-entry ${type}`;
+                const timestamp = new Date().toLocaleTimeString();
+                entry.textContent = `[${timestamp}] ${message}`;
+                logContainer.appendChild(entry);
+                logContainer.scrollTop = logContainer.scrollHeight;
+                console.log(message);
+            }
 
-        let dbDestino, dbOrigen;
+            updateStats() {
+                document.getElementById('stat-ventas-old').textContent = this.stats.ventasOld;
+                document.getElementById('stat-equipos').textContent = this.stats.equipos;
+                document.getElementById('stat-perfiles').textContent = this.stats.perfiles;
+                document.getElementById('stat-migrados').textContent = this.stats.migrados;
+            }
 
-        try {
-            const appDestino = firebase.initializeApp(configDestino, "appDestino");
-            const appOrigen = firebase.initializeApp(configOrigen, "appOrigen");
-            dbDestino = appDestino.firestore();
-            dbOrigen = appOrigen.firestore();
-        } catch (error) {
-            console.error(error);
-            document.getElementById('console-output').innerHTML = "<span style='color:red'>Error Crítico: " + error.message + "</span>";
-        }
+            updateProgress(percent) {
+                const fill = document.getElementById('progress-fill');
+                fill.style.width = percent + '%';
+                fill.textContent = Math.round(percent) + '%';
+            }
 
-        function log(msg, type = 'info') {
-            const div = document.getElementById('console-output');
-            const entry = document.createElement('div');
-            entry.className = 'log-entry log-' + type;
-            const time = new Date().toLocaleTimeString();
-            entry.innerText = `[${time}] ${msg}`;
-            div.appendChild(entry);
-            div.scrollTop = div.scrollHeight;
-        }
+            async connectDatabases() {
+                try {
+                    this.log('Iniciando conexi\u00f3n a bases de datos...');
 
-        async function startMigration() {
-            const btn = document.getElementById('btn-start');
-            btn.disabled = true;
-            btn.innerText = "Conectando...";
+                    // Configuraci\u00f3n DB Antigua
+                    const configOld = {
+                        apiKey: "AIzaSyDh074AarXaYCc-Htw-lsCeIc_95QQNSnY",
+                        authDomain: "tallerwilliam-732b3.firebaseapp.com",
+                        projectId: "tallerwilliam-732b3",
+                        storageBucket: "tallerwilliam-732b3.firebasestorage.app",
+                        messagingSenderId: "822262666247",
+                        appId: "1:822262666247:web:6680487bbf1108006b86a2"
+                    };
 
-            try {
-                log("🚀 INICIANDO MIGRACIÓN v3...", 'success');
-                const batchSize = 400;
+                    // Configuraci\u00f3n DB Nueva
+                    const configNew = {
+                        apiKey: "AIzaSyCaZdPPYddeMPTiNm5cCdFL6m9b9swX0-c",
+                        authDomain: "williantaller-1426b.firebaseapp.com",
+                        projectId: "williantaller-1426b",
+                        storageBucket: "williantaller-1426b.firebasestorage.app",
+                        messagingSenderId: "757966587061",
+                        appId: "1:757966587061:web:6c700e862317119d64aafc"
+                    };
 
-                // 1. Leer VENTAS
-                log("Leyendo desde TallerWilliam...");
-                const snapshot = await dbOrigen.collection("VENTAS").get();
+                    // Inicializar apps
+                    const appOld = firebase.initializeApp(configOld, 'oldDB');
+                    const appNew = firebase.initializeApp(configNew, 'newDB');
 
-                let docs = [];
-                if (snapshot.size > 0) {
-                    docs = snapshot.docs;
-                } else {
-                    log("VENTAS (mayuscula) vacía, probando 'ventas' (minuscula)...", 'warn');
-                    const snap2 = await dbOrigen.collection("ventas").get();
-                    docs = snap2.docs;
+                    this.dbOld = firebase.firestore(appOld);
+                    this.dbNew = firebase.firestore(appNew);
+
+                    this.log('Conectado a DB Antigua', 'success');
+                    document.getElementById('status-old').className = 'connection-status connected';
+                    document.getElementById('status-old').innerHTML = '<i class="fas fa-check-circle"></i> DB Antigua';
+
+                    this.log('Conectado a DB Nueva', 'success');
+                    document.getElementById('status-new').className = 'connection-status connected';
+                    document.getElementById('status-new').innerHTML = '<i class="fas fa-check-circle"></i> DB Nueva';
+
+                    // Habilitar botones
+                    document.getElementById('btn-analyze').disabled = false;
+                    document.getElementById('btn-clear').disabled = false;
+                    document.getElementById('btn-connect').disabled = true;
+
+                } catch (error) {
+                    this.log('Error conectando: ' + error.message, 'error');
                 }
+            }
 
-                if (docs.length === 0) throw new Error("No se encontraron facturas en 'VENTAS' ni en 'ventas'.");
-                log(`📂 Total Facturas a Procesar: ${docs.length}`, 'success');
+            async analyzeData() {
+                try {
+                    this.log('Analizando datos de DB antigua...');
 
-                // 2. Agrupar
-                log("Agrupando con lógica mejorada (Limpiando nombres)...", 'info');
-                const perfiles = {};
+                    const snapshot = await this.dbOld.collection('VENTAS').get();
+                    this.stats.ventasOld = snapshot.size;
+                    this.log(`Encontradas ${snapshot.size} ventas`, 'success');
 
-                docs.forEach(doc => {
-                    const venta = doc.data();
+                    // Agrupar por equipo
+                    this.equiposAgrupados.clear();
 
-                    // Normalizar campos
-                    const equipo = String(venta.equipoNumber || venta.equipo || "").trim();
-                    const clienteRaw = String(venta.clientName || venta.cliente || "").trim();
+                    snapshot.forEach(doc => {
+                        const venta = doc.data();
+                        const equipoNum = venta.equipoNumber || venta.clientName;
 
-                    // REGLA DE NOMBRE MEJORADA V3
-                    let nombrePerfil = "Sin Identificar";
-
-                    if (equipo && equipo !== "0" && equipo !== "Sin Asignar") {
-                        // Limpieza inteligente del nombre del cliente
-                        // 1. Si el cliente es literalmente igual al equipo ("63" == "63")
-                        // 2. Si el cliente es "Equipo X" y X es el numero
-                        // 3. Si el cliente es "LOCAL" o "MOSTRADOR"
-
-                        // Normalizar cliente para comparación
-                        const clienteClean = clienteRaw.replace(/^Equipo\s*/i, "").trim();
-
-                        const esRedundante = (clienteRaw === equipo) ||
-                            (clienteClean === equipo) ||
-                            (clienteRaw.toUpperCase() === "LOCAL") ||
-                            (clienteRaw.toUpperCase() === "MOSTRADOR");
-
-                        if (esRedundante) {
-                            // Caso Local normal: "63"
-                            nombrePerfil = equipo;
-                        } else {
-                            // Caso Ciudad/Otro: "2 - Tejute"
-                            // Evitar doble prefijo
-                            if (clienteRaw.startsWith(equipo)) {
-                                nombrePerfil = clienteRaw;
-                            } else {
-                                nombrePerfil = `${equipo} - ${clienteRaw}`;
+                        if (equipoNum) {
+                            if (!this.equiposAgrupados.has(equipoNum)) {
+                                this.equiposAgrupados.set(equipoNum, []);
                             }
+                            this.equiposAgrupados.get(equipoNum).push({
+                                id: doc.id,
+                                ...venta
+                            });
                         }
-                    } else {
-                        // Sin número de equipo confiable
-                        if (clienteRaw && clienteRaw !== "LOCAL" && clienteRaw !== "MOSTRADOR" && clienteRaw !== "Sin Asignar") {
-                            nombrePerfil = clienteRaw;
-                        } else {
-                            nombrePerfil = "Ventas Mostrador";
-                        }
-                    }
-
-                    // Limpieza final de seguridad
-                    nombrePerfil = nombrePerfil.replace(/\s+-\s+Equipo\s+\d+$/i, "");
-
-                    if (!perfiles[nombrePerfil]) {
-                        perfiles[nombrePerfil] = { nombre: nombrePerfil, saldo: 0, movimientos: [], ultimaFecha: 0 };
-                    }
-
-                    let saldoDoc = 0;
-                    if (venta.saldoPendiente !== undefined) {
-                        saldoDoc = parseFloat(venta.saldoPendiente);
-                    } else {
-                        saldoDoc = parseFloat(venta.total || 0);
-                    }
-
-                    perfiles[nombrePerfil].saldo += saldoDoc;
-
-                    const fechaVenta = venta.fecha ? (venta.fecha.seconds * 1000) : (venta.timestamp ? venta.timestamp.seconds * 1000 : 0);
-                    if (fechaVenta > perfiles[nombrePerfil].ultimaFecha) perfiles[nombrePerfil].ultimaFecha = fechaVenta;
-
-                    perfiles[nombrePerfil].movimientos.push({ idOriginal: doc.id, data: venta });
-                });
-
-                const totalPerfiles = Object.keys(perfiles).length;
-                log(`📊 Perfiles Detectados: ${totalPerfiles}`, 'success');
-
-                // 3. Escribir
-                log("Escribiendo en WillianWorkshop...", 'warn');
-                let processedCount = 0;
-
-                for (const nombrePerfil of Object.keys(perfiles)) {
-                    const perfilData = perfiles[nombrePerfil];
-
-                    const docId = "perfil_" + nombrePerfil.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_');
-                    const perfilRef = dbDestino.collection("PERFILES").doc(docId);
-
-                    await perfilRef.set({
-                        id: docId,
-                        nombre: nombrePerfil,
-                        saldo: parseFloat(perfilData.saldo.toFixed(2)),
-                        ultimaActividad: new Date(perfilData.ultimaFecha),
-                        migrado: true,
-                        migradoFecha: firebase.firestore.FieldValue.serverTimestamp()
                     });
 
-                    const movimientos = perfilData.movimientos;
-                    for (let i = 0; i < movimientos.length; i += batchSize) {
-                        const batch = dbDestino.batch();
-                        const chunk = movimientos.slice(i, i + batchSize);
-                        chunk.forEach(mov => {
-                            const movRef = perfilRef.collection("MOVIMIENTOS").doc(mov.idOriginal);
-                            batch.set(movRef, { ...mov.data, _migrado: true });
-                        });
-                        await batch.commit();
-                    }
+                    this.stats.equipos = this.equiposAgrupados.size;
+                    this.updateStats();
 
-                    processedCount++;
-                    const percent = (processedCount / totalPerfiles) * 100;
-                    document.getElementById('progress-bar').style.width = percent + '%';
+                    this.log(`Detectados ${this.stats.equipos} equipos \u00fanicos`, 'success');
+                    this.log('An\u00e1lisis completado. Listo para migrar.', 'success');
 
-                    if (processedCount % 10 === 0) log(`... Migrado: ${nombrePerfil}`, 'info');
+                    document.getElementById('btn-migrate').disabled = false;
+                    document.getElementById('btn-update').disabled = false;
+
+                } catch (error) {
+                    this.log('Error analizando: ' + error.message, 'error');
+                }
+            }
+
+            async startMigration() {
+                if (!confirm('\u00bfEst\u00e1s seguro de iniciar la migraci\u00f3n? Este proceso puede tardar varios minutos.')) {
+                    return;
                 }
 
-                log("✅✅ PROCESO FINALIZADO ✅✅", 'success');
-                alert("Migración v3 completada.");
+                try {
+                    this.log('=== INICIANDO MIGRACI\u00d3N ===', 'warning');
+                    document.getElementById('progress-container').style.display = 'block';
+                    document.getElementById('btn-migrate').disabled = true;
 
-            } catch (e) {
-                log("❌ ERROR: " + e.message, 'error');
-                console.error(e);
-            } finally {
-                btn.disabled = false;
-                btn.innerText = "Intentar de nuevo";
+                    let processed = 0;
+                    const total = this.equiposAgrupados.size;
+
+                    for (const [equipoNum, ventas] of this.equiposAgrupados.entries()) {
+                        await this.migrateEquipo(equipoNum, ventas);
+                        processed++;
+                        this.updateProgress((processed / total) * 100);
+                    }
+
+                    this.log('=== MIGRACI\u00d3N COMPLETADA ===', 'success');
+                    alert('Migraci\u00f3n completada exitosamente!');
+
+                } catch (error) {
+                    this.log('ERROR EN MIGRACI\u00d3N: ' + error.message, 'error');
+                    alert('Error durante la migraci\u00f3n: ' + error.message);
+                }
+            }
+
+            async migrateEquipo(equipoNum, ventas) {
+                try {
+                    // Crear ID de perfil
+                    const perfilId = `perfil_${String(equipoNum).replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+                    // Calcular totales
+                    let totalVentas = 0;
+                    let totalAbonado = 0;
+                    let saldoPendiente = 0;
+
+                    ventas.forEach(v => {
+                        totalVentas += (v.total || 0);
+                        if (v.abonos && Array.isArray(v.abonos)) {
+                            totalAbonado += v.abonos.reduce((sum, a) => sum + (a.monto || 0), 0);
+                        }
+                    });
+
+                    saldoPendiente = totalVentas - totalAbonado;
+
+                    // Crear documento de perfil
+                    const perfilData = {
+                        numero: equipoNum,
+                        nombre: String(equipoNum),
+                        saldo: saldoPendiente,
+                        totalVentas: totalVentas,
+                        totalAbonado: totalAbonado,
+                        fechaCreacion: new Date(),
+                        ultimaActividad: new Date(),
+                        activo: true,
+                        migrado: true,
+                        fechaMigracion: new Date()
+                    };
+
+                    await this.dbNew.collection('PERFILES').doc(perfilId).set(perfilData);
+                    this.stats.perfiles++;
+
+                    // Migrar movimientos
+                    for (const venta of ventas) {
+                        await this.dbNew.collection('PERFILES').doc(perfilId)
+                            .collection('MOVIMIENTOS').doc(venta.id).set({
+                                tipo: 'venta',
+                                ...venta,
+                                fechaMigracion: new Date()
+                            });
+                        this.stats.migrados++;
+                    }
+
+                    this.log(`\u2713 Perfil ${perfilId}: ${ventas.length} movimientos migrados`, 'success');
+                    this.updateStats();
+
+                } catch (error) {
+                    this.log(`\u2717 Error migrando equipo ${equipoNum}: ${error.message}`, 'error');
+                }
+            }
+
+            async clearNewDatabase() {
+                if (!confirm('\u26a0\ufe0f PELIGRO: Esto borrar\u00e1 TODOS los perfiles de la DB nueva. ¿Est\u00e1s seguro?')) {
+                    return;
+                }
+
+                try {
+                    this.log('Limpiando base de datos nueva...', 'warning');
+
+                    const snapshot = await this.dbNew.collection('PERFILES').get();
+                    const batch = this.dbNew.batch();
+
+                    snapshot.forEach(doc => {
+                        batch.delete(doc.ref);
+                    });
+
+                    await batch.commit();
+
+                    this.stats.perfiles = 0;
+                    this.stats.migrados = 0;
+                    this.updateStats();
+
+                    this.log('Base de datos limpiada', 'success');
+
+                } catch (error) {
+                    this.log('Error limpiando: ' + error.message, 'error');
+                }
+            }
+
+            async updateDatabase() {
+                if (!confirm('Esto sincronizará datos nuevos desde la DB antigua. ¿Continuar?')) {
+                    return;
+                }
+
+                try {
+                    this.log('=== INICIANDO ACTUALIZACIÓN ===', 'warning');
+                    document.getElementById('progress-container').style.display = 'block';
+                    document.getElementById('btn-update').disabled = true;
+
+                    // Obtener todos los movimientos ya migrados
+                    this.log('Obteniendo movimientos existentes...');
+                    const perfilesSnapshot = await this.dbNew.collection('PERFILES').get();
+                    const movimientosExistentes = new Set();
+
+                    for (const perfilDoc of perfilesSnapshot.docs) {
+                        const movimientos = await this.dbNew.collection('PERFILES')
+                            .doc(perfilDoc.id)
+                            .collection('MOVIMIENTOS')
+                            .get();
+
+                        movimientos.forEach(doc => movimientosExistentes.add(doc.id));
+                    }
+
+                    this.log(`Encontrados ${movimientosExistentes.size} movimientos ya migrados`);
+
+                    // Obtener ventas de DB antigua
+                    const ventasSnapshot = await this.dbOld.collection('VENTAS').get();
+                    const ventasNuevas = [];
+
+                    ventasSnapshot.forEach(doc => {
+                        if (!movimientosExistentes.has(doc.id)) {
+                            const venta = doc.data();
+                            const equipoNum = venta.equipoNumber || venta.clientName;
+                            if (equipoNum) {
+                                ventasNuevas.push({
+                                    id: doc.id,
+                                    equipoNum,
+                                    ...venta
+                                });
+                            }
+                        }
+                    });
+
+                    if (ventasNuevas.length === 0) {
+                        this.log('No hay ventas nuevas para sincronizar', 'success');
+                        alert('Base de datos actualizada - No hay cambios nuevos');
+                        document.getElementById('btn-update').disabled = false;
+                        return;
+                    }
+
+                    this.log(`Encontradas ${ventasNuevas.length} ventas nuevas`, 'success');
+
+                    // Agrupar por equipo
+                    const equiposNuevos = new Map();
+                    ventasNuevas.forEach(venta => {
+                        if (!equiposNuevos.has(venta.equipoNum)) {
+                            equiposNuevos.set(venta.equipoNum, []);
+                        }
+                        equiposNuevos.get(venta.equipoNum).push(venta);
+                    });
+
+                    // Actualizar o crear perfiles
+                    let processed = 0;
+                    const total = equiposNuevos.size;
+
+                    for (const [equipoNum, ventas] of equiposNuevos.entries()) {
+                        await this.updateEquipo(equipoNum, ventas);
+                        processed++;
+                        this.updateProgress((processed / total) * 100);
+                    }
+
+                    this.log('=== ACTUALIZACIÓN COMPLETADA ===', 'success');
+                    alert(`Actualización completada! ${ventasNuevas.length} nuevas ventas sincronizadas.`);
+
+                } catch (error) {
+                    this.log('ERROR EN ACTUALIZACIÓN: ' + error.message, 'error');
+                    alert('Error durante la actualización: ' + error.message);
+                } finally {
+                    document.getElementById('btn-update').disabled = false;
+                }
+            }
+
+            async updateEquipo(equipoNum, ventas) {
+                try {
+                    const perfilId = `perfil_${String(equipoNum).replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+                    // Verificar si el perfil existe
+                    const perfilDoc = await this.dbNew.collection('PERFILES').doc(perfilId).get();
+
+                    if (perfilDoc.exists) {
+                        // Actualizar perfil existente
+                        const perfilData = perfilDoc.data();
+
+                        let nuevoTotalVentas = perfilData.totalVentas || 0;
+                        let nuevoTotalAbonado = perfilData.totalAbonado || 0;
+
+                        ventas.forEach(v => {
+                            nuevoTotalVentas += (v.total || 0);
+                            if (v.abonos && Array.isArray(v.abonos)) {
+                                nuevoTotalAbonado += v.abonos.reduce((sum, a) => sum + (a.monto || 0), 0);
+                            }
+                        });
+
+                        const nuevoSaldo = nuevoTotalVentas - nuevoTotalAbonado;
+
+                        // Actualizar documento de perfil
+                        await this.dbNew.collection('PERFILES').doc(perfilId).update({
+                            saldo: nuevoSaldo,
+                            totalVentas: nuevoTotalVentas,
+                            totalAbonado: nuevoTotalAbonado,
+                            ultimaActividad: new Date()
+                        });
+
+                        // Agregar nuevos movimientos
+                        for (const venta of ventas) {
+                            await this.dbNew.collection('PERFILES').doc(perfilId)
+                                .collection('MOVIMIENTOS').doc(venta.id).set({
+                                    tipo: 'venta',
+                                    ...venta,
+                                    fechaMigracion: new Date()
+                                });
+                            this.stats.migrados++;
+                        }
+
+                        this.log(`✓ Actualizado ${perfilId}: +${ventas.length} movimientos nuevos`, 'success');
+                    } else {
+                        // Crear nuevo perfil (equipo nuevo)
+                        await this.migrateEquipo(equipoNum, ventas);
+                        this.log(`✓ Nuevo perfil creado: ${perfilId}`, 'success');
+                    }
+
+                    this.updateStats();
+
+                } catch (error) {
+                    this.log(`✗ Error actualizando equipo ${equipoNum}: ${error.message}`, 'error');
+                }
             }
         }
+
+        const app = new MigrationTool();
     </script>
 </body>
 
