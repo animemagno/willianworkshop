@@ -184,6 +184,16 @@ class InventoryController {
         const refreshBtn = document.getElementById('btn-refresh');
         if (refreshBtn) refreshBtn.addEventListener('click', () => this.loadData());
 
+        // BACKUP Y ALIAS EVENTS
+        const btnCreateBackup = document.getElementById('btn-create-backup');
+        if (btnCreateBackup) btnCreateBackup.addEventListener('click', () => this.createBackup());
+
+        const btnOpenBackups = document.getElementById('btn-open-backups');
+        if (btnOpenBackups) btnOpenBackups.addEventListener('click', () => this.openBackupHistory());
+
+        const btnOpenAliasManager = document.getElementById('btn-open-alias-manager');
+        if (btnOpenAliasManager) btnOpenAliasManager.addEventListener('click', () => this.openAliasManager());
+
         // SORT
         document.querySelectorAll('th[data-sort]').forEach(th => {
             th.addEventListener('click', () => this.handleSort(th.dataset.sort));
@@ -828,8 +838,8 @@ class InventoryController {
         let displayCode = "";
         let displayName = name;
 
-        // Reset ID logic: if it's not a selection from the dropdown (CODE - NAME), it MUST be treated as new
-        const isExisting = id && name.includes(" - ");
+        // Validamos si realmente es un producto existente en nuestra cache
+        const isExisting = id && this.cache.some(p => p.id === id);
 
         if (!isExisting) {
             // EL SISTEMA LE PREGUNTA PROACTIVAMENTE PORQUE EL PRODUCTO ES NUEVO
@@ -963,9 +973,117 @@ class InventoryController {
     }
 
     async borrarTodo() {
-        if (confirm("⚠️ PELIGRO: ¿Borrar TODO el inventario? Esta acción no se puede deshacer.")) {
+        if (confirm("⚠️ PELIGRO: ¿Borrar TODO el inventario? Esta acción no se puede deshacer.\n\nSe recomienda crear un BACKUP antes.")) {
             await this.svc.borrarTodo();
             this.loadData();
+        }
+    }
+
+    // =========================================
+    // SISTEMA DE BACKUP Y RESTAURACIÓN
+    // =========================================
+    async createBackup() {
+        const btn = document.getElementById('btn-create-backup');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creando...'; }
+        try {
+            await this.svc.crearBackup();
+            alert("✅ Backup creado con éxito.");
+        } catch (e) {
+            alert("Error al crear backup: " + e);
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-history"></i> Crear Backup'; }
+        }
+    }
+
+    async openBackupHistory() {
+        try {
+            const backups = await this.svc.obtenerBackups();
+            const tbody = document.getElementById('backup-history-body');
+            if (!tbody) return;
+
+            tbody.innerHTML = '';
+            if (backups.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center">No hay backups registrados.</td></tr>';
+            } else {
+                backups.forEach(b => {
+                    const date = b.fecha ? new Date(b.fecha.seconds * 1000).toLocaleString() : 'Reciente';
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${date}</td>
+                            <td style="text-align:center">${b.totalProductos} productos</td>
+                            <td style="text-align:right">
+                                <button class="btn btn-sm btn-warning" onclick="app.restoreBackup('${b.id}')">Restaurar</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+            document.getElementById('modalBackupHistory').style.display = 'flex';
+        } catch (e) { console.error(e); }
+    }
+
+    async restoreBackup(id) {
+        if (confirm("⚠️ ATENCIÓN: Esta acción reemplazará TODO el inventario actual con los datos del backup.\n\n¿Deseas continuar?")) {
+            try {
+                await this.svc.restaurarDesdeBackup(id);
+                alert("✅ Inventario restaurado correctamente.");
+                location.reload(); // Recarga para asegurar limpieza de cache
+            } catch (e) {
+                alert("Error al restaurar: " + e);
+            }
+        }
+    }
+
+    // =========================================
+    // GESTIÓN DE ALIAS (CORRECCIÓN DE VINCULOS)
+    // =========================================
+    async openAliasManager() {
+        try {
+            const list = await this.svc.obtenerTodosLosAlias();
+            this.renderAliasList(list);
+            document.getElementById('modalAliasManager').style.display = 'flex';
+        } catch (e) { console.error(e); }
+    }
+
+    renderAliasList(list) {
+        const tbody = document.getElementById('alias-list-body');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (list.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center">No hay alias (vinculaciones) aprendidas aún.</td></tr>';
+            return;
+        }
+
+        list.forEach(item => {
+            item.aliases.forEach(alias => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${item.codigo}</strong></td>
+                        <td>${item.descripcion}</td>
+                        <td style="color: #2980b9;">"${alias}"</td>
+                        <td style="text-align:right">
+                            <button class="btn btn-sm btn-danger" onclick="app.removeAlias('${item.productId}', '${alias.replace(/'/g, "\\'")}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        });
+    }
+
+    async removeAlias(productId, alias) {
+        if (confirm(`¿Eliminar el alias "${alias}" de este producto?\n\nEl sistema dejará de reconocerlo automáticamente.`)) {
+            try {
+                await this.svc.eliminarAlias(productId, alias);
+                // Actualizar cache local para que el cambio sea instantaneo
+                const p = this.cache.find(x => x.id === productId);
+                if (p && p.aliases) {
+                    p.aliases = p.aliases.filter(a => a !== alias);
+                }
+                this.openAliasManager(); // Refrescar lista
+            } catch (e) { alert("Error: " + e); }
         }
     }
 

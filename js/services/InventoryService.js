@@ -541,15 +541,98 @@ class InventoryService {
         });
     }
 
-    // Eliminar registro de entrada (Solo si ya está revertida o se desea borrar forzosamente)
-    async eliminarEntrada(entryId) {
+    // --- SISTEMA DE BACKUP ---
+    async crearBackup() {
+        const db = firebase.firestore();
         try {
-            await firebase.firestore().collection('INVENTARIO_ENTRADAS').doc(entryId).delete();
+            const snapshot = await this.collection.get();
+            const productos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            const backupRef = db.collection('INVENTARIO_BACKUPS').doc();
+            await backupRef.set({
+                fecha: firebase.firestore.FieldValue.serverTimestamp(),
+                viva: true,
+                totalProductos: productos.length,
+                data: productos
+            });
             return true;
-        } catch (error) {
-            console.error("Error eliminando entrada:", error);
-            throw error;
+        } catch (e) {
+            console.error("Error creando backup:", e);
+            throw e;
         }
+    }
+
+    async obtenerBackups() {
+        try {
+            const snapshot = await firebase.firestore()
+                .collection('INVENTARIO_BACKUPS')
+                .orderBy('fecha', 'desc')
+                .limit(10)
+                .get();
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch (e) { return []; }
+    }
+
+    async restaurarDesdeBackup(backupId) {
+        const db = firebase.firestore();
+        try {
+            const backupDoc = await db.collection('INVENTARIO_BACKUPS').doc(backupId).get();
+            if (!backupDoc.exists) throw "Backup no encontrado";
+
+            const backupData = backupDoc.data().data;
+
+            // 1. Borrar actual
+            await this.borrarTodo();
+
+            // 2. Restaurar items
+            let currentBatch = db.batch();
+            let count = 0;
+            for (const item of backupData) {
+                const { id, ...data } = item;
+                const ref = this.collection.doc(id);
+                currentBatch.set(ref, data);
+                count++;
+                if (count % 450 === 0) {
+                    await currentBatch.commit();
+                    currentBatch = db.batch();
+                }
+            }
+            if (count % 450 !== 0) await currentBatch.commit();
+            return true;
+        } catch (e) {
+            console.error(e);
+            throw e;
+        }
+    }
+
+    // --- GESTIÓN DE ALIAS ---
+    async obtenerTodosLosAlias() {
+        try {
+            const snapshot = await this.collection.get();
+            const lista = [];
+            snapshot.docs.forEach(doc => {
+                const data = doc.data();
+                if (data.aliases && data.aliases.length > 0) {
+                    lista.push({
+                        productId: doc.id,
+                        descripcion: data.descripcion,
+                        codigo: data.codigo,
+                        aliases: data.aliases
+                    });
+                }
+            });
+            return lista;
+        } catch (e) { return []; }
+    }
+
+    async eliminarAlias(productId, aliasAEliminar) {
+        try {
+            const ref = this.collection.doc(productId);
+            await ref.update({
+                aliases: firebase.firestore.FieldValue.arrayRemove(aliasAEliminar)
+            });
+            return true;
+        } catch (e) { throw e; }
     }
 }
 
