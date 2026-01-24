@@ -46,7 +46,7 @@ class InventoryUI {
                 <tr data-id="${p.id}">
                     <td><strong>${p.codigo}</strong></td>
                     <td>${p.descInventario}</td>
-                    <td><small>${p.descFactura || ''}</small></td>
+                    <td style="display:none;"><small>${p.descFactura || ''}</small></td>
                     <td style="text-align:left;">$${(p.precioCosto || 0).toFixed(2)}</td>
                     <td class="precio" style="font-weight:bold; color:#2c3e50; text-align:left;">${precioFmt}</td>
                     <td class="${stockClass}" style="text-align:center;">${p.existencia}</td>

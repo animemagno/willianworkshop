@@ -1,0 +1,1181 @@
+[
+  {
+    "CODIGO": 3401502,
+    "DESCRIPCIONINVENTARIO": "Adorno de STOP COMPACT BCB",
+    " PRECIO COSTO ": 7,
+    " PRECIO VENTA ": 12,
+    "EXISTENCIA": 4
+  },
+  {
+    "CODIGO": "ESP30268",
+    "DESCRIPCIONINVENTARIO": "Adornos de espejo 2022 BCB",
+    " PRECIO COSTO ": 10,
+    " PRECIO VENTA ": 15,
+    "EXISTENCIA": 3
+  },
+  {
+    "CODIGO": "S130105107",
+    "DESCRIPCIONINVENTARIO": "Amortiguador delanteros",
+    " PRECIO VENTA ": 16,
+    "EXISTENCIA": 12
+  },
+  {
+    "CODIGO": "S265100406",
+    "DESCRIPCIONINVENTARIO": "Amortiguador trasero endurance",
+    " PRECIO COSTO ": 9.500023,
+    " PRECIO VENTA ": 16,
+    "EXISTENCIA": 11
+  },
+  {
+    "CODIGO": 3406,
+    "DESCRIPCIONINVENTARIO": "Anillo de fuego hueco ",
+    " PRECIO COSTO ": 0.1921,
+    " PRECIO VENTA ": 1,
+    "EXISTENCIA": 86
+  },
+  {
+    "CODIGO": 52240764,
+    "DESCRIPCIONINVENTARIO": "Aro completo bajaj",
+    " PRECIO VENTA ": 20,
+    "EXISTENCIA": 3
+  },
+  {
+    "CODIGO": 31101020,
+    "DESCRIPCIONINVENTARIO": "Balancin Bajaj",
+    " PRECIO COSTO ": 3.5,
+    " PRECIO VENTA ": 7,
+    "EXISTENCIA": 4
+  },
+  {
+    "CODIGO": "AB181012",
+    "DESCRIPCIONINVENTARIO": "Balerina Grande",
+    " PRECIO VENTA ": 3,
+    "EXISTENCIA": 27
+  },
+  {
+    "CODIGO": "AB181017",
+    "DESCRIPCIONINVENTARIO": "Balerina Pequeña",
+    " PRECIO VENTA ": 2,
+    "EXISTENCIA": 26
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Balero 142216 Bajaj",
+    " PRECIO VENTA ": 6,
+    "EXISTENCIA": 8
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Balero 16007 Bajaj",
+    " PRECIO VENTA ": 7,
+    "EXISTENCIA": 4
+  },
+  {
+    "CODIGO": 39143520,
+    "DESCRIPCIONINVENTARIO": "Balero 1616",
+    " PRECIO COSTO ": 1.699972,
+    " PRECIO VENTA ": 5,
+    "EXISTENCIA": 30
+  },
+  {
+    "CODIGO": "60042RSCM",
+    "DESCRIPCIONINVENTARIO": "Balero 6004",
+    " PRECIO COSTO ": 4.15,
+    " PRECIO VENTA ": 8,
+    "EXISTENCIA": 20
+  },
+  {
+    "CODIGO": "69042RS",
+    "DESCRIPCIONINVENTARIO": "Balero 6904",
+    " PRECIO COSTO ": 10.34,
+    " PRECIO VENTA ": 13.5,
+    "EXISTENCIA": 14
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Balero JV188",
+    " PRECIO VENTA ": 5,
+    "EXISTENCIA": 5
+  },
+  {
+    "CODIGO": "K353008700",
+    "DESCRIPCIONINVENTARIO": "Baquelitas delantera LH",
+    " PRECIO COSTO ": 1.0509,
+    " PRECIO VENTA ": 3,
+    "EXISTENCIA": 9
+  },
+  {
+    "CODIGO": "K353008800",
+    "DESCRIPCIONINVENTARIO": "Baquelitas delantera RH",
+    " PRECIO COSTO ": 1.0509,
+    " PRECIO VENTA ": 3,
+    "EXISTENCIA": 5
+  },
+  {
+    "CODIGO": "AA101479",
+    "DESCRIPCIONINVENTARIO": "Base de gusano metal ",
+    " PRECIO COSTO ": 1.85,
+    " PRECIO VENTA ": 4,
+    "EXISTENCIA": 9
+  },
+  {
+    "CODIGO": "K353058400",
+    "DESCRIPCIONINVENTARIO": "Bobina de alta",
+    " PRECIO COSTO ": 6.499986,
+    " PRECIO VENTA ": 13.5,
+    "EXISTENCIA": 6
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Bollo de alambre negro 100 metros #10",
+    " PRECIO VENTA ": 3,
+    "EXISTENCIA": 1
+  },
+  {
+    "CODIGO": 482680181601,
+    "DESCRIPCIONINVENTARIO": "Bollo de alambre negro 100 metros #18",
+    " PRECIO COSTO ": 0.231198,
+    " PRECIO VENTA ": 0.5,
+    "EXISTENCIA": 7
+  },
+  {
+    "CODIGO": "AB151063",
+    "DESCRIPCIONINVENTARIO": "Bomba central de freno Bajaj",
+    " PRECIO COSTO ": 23,
+    " PRECIO VENTA ": 30,
+    "EXISTENCIA": 6
+  },
+  {
+    "CODIGO": "B35403000O",
+    "DESCRIPCIONINVENTARIO": "Bomba central de freno Compact",
+    " PRECIO COSTO ": 16.9952,
+    " PRECIO VENTA ": 40,
+    "EXISTENCIA": 2
+  },
+  {
+    "CODIGO": "AA121060",
+    "DESCRIPCIONINVENTARIO": "Bomba de aceite",
+    " PRECIO COSTO ": 4.5,
+    " PRECIO VENTA ": 7,
+    "EXISTENCIA": 15
+  },
+  {
+    "CODIGO": "22871400201 AB151091",
+    "DESCRIPCIONINVENTARIO": "Bomba trasera",
+    " PRECIO COSTO ": 6.399981,
+    " PRECIO VENTA ": 11.5,
+    "EXISTENCIA": 60
+  },
+  {
+    "CODIGO": "AZ351207",
+    "DESCRIPCIONINVENTARIO": "Bujia Compact BAJAJ",
+    " PRECIO COSTO ": 2.5,
+    " PRECIO VENTA ": 6.5,
+    "EXISTENCIA": 6
+  },
+  {
+    "CODIGO": "AA111058",
+    "DESCRIPCIONINVENTARIO": "Bujias Bajaj",
+    " PRECIO COSTO ": 2.75,
+    " PRECIO VENTA ": 4.5,
+    "EXISTENCIA": 29
+  },
+  {
+    "CODIGO": "AA171006 AB171016",
+    "DESCRIPCIONINVENTARIO": "Bujin de masa delantera",
+    " PRECIO COSTO ": 1,
+    " PRECIO VENTA ": 3,
+    "EXISTENCIA": 11
+  },
+  {
+    "CODIGO": "AA171006",
+    "DESCRIPCIONINVENTARIO": "Bujin de muleta",
+    " PRECIO VENTA ": 5.5,
+    "EXISTENCIA": 12
+  },
+  {
+    "CODIGO": "52AE0388-CR",
+    "DESCRIPCIONINVENTARIO": "Bumper cromado 2022 BCB",
+    " PRECIO COSTO ": 16,
+    " PRECIO VENTA ": 27,
+    "EXISTENCIA": 1
+  },
+  {
+    "CODIGO": "AA191134",
+    "DESCRIPCIONINVENTARIO": "Cable Aspirometro 2022 Bajaj",
+    " PRECIO COSTO ": 9,
+    " PRECIO VENTA ": 15,
+    "EXISTENCIA": 5
+  },
+  {
+    "CODIGO": "AA191139",
+    "DESCRIPCIONINVENTARIO": "Cable de acelerador 2022 Bajaj",
+    " PRECIO COSTO ": 5,
+    " PRECIO VENTA ": 10,
+    "EXISTENCIA": 1
+  },
+  {
+    "CODIGO": "AA191091",
+    "DESCRIPCIONINVENTARIO": "Cable de acelerador Compact Bajaj",
+    " PRECIO COSTO ": 4,
+    " PRECIO VENTA ": 10,
+    "EXISTENCIA": 2
+  },
+  {
+    "CODIGO": "AA19165",
+    "DESCRIPCIONINVENTARIO": "Cable de acelerador Nuevo Bajaj",
+    " PRECIO COSTO ": 3.25,
+    " PRECIO VENTA ": 6,
+    "EXISTENCIA": 5
+  },
+  {
+    "CODIGO": "AA191092",
+    "DESCRIPCIONINVENTARIO": "Cable de clutch compact Bajaj",
+    " PRECIO COSTO ": 6,
+    " PRECIO VENTA ": 10,
+    "EXISTENCIA": 31
+  },
+  {
+    "CODIGO": "AA191064",
+    "DESCRIPCIONINVENTARIO": "Cable de clutch Nuevo Bajaj",
+    " PRECIO COSTO ": 4,
+    " PRECIO VENTA ": 6,
+    "EXISTENCIA": 28
+  },
+  {
+    "CODIGO": "AA191031",
+    "DESCRIPCIONINVENTARIO": "Cable de clutch Viejo",
+    " PRECIO COSTO ": 3.25,
+    " PRECIO VENTA ": 5.5,
+    "EXISTENCIA": 19
+  },
+  {
+    "CODIGO": "520AM00074 520AM00077",
+    "DESCRIPCIONINVENTARIO": "Cable de velocidad 175",
+    " PRECIO COSTO ": 2.599,
+    " PRECIO VENTA ": 5,
+    "EXISTENCIA": 64
+  },
+  {
+    "CODIGO": "520AM00088",
+    "DESCRIPCIONINVENTARIO": "Cable de velocidad Compact Blanco",
+    " PRECIO VENTA ": 10,
+    "EXISTENCIA": 13
+  },
+  {
+    "CODIGO": "520AM00089",
+    "DESCRIPCIONINVENTARIO": "Cable de velocidad Compact Negro",
+    " PRECIO VENTA ": 10,
+    "EXISTENCIA": 13
+  },
+  {
+    "CODIGO": 2982,
+    "DESCRIPCIONINVENTARIO": "Cable de velocidad interno",
+    " PRECIO VENTA ": 1.5,
+    "EXISTENCIA": 9
+  },
+  {
+    "CODIGO": 2981,
+    "DESCRIPCIONINVENTARIO": "Cables de clutch sin forro",
+    " PRECIO VENTA ": 1.5,
+    "EXISTENCIA": 27
+  },
+  {
+    "CODIGO": "AA101569",
+    "DESCRIPCIONINVENTARIO": "Cadena de tiempo",
+    " PRECIO VENTA ": 7,
+    "EXISTENCIA": 8
+  },
+  {
+    "CODIGO": "AA111074",
+    "DESCRIPCIONINVENTARIO": "Capuchon de bujias BAJAJ",
+    " PRECIO COSTO ": 2.4,
+    " PRECIO VENTA ": 4,
+    "EXISTENCIA": 10
+  },
+  {
+    "CODIGO": "K353184900",
+    "DESCRIPCIONINVENTARIO": "Capuchon de bujias Varroc",
+    " PRECIO COSTO ": 1.2656,
+    " PRECIO VENTA ": 4,
+    "EXISTENCIA": 13
+  },
+  {
+    "CODIGO": "K1060474MK",
+    "DESCRIPCIONINVENTARIO": "Caracol trasero stop 175 LH",
+    " PRECIO COSTO ": 1.72,
+    " PRECIO VENTA ": 4.5,
+    "EXISTENCIA": 5
+  },
+  {
+    "CODIGO": "K1060475MK",
+    "DESCRIPCIONINVENTARIO": "Caracol trasero stop 175 RH",
+    " PRECIO COSTO ": 2.12,
+    " PRECIO VENTA ": 4.5,
+    "EXISTENCIA": 5
+  },
+  {
+    "CODIGO": "AA121324",
+    "DESCRIPCIONINVENTARIO": "Carburador 2022",
+    " PRECIO COSTO ": 43,
+    " PRECIO VENTA ": 60,
+    "EXISTENCIA": 1
+  },
+  {
+    "CODIGO": "AA121097",
+    "DESCRIPCIONINVENTARIO": "Carburador Nuevo Bajaj",
+    " PRECIO COSTO ": 33,
+    " PRECIO VENTA ": 55,
+    "EXISTENCIA": 5
+  },
+  {
+    "CODIGO": "AA121090",
+    "DESCRIPCIONINVENTARIO": "Carburador Viejo 175 Bajaj",
+    " PRECIO VENTA ": 40,
+    "EXISTENCIA": 3
+  },
+  {
+    "CODIGO": "BA102160",
+    "DESCRIPCIONINVENTARIO": "Cargador de motor trasero BAJAJ",
+    " PRECIO COSTO ": 3.75,
+    " PRECIO VENTA ": 6.5,
+    "EXISTENCIA": 10
+  },
+  {
+    "CODIGO": 4841,
+    "DESCRIPCIONINVENTARIO": "Carter Lado Magneto",
+    " PRECIO COSTO ": 80.9984,
+    " PRECIO VENTA ": 96,
+    "EXISTENCIA": 2
+  },
+  {
+    "CODIGO": "AA131033",
+    "DESCRIPCIONINVENTARIO": "Catarina",
+    " PRECIO COSTO ": 11,
+    " PRECIO VENTA ": 17,
+    "EXISTENCIA": 1
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "CDI verde",
+    " PRECIO VENTA ": 24.5,
+    "EXISTENCIA": 3
+  },
+  {
+    "CODIGO": "AA101033",
+    "DESCRIPCIONINVENTARIO": "Cigüeñal 175",
+    " PRECIO VENTA ": 67,
+    "EXISTENCIA": 4
+  },
+  {
+    "CODIGO": "AN101123",
+    "DESCRIPCIONINVENTARIO": "Cilindro Completo 205",
+    " PRECIO VENTA ": 52,
+    "EXISTENCIA": 9
+  },
+  {
+    "CODIGO": 1650101601,
+    "DESCRIPCIONINVENTARIO": "Clutch completo",
+    " PRECIO COSTO ": 35.499967,
+    " PRECIO VENTA ": 55,
+    "EXISTENCIA": 17
+  },
+  {
+    "CODIGO": 242477,
+    "DESCRIPCIONINVENTARIO": "Cobertor stop 205 LH",
+    " PRECIO VENTA ": 5.5,
+    "EXISTENCIA": 3
+  },
+  {
+    "CODIGO": "K353054100 BA132072",
+    "DESCRIPCIONINVENTARIO": "Copas grandes",
+    " PRECIO COSTO ": 7,
+    " PRECIO VENTA ": 11.5,
+    "EXISTENCIA": 3
+  },
+  {
+    "CODIGO": "K353054200",
+    "DESCRIPCIONINVENTARIO": "Copas mediana",
+    " PRECIO VENTA ": 11.5,
+    "EXISTENCIA": 2
+  },
+  {
+    "CODIGO": "BA132173 BA132173",
+    "DESCRIPCIONINVENTARIO": "Copas pequeñas",
+    " PRECIO COSTO ": 7,
+    " PRECIO VENTA ": 11.5,
+    "EXISTENCIA": 3
+  },
+  {
+    "CODIGO": "AA131002",
+    "DESCRIPCIONINVENTARIO": "Corona diferencial 175",
+    " PRECIO COSTO ": 23.500045,
+    " PRECIO VENTA ": 32,
+    "EXISTENCIA": 2
+  },
+  {
+    "CODIGO": "AB101067",
+    "DESCRIPCIONINVENTARIO": "Cruz de cambio",
+    " PRECIO COSTO ": 3.75,
+    " PRECIO VENTA ": 8,
+    "EXISTENCIA": 12
+  },
+  {
+    "CODIGO": "36AA4116",
+    "DESCRIPCIONINVENTARIO": "Culata Completa 205 Bajaj",
+    " PRECIO COSTO ": 60,
+    " PRECIO VENTA ": 70,
+    "EXISTENCIA": 2
+  },
+  {
+    "CODIGO": "AA101210 36AA4016-B",
+    "DESCRIPCIONINVENTARIO": "Discos de clutch pasta",
+    " PRECIO COSTO ": 8,
+    " PRECIO VENTA ": 12,
+    "EXISTENCIA": 5
+  },
+  {
+    "CODIGO": "AF121148",
+    "DESCRIPCIONINVENTARIO": "Ducto de carburador viejo bajaj",
+    " PRECIO COSTO ": 10,
+    " PRECIO VENTA ": 14.5,
+    "EXISTENCIA": 3
+  },
+  {
+    "CODIGO": "AA101666",
+    "DESCRIPCIONINVENTARIO": "Eje de leva",
+    " PRECIO COSTO ": 14,
+    " PRECIO VENTA ": 23,
+    "EXISTENCIA": 1
+  },
+  {
+    "CODIGO": "AA101392",
+    "DESCRIPCIONINVENTARIO": "Eje de piña",
+    " PRECIO COSTO ": 10.999985,
+    " PRECIO VENTA ": 17.5,
+    "EXISTENCIA": 5
+  },
+  {
+    "CODIGO": "K353178800 ",
+    "DESCRIPCIONINVENTARIO": "Eje trasero",
+    " PRECIO COSTO ": 10.5316,
+    " PRECIO VENTA ": 20,
+    "EXISTENCIA": 14
+  },
+  {
+    "CODIGO": "AA101013-B",
+    "DESCRIPCIONINVENTARIO": "Empaque de cilindro Bajaj",
+    " PRECIO COSTO ": 0.4,
+    " PRECIO VENTA ": 1.5,
+    "EXISTENCIA": 8
+  },
+  {
+    "CODIGO": 2871,
+    "DESCRIPCIONINVENTARIO": "Empaque de Clutch",
+    " PRECIO COSTO ": 1.199947,
+    " PRECIO VENTA ": 3,
+    "EXISTENCIA": 15
+  },
+  {
+    "CODIGO": "An101012",
+    "DESCRIPCIONINVENTARIO": "Empaque de culata 205 Bjaj",
+    " PRECIO COSTO ": 2,
+    " PRECIO VENTA ": 3.5,
+    "EXISTENCIA": 7
+  },
+  {
+    "CODIGO": "AB151095",
+    "DESCRIPCIONINVENTARIO": "Empaque de freno trasero",
+    " PRECIO VENTA ": 4,
+    "EXISTENCIA": 66
+  },
+  {
+    "CODIGO": 4092,
+    "DESCRIPCIONINVENTARIO": "Empaque diferencial",
+    " PRECIO VENTA ": 3,
+    "EXISTENCIA": 20
+  },
+  {
+    "CODIGO": "B22230635",
+    "DESCRIPCIONINVENTARIO": "Escobilla de crico",
+    " PRECIO COSTO ": 4,
+    " PRECIO VENTA ": 6.5,
+    "EXISTENCIA": 5
+  },
+  {
+    "CODIGO": 28101110,
+    "DESCRIPCIONINVENTARIO": "Espaciador de cigüeñal",
+    " PRECIO VENTA ": 2,
+    "EXISTENCIA": 7
+  },
+  {
+    "CODIGO": "K353204400",
+    "DESCRIPCIONINVENTARIO": "Esparragos Traseros kit de 4 unidades",
+    " PRECIO VENTA ": 8,
+    "EXISTENCIA": 49
+  },
+  {
+    "CODIGO": "P340265",
+    "DESCRIPCIONINVENTARIO": "Espejos negros 2022 LILA set",
+    " PRECIO COSTO ": 13,
+    " PRECIO VENTA ": 25,
+    "EXISTENCIA": 5
+  },
+  {
+    "CODIGO": "4807 K353125000",
+    "DESCRIPCIONINVENTARIO": "Filtro de aceite Compact",
+    " PRECIO COSTO ": 1.899982,
+    " PRECIO VENTA ": 5,
+    "EXISTENCIA": 163
+  },
+  {
+    "CODIGO": "AA121056",
+    "DESCRIPCIONINVENTARIO": "Filtro de aire",
+    " PRECIO COSTO ": 3.75,
+    " PRECIO VENTA ": 7,
+    "EXISTENCIA": 5
+  },
+  {
+    "CODIGO": "AA121010 3737 3714 1414",
+    "DESCRIPCIONINVENTARIO": "Filtro y empaque",
+    " PRECIO COSTO ": 0.3842,
+    " PRECIO VENTA ": 1,
+    "EXISTENCIA": 133
+  },
+  {
+    "CODIGO": "BA132111",
+    "DESCRIPCIONINVENTARIO": "Flecha grande bajaj",
+    " PRECIO COSTO ": 10,
+    " PRECIO VENTA ": 15,
+    "EXISTENCIA": 4
+  },
+  {
+    "CODIGO": "BA132112",
+    "DESCRIPCIONINVENTARIO": "Flecha pequeña bajaj",
+    " PRECIO COSTO ": 10,
+    " PRECIO VENTA ": 15,
+    "EXISTENCIA": 5
+  },
+  {
+    "CODIGO": 761034,
+    "DESCRIPCIONINVENTARIO": "Focos de 2 contastos",
+    " PRECIO VENTA ": 0.25,
+    "EXISTENCIA": 50
+  },
+  {
+    "CODIGO": 6358129273,
+    "DESCRIPCIONINVENTARIO": "Fusible 10A",
+    " PRECIO COSTO ": 0.093225,
+    " PRECIO VENTA ": 0.25,
+    "EXISTENCIA": 400
+  },
+  {
+    "CODIGO": 6358129313,
+    "DESCRIPCIONINVENTARIO": "Fusible 30A",
+    " PRECIO COSTO ": 0.093225,
+    " PRECIO VENTA ": 0.25,
+    "EXISTENCIA": 200
+  },
+  {
+    "CODIGO": "24171075-P",
+    "DESCRIPCIONINVENTARIO": "Grasera MDA",
+    " PRECIO COSTO ": 0.5,
+    " PRECIO VENTA ": 1.5,
+    "EXISTENCIA": 37
+  },
+  {
+    "CODIGO": 52244040,
+    "DESCRIPCIONINVENTARIO": "Guardafango delantero",
+    " PRECIO COSTO ": 15,
+    " PRECIO VENTA ": 20,
+    "EXISTENCIA": 2
+  },
+  {
+    "CODIGO": 52210040,
+    "DESCRIPCIONINVENTARIO": "Guardafangos trasero",
+    " PRECIO COSTO ": 7.999948,
+    " PRECIO VENTA ": 11,
+    "EXISTENCIA": 11
+  },
+  {
+    "CODIGO": "AA101015, AA101034",
+    "DESCRIPCIONINVENTARIO": "Guias de cadena de tiempo BAJAJ juego",
+    " PRECIO COSTO ": 2.5,
+    " PRECIO VENTA ": 11,
+    "EXISTENCIA": 8
+  },
+  {
+    "CODIGO": "AA101108",
+    "DESCRIPCIONINVENTARIO": "Gusano de cruz",
+    " PRECIO VENTA ": 6,
+    "EXISTENCIA": 10
+  },
+  {
+    "CODIGO": "AA101481",
+    "DESCRIPCIONINVENTARIO": "Gusanos de clutch",
+    " PRECIO COSTO ": 2.5,
+    " PRECIO VENTA ": 4,
+    "EXISTENCIA": 31
+  },
+  {
+    "CODIGO": "AN101066",
+    "DESCRIPCIONINVENTARIO": "kit de Anillos Estandar 205",
+    " PRECIO COSTO ": 6.5,
+    " PRECIO VENTA ": 12,
+    "EXISTENCIA": 8
+  },
+  {
+    "CODIGO": "K353256100 K353256200 A230127",
+    "DESCRIPCIONINVENTARIO": "Kit de baleros traseros",
+    " PRECIO COSTO ": 6.9495,
+    " PRECIO VENTA ": 12,
+    "EXISTENCIA": 15
+  },
+  {
+    "CODIGO": "36BA4002",
+    "DESCRIPCIONINVENTARIO": "Kit de cunas BAJAJ",
+    " PRECIO COSTO ": 12.5,
+    " PRECIO VENTA ": 17,
+    "EXISTENCIA": 4
+  },
+  {
+    "CODIGO": "K353042700",
+    "DESCRIPCIONINVENTARIO": "Kit de dados",
+    " PRECIO COSTO ": 0.904,
+    " PRECIO VENTA ": 4,
+    "EXISTENCIA": 33
+  },
+  {
+    "CODIGO": 4092,
+    "DESCRIPCIONINVENTARIO": "Kit de empaques 205",
+    " PRECIO VENTA ": 10,
+    "EXISTENCIA": 10
+  },
+  {
+    "CODIGO": 24151182,
+    "DESCRIPCIONINVENTARIO": "Kit de resorte nuevo BCB",
+    " PRECIO COSTO ": 1,
+    " PRECIO VENTA ": 4.5,
+    "EXISTENCIA": 5
+  },
+  {
+    "CODIGO": "22150243, 22150242",
+    "DESCRIPCIONINVENTARIO": "Kit de resortes de frenos 2006",
+    " PRECIO COSTO ": 0.85,
+    " PRECIO VENTA ": 2,
+    "EXISTENCIA": 20
+  },
+  {
+    "CODIGO": "36AA1004",
+    "DESCRIPCIONINVENTARIO": "Kit de retenedores",
+    " PRECIO VENTA ": 8,
+    "EXISTENCIA": 9
+  },
+  {
+    "CODIGO": 39103519,
+    "DESCRIPCIONINVENTARIO": "Kit de sellos de valvulas",
+    " PRECIO COSTO ": 1.499962,
+    " PRECIO VENTA ": 3,
+    "EXISTENCIA": 11
+  },
+  {
+    "CODIGO": "K353184000 36AN0013",
+    "DESCRIPCIONINVENTARIO": "Kit de valvula 205",
+    " PRECIO COSTO ": 7.999948,
+    " PRECIO VENTA ": 12,
+    "EXISTENCIA": 6
+  },
+  {
+    "CODIGO": 3534,
+    "DESCRIPCIONINVENTARIO": "Liquido de frenos",
+    " PRECIO COSTO ": 2.3165,
+    " PRECIO VENTA ": 5,
+    "EXISTENCIA": 63
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Litro de aceite 140",
+    " PRECIO VENTA ": 6.5,
+    "EXISTENCIA": 7
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Litro de aceite CASTROL 20W50",
+    " PRECIO VENTA ": 8.5,
+    "EXISTENCIA": 17
+  },
+  {
+    "CODIGO": "243341LAC",
+    "DESCRIPCIONINVENTARIO": "Litro de aceite HAVOLINE 20W50",
+    " PRECIO COSTO ": 3.842,
+    " PRECIO VENTA ": 6.5,
+    "EXISTENCIA": 157
+  },
+  {
+    "CODIGO": 174267,
+    "DESCRIPCIONINVENTARIO": "Litro de aceite REPSOL 20W50",
+    " PRECIO COSTO ": 5.7517,
+    " PRECIO VENTA ": 7.5,
+    "EXISTENCIA": 131
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Llantas 4.00-8TT",
+    " PRECIO VENTA ": 33,
+    "EXISTENCIA": 58
+  },
+  {
+    "CODIGO": "K109043900",
+    "DESCRIPCIONINVENTARIO": "Loderas de hule",
+    " PRECIO COSTO ": 1.2543,
+    " PRECIO VENTA ": 3,
+    "EXISTENCIA": 31
+  },
+  {
+    "CODIGO": "K353175400",
+    "DESCRIPCIONINVENTARIO": "Manecillas de clutch",
+    " PRECIO VENTA ": 3,
+    "EXISTENCIA": 7
+  },
+  {
+    "CODIGO": "B24191096",
+    "DESCRIPCIONINVENTARIO": "Manga de cambio nueva bajaj",
+    " PRECIO COSTO ": 4,
+    " PRECIO VENTA ": 12,
+    "EXISTENCIA": 2
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Marco de vidrio frontal compact",
+    " PRECIO VENTA ": 85,
+    "EXISTENCIA": 1
+  },
+  {
+    "CODIGO": "K353155400",
+    "DESCRIPCIONINVENTARIO": "Masa de arranque",
+    " PRECIO COSTO ": 12.999972,
+    " PRECIO VENTA ": 23,
+    "EXISTENCIA": 6
+  },
+  {
+    "CODIGO": 6358129153,
+    "DESCRIPCIONINVENTARIO": "Mini Fusible 10A",
+    " PRECIO COSTO ": 0.08701,
+    " PRECIO VENTA ": 0.25,
+    "EXISTENCIA": 100
+  },
+  {
+    "CODIGO": 6358129193,
+    "DESCRIPCIONINVENTARIO": "Mini Fusible 30A",
+    " PRECIO COSTO ": 0.08701,
+    " PRECIO VENTA ": 0.25,
+    "EXISTENCIA": 100
+  },
+  {
+    "CODIGO": "K345003400",
+    "DESCRIPCIONINVENTARIO": "Motor de arranque 175",
+    " PRECIO VENTA ": 65,
+    "EXISTENCIA": 4
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Motor de arranque compact",
+    " PRECIO VENTA ": 70,
+    "EXISTENCIA": 2
+  },
+  {
+    "CODIGO": "K346000400",
+    "DESCRIPCIONINVENTARIO": "Motor de crico",
+    " PRECIO VENTA ": 24,
+    "EXISTENCIA": 3
+  },
+  {
+    "CODIGO": "K353173500",
+    "DESCRIPCIONINVENTARIO": "Muleta LH 175",
+    " PRECIO COSTO ": 23,
+    " PRECIO VENTA ": 37,
+    "EXISTENCIA": 2
+  },
+  {
+    "CODIGO": "K353173600",
+    "DESCRIPCIONINVENTARIO": "Muleta RH 175",
+    " PRECIO COSTO ": 26.5,
+    " PRECIO VENTA ": 37,
+    "EXISTENCIA": 2
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Parabrisas compact 2015 - 2023",
+    " PRECIO VENTA ": 90,
+    "EXISTENCIA": 0
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Pide via LH 175",
+    " PRECIO VENTA ": 12,
+    "EXISTENCIA": 1
+  },
+  {
+    "CODIGO": "K353150200",
+    "DESCRIPCIONINVENTARIO": "Pide via RH 175",
+    " PRECIO VENTA ": 12,
+    "EXISTENCIA": 5
+  },
+  {
+    "CODIGO": "K342029000",
+    "DESCRIPCIONINVENTARIO": "Pidevia LH Compact",
+    " PRECIO COSTO ": 5.8873,
+    " PRECIO VENTA ": 12,
+    "EXISTENCIA": 6
+  },
+  {
+    "CODIGO": "K342029100",
+    "DESCRIPCIONINVENTARIO": "Pidevia RH Compact",
+    " PRECIO COSTO ": 5.796899999999999,
+    " PRECIO VENTA ": 12,
+    "EXISTENCIA": 6
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Pin de satelite grande",
+    " PRECIO VENTA ": 4,
+    "EXISTENCIA": 3
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Piña multiple",
+    " PRECIO VENTA ": 20,
+    "EXISTENCIA": 5
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Piñon de retroceso",
+    " PRECIO VENTA ": 14.5,
+    "EXISTENCIA": 6
+  },
+  {
+    "CODIGO": "AA101057",
+    "DESCRIPCIONINVENTARIO": "Piñon Doble",
+    " PRECIO COSTO ": 14.9951,
+    " PRECIO VENTA ": 23,
+    "EXISTENCIA": 9
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Piñon segunda 2",
+    " PRECIO VENTA ": 15,
+    "EXISTENCIA": 2
+  },
+  {
+    "CODIGO": "AA101052",
+    "DESCRIPCIONINVENTARIO": "Piñon tercera 3",
+    " PRECIO COSTO ": 11,
+    " PRECIO VENTA ": 14.5,
+    "EXISTENCIA": 3
+  },
+  {
+    "CODIGO": 4082300618280,
+    "DESCRIPCIONINVENTARIO": "Pitos helan de platillo",
+    " PRECIO VENTA ": 8,
+    "EXISTENCIA": 9
+  },
+  {
+    "CODIGO": "AB171021",
+    "DESCRIPCIONINVENTARIO": "Pivot",
+    " PRECIO VENTA ": 6,
+    "EXISTENCIA": 67
+  },
+  {
+    "CODIGO": "36AV4001",
+    "DESCRIPCIONINVENTARIO": "Pivot STD Bajaj",
+    " PRECIO COSTO ": 8,
+    " PRECIO VENTA ": 11,
+    "EXISTENCIA": 5
+  },
+  {
+    "CODIGO": 224131009,
+    "DESCRIPCIONINVENTARIO": "Planetario grande",
+    " PRECIO COSTO ": 6.499986,
+    " PRECIO VENTA ": 8.5,
+    "EXISTENCIA": 8
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Planta compact",
+    " PRECIO VENTA ": 45,
+    "EXISTENCIA": 1
+  },
+  {
+    "CODIGO": "K343013800",
+    "DESCRIPCIONINVENTARIO": "Planta sola 175",
+    " PRECIO COSTO ": 16.79,
+    " PRECIO VENTA ": 28,
+    "EXISTENCIA": 14
+  },
+  {
+    "CODIGO": 2841200201,
+    "DESCRIPCIONINVENTARIO": "Plato completo LH",
+    " PRECIO VENTA ": 35,
+    "EXISTENCIA": 2
+  },
+  {
+    "CODIGO": 2841200301,
+    "DESCRIPCIONINVENTARIO": "Plato completo RH",
+    " PRECIO VENTA ": 35,
+    "EXISTENCIA": 2
+  },
+  {
+    "CODIGO": "WH-005R",
+    "DESCRIPCIONINVENTARIO": "Plato para aros cromados de plastico shakti",
+    " PRECIO COSTO ": 12,
+    " PRECIO VENTA ": 18,
+    "EXISTENCIA": 2
+  },
+  {
+    "CODIGO": "I-354PL-27-BC",
+    "DESCRIPCIONINVENTARIO": "Platos para aros cromados de plastico tipo emperador",
+    " PRECIO COSTO ": 12,
+    " PRECIO VENTA ": 18,
+    "EXISTENCIA": 2
+  },
+  {
+    "CODIGO": "K353098100, 24171076",
+    "DESCRIPCIONINVENTARIO": "Polvera grande",
+    " PRECIO COSTO ": 1,
+    " PRECIO VENTA ": 3,
+    "EXISTENCIA": 53
+  },
+  {
+    "CODIGO": "AA131024",
+    "DESCRIPCIONINVENTARIO": "Polvera pequeña Bajaj",
+    " PRECIO COSTO ": 2,
+    " PRECIO VENTA ": 3.5,
+    "EXISTENCIA": 15
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Porta fusibles castor",
+    " PRECIO VENTA ": 3.5,
+    "EXISTENCIA": 37
+  },
+  {
+    "CODIGO": "AB181002",
+    "DESCRIPCIONINVENTARIO": "Poste delantero 175 ",
+    " PRECIO COSTO ": 80.000045,
+    " PRECIO VENTA ": 97,
+    "EXISTENCIA": 2
+  },
+  {
+    "CODIGO": "AA161073",
+    "DESCRIPCIONINVENTARIO": "Puente trasero",
+    " PRECIO COSTO ": 18.5,
+    " PRECIO VENTA ": 23,
+    "EXISTENCIA": 4
+  },
+  {
+    "CODIGO": "K353140800",
+    "DESCRIPCIONINVENTARIO": "Regulador de voltaje",
+    " PRECIO VENTA ": 30,
+    "EXISTENCIA": 6
+  },
+  {
+    "CODIGO": "K353065000",
+    "DESCRIPCIONINVENTARIO": "Relay de start",
+    " PRECIO VENTA ": 10,
+    "EXISTENCIA": 11
+  },
+  {
+    "CODIGO": "AN131022",
+    "DESCRIPCIONINVENTARIO": "Resorte del retroceso pequeño bajaj",
+    " PRECIO COSTO ": 0.75,
+    " PRECIO VENTA ": 3,
+    "EXISTENCIA": 5
+  },
+  {
+    "CODIGO": "B22171007",
+    "DESCRIPCIONINVENTARIO": "Retenedor metal",
+    " PRECIO COSTO ": 1,
+    " PRECIO VENTA ": 2,
+    "EXISTENCIA": 36
+  },
+  {
+    "CODIGO": 5164,
+    "DESCRIPCIONINVENTARIO": "Rin ancho de fabrica VRK",
+    " PRECIO COSTO ": 18.500021,
+    " PRECIO VENTA ": 32.5,
+    "EXISTENCIA": 0
+  },
+  {
+    "CODIGO": "TULIO",
+    "DESCRIPCIONINVENTARIO": "Rin ancho dos pulgadas TULIO",
+    " PRECIO COSTO ": 23.454845,
+    " PRECIO VENTA ": 32.5,
+    "EXISTENCIA": 4
+  },
+  {
+    "CODIGO": 22131018,
+    "DESCRIPCIONINVENTARIO": "Satelite pequeño",
+    " PRECIO COSTO ": 1.999987,
+    " PRECIO VENTA ": 4,
+    "EXISTENCIA": 10
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Selector de Retroceso Nuevo BAJAJ",
+    " PRECIO VENTA ": 8.5,
+    "EXISTENCIA": 2
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Selector de velocidad",
+    " PRECIO VENTA ": 7,
+    "EXISTENCIA": 9
+  },
+  {
+    "CODIGO": "AA101059",
+    "DESCRIPCIONINVENTARIO": "Separador de carburador",
+    " PRECIO COSTO ": 1.25,
+    " PRECIO VENTA ": 4,
+    "EXISTENCIA": 14
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Silicon gris",
+    " PRECIO VENTA ": 4,
+    "EXISTENCIA": 21
+  },
+  {
+    "CODIGO": "AB201072",
+    "DESCRIPCIONINVENTARIO": "Silvin completo BAJAJ",
+    " PRECIO COSTO ": 15.499984,
+    " PRECIO VENTA ": 24,
+    "EXISTENCIA": 2
+  },
+  {
+    "CODIGO": "92230-140",
+    "DESCRIPCIONINVENTARIO": "Socket de 2 contactos",
+    " PRECIO COSTO ": 0.6441,
+    " PRECIO VENTA ": 1,
+    "EXISTENCIA": 82
+  },
+  {
+    "CODIGO": 3424,
+    "DESCRIPCIONINVENTARIO": "Soporte cargador central",
+    " PRECIO VENTA ": 6,
+    "EXISTENCIA": 6
+  },
+  {
+    "CODIGO": "K353253600",
+    "DESCRIPCIONINVENTARIO": "Stop completo LH 175",
+    " PRECIO COSTO ": 7.5032,
+    " PRECIO VENTA ": 12,
+    "EXISTENCIA": 6
+  },
+  {
+    "CODIGO": "K342029200",
+    "DESCRIPCIONINVENTARIO": "Stop completo LH 205 compáct",
+    " PRECIO COSTO ": 8.486299999999998,
+    " PRECIO VENTA ": 13.5,
+    "EXISTENCIA": 4
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Stop completo RH 175",
+    " PRECIO VENTA ": 12,
+    "EXISTENCIA": 0
+  },
+  {
+    "CODIGO": "K342029300",
+    "DESCRIPCIONINVENTARIO": "Stop completo RH 205 compact",
+    " PRECIO COSTO ": 8.904399999999999,
+    " PRECIO VENTA ": 13.5,
+    "EXISTENCIA": 4
+  },
+  {
+    "CODIGO": "AL201060",
+    "DESCRIPCIONINVENTARIO": "Switch de control de luces via LH",
+    " PRECIO VENTA ": 10,
+    "EXISTENCIA": 5
+  },
+  {
+    "CODIGO": "AF201094",
+    "DESCRIPCIONINVENTARIO": "Switch de freno 2007 Bajaj",
+    " PRECIO COSTO ": 3.5,
+    " PRECIO VENTA ": 6.5,
+    "EXISTENCIA": 3
+  },
+  {
+    "CODIGO": "AP111023",
+    "DESCRIPCIONINVENTARIO": "Switch de neutro compact",
+    " PRECIO COSTO ": 2,
+    " PRECIO VENTA ": 6,
+    "EXISTENCIA": 8
+  },
+  {
+    "CODIGO": "BA132141-B",
+    "DESCRIPCIONINVENTARIO": "T de cambio",
+    " PRECIO COSTO ": 0.85,
+    " PRECIO VENTA ": 3.5,
+    "EXISTENCIA": 5
+  },
+  {
+    "CODIGO": 22151106,
+    "DESCRIPCIONINVENTARIO": "Tambores de frenos BAJAJ",
+    " PRECIO COSTO ": 21,
+    " PRECIO VENTA ": 24.5,
+    "EXISTENCIA": 2
+  },
+  {
+    "CODIGO": "AA131014",
+    "DESCRIPCIONINVENTARIO": "Tapa de corona",
+    " PRECIO COSTO ": 16.500034,
+    " PRECIO VENTA ": 23,
+    "EXISTENCIA": 1
+  },
+  {
+    "CODIGO": "36AA4020",
+    "DESCRIPCIONINVENTARIO": "Tensor de cadena de tiempo",
+    " PRECIO COSTO ": 5.5,
+    " PRECIO VENTA ": 9,
+    "EXISTENCIA": 14
+  },
+  {
+    "CODIGO": "B32025",
+    "DESCRIPCIONINVENTARIO": "Terminal de bateria dorado BCB par",
+    " PRECIO COSTO ": 2,
+    " PRECIO VENTA ": 6,
+    "EXISTENCIA": 5
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Tope de flecha",
+    " PRECIO VENTA ": 1,
+    "EXISTENCIA": 73
+  },
+  {
+    "CODIGO": 4632,
+    "DESCRIPCIONINVENTARIO": "Tornillo  eje de muleta",
+    " PRECIO VENTA ": 4,
+    "EXISTENCIA": 5
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Tornillo de cruz",
+    " PRECIO VENTA ": 4,
+    "EXISTENCIA": 10
+  },
+  {
+    "CODIGO": "P094",
+    "DESCRIPCIONINVENTARIO": "Tornillo de graduacion de frenos BCB",
+    " PRECIO COSTO ": 2,
+    " PRECIO VENTA ": 5,
+    "EXISTENCIA": 15
+  },
+  {
+    "CODIGO": 24151175,
+    "DESCRIPCIONINVENTARIO": "Tornillo de graduacion de frenos LH BAJAJ",
+    " PRECIO COSTO ": 2.75,
+    " PRECIO VENTA ": 6.5,
+    "EXISTENCIA": 3
+  },
+  {
+    "CODIGO": 24151179,
+    "DESCRIPCIONINVENTARIO": "Tornillo de graduacion de frenos RH BAJAJ",
+    " PRECIO COSTO ": 2.75,
+    " PRECIO VENTA ": 6.5,
+    "EXISTENCIA": 3
+  },
+  {
+    "CODIGO": "AB151052",
+    "DESCRIPCIONINVENTARIO": "Tuberia enrrollada delantera",
+    " PRECIO VENTA ": 6,
+    "EXISTENCIA": 6
+  },
+  {
+    "CODIGO": 39193815,
+    "DESCRIPCIONINVENTARIO": "Tuerca de clutch",
+    " PRECIO VENTA ": 2,
+    "EXISTENCIA": 9
+  },
+  {
+    "DESCRIPCIONINVENTARIO": "Volante solo Bajaj 175",
+    " PRECIO VENTA ": 50,
+    "EXISTENCIA": 2
+  }
+]

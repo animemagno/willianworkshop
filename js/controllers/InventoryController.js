@@ -572,21 +572,44 @@ class InventoryController {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
 
-            // Logic ported
-            const keywords = ['codigo', 'descrip', 'venta', 'precio', 'stock'];
+            console.log('Hojas encontradas:', workbook.SheetNames);
+
+            // Buscar hoja con datos de inventario (más flexible)
+            const keywords = ['codigo', 'cod', 'descrip', 'desc', 'venta', 'precio', 'stock', 'exist', 'producto'];
             let bestSheet = null;
+            let bestSheetName = '';
+
             for (const name of workbook.SheetNames) {
                 const sheet = workbook.Sheets[name];
                 const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+                console.log(`Analizando hoja "${name}":`, rows.slice(0, 5));
+
                 let matches = 0;
-                rows.slice(0, 20).forEach(row => {
+                // Revisar las primeras 30 filas
+                rows.slice(0, 30).forEach(row => {
                     const txt = JSON.stringify(row).toLowerCase();
-                    if (keywords.some(k => txt.includes(k))) matches++;
+                    keywords.forEach(k => {
+                        if (txt.includes(k)) matches++;
+                    });
                 });
-                if (matches > 1) { bestSheet = rows; break; }
+
+                console.log(`Hoja "${name}" tiene ${matches} coincidencias de palabras clave`);
+
+                // Si tiene al menos 1 coincidencia, considerarla válida
+                if (matches > 0) {
+                    bestSheet = rows;
+                    bestSheetName = name;
+                    break;
+                }
             }
 
-            if (!bestSheet) { alert("No se detectó hoja válida."); return; }
+            if (!bestSheet) {
+                alert(`No se detectó hoja válida.\n\nHojas encontradas: ${workbook.SheetNames.join(', ')}\n\nAsegúrate de que tu Excel tenga encabezados con palabras como:\nCodigo, Descripcion, Precio, Venta, Stock, Existencia`);
+                return;
+            }
+
+            console.log(`Procesando hoja: "${bestSheetName}"`);
             this.processExcelRows(bestSheet);
         };
         reader.readAsArrayBuffer(file);
@@ -602,17 +625,23 @@ class InventoryController {
 
         if (headerIdx === -1) { alert("No se encontraron encabezados."); return; }
 
-        const headers = rows[headerIdx].map(h => String(h).toLowerCase().trim());
+        // LIMPIAR ESPACIOS EN BLANCO DE HEADERS
+        const rawHeaders = rows[headerIdx];
+        const headers = rawHeaders.map(h => String(h).toLowerCase().trim());
         const dataRows = rows.slice(headerIdx + 1);
 
+        console.log('Headers detectados (limpios):', headers);
+
         const colMap = {
-            codigo: headers.findIndex(h => h.includes('cod') || h.includes('id')),
-            desc: headers.findIndex(h => h.includes('desc') || h.includes('prod')),
-            costo: headers.findIndex(h => h.includes('costo') || h.includes('compra')),
-            precio: headers.findIndex(h => (h.includes('precio') || h.includes('venta')) && !h.includes('costo')),
+            codigo: headers.findIndex(h => h.includes('cod') || h === 'id'),
+            desc: headers.findIndex(h => h.includes('descrip') || h.includes('prod') || h.includes('inventario')),
+            costo: headers.findIndex(h => h.includes('precio') && h.includes('costo')),
+            precio: headers.findIndex(h => h.includes('precio') && h.includes('venta')),
             exist: headers.findIndex(h => h.includes('exist') || h.includes('cant') || h.includes('stock')),
             prov: headers.findIndex(h => h.includes('prov'))
         };
+
+        console.log('Mapeo de columnas:', colMap);
 
         this.excelData = dataRows.map(row => {
             if (!row[colMap.codigo] && !row[colMap.desc]) return null;
@@ -622,14 +651,14 @@ class InventoryController {
                 return parseFloat(String(val).replace(/[^0-9.]/g, '')) || 0;
             };
             return {
-                codigo: row[colMap.codigo] ? String(row[colMap.codigo]) : "GEN-" + Math.floor(Math.random() * 10000),
+                codigo: row[colMap.codigo] ? String(row[colMap.codigo]) : "",
                 descripcion: row[colMap.desc] || "Sin Descripción",
                 descripcionFactura: "",
                 costo: cleanNum(row[colMap.costo]),
                 precio: cleanNum(row[colMap.precio]),
                 existencia: cleanNum(row[colMap.exist]),
-                stockMinimo: 5,
-                creditoFiscal: false,
+                stockMinimo: 3,
+                creditoFiscal: true,
                 proveedor: row[colMap.prov] || ""
             };
         }).filter(item => item !== null);

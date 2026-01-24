@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exportar Inventario Firebase</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        #status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>📦 Exportar Inventario desde Firebase</h1>
+        <p>Este script descargará toda la colección <strong>INVENTARIO</strong> de la base de datos de willianworkshop.
+        </p>
+
+        <button id="btnExport" onclick="exportInventario()">Exportar INVENTARIO</button>
+
+        <div id="status"></div>
+    </div>
+
+    <script>
+        // Configuración Firebase de willianworkshop
+        const firebaseConfig = {
+            apiKey: "AIzaSyCaZdPPYddeMPTiNm5cCdFL6m9b9swX0-c",
+            authDomain: "williantaller-1426b.firebaseapp.com",
+            projectId: "williantaller-1426b",
+            storageBucket: "williantaller-1426b.firebasestorage.app",
+            messagingSenderId: "757966587061",
+            appId: "1:757966587061:web:6c700e862317119d64aafc"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = type;
+            statusDiv.style.display = 'block';
+        }
+
+        async function exportInventario() {
+            const btn = document.getElementById('btnExport');
+            btn.disabled = true;
+
+            try {
+                showStatus('Descargando inventario de Firebase...', 'info');
+
+                const snapshot = await db.collection('INVENTARIO').get();
+
+                if (snapshot.empty) {
+                    showStatus('⚠️ La colección INVENTARIO está vacía', 'error');
+                    btn.disabled = false;
+                    return;
+                }
+
+                const inventario = [];
+                snapshot.forEach(doc => {
+                    inventario.push({
+                        id: doc.id,
+                        ...doc.data()
+                    });
+                });
+
+                showStatus(`✓ ${inventario.length} productos descargados. Generando archivo...`, 'info');
+
+                // Crear y descargar archivo JSON
+                const jsonStr = JSON.stringify(inventario, null, 2);
+                const blob = new Blob([jsonStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `inventario_firebase_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                showStatus(`✅ Archivo descargado: ${inventario.length} productos exportados`, 'success');
+
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus(`❌ Error: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+
+</html>
