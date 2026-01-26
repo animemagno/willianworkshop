@@ -247,6 +247,25 @@ class InventoryController {
         const btnProcessEntry = document.getElementById('btn-process-entry');
         if (btnProcessEntry) btnProcessEntry.addEventListener('click', () => this.processEntry());
 
+        // PROVEEDOR: Forzar mayúsculas en tiempo real
+        const provInput = document.getElementById('entry-provider-input');
+        if (provInput) {
+            provInput.addEventListener('input', (e) => {
+                e.target.value = e.target.value.toUpperCase();
+            });
+        }
+
+        // ALTA RÁPIDA: Navegación ENTER en Precio
+        const qcPrecio = document.getElementById('qc-precio');
+        if (qcPrecio) {
+            qcPrecio.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.confirmAddEntryItem();
+                }
+            });
+        }
+
         // SALIDAS EVENTS (NUEVO REFACTOR)
         const btnOpenExit = document.getElementById('btn-open-exit-modal');
         if (btnOpenExit) btnOpenExit.addEventListener('click', () => this.openExitModal());
@@ -798,21 +817,28 @@ class InventoryController {
         this.closeEntryModal(); // Resetea campos e ID
         this.entryCart = [];
         this.renderEntryCart();
-        // ... (resto del código)
-        const dl = document.getElementById('provider-list');
-        if (dl) {
-            dl.innerHTML = '';
-            try {
-                // If not cached or reload necessary
-                const provs = await this.svc.obtenerProveedores();
-                this.providersCache = provs;
-                provs.forEach(p => {
-                    const opt = document.createElement('option');
-                    opt.value = p.nombre || "";
-                    dl.appendChild(opt);
-                });
-            } catch (e) { }
+
+        try {
+            // 1. Cargar Proveedores Registrados (Oficiales)
+            const provs = await this.svc.obtenerProveedores();
+            this.providersCache = provs;
+
+            // 2. Cargar Historial para sugerencias (Últimos usados)
+            const entries = await this.svc.obtenerEntradas();
+            const historicalProviders = [...new Set(entries.map(e => e.providerName).filter(Boolean))];
+
+            // 3. Combinar y actualizar lista de sugerencias
+            const allSuggestions = Array.from(new Set([
+                ...this.providersCache.map(p => p.nombre),
+                ...historicalProviders
+            ])).sort();
+
+            this.ui.updateProviderSuggestions(allSuggestions);
+
+        } catch (e) {
+            console.error("Error al cargar lista de proveedores:", e);
         }
+
         document.getElementById('entry-modal').style.display = 'flex';
         // Focus provider
         const provInput = document.getElementById('entry-provider-input');
@@ -822,12 +848,11 @@ class InventoryController {
     closeEntryModal() {
         document.getElementById('entry-modal').style.display = 'none';
         // Reset fields
-        const inputs = ['entry-provider-input', 'entry-temp-qty', 'entry-temp-name', 'entry-temp-id', 'entry-temp-cost'];
+        const inputs = ['entry-temp-qty', 'entry-temp-name', 'entry-temp-id', 'entry-temp-cost'];
         inputs.forEach(id => {
             const el = document.getElementById(id);
-            if (el) el.value = (id === 'entry-temp-qty') ? 1 : '';
+            if (el) el.value = '';
         });
-
     }
 
     handleEntryProductSearch(query) {
@@ -894,8 +919,9 @@ class InventoryController {
     }
 
     resetEntryForm() {
-        document.getElementById('entry-provider-input').value = '';
-        document.getElementById('entry-temp-qty').value = 1;
+        const lastProv = localStorage.getItem('last_entry_provider') || '';
+        document.getElementById('entry-provider-input').value = lastProv;
+        document.getElementById('entry-temp-qty').value = '';
         document.getElementById('entry-temp-name').value = '';
         document.getElementById('entry-temp-id').value = '';
         document.getElementById('entry-temp-cost').value = '';
@@ -943,7 +969,8 @@ class InventoryController {
             name: descripcion,          // Clean Name (No [CODE])
             cost: costo,
             qty: this.currentQuickQty,  // Saved from temp
-            salePrice: precioVenta      // Manual Price
+            salePrice: precioVenta,     // Manual Price
+            creditoFiscal: this.currentSessionFiscal // Propagar estado actual
         });
 
         this.closeQuickCreate();
@@ -975,7 +1002,7 @@ class InventoryController {
             document.getElementById('qc-codigo').value = "";
             document.getElementById('qc-codigos-extra').value = "";
             document.getElementById('qc-descripcion').value = name; // Pre-fill
-            document.getElementById('qc-costo').value = cost.toFixed(2);
+            document.getElementById('qc-costo').value = cost.toFixed(4);
             document.getElementById('qc-precio').value = ""; // Empty by default
 
             // Auto-Generate Code Option? No, let user decide in modal.
@@ -996,7 +1023,8 @@ class InventoryController {
                 name: displayName,
                 qty: qty,
                 cost: cost,
-                salePrice: null // Not changing price
+                salePrice: null, // Not changing price
+                creditoFiscal: this.currentSessionFiscal // Propagar estado actual
             });
         }
     }
@@ -1011,6 +1039,7 @@ class InventoryController {
             qty: data.qty,
             cost: data.cost,
             salePrice: data.salePrice, // Will be passed to service
+            creditoFiscal: data.creditoFiscal || false, // NEW
             subtotal: data.qty * data.cost
         });
 
@@ -1018,7 +1047,7 @@ class InventoryController {
         document.getElementById('entry-temp-name').value = '';
         document.getElementById('entry-temp-id').value = '';
         document.getElementById('entry-temp-cost').value = '';
-        document.getElementById('entry-temp-qty').value = 1;
+        document.getElementById('entry-temp-qty').value = '';
 
         document.getElementById('entry-temp-qty').focus();
         this.renderEntryCart();
@@ -1041,7 +1070,7 @@ class InventoryController {
                 <td><small>${item.displayCode || 'NUEVO'}</small></td>
                 <td style="text-align:center">${item.qty}</td>
                 <td>${item.name}</td>
-                <td style="text-align:right">$${item.cost.toFixed(2)}</td>
+                <td style="text-align:right; font-size:0.85rem; color:#666;">$${item.cost.toFixed(4)}</td>
                 <td style="text-align:right">${salePriceStr}</td>
                 <td style="text-align:right">$${item.subtotal.toFixed(2)}</td>
                 <td style="text-align:center"><button onclick="app.removeEntryItem(${item.tempId})" style="color:red;border:none;background:none;cursor:pointer;"><i class="fas fa-times"></i></button></td>
@@ -1057,7 +1086,8 @@ class InventoryController {
 
     async processEntry() {
         if (this.entryCart.length === 0) return alert("Carrito vacío");
-        const provName = document.getElementById('entry-provider-input').value;
+        const provInput = document.getElementById('entry-provider-input');
+        const provName = provInput ? provInput.value.trim().toUpperCase() : "";
         if (!provName) return alert("Ingrese Proveedor");
 
         // Provider Match Logic
@@ -1075,6 +1105,7 @@ class InventoryController {
             if (btn) { btn.disabled = true; btn.innerText = "Procesando..."; }
             try {
                 await this.svc.registrarEntradaMasiva(this.entryCart, provId, provName, isCredit);
+                localStorage.setItem('last_entry_provider', provName);
                 alert("Entrada registrada!");
                 this.closeEntryModal();
                 this.loadData();
@@ -1151,6 +1182,9 @@ class InventoryController {
                             <td style="text-align:center">${b.totalProductos} productos</td>
                             <td style="text-align:right">
                                 <button class="btn btn-sm btn-warning" onclick="app.restoreBackup('${b.id}')">Restaurar</button>
+                                <button class="btn btn-sm btn-danger" onclick="app.deleteBackup('${b.id}')" title="Eliminar Backup">
+                                    <i class="fas fa-trash"></i>
+                                </button>
                             </td>
                         </tr>
                     `;
@@ -1170,6 +1204,208 @@ class InventoryController {
                 alert("Error al restaurar: " + e);
             }
         }
+    }
+
+    async deleteBackup(id) {
+        if (confirm("¿Estás seguro de que deseas eliminar este backup permanentemente?")) {
+            try {
+                await this.svc.eliminarBackup(id);
+                alert("✅ Backup eliminado.");
+                this.openBackupHistory(); // Refrescar lista
+            } catch (e) {
+                alert("Error al eliminar backup: " + e);
+            }
+        }
+    }
+
+    // =========================================
+    // SISTEMA DE ARCHIVADO MENSUAL (CIERRE)
+    // =========================================
+    async promptArchiveMonth() {
+        const now = new Date();
+        // Sugerir mes anterior
+        let m = now.getMonth(); // 0-11 (mes anterior si hoy es m+1)
+        let a = now.getFullYear();
+        if (m === 0) { m = 12; a--; }
+
+        const mesStr = prompt("Ingrese el MES a cerrar (1-12):", m);
+        const anioStr = prompt("Ingrese el AÑO a cerrar (YYYY):", a);
+
+        if (!mesStr || !anioStr) return;
+
+        const mes = parseInt(mesStr);
+        const anio = parseInt(anioStr);
+
+        if (confirm(`⚠️ ATENCIÓN: Se ARCHIVARÁN todos los movimientos de ${mes}/${anio}.\n\n` +
+            `Estos registros se moverán al histórico y se borrarán de la lista activa para mejorar la velocidad.\n\n` +
+            `¿Deseas continuar?`)) {
+            try {
+                const btn = document.querySelector('[onclick="app.promptArchiveMonth()"]');
+                if (btn) { btn.disabled = true; btn.innerText = "Cerrando..."; }
+
+                await this.svc.archivarMovimientosMes(mes, anio);
+
+                alert("✅ Mes cerrado y archivado correctamente.");
+                this.loadEntries(); // Refrescar entradas activas
+                this.loadSalidas(); // Refrescar salidas activas (facturas)
+            } catch (e) {
+                alert("Error: " + e);
+            } finally {
+                const btn = document.querySelector('[onclick="app.promptArchiveMonth()"]');
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-calendar-check"></i> Realizar Cierre de Mes'; }
+            }
+        }
+    }
+
+    async openArchiveHistory() {
+        try {
+            const archives = await this.svc.obtenerArchivosMensuales();
+            const tbody = document.getElementById('archive-history-body');
+            if (!tbody) return;
+
+            tbody.innerHTML = '';
+            if (archives.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center">No hay archivos mensuales registrados.</td></tr>';
+            } else {
+                archives.forEach(arc => {
+                    const cierre = arc.fechaCierre ? new Date(arc.fechaCierre.seconds * 1000).toLocaleDateString() : '-';
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><strong>${arc.periodo}</strong></td>
+                            <td>${cierre}</td>
+                            <td style="text-align:center">${arc.totalEntradas} Ent / ${arc.totalSalidas} Sal</td>
+                            <td style="text-align:right">
+                                <button class="btn btn-sm" style="background:#e74c3c; color:white;" onclick="app.exportArchiveToPDF('${arc.id}')">
+                                    <i class="fas fa-file-pdf"></i> PDF
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+            document.getElementById('modalArchiveHistory').style.display = 'flex';
+        } catch (e) { console.error(e); }
+    }
+
+    async exportArchiveToPDF(id) {
+        try {
+            const data = await this.svc.obtenerDetalleArchivo(id);
+            if (!data) return alert("Archivo no encontrado");
+
+            // Crear contenedor temporal para el PDF
+            const container = document.createElement('div');
+            container.style.padding = '40px';
+            container.style.fontSize = '12px';
+            container.style.fontFamily = 'Arial, sans-serif';
+
+            let html = `
+                <div style="text-align:center; margin-bottom: 20px;">
+                    <h1 style="margin:0;">TALLER WILLIAN</h1>
+                    <h2 style="margin:5px 0; color:#34495e;">Reporte Mensual de Movimientos</h2>
+                    <h3 style="margin:0;">Periodo: ${data.periodo}</h3>
+                    <p>Fecha de Cierre: ${new Date(data.fechaCierre.seconds * 1000).toLocaleString()}</p>
+                </div>
+
+                <hr style="border:1px solid #eee;">
+                
+                <h3>1. RESUMEN DE ENTRADAS (${data.totalEntradas} registros)</h3>
+                <table style="width:100%; border-collapse:collapse; margin-bottom:30px;">
+                    <thead>
+                        <tr style="background:#f2f2f2;">
+                            <th style="border:1px solid #ddd; padding:8px; text-align:left;">Fecha</th>
+                            <th style="border:1px solid #ddd; padding:8px; text-align:left;">Proveedor</th>
+                            <th style="border:1px solid #ddd; padding:8px; text-align:center;">Items</th>
+                            <th style="border:1px solid #ddd; padding:8px; text-align:right;">Total ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            let totalEntMoney = 0;
+            data.entradas.forEach(e => {
+                const date = e.timestamp ? new Date(e.timestamp.seconds * 1000).toLocaleDateString() : '-';
+                const total = e.total || 0;
+                totalEntMoney += total;
+                html += `
+                    <tr>
+                        <td style="border:1px solid #ddd; padding:8px;">${date}</td>
+                        <td style="border:1px solid #ddd; padding:8px;">${e.providerName || '-'}</td>
+                        <td style="border:1px solid #ddd; padding:8px; text-align:center;">${(e.items || []).length}</td>
+                        <td style="border:1px solid #ddd; padding:8px; text-align:right;">$${total.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                    <tfoot>
+                        <tr style="font-weight:bold; background:#eee;">
+                            <td colspan="3" style="border:1px solid #ddd; padding:8px; text-align:right;">TOTAL ENTRADAS:</td>
+                            <td style="border:1px solid #ddd; padding:8px; text-align:right;">$${totalEntMoney.toFixed(2)}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <h3>2. RESUMEN DE SALIDAS (${data.totalSalidas} registros)</h3>
+                <table style="width:100%; border-collapse:collapse;">
+                    <thead>
+                        <tr style="background:#f2f2f2;">
+                            <th style="border:1px solid #ddd; padding:8px; text-align:left;">Fecha</th>
+                            <th style="border:1px solid #ddd; padding:8px; text-align:left;">Factura</th>
+                            <th style="border:1px solid #ddd; padding:8px; text-align:left;">Cliente</th>
+                            <th style="border:1px solid #ddd; padding:8px; text-align:right;">Total ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            let totalSalMoney = 0;
+            data.salidas.forEach(s => {
+                const date = s.fecha || '-';
+                const total = s.total || 0;
+                totalSalMoney += total;
+                html += `
+                    <tr>
+                        <td style="border:1px solid #ddd; padding:8px;">${date}</td>
+                        <td style="border:1px solid #ddd; padding:8px;">${s.numeroFactura || '-'}</td>
+                        <td style="border:1px solid #ddd; padding:8px;">${s.cliente || '-'}</td>
+                        <td style="border:1px solid #ddd; padding:8px; text-align:right;">$${total.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                    <tfoot>
+                        <tr style="font-weight:bold; background:#eee;">
+                            <td colspan="3" style="border:1px solid #ddd; padding:8px; text-align:right;">TOTAL SALIDAS:</td>
+                            <td style="border:1px solid #ddd; padding:8px; text-align:right;">$${totalSalMoney.toFixed(2)}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <div style="margin-top:50px; text-align:right; color:#7f8c8d; font-size:10px;">
+                    Generado automáticamente por Sistema Taller Willian el ${new Date().toLocaleString()}
+                </div>
+            `;
+
+            container.innerHTML = html;
+            document.body.appendChild(container); // Necesario para que html2pdf lo vea bien
+
+            const opt = {
+                margin: 0.5,
+                filename: `Reporte_${data.periodo.replace('/', '_')}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+
+            // @ts-ignore
+            html2pdf().from(container).set(opt).save().then(() => {
+                document.body.removeChild(container);
+            });
+
+        } catch (e) { alert("Error al exportar: " + e); }
     }
 
     // =========================================

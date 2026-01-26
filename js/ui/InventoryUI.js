@@ -161,6 +161,18 @@ class InventoryUI {
         }
         this.els.excelContent.innerHTML = html;
     }
+
+    updateProviderSuggestions(list) {
+        const dl = document.getElementById('provider-list');
+        if (!dl) return;
+        dl.innerHTML = '';
+        list.forEach(name => {
+            if (!name) return;
+            const opt = document.createElement('option');
+            opt.value = name;
+            dl.appendChild(opt);
+        });
+    }
 }
 
 // Exponer globalmente

@@ -387,7 +387,11 @@ class InventoryService {
                     newCost = totalValue / newStock;
                 }
 
-                transaction.update(pRead.ref, { existencia: newStock, costo: newCost });
+                transaction.update(pRead.ref, {
+                    existencia: newStock,
+                    costo: newCost,
+                    creditoFiscal: item.creditoFiscal // Propagar estado de CF
+                });
 
                 historyItems.push({
                     productId: item.productId,
@@ -660,6 +664,90 @@ class InventoryService {
             });
             return true;
         } catch (e) { throw e; }
+    }
+
+    // --- SISTEMA DE ARCHIVADO MENSUAL ---
+    async archivarMovimientosMes(mes, anio) {
+        const db = firebase.firestore();
+        const start = new Date(anio, mes - 1, 1);
+        const end = new Date(anio, mes, 0, 23, 59, 59);
+
+        // 1. Obtener Entradas y Salidas del periodo
+        const entriesSnap = await db.collection('INVENTARIO_ENTRADAS')
+            .where('timestamp', '>=', start)
+            .where('timestamp', '<=', end)
+            .get();
+
+        const exitsSnap = await db.collection('INVENTARIO_SALIDAS')
+            .where('timestamp', '>=', start)
+            .where('timestamp', '<=', end)
+            .get();
+
+        if (entriesSnap.empty && exitsSnap.empty) throw "No hay movimientos para archivar en este periodo.";
+
+        const entries = entriesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const exits = exitsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        // 2. Crear Registro de Archivo
+        const archiveRef = db.collection('ARCHIVOS_MENSUALES').doc();
+        await archiveRef.set({
+            mes,
+            anio,
+            periodo: `${mes}/${anio}`,
+            fechaCierre: firebase.firestore.FieldValue.serverTimestamp(),
+            totalEntradas: entries.length,
+            totalSalidas: exits.length,
+            entradas: entries,
+            salidas: exits
+        });
+
+        // 3. Eliminar Originales (Batch)
+        let batch = db.batch();
+        let counts = 0;
+
+        entriesSnap.docs.forEach(doc => {
+            batch.delete(doc.ref);
+            counts++;
+            if (counts % 450 === 0) { batch.commit(); batch = db.batch(); }
+        });
+
+        exitsSnap.docs.forEach(doc => {
+            batch.delete(doc.ref);
+            counts++;
+            if (counts % 450 === 0) { batch.commit(); batch = db.batch(); }
+        });
+
+        if (counts % 450 !== 0) await batch.commit();
+
+        return true;
+    }
+
+    async obtenerArchivosMensuales() {
+        try {
+            const snapshot = await firebase.firestore()
+                .collection('ARCHIVOS_MENSUALES')
+                .orderBy('fechaCierre', 'desc')
+                .get();
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch (e) { return []; }
+    }
+
+    async obtenerDetalleArchivo(id) {
+        try {
+            const doc = await firebase.firestore().collection('ARCHIVOS_MENSUALES').doc(id).get();
+            return doc.exists ? doc.data() : null;
+        } catch (e) { throw e; }
+    }
+
+    // --- ELIMINAR BACKUP ---
+    async eliminarBackup(backupId) {
+        try {
+            await firebase.firestore().collection('INVENTARIO_BACKUPS').doc(backupId).delete();
+            return true;
+        } catch (e) {
+            console.error("Error eliminando backup:", e);
+            throw e;
+        }
     }
 }
 

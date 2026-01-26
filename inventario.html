@@ -424,793 +424,857 @@
                         </table>
                     </div>
                 </div>
+
+                <!-- SECCIÓN MANTENIMIENTO / ARCHIVOS -->
+                <div style="margin-top: 40px; padding-top: 20px; border-top: 2px dashed #eee;">
+                    <h3 style="color: #666; margin-bottom: 20px;"><i class="fas fa-toolbox"></i> Mantenimiento de Datos
+                    </h3>
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                        <button class="btn" style="background: #2980b9; color: white;"
+                            onclick="app.openArchiveHistory()">
+                            <i class="fas fa-archive"></i> Ver Archivos Mensuales
+                        </button>
+                        <button class="btn" style="background: #e67e22; color: white;"
+                            onclick="app.promptArchiveMonth()">
+                            <i class="fas fa-calendar-check"></i> Realizar Cierre de Mes
+                        </button>
+                        <button class="btn" style="background: #7f8c8d; color: white;"
+                            onclick="app.openBackupHistory()">
+                            <i class="fas fa-history"></i> Gestionar Backups
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MODAL ARCHIVOS MENSUALES -->
+            <div id="modalArchiveHistory" class="modal-overlay" style="display: none;">
+                <div class="modal-content" style="max-width: 800px;">
+                    <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3><i class="fas fa-archive"></i> Archivos Mensuales (Cierres)</h3>
+                        <span class="close-modal-btn"
+                            onclick="document.getElementById('modalArchiveHistory').style.display='none'">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <p style="color:#666; font-size:0.9rem; margin-bottom:15px;">Aquí se guardan las entradas y
+                            salidas de meses anteriores para mantener el sistema ágil.</p>
+                        <div style="max-height: 400px; overflow-y: auto;">
+                            <table class="inventario-table">
+                                <thead>
+                                    <tr>
+                                        <th>Periodo</th>
+                                        <th>Fecha Cierre</th>
+                                        <th style="text-align:center">Movimientos</th>
+                                        <th style="text-align:right">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="archive-history-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- MODAL EDITAR PRODUCTO -->
+        <div id="modalEditarProducto" class="modal-overlay" style="display: none;">
+            <div class="modal-content">
+                <span class="close-modal-btn"
+                    onclick="document.getElementById('modalEditarProducto').style.display='none'">&times;</span>
+                <h3>Editar Producto</h3>
+                <form id="form-editar-producto">
+                    <input type="hidden" id="edit-id">
+                    <div class="form-grid">
+                        <div class="form-group"><label>Código</label><input type="text" id="edit-codigo"></div>
+                        <div class="form-group"><label>Cod. Prov</label><input type="text" id="edit-codigos-proveedor">
+                        </div>
+                        <div class="form-group"><label>Proveedor</label><input type="text" id="edit-proveedor"></div>
+
+                        <div class="form-group" style="grid-column: span 2;"><label>Desc. Inventario</label><input
+                                type="text" id="edit-desc-inventario"></div>
+                        <div class="form-group" style="grid-column: span 2;"><label>Desc. Factura</label><input
+                                type="text" id="edit-desc-factura"></div>
+
+                        <div class="form-group"><label>Costo</label><input type="number" id="edit-precio-costo"
+                                step="0.01">
+                        </div>
+                        <div class="form-group"><label>Venta</label><input type="number" id="edit-precio-venta"
+                                step="0.01">
+                        </div>
+                        <div class="form-group"><label>Exist.</label><input type="number" id="edit-existencia"></div>
+                        <div class="form-group"><label>Min.</label><input type="number" id="edit-stock-minimo"></div>
+                        <div class="form-group">
+                            <label>Credito F.</label>
+                            <div style="margin-top:5px;"><input type="checkbox" id="edit-credito-fiscal"> SI</div>
+                        </div>
+                    </div>
+                    <div style="margin-top:20px; text-align:right;">
+                        <button type="button" class="btn btn-success" id="btn-update-product">Actualizar</button>
+                    </div>
+                </form>
             </div>
         </div>
 
-    </div>
+        <!-- MODAL NUEVA SALIDA / FACTURA (REDISEÑO FINAL FINAL - IGUAL A ENTRADA) -->
+        <div id="exit-modal" class="modal-overlay" style="display: none;">
+            <div class="modal-content"
+                style="max-width: 95vw; width: 1400px; height: 85vh; padding: 0; display:flex; flex-direction: column;">
 
-    <!-- MODAL EDITAR PRODUCTO -->
-    <div id="modalEditarProducto" class="modal-overlay" style="display: none;">
-        <div class="modal-content">
-            <span class="close-modal-btn"
-                onclick="document.getElementById('modalEditarProducto').style.display='none'">&times;</span>
-            <h3>Editar Producto</h3>
-            <form id="form-editar-producto">
-                <input type="hidden" id="edit-id">
-                <div class="form-grid">
-                    <div class="form-group"><label>Código</label><input type="text" id="edit-codigo"></div>
-                    <div class="form-group"><label>Cod. Prov</label><input type="text" id="edit-codigos-proveedor">
-                    </div>
-                    <div class="form-group"><label>Proveedor</label><input type="text" id="edit-proveedor"></div>
-
-                    <div class="form-group" style="grid-column: span 2;"><label>Desc. Inventario</label><input
-                            type="text" id="edit-desc-inventario"></div>
-                    <div class="form-group" style="grid-column: span 2;"><label>Desc. Factura</label><input type="text"
-                            id="edit-desc-factura"></div>
-
-                    <div class="form-group"><label>Costo</label><input type="number" id="edit-precio-costo" step="0.01">
-                    </div>
-                    <div class="form-group"><label>Venta</label><input type="number" id="edit-precio-venta" step="0.01">
-                    </div>
-                    <div class="form-group"><label>Exist.</label><input type="number" id="edit-existencia"></div>
-                    <div class="form-group"><label>Min.</label><input type="number" id="edit-stock-minimo"></div>
-                    <div class="form-group">
-                        <label>Credito F.</label>
-                        <div style="margin-top:5px;"><input type="checkbox" id="edit-credito-fiscal"> SI</div>
-                    </div>
+                <!-- HEADER (Como Entrada) -->
+                <div class="modal-header" style="padding: 15px 20px; border-bottom: 1px solid #eee;">
+                    <h3><i class="fas fa-file-invoice"></i> Registrar Factura Física (Salidas)</h3>
+                    <span class="close-modal-btn" id="btn-close-exit-modal"
+                        style="position:static; float:right;">&times;</span>
                 </div>
-                <div style="margin-top:20px; text-align:right;">
-                    <button type="button" class="btn btn-success" id="btn-update-product">Actualizar</button>
-                </div>
-            </form>
-        </div>
-    </div>
 
-    <!-- MODAL NUEVA SALIDA / FACTURA (REDISEÑO FINAL FINAL - IGUAL A ENTRADA) -->
-    <div id="exit-modal" class="modal-overlay" style="display: none;">
-        <div class="modal-content"
-            style="max-width: 95vw; width: 1400px; height: 85vh; padding: 0; display:flex; flex-direction: column;">
+                <div class="modal-body" style="display: flex; flex: 1; overflow: hidden; padding: 0;">
 
-            <!-- HEADER (Como Entrada) -->
-            <div class="modal-header" style="padding: 15px 20px; border-bottom: 1px solid #eee;">
-                <h3><i class="fas fa-file-invoice"></i> Registrar Factura Física (Salidas)</h3>
-                <span class="close-modal-btn" id="btn-close-exit-modal"
-                    style="position:static; float:right;">&times;</span>
-            </div>
+                    <!-- PANEL IZQUIERDO: INPUTS (40%) -->
+                    <div
+                        style="width: 40%; padding: 20px; border-right: 1px solid #eee; display: flex; flex-direction: column; gap: 20px; background: #fff;">
 
-            <div class="modal-body" style="display: flex; flex: 1; overflow: hidden; padding: 0;">
+                        <!-- 1. Datos Factura (Equivalente a Proveedor) -->
+                        <label style="font-weight:bold; margin-bottom:-10px;">Datos de Factura</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="exit-invoice-number" placeholder="N° Factura"
+                                style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                            <input type="date" id="exit-date"
+                                style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                        </div>
+                        <div id="invoice-warning" style="font-size:0.8rem; color:red; display:none; margin-top:-15px;">
+                        </div>
 
-                <!-- PANEL IZQUIERDO: INPUTS (40%) -->
-                <div
-                    style="width: 40%; padding: 20px; border-right: 1px solid #eee; display: flex; flex-direction: column; gap: 20px; background: #fff;">
-
-                    <!-- 1. Datos Factura (Equivalente a Proveedor) -->
-                    <label style="font-weight:bold; margin-bottom:-10px;">Datos de Factura</label>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="text" id="exit-invoice-number" placeholder="N° Factura"
-                            style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
-                        <input type="date" id="exit-date"
-                            style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
-                    </div>
-                    <div id="invoice-warning" style="font-size:0.8rem; color:red; display:none; margin-top:-15px;">
-                    </div>
-
-                    <!-- 1.5 Datos Cliente -->
-                    <div style="display: flex; flex-direction: column; gap: 5px;">
-                        <label style="font-size:0.9rem; font-weight:bold;">Cliente</label>
-                        <input type="text" id="exit-client-name" placeholder="Nombre del cliente"
-                            style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
-                    </div>
-
-                    <!-- 2. Inputs Producto (Una linea) -->
-                    <div style="display: flex; gap: 10px; align-items: flex-end;">
-                        <div style="width: 70px;">
-                            <label style="font-size:0.9rem; font-weight:bold;">Cantidad</label>
-                            <input type="number" id="exit-temp-qty" value="1" min="0.1"
+                        <!-- 1.5 Datos Cliente -->
+                        <div style="display: flex; flex-direction: column; gap: 5px;">
+                            <label style="font-size:0.9rem; font-weight:bold;">Cliente</label>
+                            <input type="text" id="exit-client-name" placeholder="Nombre del cliente"
                                 style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
                         </div>
 
-                        <div style="flex: 1; position: relative;">
-                            <label style="font-size:0.9rem; font-weight:bold;">Buscar nombre del producto</label>
-                            <input type="text" id="exit-temp-search" placeholder="Escribir..."
-                                style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
-                            <input type="hidden" id="exit-temp-id">
-                            <input type="hidden" id="exit-temp-paper">
-                            <div id="exit-search-results"
-                                style="display:none; position:absolute; z-index:100; background:white; border:1px solid #ccc; width:100%; top:100%; left:0; max-height:200px; overflow:auto;">
+                        <!-- 2. Inputs Producto (Una linea) -->
+                        <div style="display: flex; gap: 10px; align-items: flex-end;">
+                            <div style="width: 70px;">
+                                <label style="font-size:0.9rem; font-weight:bold;">Cantidad</label>
+                                <input type="number" id="exit-temp-qty" value="1" min="0.1"
+                                    style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                            </div>
+
+                            <div style="flex: 1; position: relative;">
+                                <label style="font-size:0.9rem; font-weight:bold;">Buscar nombre del producto</label>
+                                <input type="text" id="exit-temp-search" placeholder="Escribir..."
+                                    style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                                <input type="hidden" id="exit-temp-id">
+                                <input type="hidden" id="exit-temp-paper">
+                                <div id="exit-search-results"
+                                    style="display:none; position:absolute; z-index:100; background:white; border:1px solid #ccc; width:100%; top:100%; left:0; max-height:200px; overflow:auto;">
+                                </div>
+                            </div>
+
+                            <div style="width: 100px;">
+                                <label style="font-size:0.9rem; font-weight:bold;">Precio/u</label>
+                                <input type="number" id="exit-temp-price" step="0.01" placeholder="0.00"
+                                    style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
                             </div>
                         </div>
 
-                        <div style="width: 100px;">
-                            <label style="font-size:0.9rem; font-weight:bold;">Precio/u</label>
-                            <input type="number" id="exit-temp-price" step="0.01" placeholder="0.00"
-                                style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                        <!-- 3. Opciones (Verticales como imagen) -->
+                        <div>
+                            <label style="font-weight: bold; display:block; margin-bottom:5px;">Factura con crédito
+                                fiscal</label>
+                            <div style="display: flex; gap: 20px;">
+                                <label style="cursor:pointer;"><input type="radio" name="exit-fiscal" value="SI">
+                                    SI</label>
+                                <label style="cursor:pointer;"><input type="radio" name="exit-fiscal" value="NO"
+                                        checked>
+                                    NO</label>
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- 3. Opciones (Verticales como imagen) -->
-                    <div>
-                        <label style="font-weight: bold; display:block; margin-bottom:5px;">Factura con crédito
-                            fiscal</label>
-                        <div style="display: flex; gap: 20px;">
-                            <label style="cursor:pointer;"><input type="radio" name="exit-fiscal" value="SI"> SI</label>
-                            <label style="cursor:pointer;"><input type="radio" name="exit-fiscal" value="NO" checked>
-                                NO</label>
+                        <!-- SPACER EMPUJA BOTONES AL FONDO -->
+                        <div style="flex: 1;"></div>
+
+                        <!-- BOTONES (ABAJO IZQUIERDA - 3 EN LINEA) -->
+                        <div style="display: flex; gap: 8px;">
+                            <button id="btn-cancel-exit"
+                                style="background: #e74c3c; color: white; border: none; padding: 10px 5px; border-radius: 5px; font-weight: bold; flex: 1; font-size: 0.9rem;">Cancelar</button>
+                            <button id="btn-save-exit"
+                                style="background: #2ecc71; color: white; border: none; padding: 10px 5px; border-radius: 5px; font-weight: bold; flex: 1; font-size: 0.9rem;">Guardar</button>
+                            <button id="btn-print-exit"
+                                style="background: #95a5a6; color: white; border: none; padding: 10px 5px; border-radius: 5px; font-weight: bold; flex: 1; font-size: 0.9rem;">Imprimir</button>
                         </div>
+
                     </div>
 
-                    <!-- SPACER EMPUJA BOTONES AL FONDO -->
-                    <div style="flex: 1;"></div>
+                    <!-- PANEL DERECHO: LISTA (60%) -->
+                    <div style="width: 60%; padding: 20px; display: flex; flex-direction: column; background: #fff;">
 
-                    <!-- BOTONES (ABAJO IZQUIERDA - 3 EN LINEA) -->
-                    <div style="display: flex; gap: 8px;">
-                        <button id="btn-cancel-exit"
-                            style="background: #e74c3c; color: white; border: none; padding: 10px 5px; border-radius: 5px; font-weight: bold; flex: 1; font-size: 0.9rem;">Cancelar</button>
-                        <button id="btn-save-exit"
-                            style="background: #2ecc71; color: white; border: none; padding: 10px 5px; border-radius: 5px; font-weight: bold; flex: 1; font-size: 0.9rem;">Guardar</button>
-                        <button id="btn-print-exit"
-                            style="background: #95a5a6; color: white; border: none; padding: 10px 5px; border-radius: 5px; font-weight: bold; flex: 1; font-size: 0.9rem;">Imprimir</button>
+                        <!-- Contenedor Borde Azul -->
+                        <div
+                            style="flex: 1; border: 1px solid #3498db; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; background: white;">
+
+                            <div
+                                style="display: flex; padding: 10px; font-weight: bold; color: #333; border-bottom: 1px solid #eee; background:#f8f9fa;">
+                                <div style="width: 80px;">Cod.</div>
+                                <div style="flex: 1;">Descripcion</div>
+                                <div style="width: 100px; text-align: center;">Cantidad</div>
+                                <div style="width: 100px; text-align: right;">Total</div>
+                                <div style="width: 40px;"></div>
+                            </div>
+
+                            <div style="flex: 1; overflow-y: auto;">
+                                <table style="width: 100%; border-collapse: collapse;">
+                                    <tbody id="exit-cart-body">
+                                        <!-- Rows JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+
+                        </div>
+
+                        <!-- Total Fuera del borde -->
+                        <div
+                            style="text-align: right; padding-top: 10px; font-size: 1.5rem; font-weight: bold; color: #333;">
+                            Total: <span id="exit-total-display" style="border-bottom: 2px solid #333;">$ 0.00</span>
+                        </div>
+
                     </div>
+                </div>
+            </div>
+        </div>
 
+        <!-- MODAL ENTRADAS (RESTORED ORIGINAL DESIGN) -->
+        <div id="entry-modal" class="modal-overlay" style="display: none;">
+            <div class="modal-content"
+                style="max-width: 95vw; width: 1400px; height: 85vh; padding: 0; display:flex; flex-direction: column;">
+
+                <div class="modal-header" style="padding: 15px 20px; border-bottom: 1px solid #eee;">
+                    <h3><i class="fas fa-truck-loading"></i> Registrar Entrada</h3>
+                    <span class="close-modal-btn" id="btn-close-entry-modal"
+                        style="position:static; float:right;">&times;</span>
                 </div>
 
-                <!-- PANEL DERECHO: LISTA (60%) -->
-                <div style="width: 60%; padding: 20px; display: flex; flex-direction: column; background: #fff;">
+                <div class="modal-body" style="display: flex; flex: 1; overflow: hidden; padding: 0;">
 
-                    <!-- Contenedor Borde Azul -->
+                    <!-- PANEL IZQUIERDO: INPUTS (40%) -->
                     <div
-                        style="flex: 1; border: 1px solid #3498db; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; background: white;">
+                        style="width: 40%; padding: 20px; border-right: 1px solid #eee; display: flex; flex-direction: column; gap: 20px; background: #fff;">
 
-                        <div
-                            style="display: flex; padding: 10px; font-weight: bold; color: #333; border-bottom: 1px solid #eee; background:#f8f9fa;">
-                            <div style="width: 80px;">Cod.</div>
-                            <div style="flex: 1;">Descripcion</div>
-                            <div style="width: 100px; text-align: center;">Cantidad</div>
-                            <div style="width: 100px; text-align: right;">Total</div>
-                            <div style="width: 40px;"></div>
+                        <!-- 1. Proveedor -->
+                        <div class="form-group">
+                            <label>Proveedor</label>
+                            <input type="text" id="entry-provider-input" list="provider-list"
+                                placeholder="Escribir o seleccionar..." autocomplete="off"
+                                style="text-transform: uppercase;">
+                            <datalist id="provider-list"></datalist>
                         </div>
 
-                        <div style="flex: 1; overflow-y: auto;">
-                            <table style="width: 100%; border-collapse: collapse;">
-                                <tbody id="exit-cart-body">
-                                    <!-- Rows JS -->
+                        <hr style="border: 0; border-top: 1px solid #f0f0f0;">
+
+                        <!-- 2. Inputs Producto (Una sola linea) -->
+                        <div style="display: flex; gap: 10px; align-items: flex-end;">
+                            <!-- Cantidad -->
+                            <div class="form-group" style="width: 100px;">
+                                <label style="white-space: nowrap;">Cantidad</label>
+                                <input type="number" id="entry-temp-qty" min="0.1" step="0.1" value="1"
+                                    placeholder="Cant." tabindex="1">
+                            </div>
+
+                            <!-- Producto -->
+                            <div class="form-group" style="flex: 1; position: relative;">
+                                <label>Buscar nombre del producto</label>
+                                <input type="text" id="entry-temp-name" placeholder="Escribir..." autocomplete="off"
+                                    tabindex="2">
+                                <div id="entry-search-results" class="search-results-dropdown"
+                                    style="display:none; position:absolute; z-index:100; background:white; border:1px solid #ccc; width:100%; max-height:200px; overflow:auto;">
+                                </div>
+                                <input type="hidden" id="entry-temp-id">
+                            </div>
+
+                            <!-- Precio -->
+                            <div class="form-group" style="width: 120px;">
+                                <label>Precio/unit</label>
+                                <input type="number" id="entry-temp-cost" min="0" step="0.01" placeholder="0.00"
+                                    tabindex="3">
+                            </div>
+
+                            <!-- Botón Agregar -->
+                            <div class="form-group">
+                                <label>&nbsp;</label>
+                                <button class="btn btn-primary" onclick="app.addEntryItem()" title="Agregar Item"
+                                    style="height: 38px;">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 3. Configuraciones (Radios) -->
+                        <div style="display: flex; flex-direction: column; gap: 20px; margin-top: 20px;">
+
+                            <!-- IVA -->
+                            <div id="entry-tax-container">
+                                <label style="display: block; font-weight: bold; margin-bottom: 5px;">Precios incluyen
+                                    IVA(+13%)</label>
+                                <div style="display: flex; gap: 20px;">
+                                    <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                                        <input type="radio" name="entry-tax-included" value="yes" checked> SI
+                                    </label>
+                                    <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                                        <input type="radio" name="entry-tax-included" value="no"> NO
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Factura por Pagar (RESTAURADO) -->
+                            <div>
+                                <label style="display: block; font-weight: bold; margin-bottom: 5px;">Facturas por
+                                    pagar</label>
+                                <div style="display: flex; gap: 20px;">
+                                    <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                                        <input type="radio" name="entry-payment-status" value="credito"> SI
+                                    </label>
+                                    <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                                        <input type="radio" name="entry-payment-status" value="contado" checked> NO
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="flex: 1;"></div> <!-- Spacer -->
+
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn btn-danger" id="btn-cancel-entry"
+                                style="flex: 1; padding: 10px;">Cancelar</button>
+                            <button class="btn btn-success" id="btn-process-entry"
+                                style="flex: 1; padding: 10px;">Registrar
+                                Entrada</button>
+                        </div>
+
+                    </div>
+
+                    <!-- PANEL DERECHO: TABLA (60%) -->
+                    <div style="width: 60%; padding: 20px; display: flex; flex-direction: column; background: #fdfdfd;">
+
+                        <div class="entry-list-container"
+                            style="flex: 1; overflow-y: auto; border: 1px solid #3498db; border-radius: 8px; background: white;">
+                            <table class="inventario-table" style="margin-top: 0; border: none; width: 100%;">
+                                <thead
+                                    style="position: sticky; top: 0; background: #fff; z-index: 1; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+                                    <tr>
+                                        <th style="width: 100px;">Cod.</th>
+                                        <th style="width: 80px; text-align: center;">Cant.</th>
+                                        <th>Descripcion</th>
+                                        <th style="width: 100px; text-align: right;">P. Costo</th>
+                                        <th style="width: 100px; text-align: right;">P. Venta</th>
+                                        <th style="width: 120px; text-align: right;">Total</th>
+                                        <th style="width: 50px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="entry-cart-body">
+                                    <!-- Items JS -->
                                 </tbody>
                             </table>
                         </div>
 
-                    </div>
+                        <div style="text-align: right; padding-top: 15px; font-size: 1.3rem; font-weight: bold;">
+                            Total: <span style="border-bottom: 1px solid #333;">$<span
+                                    id="entry-total-value">0.00</span></span>
+                        </div>
 
-                    <!-- Total Fuera del borde -->
-                    <div
-                        style="text-align: right; padding-top: 10px; font-size: 1.5rem; font-weight: bold; color: #333;">
-                        Total: <span id="exit-total-display" style="border-bottom: 2px solid #333;">$ 0.00</span>
                     </div>
-
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- MODAL ENTRADAS (RESTORED ORIGINAL DESIGN) -->
-    <div id="entry-modal" class="modal-overlay" style="display: none;">
-        <div class="modal-content"
-            style="max-width: 95vw; width: 1400px; height: 85vh; padding: 0; display:flex; flex-direction: column;">
-
-            <div class="modal-header" style="padding: 15px 20px; border-bottom: 1px solid #eee;">
-                <h3><i class="fas fa-truck-loading"></i> Registrar Entrada</h3>
-                <span class="close-modal-btn" id="btn-close-entry-modal"
-                    style="position:static; float:right;">&times;</span>
-            </div>
-
-            <div class="modal-body" style="display: flex; flex: 1; overflow: hidden; padding: 0;">
-
-                <!-- PANEL IZQUIERDO: INPUTS (40%) -->
-                <div
-                    style="width: 40%; padding: 20px; border-right: 1px solid #eee; display: flex; flex-direction: column; gap: 20px; background: #fff;">
-
-                    <!-- 1. Proveedor -->
-                    <div class="form-group">
-                        <label>Proveedor</label>
-                        <input type="text" id="entry-provider-input" list="provider-list"
-                            placeholder="Escribir o seleccionar..." autocomplete="off">
-                        <datalist id="provider-list"></datalist>
-                    </div>
-
-                    <hr style="border: 0; border-top: 1px solid #f0f0f0;">
-
-                    <!-- 2. Inputs Producto (Una sola linea) -->
-                    <div style="display: flex; gap: 10px; align-items: flex-end;">
-                        <!-- Cantidad -->
-                        <div class="form-group" style="width: 100px;">
-                            <label style="white-space: nowrap;">Cantidad</label>
-                            <input type="number" id="entry-temp-qty" min="0.1" step="0.1" value="1" placeholder="Cant."
-                                tabindex="1">
-                        </div>
-
-                        <!-- Producto -->
-                        <div class="form-group" style="flex: 1; position: relative;">
-                            <label>Buscar nombre del producto</label>
-                            <input type="text" id="entry-temp-name" placeholder="Escribir..." autocomplete="off"
-                                tabindex="2">
-                            <div id="entry-search-results" class="search-results-dropdown"
-                                style="display:none; position:absolute; z-index:100; background:white; border:1px solid #ccc; width:100%; max-height:200px; overflow:auto;">
-                            </div>
-                            <input type="hidden" id="entry-temp-id">
-                        </div>
-
-                        <!-- Precio -->
-                        <div class="form-group" style="width: 120px;">
-                            <label>Precio/unit</label>
-                            <input type="number" id="entry-temp-cost" min="0" step="0.01" placeholder="0.00"
-                                tabindex="3">
-                        </div>
-
-                        <!-- Botón Agregar -->
-                        <div class="form-group">
-                            <label>&nbsp;</label>
-                            <button class="btn btn-primary" onclick="app.addEntryItem()" title="Agregar Item"
-                                style="height: 38px;">
-                                <i class="fas fa-plus"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- 3. Configuraciones (Radios) -->
-                    <div style="display: flex; flex-direction: column; gap: 20px; margin-top: 20px;">
-
-                        <!-- IVA -->
-                        <div id="entry-tax-container">
-                            <label style="display: block; font-weight: bold; margin-bottom: 5px;">Precios incluyen
-                                IVA(+13%)</label>
-                            <div style="display: flex; gap: 20px;">
-                                <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
-                                    <input type="radio" name="entry-tax-included" value="yes" checked> SI
-                                </label>
-                                <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
-                                    <input type="radio" name="entry-tax-included" value="no"> NO
-                                </label>
-                            </div>
-                        </div>
-
-                        <!-- Factura por Pagar (RESTAURADO) -->
-                        <div>
-                            <label style="display: block; font-weight: bold; margin-bottom: 5px;">Facturas por
-                                pagar</label>
-                            <div style="display: flex; gap: 20px;">
-                                <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
-                                    <input type="radio" name="entry-payment-status" value="credito"> SI
-                                </label>
-                                <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
-                                    <input type="radio" name="entry-payment-status" value="contado" checked> NO
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style="flex: 1;"></div> <!-- Spacer -->
-
-                    <div style="display: flex; gap: 10px;">
-                        <button class="btn btn-danger" id="btn-cancel-entry"
-                            style="flex: 1; padding: 10px;">Cancelar</button>
-                        <button class="btn btn-success" id="btn-process-entry" style="flex: 1; padding: 10px;">Registrar
-                            Entrada</button>
-                    </div>
-
+        <!-- NUEVO MODAL: IMPORTAR SALIDAS EXCEL -->
+        <div id="modalImportarSalidas" class="modal-overlay" style="display: none;">
+            <div class="modal-content" style="max-width: 900px; height: 90vh;">
+                <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
+                    <h3 style="color: #217346;"><i class="fas fa-file-excel"></i> Importar Lote de Salidas</h3>
+                    <span class="close-modal-btn"
+                        onclick="document.getElementById('modalImportarSalidas').style.display='none'">&times;</span>
                 </div>
 
-                <!-- PANEL DERECHO: TABLA (60%) -->
-                <div style="width: 60%; padding: 20px; display: flex; flex-direction: column; background: #fdfdfd;">
+                <div style="padding: 20px 0;">
+                    <div id="exit-excel-drop-area" class="drop-area">
+                        <i class="fas fa-file-invoice"></i>
+                        <p>Arrastra el Excel de Facturas aquí<br><small>(Formato: Fecha, Factura, Detalles...)</small>
+                        </p>
+                        <input type="file" id="exit-excel-file" accept=".xlsx, .xls" style="display: none;">
+                    </div>
 
-                    <div class="entry-list-container"
-                        style="flex: 1; overflow-y: auto; border: 1px solid #3498db; border-radius: 8px; background: white;">
-                        <table class="inventario-table" style="margin-top: 0; border: none; width: 100%;">
-                            <thead
-                                style="position: sticky; top: 0; background: #fff; z-index: 1; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+                    <div id="exit-excel-preview-container" style="display: none; margin-top:20px;">
+                        <h4 style="margin-bottom:10px;">Vista Previa de Facturas Detectadas</h4>
+                        <div style="overflow:auto; max-height:400px; border:1px solid #ccc;">
+                            <table class="inventario-table">
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Factura</th>
+                                        <th>Item Excel</th>
+                                        <th>Cant.</th>
+                                        <th>Producto Encontrado (BD)</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="exit-excel-preview-body"></tbody>
+                            </table>
+                        </div>
+                        <div
+                            style="margin-top:20px; text-align:right; display:flex; gap:10px; justify-content: flex-end;">
+                            <button class="btn btn-danger"
+                                onclick="document.getElementById('modalImportarSalidas').style.display='none'">Cancelar</button>
+                            <button class="btn btn-primary" id="btn-process-exit-excel" disabled>Procesar y Guardar
+                                Salidas</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: Vincular Producto -->
+        <div id="modalLinkProduct" class="modal-overlay" style="display: none;">
+            <div class="modal-content" style="max-width: 800px;">
+                <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2>🔗 Vincular Producto</h2>
+                    <span class="close-modal-btn"
+                        onclick="document.getElementById('modalLinkProduct').style.display='none'">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div
+                        style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #217346;">
+                        <p style="margin:0; font-weight:bold; color:#555;">Item en Excel:</p>
+                        <h3 id="link-excel-name" style="margin:5px 0 0 0; color:#333;">...</h3>
+                    </div>
+
+                    <div class="search-bar" style="margin-bottom: 15px;">
+                        <input type="text" id="link-search-input" placeholder="Escribe para buscar en inventario..."
+                            style="width: 100%; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px;">
+                    </div>
+
+                    <div style="height: 250px; overflow-y: auto; border: 1px solid #ddd; margin-bottom: 15px;">
+                        <table class="inventario-table">
+                            <thead>
                                 <tr>
-                                    <th style="width: 100px;">Cod.</th>
-                                    <th style="width: 80px; text-align: center;">Cant.</th>
-                                    <th>Descripcion</th>
-                                    <th style="width: 100px; text-align: right;">P. Costo</th>
-                                    <th style="width: 100px; text-align: right;">P. Venta</th>
-                                    <th style="width: 120px; text-align: right;">Total</th>
-                                    <th style="width: 50px;"></th>
+                                    <th>Código</th>
+                                    <th>Descripción</th>
+                                    <th>Stock</th>
+                                    <th>Precio</th>
+                                    <th></th>
                                 </tr>
                             </thead>
-                            <tbody id="entry-cart-body">
-                                <!-- Items JS -->
+                            <tbody id="link-results-body">
+                                <!-- Results here -->
                             </tbody>
                         </table>
                     </div>
 
-                    <div style="text-align: right; padding-top: 15px; font-size: 1.3rem; font-weight: bold;">
-                        Total: <span style="border-bottom: 1px solid #333;">$<span
-                                id="entry-total-value">0.00</span></span>
+                    <div
+                        style="background: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; font-size: 0.9rem; margin-bottom: 15px;">
+                        <i class="fas fa-info-circle"></i> Si este ítem es un servicio (Mano de Obra) o no afecta
+                        inventario, usa el botón "Omitir".
                     </div>
-
+                </div>
+                <div class="modal-footer" style="display:flex; justify-content:space-between;">
+                    <button class="btn" style="background-color: #7f8c8d; color: white;" onclick="app.skipLinkItem()">
+                        <i class="fas fa-forward"></i> Omitir / Marcar Servicio
+                    </button>
+                    <button class="btn btn-danger"
+                        onclick="document.getElementById('modalLinkProduct').style.display='none'">Cancelar</button>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- NUEVO MODAL: IMPORTAR SALIDAS EXCEL -->
-    <div id="modalImportarSalidas" class="modal-overlay" style="display: none;">
-        <div class="modal-content" style="max-width: 900px; height: 90vh;">
-            <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
-                <h3 style="color: #217346;"><i class="fas fa-file-excel"></i> Importar Lote de Salidas</h3>
-                <span class="close-modal-btn"
-                    onclick="document.getElementById('modalImportarSalidas').style.display='none'">&times;</span>
-            </div>
-
-            <div style="padding: 20px 0;">
-                <div id="exit-excel-drop-area" class="drop-area">
-                    <i class="fas fa-file-invoice"></i>
-                    <p>Arrastra el Excel de Facturas aquí<br><small>(Formato: Fecha, Factura, Detalles...)</small></p>
-                    <input type="file" id="exit-excel-file" accept=".xlsx, .xls" style="display: none;">
+        <!-- MODAL VINCULACION HISTORIAL -->
+        <div id="modalLinkHistory" class="modal-overlay"
+            style="display: none; align-items: flex-start; padding-top: 50px; overflow-y: auto;">
+            <div class="modal-content" style="width: 90%; max-width: 900px; margin-bottom: 50px;">
+                <div class="modal-header" style="background: linear-gradient(135deg, #f39c12, #d35400); color: white;">
+                    <h2><i class="fas fa-magic"></i> Aprendizaje de Productos</h2>
+                    <span class="close-modal-btn"
+                        onclick="document.getElementById('modalLinkHistory').style.display='none'"
+                        style="color:white;">&times;</span>
                 </div>
+                <div class="modal-body">
+                    <div
+                        style="background: #fff3cd; color: #856404; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: flex-start; gap: 10px;">
+                        <i class="fas fa-lightbulb" style="font-size: 1.5rem; margin-top: 5px;"></i>
+                        <div>
+                            <strong>¿Cómo funciona?</strong><br>
+                            El sistema ha detectado estos nombres en tus facturas que no están vinculados a ningún
+                            producto
+                            del inventario.
+                            Si los vinculas ahora, el sistema "aprenderá" que <em>"Nombre Raro"</em> = <em>"Producto
+                                Real"</em>, y lo reconocerá automáticamente en futuras importaciones o búsquedas.
+                        </div>
+                    </div>
 
-                <div id="exit-excel-preview-container" style="display: none; margin-top:20px;">
-                    <h4 style="margin-bottom:10px;">Vista Previa de Facturas Detectadas</h4>
-                    <div style="overflow:auto; max-height:400px; border:1px solid #ccc;">
+                    <div
+                        style="max-height: 500px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; box-shadow: inset 0 0 10px rgba(0,0,0,0.05);">
+                        <table class="inventario-table" style="margin-top: 0; border: none;">
+                            <thead style="position: sticky; top: 0; background: #eee; z-index: 10;">
+                                <tr>
+                                    <th style="text-align: left;">Nombre Texto ("Raro")</th>
+                                    <th style="text-align: center;">Veces Encontrado</th>
+                                    <th style="text-align: left;">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="link-history-body" style="background: white;">
+                                <!-- JS Renders here -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div id="link-history-loading" style="text-align: center; padding: 20px; display: none;">
+                        <i class="fas fa-spinner fa-spin fa-2x"></i> Analizando historial...
+                    </div>
+
+                    <div style="margin-top: 20px; text-align: right;">
+                        <button class="btn btn-secondary"
+                            onclick="document.getElementById('modalLinkHistory').style.display='none'">
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL HISTORIAL DE BACKUPS -->
+        <div id="modalBackupHistory" class="modal-overlay" style="display: none;">
+            <div class="modal-content" style="max-width: 600px;">
+                <div class="modal-header"
+                    style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #34495e; padding-bottom: 10px;">
+                    <h3><i class="fas fa-database"></i> Historial de Backups</h3>
+                    <span class="close-modal-btn"
+                        onclick="document.getElementById('modalBackupHistory').style.display='none'">&times;</span>
+                </div>
+                <div class="modal-body" style="padding-top: 15px;">
+                    <p style="font-size: 0.9rem; color: #666; margin-bottom: 15px;">Solo se muestran los últimos 10
+                        backups
+                        realizados. Restaurar reemplazará todo el inventario actual.</p>
+                    <div style="max-height: 400px; overflow-y: auto;">
                         <table class="inventario-table">
                             <thead>
                                 <tr>
-                                    <th>Fecha</th>
-                                    <th>Factura</th>
-                                    <th>Item Excel</th>
-                                    <th>Cant.</th>
-                                    <th>Producto Encontrado (BD)</th>
-                                    <th>Estado</th>
+                                    <th>Fecha y Hora</th>
+                                    <th style="text-align:center">Items</th>
+                                    <th style="text-align:right">Cargar</th>
                                 </tr>
                             </thead>
-                            <tbody id="exit-excel-preview-body"></tbody>
+                            <tbody id="backup-history-body"></tbody>
                         </table>
                     </div>
-                    <div style="margin-top:20px; text-align:right; display:flex; gap:10px; justify-content: flex-end;">
-                        <button class="btn btn-danger"
-                            onclick="document.getElementById('modalImportarSalidas').style.display='none'">Cancelar</button>
-                        <button class="btn btn-primary" id="btn-process-exit-excel" disabled>Procesar y Guardar
-                            Salidas</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL GESTIÓN DE ALIAS (CORRECCIÓN) -->
+        <div id="modalAliasManager" class="modal-overlay" style="display: none;">
+            <div class="modal-content" style="max-width: 900px;">
+                <div class="modal-header"
+                    style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #f39c12; padding-bottom: 10px;">
+                    <h3 style="color: #d35400;"><i class="fas fa-project-diagram"></i> Gestión de Alias Aprendidos</h3>
+                    <span class="close-modal-btn"
+                        onclick="document.getElementById('modalAliasManager').style.display='none'">&times;</span>
+                </div>
+                <div class="modal-body" style="padding-top: 15px;">
+                    <div
+                        style="background: #eef2f7; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-size: 0.85rem;">
+                        Aquí puedes ver y corregir las vinculaciones que el sistema ha "aprendido". Si eliminaste por
+                        error
+                        un alias o está mal vinculado, bórralo aquí.
+                    </div>
+                    <div style="max-height: 500px; overflow-y: auto;">
+                        <table class="inventario-table">
+                            <thead style="position: sticky; top: 0; background: #eee;">
+                                <tr>
+                                    <th>Cod. Sistema</th>
+                                    <th>Descripción Real</th>
+                                    <th>Alias Registrado</th>
+                                    <th style="text-align:right">Quitar</th>
+                                </tr>
+                            </thead>
+                            <tbody id="alias-list-body"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Modal: Vincular Producto -->
-    <div id="modalLinkProduct" class="modal-overlay" style="display: none;">
-        <div class="modal-content" style="max-width: 800px;">
-            <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
-                <h2>🔗 Vincular Producto</h2>
-                <span class="close-modal-btn"
-                    onclick="document.getElementById('modalLinkProduct').style.display='none'">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div
-                    style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #217346;">
-                    <p style="margin:0; font-weight:bold; color:#555;">Item en Excel:</p>
-                    <h3 id="link-excel-name" style="margin:5px 0 0 0; color:#333;">...</h3>
+        <!-- MODAL DETALLES SALIDA (HISTORIAL) -->
+        <div id="modalExitDetails" class="modal-overlay" style="display: none;">
+            <div class="modal-content" style="max-width: 800px;">
+                <div class="modal-header"
+                    style="border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; display:flex; justify-content:space-between; align-items:center;">
+                    <h3 id="detail-exit-title">Detalles Factura #</h3>
+                    <span class="close-modal-btn"
+                        onclick="document.getElementById('modalExitDetails').style.display='none'">&times;</span>
                 </div>
+                <div class="modal-body">
+                    <div
+                        style="display:flex; justify-content:space-between; margin-bottom:15px; background:#f8f9fa; padding:10px; border-radius:5px;">
+                        <div><strong>Fecha:</strong> <span id="detail-exit-date">...</span></div>
+                        <div><strong>Cliente:</strong> <span id="detail-exit-client">...</span></div>
+                        <div><strong>Total:</strong> <span id="detail-exit-total"
+                                style="font-weight:bold; color:#27ae60;">...</span></div>
+                    </div>
 
-                <div class="search-bar" style="margin-bottom: 15px;">
-                    <input type="text" id="link-search-input" placeholder="Escribe para buscar en inventario..."
-                        style="width: 100%; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px;">
-                </div>
-
-                <div style="height: 250px; overflow-y: auto; border: 1px solid #ddd; margin-bottom: 15px;">
-                    <table class="inventario-table">
-                        <thead>
-                            <tr>
-                                <th>Código</th>
-                                <th>Descripción</th>
-                                <th>Stock</th>
-                                <th>Precio</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody id="link-results-body">
-                            <!-- Results here -->
-                        </tbody>
-                    </table>
-                </div>
-
-                <div
-                    style="background: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; font-size: 0.9rem; margin-bottom: 15px;">
-                    <i class="fas fa-info-circle"></i> Si este ítem es un servicio (Mano de Obra) o no afecta
-                    inventario, usa el botón "Omitir".
-                </div>
-            </div>
-            <div class="modal-footer" style="display:flex; justify-content:space-between;">
-                <button class="btn" style="background-color: #7f8c8d; color: white;" onclick="app.skipLinkItem()">
-                    <i class="fas fa-forward"></i> Omitir / Marcar Servicio
-                </button>
-                <button class="btn btn-danger"
-                    onclick="document.getElementById('modalLinkProduct').style.display='none'">Cancelar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL VINCULACION HISTORIAL -->
-    <div id="modalLinkHistory" class="modal-overlay"
-        style="display: none; align-items: flex-start; padding-top: 50px; overflow-y: auto;">
-        <div class="modal-content" style="width: 90%; max-width: 900px; margin-bottom: 50px;">
-            <div class="modal-header" style="background: linear-gradient(135deg, #f39c12, #d35400); color: white;">
-                <h2><i class="fas fa-magic"></i> Aprendizaje de Productos</h2>
-                <span class="close-modal-btn" onclick="document.getElementById('modalLinkHistory').style.display='none'"
-                    style="color:white;">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div
-                    style="background: #fff3cd; color: #856404; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: flex-start; gap: 10px;">
-                    <i class="fas fa-lightbulb" style="font-size: 1.5rem; margin-top: 5px;"></i>
-                    <div>
-                        <strong>¿Cómo funciona?</strong><br>
-                        El sistema ha detectado estos nombres en tus facturas que no están vinculados a ningún producto
-                        del inventario.
-                        Si los vinculas ahora, el sistema "aprenderá" que <em>"Nombre Raro"</em> = <em>"Producto
-                            Real"</em>, y lo reconocerá automáticamente en futuras importaciones o búsquedas.
+                    <div style="max-height: 400px; overflow-y: auto;">
+                        <table class="inventario-table">
+                            <thead>
+                                <tr>
+                                    <th>Desc. (Papel/Excel)</th>
+                                    <th>Prod. Sistema</th>
+                                    <th style="text-align:center">Cant.</th>
+                                    <th style="text-align:right">Unit.</th>
+                                    <th style="text-align:right">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detail-exit-body"></tbody>
+                        </table>
                     </div>
                 </div>
-
-                <div
-                    style="max-height: 500px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; box-shadow: inset 0 0 10px rgba(0,0,0,0.05);">
-                    <table class="inventario-table" style="margin-top: 0; border: none;">
-                        <thead style="position: sticky; top: 0; background: #eee; z-index: 10;">
-                            <tr>
-                                <th style="text-align: left;">Nombre Texto ("Raro")</th>
-                                <th style="text-align: center;">Veces Encontrado</th>
-                                <th style="text-align: left;">Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody id="link-history-body" style="background: white;">
-                            <!-- JS Renders here -->
-                        </tbody>
-                    </table>
-                </div>
-
-                <div id="link-history-loading" style="text-align: center; padding: 20px; display: none;">
-                    <i class="fas fa-spinner fa-spin fa-2x"></i> Analizando historial...
-                </div>
-
-                <div style="margin-top: 20px; text-align: right;">
+                <div class="modal-footer" style="margin-top:15px; text-align:right;">
                     <button class="btn btn-secondary"
-                        onclick="document.getElementById('modalLinkHistory').style.display='none'">
-                        Cerrar
-                    </button>
+                        onclick="document.getElementById('modalExitDetails').style.display='none'">Cerrar</button>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- MODAL HISTORIAL DE BACKUPS -->
-    <div id="modalBackupHistory" class="modal-overlay" style="display: none;">
-        <div class="modal-content" style="max-width: 600px;">
-            <div class="modal-header"
-                style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #34495e; padding-bottom: 10px;">
-                <h3><i class="fas fa-database"></i> Historial de Backups</h3>
-                <span class="close-modal-btn"
-                    onclick="document.getElementById('modalBackupHistory').style.display='none'">&times;</span>
-            </div>
-            <div class="modal-body" style="padding-top: 15px;">
-                <p style="font-size: 0.9rem; color: #666; margin-bottom: 15px;">Solo se muestran los últimos 10 backups
-                    realizados. Restaurar reemplazará todo el inventario actual.</p>
-                <div style="max-height: 400px; overflow-y: auto;">
-                    <table class="inventario-table">
-                        <thead>
-                            <tr>
-                                <th>Fecha y Hora</th>
-                                <th style="text-align:center">Items</th>
-                                <th style="text-align:right">Cargar</th>
-                            </tr>
-                        </thead>
-                        <tbody id="backup-history-body"></tbody>
-                    </table>
+        <!-- MODAL DETALLES ENTRADA (HISTORIAL) -->
+        <div id="modalEntryDetails" class="modal-overlay" style="display: none;">
+            <div class="modal-content" style="max-width: 800px;">
+                <div class="modal-header"
+                    style="border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; display:flex; justify-content:space-between; align-items:center;">
+                    <h3 id="detail-entry-title">Detalles Entrada #</h3>
+                    <span class="close-modal-btn"
+                        onclick="document.getElementById('modalEntryDetails').style.display='none'">&times;</span>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL GESTIÓN DE ALIAS (CORRECCIÓN) -->
-    <div id="modalAliasManager" class="modal-overlay" style="display: none;">
-        <div class="modal-content" style="max-width: 900px;">
-            <div class="modal-header"
-                style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #f39c12; padding-bottom: 10px;">
-                <h3 style="color: #d35400;"><i class="fas fa-project-diagram"></i> Gestión de Alias Aprendidos</h3>
-                <span class="close-modal-btn"
-                    onclick="document.getElementById('modalAliasManager').style.display='none'">&times;</span>
-            </div>
-            <div class="modal-body" style="padding-top: 15px;">
-                <div
-                    style="background: #eef2f7; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-size: 0.85rem;">
-                    Aquí puedes ver y corregir las vinculaciones que el sistema ha "aprendido". Si eliminaste por error
-                    un alias o está mal vinculado, bórralo aquí.
-                </div>
-                <div style="max-height: 500px; overflow-y: auto;">
-                    <table class="inventario-table">
-                        <thead style="position: sticky; top: 0; background: #eee;">
-                            <tr>
-                                <th>Cod. Sistema</th>
-                                <th>Descripción Real</th>
-                                <th>Alias Registrado</th>
-                                <th style="text-align:right">Quitar</th>
-                            </tr>
-                        </thead>
-                        <tbody id="alias-list-body"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL DETALLES SALIDA (HISTORIAL) -->
-    <div id="modalExitDetails" class="modal-overlay" style="display: none;">
-        <div class="modal-content" style="max-width: 800px;">
-            <div class="modal-header"
-                style="border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; display:flex; justify-content:space-between; align-items:center;">
-                <h3 id="detail-exit-title">Detalles Factura #</h3>
-                <span class="close-modal-btn"
-                    onclick="document.getElementById('modalExitDetails').style.display='none'">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div
-                    style="display:flex; justify-content:space-between; margin-bottom:15px; background:#f8f9fa; padding:10px; border-radius:5px;">
-                    <div><strong>Fecha:</strong> <span id="detail-exit-date">...</span></div>
-                    <div><strong>Cliente:</strong> <span id="detail-exit-client">...</span></div>
-                    <div><strong>Total:</strong> <span id="detail-exit-total"
-                            style="font-weight:bold; color:#27ae60;">...</span></div>
-                </div>
-
-                <div style="max-height: 400px; overflow-y: auto;">
-                    <table class="inventario-table">
-                        <thead>
-                            <tr>
-                                <th>Desc. (Papel/Excel)</th>
-                                <th>Prod. Sistema</th>
-                                <th style="text-align:center">Cant.</th>
-                                <th style="text-align:right">Unit.</th>
-                                <th style="text-align:right">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody id="detail-exit-body"></tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="modal-footer" style="margin-top:15px; text-align:right;">
-                <button class="btn btn-secondary"
-                    onclick="document.getElementById('modalExitDetails').style.display='none'">Cerrar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL DETALLES ENTRADA (HISTORIAL) -->
-    <div id="modalEntryDetails" class="modal-overlay" style="display: none;">
-        <div class="modal-content" style="max-width: 800px;">
-            <div class="modal-header"
-                style="border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; display:flex; justify-content:space-between; align-items:center;">
-                <h3 id="detail-entry-title">Detalles Entrada #</h3>
-                <span class="close-modal-btn"
-                    onclick="document.getElementById('modalEntryDetails').style.display='none'">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div
-                    style="display:flex; justify-content:space-between; margin-bottom:15px; background:#f8f9fa; padding:10px; border-radius:5px;">
-                    <div><strong>Fecha:</strong> <span id="detail-entry-date">...</span></div>
-                    <div><strong>Proveedor:</strong> <span id="detail-entry-provider">...</span></div>
-                    <div><strong>Total:</strong> <span id="detail-entry-total"
-                            style="font-weight:bold; color:#27ae60;">...</span></div>
-                </div>
-
-                <div style="max-height: 400px; overflow-y: auto;">
-                    <table class="inventario-table">
-                        <thead>
-                            <tr>
-                                <th>Código</th>
-                                <th style="text-align:center">Cant.</th>
-                                <th>Descripción</th>
-                                <th>Precio Venta</th>
-                                <th style="text-align:right">Total (Costo)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="detail-entry-body"></tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="modal-footer" style="margin-top:15px; text-align:right;">
-                <button class="btn btn-secondary"
-                    onclick="document.getElementById('modalEntryDetails').style.display='none'">Cerrar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL HISTORIAL DE LOTES -->
-    <div id="modalBatchHistory" class="modal-overlay" style="display: none;">
-        <div class="modal-content" style="max-width: 900px;">
-            <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
-                <h3><i class="fas fa-layer-group"></i> Lotes de Importación (Masivos)</h3>
-                <span class="close-modal-btn"
-                    onclick="document.getElementById('modalBatchHistory').style.display='none'">&times;</span>
-            </div>
-            <div class="modal-body">
-                <p style="color:#666; font-size:0.9rem; margin-bottom:15px;">Aquis se muestran las importaciones masivas
-                    realizadas. Puedes revertirlas por completo (borrar todas las facturas y devolver stock) si hubo un
-                    error.</p>
-
-                <div style="max-height: 400px; overflow-y: auto;">
-                    <table class="inventario-table">
-                        <thead>
-                            <tr>
-                                <th>Fecha Importación</th>
-                                <th>ID Lote</th>
-                                <th style="text-align:center">N° Facturas</th>
-                                <th style="text-align:right">Total ($)</th>
-                                <th>Estado</th>
-                                <th>Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody id="batch-history-body">
-                            <!-- JS Renders here -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- SCRIPTS -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyCaZdPPYddeMPTiNm5cCdFL6m9b9swX0-c",
-            authDomain: "williantaller-1426b.firebaseapp.com",
-            projectId: "williantaller-1426b",
-            storageBucket: "williantaller-1426b.firebasestorage.app",
-            messagingSenderId: "757966587061",
-            appId: "1:757966587061:web:6c700e862317119d64aafc"
-        };
-        firebase.initializeApp(firebaseConfig);
-        window.db = firebase.firestore();
-    </script>
-
-    <!-- MODAL IMPRIMIR INVENTARIO -->
-    <div id="modalPrintInventory" class="modal-overlay" style="display: none;">
-        <div class="modal-content" style="max-width: 500px;">
-            <span class="close-modal-btn"
-                onclick="document.getElementById('modalPrintInventory').style.display='none'">&times;</span>
-            <h3><i class="fas fa-print"></i> Imprimir Inventario</h3>
-
-            <p style="margin: 15px 0; color: #666;">Selecciona las columnas que deseas imprimir:</p>
-
-            <div style="display: flex; flex-direction: column; gap: 10px; margin: 20px 0;">
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" class="print-col" value="codigo" checked> Código
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" class="print-col" value="descripcion" checked> Descripción Taller
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" class="print-col" value="costo"> P. Costo
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" class="print-col" value="precio" checked> P. Venta
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" class="print-col" value="existencia" checked> Existencia
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" class="print-col" value="stockMinimo"> Stock Mínimo
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" class="print-col" value="creditoFiscal"> Crédito Fiscal
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" class="print-col" value="proveedor"> Proveedor
-                </label>
-            </div>
-
-            <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
-                <button class="btn btn-danger"
-                    onclick="document.getElementById('modalPrintInventory').style.display='none'">Cancelar</button>
-                <button class="btn btn-success" onclick="app.executePrint()"><i class="fas fa-print"></i>
-                    Imprimir</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL PREGUNTA FISCAL (INICIAL) -->
-    <div id="modalFiscalQuestion" class="modal-overlay"
-        style="display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.8);">
-        <div class="modal-content" style="max-width: 400px; text-align: center; padding: 30px;">
-            <i class="fas fa-file-invoice-dollar" style="font-size: 3rem; color: #3498db; margin-bottom: 20px;"></i>
-            <h3 style="margin-bottom: 20px; color: #2c3e50;">¿Esta compra es con<br>Crédito Fiscal?</h3>
-
-            <div style="display: flex; gap: 15px; justify-content: center; margin-top: 25px;">
-                <button class="btn" style="background: #27ae60; color: white; min-width: 100px; font-size: 1.1rem;"
-                    onclick="app.selectFiscalEntry(true)">
-                    <i class="fas fa-check"></i> SÍ
-                </button>
-                <button class="btn" style="background: #95a5a6; color: white; min-width: 100px; font-size: 1.1rem;"
-                    onclick="app.selectFiscalEntry(false)">
-                    NO
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL ALTA RÁPIDA (NUEVO) -->
-    <div id="modalQuickCreate" class="modal-overlay" style="display: none;">
-        <div class="modal-content" style="max-width: 500px;">
-            <div class="modal-header"
-                style="background: #27ae60; color: white; padding: 15px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
-                <h3 style="margin:0;"><i class="fas fa-magic"></i> Alta Rápida de Producto</h3>
-            </div>
-
-            <form id="form-quick-create" onsubmit="event.preventDefault();">
-                <div class="form-grid" style="grid-template-columns: 1fr;">
-
-                    <div class="form-group">
-                        <label>Código Principal</label>
-                        <input type="text" id="qc-codigo" placeholder="Ej: A-001 (Opcional)">
+                <div class="modal-body">
+                    <div
+                        style="display:flex; justify-content:space-between; margin-bottom:15px; background:#f8f9fa; padding:10px; border-radius:5px;">
+                        <div><strong>Fecha:</strong> <span id="detail-entry-date">...</span></div>
+                        <div><strong>Proveedor:</strong> <span id="detail-entry-provider">...</span></div>
+                        <div><strong>Total:</strong> <span id="detail-entry-total"
+                                style="font-weight:bold; color:#27ae60;">...</span></div>
                     </div>
 
-                    <div class="form-group">
-                        <label>Códigos Adicionales</label>
-                        <input type="text" id="qc-codigos-extra" placeholder="Ej: ALT-1, ALT-2 (Separados por coma)">
-                        <small style="color:#666; font-size:0.8rem;">Útil para fabricantes alternativos.</small>
+                    <div style="max-height: 400px; overflow-y: auto;">
+                        <table class="inventario-table">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th style="text-align:center">Cant.</th>
+                                    <th>Descripción</th>
+                                    <th>Precio Venta</th>
+                                    <th style="text-align:right">Total (Costo)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detail-entry-body"></tbody>
+                        </table>
                     </div>
+                </div>
+                <div class="modal-footer" style="margin-top:15px; text-align:right;">
+                    <button class="btn btn-secondary"
+                        onclick="document.getElementById('modalEntryDetails').style.display='none'">Cerrar</button>
+                </div>
+            </div>
+        </div>
 
-                    <div class="form-group">
-                        <label>Descripción *</label>
-                        <input type="text" id="qc-descripcion" required>
+        <!-- MODAL HISTORIAL DE LOTES -->
+        <div id="modalBatchHistory" class="modal-overlay" style="display: none;">
+            <div class="modal-content" style="max-width: 900px;">
+                <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
+                    <h3><i class="fas fa-layer-group"></i> Lotes de Importación (Masivos)</h3>
+                    <span class="close-modal-btn"
+                        onclick="document.getElementById('modalBatchHistory').style.display='none'">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <p style="color:#666; font-size:0.9rem; margin-bottom:15px;">Aquis se muestran las importaciones
+                        masivas
+                        realizadas. Puedes revertirlas por completo (borrar todas las facturas y devolver stock) si hubo
+                        un
+                        error.</p>
+
+                    <div style="max-height: 400px; overflow-y: auto;">
+                        <table class="inventario-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha Importación</th>
+                                    <th>ID Lote</th>
+                                    <th style="text-align:center">N° Facturas</th>
+                                    <th style="text-align:right">Total ($)</th>
+                                    <th>Estado</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="batch-history-body">
+                                <!-- JS Renders here -->
+                            </tbody>
+                        </table>
                     </div>
+                </div>
+            </div>
+        </div>
 
-                    <div style="display: flex; gap: 10px;">
-                        <div class="form-group" style="flex:1;">
-                            <label>Costo Unit.</label>
-                            <input type="number" id="qc-costo" step="0.01" readonly style="background:#f0f0f0;">
-                        </div>
-                        <div class="form-group" style="flex:1;">
-                            <label style="color:#27ae60; font-weight:bold;">Precio Venta</label>
-                            <input type="number" id="qc-precio" step="0.01" placeholder="0.00">
-                        </div>
-                    </div>
+        <!-- SCRIPTS -->
+        <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-                    <p style="font-size:0.85rem; color:#f39c12; margin-top:5px;">
-                        <i class="fas fa-info-circle"></i> Si dejas el precio en 0, podrás definirlo luego.
-                    </p>
+        <script>
+            const firebaseConfig = {
+                apiKey: "AIzaSyCaZdPPYddeMPTiNm5cCdFL6m9b9swX0-c",
+                authDomain: "williantaller-1426b.firebaseapp.com",
+                projectId: "williantaller-1426b",
+                storageBucket: "williantaller-1426b.firebasestorage.app",
+                messagingSenderId: "757966587061",
+                appId: "1:757966587061:web:6c700e862317119d64aafc"
+            };
+            firebase.initializeApp(firebaseConfig);
+            window.db = firebase.firestore();
+        </script>
 
+        <!-- MODAL IMPRIMIR INVENTARIO -->
+        <div id="modalPrintInventory" class="modal-overlay" style="display: none;">
+            <div class="modal-content" style="max-width: 500px;">
+                <span class="close-modal-btn"
+                    onclick="document.getElementById('modalPrintInventory').style.display='none'">&times;</span>
+                <h3><i class="fas fa-print"></i> Imprimir Inventario</h3>
+
+                <p style="margin: 15px 0; color: #666;">Selecciona las columnas que deseas imprimir:</p>
+
+                <div style="display: flex; flex-direction: column; gap: 10px; margin: 20px 0;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" class="print-col" value="codigo" checked> Código
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" class="print-col" value="descripcion" checked> Descripción Taller
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" class="print-col" value="costo"> P. Costo
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" class="print-col" value="precio" checked> P. Venta
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" class="print-col" value="existencia" checked> Existencia
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" class="print-col" value="stockMinimo"> Stock Mínimo
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" class="print-col" value="creditoFiscal"> Crédito Fiscal
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" class="print-col" value="proveedor"> Proveedor
+                    </label>
                 </div>
 
                 <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
-                    <button class="btn btn-secondary" type="button" onclick="app.closeQuickCreate()">Cancelar</button>
-                    <button class="btn btn-success" type="button" onclick="app.confirmAddEntryItem()">
-                        <i class="fas fa-check"></i> Agregar a Entrada
+                    <button class="btn btn-danger"
+                        onclick="document.getElementById('modalPrintInventory').style.display='none'">Cancelar</button>
+                    <button class="btn btn-success" onclick="app.executePrint()"><i class="fas fa-print"></i>
+                        Imprimir</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL PREGUNTA FISCAL (INICIAL) -->
+        <div id="modalFiscalQuestion" class="modal-overlay"
+            style="display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.8);">
+            <div class="modal-content" style="max-width: 400px; text-align: center; padding: 30px;">
+                <i class="fas fa-file-invoice-dollar" style="font-size: 3rem; color: #3498db; margin-bottom: 20px;"></i>
+                <h3 style="margin-bottom: 20px; color: #2c3e50;">¿Esta compra es con<br>Crédito Fiscal?</h3>
+
+                <div style="display: flex; gap: 15px; justify-content: center; margin-top: 25px;">
+                    <button class="btn" style="background: #27ae60; color: white; min-width: 100px; font-size: 1.1rem;"
+                        onclick="app.selectFiscalEntry(true)">
+                        <i class="fas fa-check"></i> SÍ
+                    </button>
+                    <button class="btn" style="background: #95a5a6; color: white; min-width: 100px; font-size: 1.1rem;"
+                        onclick="app.selectFiscalEntry(false)">
+                        NO
                     </button>
                 </div>
-            </form>
+            </div>
         </div>
-    </div>
 
-    <!-- Firebase Config and Init -->
-    <script src="js/utils/formatters.js"></script>
-    <script src="js/services/InventoryService.js"></script>
-    <script src="js/ui/InventoryUI.js"></script>
-    <script src="js/controllers/InventoryController.js"></script>
+        <!-- MODAL ALTA RÁPIDA (NUEVO) -->
+        <div id="modalQuickCreate" class="modal-overlay" style="display: none;">
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header"
+                    style="background: #27ae60; color: white; padding: 15px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
+                    <h3 style="margin:0;"><i class="fas fa-magic"></i> Alta Rápida de Producto</h3>
+                </div>
 
-    <script>
-        // Event listener para botón de impresión
-        document.addEventListener('DOMContentLoaded', function () {
-            const btnPrint = document.getElementById('btn-print-inventory');
-            if (btnPrint) {
-                btnPrint.addEventListener('click', () => {
-                    if (window.app) {
-                        window.app.openPrintModal();
-                    }
-                });
-            }
-        });
-    </script>
+                <form id="form-quick-create" onsubmit="event.preventDefault();">
+                    <div class="form-grid" style="grid-template-columns: 1fr;">
+
+                        <div class="form-group">
+                            <label>Código Principal</label>
+                            <input type="text" id="qc-codigo" placeholder="Ej: A-001 (Opcional)">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Códigos Adicionales</label>
+                            <input type="text" id="qc-codigos-extra"
+                                placeholder="Ej: ALT-1, ALT-2 (Separados por coma)">
+                            <small style="color:#666; font-size:0.8rem;">Útil para fabricantes alternativos.</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Descripción *</label>
+                            <input type="text" id="qc-descripcion" required>
+                        </div>
+
+                        <div style="display: flex; gap: 10px;">
+                            <div class="form-group" style="flex:1;">
+                                <label>Costo Unit.</label>
+                                <input type="number" id="qc-costo" step="0.01" readonly style="background:#f0f0f0;">
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label style="color:#27ae60; font-weight:bold;">Precio Venta</label>
+                                <input type="number" id="qc-precio" step="0.01" placeholder="0.00">
+                            </div>
+                        </div>
+
+                        <p style="font-size:0.85rem; color:#f39c12; margin-top:5px;">
+                            <i class="fas fa-info-circle"></i> Si dejas el precio en 0, podrás definirlo luego.
+                        </p>
+
+                    </div>
+
+                    <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+                        <button class="btn btn-secondary" type="button"
+                            onclick="app.closeQuickCreate()">Cancelar</button>
+                        <button class="btn btn-success" type="button" onclick="app.confirmAddEntryItem()">
+                            <i class="fas fa-check"></i> Agregar a Entrada
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Firebase Config and Init -->
+        <script src="js/utils/formatters.js"></script>
+        <script src="js/services/InventoryService.js"></script>
+        <script src="js/ui/InventoryUI.js"></script>
+        <script src="js/controllers/InventoryController.js"></script>
+
+        <script>
+            // Event listener para botón de impresión
+            document.addEventListener('DOMContentLoaded', function () {
+                const btnPrint = document.getElementById('btn-print-inventory');
+                if (btnPrint) {
+                    btnPrint.addEventListener('click', () => {
+                        if (window.app) {
+                            window.app.openPrintModal();
+                        }
+                    });
+                }
+            });
+        </script>
 
 </body>
 
