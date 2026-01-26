@@ -399,7 +399,9 @@ class InventoryController {
             this.filtered = this.cache.filter(p =>
                 (p.codigo || "").toLowerCase().includes(q) ||
                 (p.descripcion || "").toLowerCase().includes(q) ||
-                (p.proveedor || "").toLowerCase().includes(q)
+                (p.proveedor || "").toLowerCase().includes(q) ||
+                // Multi-Code Search Support
+                (p.codigosProveedor && Array.isArray(p.codigosProveedor) && p.codigosProveedor.some(c => c.toLowerCase().includes(q)))
             );
         }
         this.applySort();
@@ -463,8 +465,14 @@ class InventoryController {
     async saveNewProduct() {
         const formData = this.ui.getNewFormData();
 
+        // Parse Multi-Codes
+        const codesArray = formData.codigosProveedor
+            ? formData.codigosProveedor.split(',').map(c => c.trim()).filter(c => c.length > 0)
+            : [];
+
         const serviceData = {
             codigo: formData.codigo,
+            codigosProveedor: codesArray, // NEW
             descripcion: formData.descInventario,
             descripcionFactura: formData.descFactura,
             costo: formData.precioCosto,
@@ -501,7 +509,7 @@ class InventoryController {
         const uiProduct = {
             id: p.id,
             codigo: p.codigo,
-            codigosProveedor: [],
+            codigosProveedor: p.codigosProveedor || [], // Pass current array
             descInventario: p.descripcion,
             descFactura: p.descripcionFactura,
             precioCosto: p.costo,
@@ -518,8 +526,14 @@ class InventoryController {
     async updateProduct() {
         const formData = this.ui.getEditFormData();
 
+        // Parse Multi-Codes
+        const codesArray = formData.codigosProveedor
+            ? formData.codigosProveedor.split(',').map(c => c.trim()).filter(c => c.length > 0)
+            : [];
+
         const serviceData = {
             codigo: formData.codigo,
+            codigosProveedor: codesArray, // NEW
             descripcion: formData.descInventario,
             descripcionFactura: formData.descFactura,
             costo: formData.precioCosto,
@@ -854,6 +868,87 @@ class InventoryController {
         } else { resDiv.style.display = 'none'; }
     }
 
+    // =========================================
+    // FISCAL ENTRY PROMPT LOGIC
+    // =========================================
+    promptNewEntry() {
+        // Show Question Modal
+        document.getElementById('modalFiscalQuestion').style.display = 'flex';
+    }
+
+    selectFiscalEntry(isFiscal) {
+        document.getElementById('modalFiscalQuestion').style.display = 'none';
+
+        document.getElementById('entry-modal').style.display = 'flex';
+        // Reset and Init Form if needed
+        this.resetEntryForm();
+
+        // Toggle Tax Options
+        const taxContainer = document.getElementById('entry-tax-container');
+        if (taxContainer) {
+            taxContainer.style.display = isFiscal ? 'block' : 'none';
+        }
+
+        // Set Default Fiscal State for Quick Create
+        this.currentSessionFiscal = isFiscal;
+    }
+
+    resetEntryForm() {
+        document.getElementById('entry-provider-input').value = '';
+        document.getElementById('entry-temp-qty').value = 1;
+        document.getElementById('entry-temp-name').value = '';
+        document.getElementById('entry-temp-id').value = '';
+        document.getElementById('entry-temp-cost').value = '';
+
+        // Reset Cart
+        this.entryCart = [];
+        this.renderEntryCart();
+
+        // Enforce Tax Visibility based on current session State
+        const taxContainer = document.getElementById('entry-tax-container');
+        if (taxContainer) {
+            taxContainer.style.display = this.currentSessionFiscal ? 'block' : 'none';
+        }
+    }
+
+    // =========================================
+    // QUICK CREATE MODAL LOGIC (New Flow)
+    // =========================================
+    closeQuickCreate() {
+        document.getElementById('modalQuickCreate').style.display = 'none';
+        document.getElementById('form-quick-create').reset();
+    }
+
+    // Called when user clicks "Add" in modal
+    confirmAddEntryItem() {
+        const codigo = document.getElementById('qc-codigo').value.trim();
+        const codigosExtra = document.getElementById('qc-codigos-extra').value.trim();
+        const descripcion = document.getElementById('qc-descripcion').value.trim();
+        const costo = parseFloat(document.getElementById('qc-costo').value);
+        let precioVenta = parseFloat(document.getElementById('qc-precio').value);
+
+        if (!descripcion) return alert("Descripción requerida");
+
+        // Handle Price 0 vs Undefined
+        if (isNaN(precioVenta)) precioVenta = 0;
+
+        // Parse Extra Codes
+        const extraCodesArray = codigosExtra ? codigosExtra.split(',').map(c => c.trim()).filter(c => c.length > 0) : [];
+
+        // Build Item Object with Specific New Data
+        this.addEntryToCart({
+            productId: null,            // New Product
+            displayCode: codigo,        // Clean Code
+            codigosProveedor: extraCodesArray, // NEW: Multi-Code Support
+            name: descripcion,          // Clean Name (No [CODE])
+            cost: costo,
+            qty: this.currentQuickQty,  // Saved from temp
+            salePrice: precioVenta      // Manual Price
+        });
+
+        this.closeQuickCreate();
+    }
+
     addEntryItem() {
         const qty = parseFloat(document.getElementById('entry-temp-qty').value);
         const name = document.getElementById('entry-temp-name').value;
@@ -863,57 +958,63 @@ class InventoryController {
         if (!name) { alert("Nombre requerido"); return; }
         if (isNaN(cost)) { alert("Costo requerido"); return; }
 
-        // Extract Code from Name (format "CODE - Desc")
-        let displayCode = "";
-        let displayName = name;
+        // IVA Logic (Apply before anything else)
+        const taxEl = document.querySelector('input[name="entry-tax-included"]:checked');
+        const taxIncluded = taxEl ? taxEl.value === 'yes' : true; // Default SI
 
-        // Validamos si realmente es un producto existente en nuestra cache
+        // If Price DOES NOT include tax, we add 13% to get Costo Final
+        if (!taxIncluded) cost = cost * 1.13;
+
+        // Validamos si es producto existente
         const isExisting = id && this.cache.some(p => p.id === id);
 
         if (!isExisting) {
-            // EL SISTEMA LE PREGUNTA PROACTIVAMENTE PORQUE EL PRODUCTO ES NUEVO
-            console.log("Producto detectado como NUEVO, iniciando secuencia de preguntas...");
-            const tieneCodigo = confirm(`El producto "${name}" es nuevo.\n\n¿Posee usted el CÓDIGO de este producto?`);
+            // NEW FLOW: QUICK CREATE MODAL
+            this.currentQuickQty = qty; // Save for later
 
-            if (tieneCodigo) {
-                const userCode = prompt("Ingrese el CÓDIGO del producto:", "");
-                displayCode = userCode ? userCode.trim().toUpperCase() : "";
-            } else {
-                const autoGen = confirm("¿Desea que el sistema le GENERE un código automático?\n\n(Aceptar = Generar / Cancelar = Dejar en blanco)");
-                if (autoGen) {
-                    displayCode = "GEN-" + Math.floor(1000 + Math.random() * 9000);
-                } else {
-                    displayCode = "";
-                }
-            }
+            document.getElementById('qc-codigo').value = "";
+            document.getElementById('qc-codigos-extra').value = "";
+            document.getElementById('qc-descripcion').value = name; // Pre-fill
+            document.getElementById('qc-costo').value = cost.toFixed(2);
+            document.getElementById('qc-precio').value = ""; // Empty by default
 
-            if (displayCode) {
-                displayName = `[${displayCode}] ${name}`;
-            }
+            // Auto-Generate Code Option? No, let user decide in modal.
+
+            document.getElementById('modalQuickCreate').style.display = 'flex';
+            document.getElementById('qc-codigo').focus();
+
         } else {
-            // Producto Existente seleccionado de la lista
+            // EXISTING PRODUCT
             const parts = name.split(" - ");
-            displayCode = parts[0];
-            displayName = parts.slice(1).join(" - ");
+            const displayCode = parts[0];
+            const displayName = parts.slice(1).join(" - ");
+
+            this.addEntryToCart({
+                productId: id,
+                displayCode: displayCode,
+                codigosProveedor: [], // Not needed for existing
+                name: displayName,
+                qty: qty,
+                cost: cost,
+                salePrice: null // Not changing price
+            });
         }
+    }
 
-        // IVA Logic
-        const taxEl = document.querySelector('input[name="entry-tax-included"]:checked');
-        const taxIncluded = taxEl ? taxEl.value === 'yes' : false;
-
-        if (!taxIncluded) cost = cost * 1.13;
-
+    addEntryToCart(data) {
         this.entryCart.push({
             tempId: Date.now(),
-            productId: id || null,
-            displayCode: displayCode, // Store Code
-            name: displayName,        // Store Clean Name
-            qty,
-            cost,
-            subtotal: qty * cost
+            productId: data.productId,
+            displayCode: data.displayCode,
+            codigosProveedor: data.codigosProveedor || [], // Array
+            name: data.name,
+            qty: data.qty,
+            cost: data.cost,
+            salePrice: data.salePrice, // Will be passed to service
+            subtotal: data.qty * data.cost
         });
 
-        // Clear temp
+        // Clear temp inputs
         document.getElementById('entry-temp-name').value = '';
         document.getElementById('entry-temp-id').value = '';
         document.getElementById('entry-temp-cost').value = '';
@@ -930,10 +1031,18 @@ class InventoryController {
         let total = 0;
         this.entryCart.forEach(item => {
             total += item.subtotal;
+
+            // Format Sale Price if exists
+            const salePriceStr = (item.salePrice !== null && item.salePrice !== undefined && item.salePrice > 0)
+                ? `<span style="color:green; font-weight:bold;">$${item.salePrice.toFixed(2)}</span>`
+                : '<span style="color:#ccc;">-</span>';
+
             tbody.innerHTML += `<tr>
                 <td><small>${item.displayCode || 'NUEVO'}</small></td>
-                <td>${item.name}</td>
                 <td style="text-align:center">${item.qty}</td>
+                <td>${item.name}</td>
+                <td style="text-align:right">$${item.cost.toFixed(2)}</td>
+                <td style="text-align:right">${salePriceStr}</td>
                 <td style="text-align:right">$${item.subtotal.toFixed(2)}</td>
                 <td style="text-align:center"><button onclick="app.removeEntryItem(${item.tempId})" style="color:red;border:none;background:none;cursor:pointer;"><i class="fas fa-times"></i></button></td>
             </tr>`;

@@ -408,17 +408,22 @@ class InventoryService {
                 const newProdRef = this.collection.doc();
                 const entryQty = parseFloat(item.qty);
                 const entryCost = parseFloat(item.cost);
-                const finalCode = item.displayCode || ""; // NO MAS GEN-XXXX
+                const finalCode = item.displayCode || "";
+                const finalPrice = item.salePrice !== null ? parseFloat(item.salePrice) : 0;
+
+                // Parse optional multi-codes
+                const extraCodes = Array.isArray(item.codigosProveedor) ? item.codigosProveedor : [];
 
                 transaction.set(newProdRef, {
                     codigo: finalCode,
+                    codigosProveedor: extraCodes, // NEW: Multi-Code
                     descripcion: item.name,
                     descripcionFactura: item.name,
                     costo: entryCost,
-                    precio: entryCost * 1.30,
+                    precio: finalPrice, // NEW: Manual or 0
                     existencia: entryQty,
                     stockMinimo: 5,
-                    creditoFiscal: false,
+                    creditoFiscal: item.creditoFiscal || false, // NEW: Save CF Status
                     proveedor: providerName || ""
                 });
 
@@ -485,60 +490,82 @@ class InventoryService {
             const entry = entryDoc.data();
             if (entry.revertida) throw "Entrada ya revertida.";
 
-            // Normalize items (Handle legacy single-item entries)
             const items = entry.items || [{
                 productId: entry.productId,
                 cantidad: entry.cantidad,
                 costoUnitario: entry.costoUnitario
             }];
 
-            // PHASE 2: WRITES
+            // 1.1 Read All Product Docs
+            const productReads = [];
             for (const item of items) {
                 if (item.productId) {
                     const productRef = this.collection.doc(item.productId);
-                    const productDoc = await transaction.get(productRef);
-                    if (productDoc.exists) {
-                        const pData = productDoc.data();
-                        const currentStock = parseFloat(pData.existencia || 0);
-                        const currentAvgCost = parseFloat(pData.costo || 0);
-                        const qtyToRemove = parseFloat(item.cantidad);
-                        const costToRemove = parseFloat(item.costoUnitario);
-
-                        const finalStock = currentStock - qtyToRemove;
-                        let finalCost = currentAvgCost;
-
-                        if (finalStock > 0) {
-                            const currentTotalVal = currentStock * currentAvgCost;
-                            const valToRemove = qtyToRemove * costToRemove;
-                            finalCost = (currentTotalVal - valToRemove) / finalStock;
-                            if (finalCost < 0) finalCost = 0;
-                        } else {
-                            finalCost = 0;
-                        }
-
-                        transaction.update(productRef, { existencia: finalStock, costo: finalCost });
-                    }
+                    const doc = await transaction.get(productRef);
+                    productReads.push({ ref: productRef, doc: doc, item: item });
                 }
             }
 
-            // Revertir Proveedor
+            // 1.2 Read Provider Doc (if needed)
+            let providerRef = null;
+            let providerDoc = null;
             if (entry.esCredito && entry.providerId) {
-                const providerRef = db.collection('cuentas').doc(entry.providerId);
-                const providerDoc = await transaction.get(providerRef);
-                if (providerDoc.exists) {
-                    const currentBalance = parseFloat(providerDoc.data().saldo || 0);
-                    // Legacy entries didn't always have .total, so we fallback
-                    const entryTotal = entry.total || (parseFloat(entry.cantidad) * parseFloat(entry.costoUnitario));
-                    transaction.update(providerRef, { saldo: currentBalance - entryTotal });
+                providerRef = db.collection('cuentas').doc(entry.providerId);
+                providerDoc = await transaction.get(providerRef);
+            }
+
+            // PHASE 2: WRITES
+            // 2.1 Update Products
+            for (const pr of productReads) {
+                if (pr.doc.exists) {
+                    const pData = pr.doc.data();
+                    const currentStock = parseFloat(pData.existencia || 0);
+                    const currentAvgCost = parseFloat(pData.costo || 0);
+                    const qtyToRemove = parseFloat(pr.item.cantidad);
+                    const costToRemove = parseFloat(pr.item.costoUnitario);
+
+                    const finalStock = currentStock - qtyToRemove;
+                    let finalCost = currentAvgCost;
+
+                    if (finalStock > 0) {
+                        const currentTotalVal = currentStock * currentAvgCost;
+                        const valToRemove = qtyToRemove * costToRemove;
+                        // Avoid negative cost results if math is slightly off
+                        const finalTotalVal = currentTotalVal - valToRemove;
+                        finalCost = finalTotalVal / finalStock;
+                        if (finalCost < 0) finalCost = 0;
+                    } else {
+                        finalCost = 0;
+                    }
+
+                    transaction.update(pr.ref, { existencia: finalStock, costo: finalCost });
                 }
             }
 
-            // Marcar Revertida
+            // 2.2 Revert Provider Balance
+            if (providerRef && providerDoc && providerDoc.exists) {
+                const currentBalance = parseFloat(providerDoc.data().saldo || 0);
+                const entryTotal = entry.total || (parseFloat(entry.cantidad) * parseFloat(entry.costoUnitario));
+                transaction.update(providerRef, { saldo: currentBalance - entryTotal });
+            }
+
+            // 2.3 Mark Entry Reverted
             transaction.update(entryRef, {
                 revertida: true,
                 revertidaFecha: firebase.firestore.FieldValue.serverTimestamp()
             });
         });
+    }
+
+    // Eliminar una entrada (Solo si ya fue revertida o por limpieza)
+    async eliminarEntrada(entryId) {
+        try {
+            await firebase.firestore().collection('INVENTARIO_ENTRADAS').doc(entryId).delete();
+            return true;
+        } catch (e) {
+            console.error("Error eliminando entrada:", e);
+            throw e;
+        }
     }
 
     // --- SISTEMA DE BACKUP ---
