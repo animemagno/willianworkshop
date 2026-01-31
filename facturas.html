@@ -4,9 +4,127 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Facturas - Taller Wilian</title>
+    <title>Facturas - Taller Willian</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <link rel="stylesheet" href="css/facturas.css">
+    <style>
+        /* Estilos base para layout consistente */
+        body.main-wrapper {
+            background: #f4f6f7;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background: linear-gradient(135deg, #3498db, #2c3e50);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: white;
+        }
+
+        .menu-toggle {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+
+        .menu-toggle:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .mobile-menu {
+            position: fixed;
+            top: 0;
+            left: -280px;
+            width: 280px;
+            height: 100vh;
+            background: white;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            transition: left 0.3s ease;
+            z-index: 1000;
+            overflow-y: auto;
+            padding: 20px 0;
+        }
+
+        .mobile-menu.active {
+            left: 0;
+        }
+
+        .mobile-menu a {
+            display: block;
+            padding: 15px 20px;
+            color: #2c3e50;
+            text-decoration: none;
+            border-left: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .mobile-menu a:hover,
+        .mobile-menu a.active {
+            background: #f8f9fa;
+            border-left-color: #3498db;
+            color: #3498db;
+        }
+
+        .mobile-menu a i {
+            margin-right: 10px;
+            width: 20px;
+            text-align: center;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .dashboard-section {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .section-title {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            text-align: center;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #3498db;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .dashboard-section {
+                border-radius: 0;
+                padding: 15px;
+            }
+
+            .section-title {
+                font-size: 1.4rem;
+            }
+        }
+    </style>
 </head>
 
 <body class="main-wrapper">
@@ -33,39 +151,408 @@
     </div>
 
     <div class="container">
-        <div class="dashboard-section">
-            <div class="section-title">FACTURAS PENDIENTES</div>
+        <!-- Sistema de Pestañas -->
+        <div class="tabs-container"
+            style="background:white; border-radius:12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); overflow:hidden;">
+            <!-- Navegación de Pestañas -->
+            <div class="tabs-nav" style="display:flex; border-bottom:2px solid #e0e0e0; background:#f8f9fa;">
+                <button class="tab-btn active" data-tab="facturas"
+                    style="flex:1; padding:15px 20px; border:none; background:transparent; font-size:1.1rem; font-weight:600; color:#7f8c8d; cursor:pointer; transition:all 0.3s; border-bottom:3px solid transparent;">
+                    <i class="fas fa-file-invoice"></i> FACTURAS
+                </button>
+                <button class="tab-btn" data-tab="grupos"
+                    style="flex:1; padding:15px 20px; border:none; background:transparent; font-size:1.1rem; font-weight:600; color:#7f8c8d; cursor:pointer; transition:all 0.3s; border-bottom:3px solid transparent;">
+                    <i class="fas fa-users"></i> GRUPOS
+                </button>
+            </div>
 
-            <div class="facturas-wrapper">
-                <div class="facturas-grid" id="facturas-container">
-                    <!-- Se llena dinámicamente -->
+            <!-- Contenido de Pestañas -->
+            <div class="tabs-content" style="padding:25px;">
+
+                <!-- Pestaña FACTURAS -->
+                <div class="tab-panel active" id="tab-facturas">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                        <h2 style="margin:0; color:#2c3e50;">Facturas Pendientes</h2>
+                        <button onclick="imprimirSaldos()"
+                            style="background:#17a2b8; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; font-weight:600;">
+                            <i class="fas fa-print"></i> IMPRIMIR SALDOS
+                        </button>
+                    </div>
+
+                    <div class="facturas-grid" id="facturas-container"
+                        style="display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:15px;">
+                        <!-- Se llena dinámicamente -->
+                    </div>
+
+                    <div class="empty-state" id="empty-facturas"
+                        style="display:none; text-align:center; padding:50px; color:#bdc3c7;">
+                        <i class="fas fa-file-invoice-dollar" style="font-size:4rem; margin-bottom:20px;"></i>
+                        <div style="font-size:1.2rem;">No hay facturas pendientes</div>
+                    </div>
                 </div>
 
-                <div class="empty-state" id="empty-facturas" style="display: none;">
-                    <i class="fas fa-file-invoice-dollar"></i>
-                    <div>No hay facturas pendientes</div>
+                <!-- Pestaña GRUPOS -->
+                <div class="tab-panel" id="tab-grupos" style="display:none;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                        <h2 style="margin:0; color:#2c3e50;">Grupos</h2>
+                        <div style="display:flex; gap:10px;">
+                            <button onclick="crearGrupo()"
+                                style="background:#28a745; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; font-weight:600;">
+                                <i class="fas fa-plus"></i> CREAR GRUPO
+                            </button>
+                            <button onclick="abonarGrupo()"
+                                style="background:#17a2b8; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; font-weight:600;">
+                                <i class="fas fa-money-bill-wave"></i> ABONAR A GRUPO
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grupos-container" id="grupos-container">
+                        <!-- Se llena dinámicamente -->
+                    </div>
+
+                    <div class="empty-state" id="empty-grupos"
+                        style="display:none; text-align:center; padding:50px; color:#bdc3c7;">
+                        <i class="fas fa-users" style="font-size:4rem; margin-bottom:20px;"></i>
+                        <div style="font-size:1.2rem;">No hay grupos creados</div>
+                    </div>
                 </div>
 
-                <div class="grupos-container" id="grupos-container">
-                    <!-- Se llena dinámicamente -->
-                </div>
-
-                <div class="empty-state" id="empty-grupos" style="display: none;">
-                    <i class="fas fa-users"></i>
-                    <div>No hay grupos creados</div>
-                </div>
             </div>
         </div>
     </div>
 
+    <style>
+        .tab-btn.active {
+            color: #3498db !important;
+            border-bottom-color: #3498db !important;
+            background: white !important;
+        }
+
+        .tab-btn:hover {
+            background: rgba(52, 152, 219, 0.1);
+        }
+    </style>
+
     <script>
-        // Logout handler simple inline 
+        // Sistema de Pestañas
+        document.addEventListener('DOMContentLoaded', () => {
+            const tabBtns = document.querySelectorAll('.tab-btn');
+            const tabPanels = document.querySelectorAll('.tab-panel');
+
+            tabBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const targetTab = btn.getAttribute('data-tab');
+
+                    // Remover active de todos
+                    tabBtns.forEach(b => b.classList.remove('active'));
+                    tabPanels.forEach(p => p.style.display = 'none');
+
+                    // Activar el seleccionado
+                    btn.classList.add('active');
+                    document.getElementById(`tab-${targetTab}`).style.display = 'block';
+                });
+            });
+        });
+
+        // Funciones de botones
+        function imprimirSaldos() {
+            alert('Función de imprimir saldos en desarrollo');
+        }
+
+        function crearGrupo() {
+            alert('Función de crear grupo en desarrollo');
+        }
+
+        function abonarGrupo() {
+            alert('Función de abonar a grupo en desarrollo');
+        }
+
+        // Mobile menu toggle
+        document.getElementById('mobileMenuBtn')?.addEventListener('click', () => {
+            document.getElementById('mobileMenu').classList.toggle('active');
+        });
+
+        // Logout handler
         document.getElementById('logoutBtn')?.addEventListener('click', () => {
             localStorage.removeItem('usuarioLogueado');
             window.location.href = 'login.html';
         });
     </script>
-    <script type="module" src="js/controllers/InvoiceController.js"></script>
+    <!-- Firebase SDK Compat (Funciona localmente sin servidor) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+
+    <script>
+        // 1. CONFIGURACIÓN FIREBASE
+        const firebaseConfig = {
+            apiKey: "AIzaSyCaZdPPYddeMPTiNm5cCdFL6m9b9swX0-c",
+            authDomain: "williantaller-1426b.firebaseapp.com",
+            projectId: "williantaller-1426b",
+            storageBucket: "williantaller-1426b.firebasestorage.app",
+            messagingSenderId: "757966587061",
+            appId: "1:757966587061:web:6c700e862317119d64aafc"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // 2. UTILIDADES
+        const formatCurrency = (amount) => {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 2
+            }).format(amount);
+        };
+
+        // 3. UI MANAGER
+        class InvoiceUI {
+            constructor() {
+                this.els = {
+                    facturasContainer: document.getElementById('facturas-container'),
+                    gruposContainer: document.getElementById('grupos-container'),
+                    emptyFacturas: document.getElementById('empty-facturas'),
+                    emptyGrupos: document.getElementById('empty-grupos')
+                };
+            }
+
+            render(data) {
+                const { facturas, grupos, equiposPorGrupo } = data;
+
+                console.log('🎨 Renderizando UI:', facturas ? facturas.length : 0, 'facturas');
+
+                // Las facturas ya vienen filtradas (solo sin grupo)
+                // Ya vienen ordenadas del servicio
+                this.renderLooseTeams(facturas || []);
+                this.renderGroups(grupos, equiposPorGrupo);
+
+                // Toggle empty states
+                if (this.els.emptyFacturas) {
+                    this.els.emptyFacturas.style.display = (facturas && facturas.length > 0) ? 'none' : 'block';
+                }
+                if (this.els.emptyGrupos) {
+                    this.els.emptyGrupos.style.display = grupos.size === 0 ? 'block' : 'none';
+                }
+            }
+
+            renderLooseTeams(facturas) {
+                if (!this.els.facturasContainer) return;
+
+                // Ahora recibe facturas individuales, no equipos consolidados
+                this.els.facturasContainer.innerHTML = facturas.map(f => {
+                    const mostrarNombre = f.equipoNombre && f.equipoNombre !== `Equipo ${f.equipoNumero}`;
+
+                    return `
+                        <div class="factura-card local" onclick="verDetalleEquipo('${f.equipoNumero}')" style="cursor:pointer; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:15px; background:white; border:2px solid #3498db; border-radius:8px; transition:transform 0.2s;">
+                            <div style="font-size: 2rem; font-weight:bold; color:#2c3e50;">${f.equipoNumero}</div>
+                            ${mostrarNombre ? `<div style="font-size:0.8rem; color:#e74c3c; margin:5px 0; text-align:center;">${f.equipoNombre}</div>` : ''}
+                            <div style="font-size: 1.1rem; color:#27ae60; font-weight:600;">${formatCurrency(f.saldo)}</div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            renderGroups(gruposMap, equiposMap) {
+                if (!this.els.gruposContainer) return;
+
+                if (gruposMap.size === 0) {
+                    this.els.gruposContainer.innerHTML = '';
+                    return;
+                }
+
+                const sortedGroups = Array.from(gruposMap.values()).sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+                this.els.gruposContainer.innerHTML = sortedGroups.map(g => {
+                    if (g.total <= 0.01) return '';
+
+                    const equiposHtml = (g.equipos || []).map(num => {
+                        const data = equiposMap.get(num); // Ahora usa equiposPorGrupo
+                        const saldo = data ? data.total : 0;
+                        if (saldo <= 0.01) return '';
+
+                        return `
+                            <div class="grupo-equipo-item" onclick="verDetalleEquipo('${num}')" style="cursor:pointer; padding:10px; background:white; border:1px solid #ddd; border-radius:5px; text-align:center;">
+                                <div style="font-weight:bold; font-size:1.2rem; color:#2c3e50;">${num}</div>
+                                <div style="font-size:0.9rem; color:#27ae60; font-weight:600;">${formatCurrency(saldo)}</div>
+                            </div>
+                        `;
+                    }).join('');
+
+                    return `
+                        <div class="grupo-card" style="background:white; border-radius:8px; padding:20px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+                            <div class="grupo-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; padding-bottom:10px; border-bottom:2px solid #e0e0e0;">
+                                <div style="font-size:1.3rem; font-weight:bold; color:#2c3e50;">${g.nombre}</div>
+                                <button onclick="abonarGrupo('${g.id}')" style="background:#17a2b8; color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; font-weight:600;">
+                                    <i class="fas fa-money-bill-wave"></i> Abonar
+                                </button>
+                            </div>
+                            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(100px, 1fr)); gap:10px; margin-bottom:15px;">
+                                ${equiposHtml}
+                            </div>
+                            <div style="text-align:right; font-size:1.2rem; font-weight:bold; color:#e74c3c; padding-top:10px; border-top:2px solid #e0e0e0;">
+                                Total: ${formatCurrency(g.total)}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // 4. SERVICE
+        class InvoiceService {
+            constructor() {
+                this.grupos = new Map();
+                this.equiposPendientes = new Map();
+                this.perfilesRaw = []; // Guardar perfiles crudos para buscar ID
+            }
+
+            initListeners(onUpdate) {
+                console.log("🚀 Iniciando servicio de facturas...");
+
+                // 1. Escuchar Grupos
+                db.collection("grupos").onSnapshot((snap) => {
+                    this.grupos.clear();
+                    snap.forEach(doc => {
+                        this.grupos.set(doc.id, { id: doc.id, ...doc.data() });
+                    });
+                    this._triggerUpdate(onUpdate);
+                });
+
+                // 2. Escuchar TODOS los Perfiles (Filtrado en cliente)
+                db.collection("PERFILES")
+                    .onSnapshot(async (snapshot) => {
+                        console.log(`🔍 Total perfiles: ${snapshot.size}`);
+
+                        this.equiposPendientes.clear();
+                        this.perfilesRaw = [];
+
+                        // Procesar cada perfil
+                        const promises = [];
+                        snapshot.forEach(doc => {
+                            const perfil = doc.data();
+                            perfil.id = doc.id;
+                            this.perfilesRaw.push(perfil);
+
+                            // Validar activo
+                            const esActivo = (perfil.activo === true || perfil.activo === "true" || perfil.activo === undefined);
+
+                            if (esActivo) {
+                                // Calcular saldo pendiente REAL desde MOVIMIENTOS
+                                const promise = this._calcularSaldoPendiente(doc.ref).then(saldoReal => {
+                                    if (saldoReal > 0.01) {
+                                        this.equiposPendientes.set(perfil.numero, {
+                                            numero: perfil.numero,
+                                            nombre: perfil.nombre || perfil.numero,
+                                            total: saldoReal, // Saldo REAL calculado
+                                            ciudad: perfil.grupo || '',
+                                            esLocal: !perfil.grupo,
+                                            id: doc.id
+                                        });
+                                    }
+                                });
+                                promises.push(promise);
+                            }
+                        });
+
+                        // Esperar a que todos los cálculos terminen
+                        await Promise.all(promises);
+                        this._triggerUpdate(onUpdate);
+                    }, (error) => {
+                        console.error("❌ Error cargando perfiles:", error);
+                    });
+            }
+
+            // Calcular saldo pendiente real desde MOVIMIENTOS
+            async _calcularSaldoPendiente(perfilRef) {
+                try {
+                    let snap = await perfilRef.collection('MOVIMIENTOS').get();
+                    if (snap.empty) snap = await perfilRef.collection('movimientos').get(); // Fallback
+
+                    let saldoTotal = 0;
+                    snap.forEach(doc => {
+                        const mov = doc.data();
+                        // Solo sumar si es venta Y tiene saldo pendiente
+                        if (mov.tipo === 'venta' || !mov.tipo) {
+                            const status = mov.status || '';
+                            const saldoPendiente = parseFloat(mov.saldoPendiente || 0);
+
+                            // Si tiene saldoPendiente explícito, usarlo
+                            if (saldoPendiente > 0) {
+                                saldoTotal += saldoPendiente;
+                            }
+                            // Si no, verificar status
+                            else if (status === 'pendiente' || status === '') {
+                                const total = parseFloat(mov.total || 0);
+                                const abonos = mov.abonos && Array.isArray(mov.abonos)
+                                    ? mov.abonos.reduce((sum, a) => sum + parseFloat(a.monto || 0), 0)
+                                    : 0;
+                                const saldo = Math.max(0, total - abonos);
+                                if (saldo > 0.01) saldoTotal += saldo;
+                            }
+                        }
+                    });
+
+                    return saldoTotal;
+                } catch (error) {
+                    console.error("Error calculando saldo:", error);
+                    return 0;
+                }
+            }
+
+            _triggerUpdate(callback) {
+                if (callback) {
+                    callback({
+                        grupos: this.grupos,
+                        equipos: this.equiposPendientes
+                    });
+                }
+            }
+
+            // Buscar perfil por número
+            getPerfilIdByNumero(numero) {
+                // Primero buscar en pendientes
+                if (this.equiposPendientes.has(numero)) {
+                    return this.equiposPendientes.get(numero).id;
+                }
+                // Si no, buscar en raw total (por si acaso no tiene saldo pendiente pero queremos ver histórico)
+                const perfil = this.perfilesRaw.find(p => String(p.numero) === String(numero));
+                return perfil ? perfil.id : null;
+            }
+        }
+
+        // 5. INICIALIZACIÓN Y GLOBALES
+        let service; // Global para acceso
+
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🏁 Iniciando aplicación...');
+
+            service = new InvoiceService();
+            const ui = new InvoiceUI();
+
+            // Lógica para ver detalles (Redirección a nueva página)
+            window.verDetalleEquipo = (numero) => {
+                console.log(`🔗 Redirigiendo a detalle del equipo ${numero}...`);
+                window.location.href = `detalle_equipo.html?numero=${numero}`;
+            };
+
+            window.abonarGrupo = (grupoId) => {
+                console.log(`🔗 Redirigiendo a detalle del grupo ${grupoId}...`);
+                // Futura implementación: window.location.href = `detalle_grupo.html?grupo=${grupoId}`;
+                alert('Próximamente: Detalle en página completa para grupos');
+            };
+
+            service.initListeners((data) => {
+                ui.render(data);
+            });
+
+            const btn = document.getElementById('mobileMenuBtn');
+            if (btn) {
+                btn.addEventListener('click', () => {
+                    document.getElementById('mobileMenu').classList.toggle('active');
+                });
+            }
+        });
+    </script>
 </body>
 
 </html>

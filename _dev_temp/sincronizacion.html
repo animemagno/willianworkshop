@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sincronización de Bases de Datos - Taller Willian</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        .status-panel {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            flex: 1;
+            padding: 20px;
+            border-radius: 8px;
+            color: white;
+            text-align: center;
+        }
+
+        .card.old {
+            background: #7f8c8d;
+        }
+
+        /* Gris para read-only */
+        .card.new {
+            background: #27ae60;
+        }
+
+        /* Verde para write */
+
+        .log-box {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            margin-bottom: 20px;
+        }
+
+        .log-line {
+            margin: 5px 0;
+            border-bottom: 1px solid #34495e;
+            padding-bottom: 2px;
+        }
+
+        .log-success {
+            color: #2ecc71;
+        }
+
+        .log-warn {
+            color: #f1c40f;
+        }
+
+        .log-error {
+            color: #e74c3c;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: 0.3s;
+            color: white;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-sync {
+            background: #3498db;
+        }
+
+        .btn-sync:hover {
+            background: #2980b9;
+        }
+
+        .btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #ecf0f1;
+            border-radius: 10px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #3498db;
+            width: 0%;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1><i class="fas fa-sync-alt"></i> Sincronización DB Vieja &rarr; Nueva</h1>
+        <p>Esta herramienta lee datos de la base de datos antigua (solo lectura) y copia únicamente los registros nuevos
+            a la base de datos de producción.</p>
+
+        <div class="status-panel">
+            <div class="card old">
+                <h3><i class="fas fa-database"></i> DB ANTIGUA</h3>
+                <p>Origen (Solo Lectura)</p>
+                <div id="status-old">Conectando...</div>
+            </div>
+            <div class="card new">
+                <h3><i class="fas fa-server"></i> DB NUEVA</h3>
+                <p>Destino (Producción)</p>
+                <div id="status-new">Conectando...</div>
+            </div>
+        </div>
+
+        <div class="actions" style="text-align: center; margin-bottom: 20px;">
+            <button id="btn-analyze" class="btn btn-sync" onclick="syncApp.analizarDiferencias()">
+                <i class="fas fa-search"></i> 1. Analizar Diferencias
+            </button>
+            <button id="btn-sync" class="btn btn-sync" onclick="syncApp.sincronizar()" disabled
+                style="background: #27ae60;">
+                <i class="fas fa-file-import"></i> 2. Sincronizar Faltantes
+            </button>
+        </div>
+
+        <div class="progress-bar">
+            <div id="progress-fill" class="progress-fill"></div>
+        </div>
+        <div id="progress-text" style="text-align: center; margin-top: 5px; color: #7f8c8d;">Esperando...</div>
+
+        <h3>Log de Operaciones</h3>
+        <div class="log-box" id="console-log"></div>
+    </div>
+
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+
+    <script>
+        class SyncManager {
+            constructor() {
+                this.dbOld = null;
+                this.dbNew = null;
+                this.nuevosRegistros = [];
+            }
+
+            log(msg, type = 'info') {
+                const box = document.getElementById('console-log');
+                const line = document.createElement('div');
+                line.className = `log-line log-${type}`;
+                line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+                box.appendChild(line);
+                box.scrollTop = box.scrollHeight;
+            }
+
+            async init() {
+                try {
+                    // 1. Config DB Antigua (Origen)
+                    const configOld = {
+                        apiKey: "AIzaSyDh074AarXaYCc-Htw-lsCeIc_95QQNSnY",
+                        authDomain: "tallerwilliam-732b3.firebaseapp.com",
+                        projectId: "tallerwilliam-732b3",
+                        storageBucket: "tallerwilliam-732b3.firebasestorage.app",
+                        messagingSenderId: "822262666247",
+                        appId: "1:822262666247:web:6680487bbf1108006b86a2"
+                    };
+
+                    // 2. Config DB Nueva (Destino)
+                    const configNew = {
+                        apiKey: "AIzaSyCaZdPPYddeMPTiNm5cCdFL6m9b9swX0-c",
+                        authDomain: "williantaller-1426b.firebaseapp.com",
+                        projectId: "williantaller-1426b",
+                        storageBucket: "williantaller-1426b.firebasestorage.app",
+                        messagingSenderId: "757966587061",
+                        appId: "1:757966587061:web:6c700e862317119d64aafc"
+                    };
+
+                    // Inicializar Apps con Nombres Distintos
+                    const appOld = firebase.initializeApp(configOld, 'DB_ORIGEN');
+                    const appNew = firebase.initializeApp(configNew, 'DB_DESTINO');
+
+                    this.dbOld = appOld.firestore();
+                    this.dbNew = appNew.firestore();
+
+                    document.getElementById('status-old').innerHTML = '<i class="fas fa-check"></i> Conectado';
+                    document.getElementById('status-new').innerHTML = '<i class="fas fa-check"></i> Conectado';
+                    this.log("Sistemas conectados. Listo para analizar.", "success");
+
+                } catch (e) {
+                    this.log("Error de conexión: " + e.message, "error");
+                }
+            }
+
+            async analizarDiferencias() {
+                document.getElementById('btn-analyze').disabled = true;
+                this.log("Iniciando análisis... esto puede tardar unos momentos.");
+                this.nuevosRegistros = [];
+
+                try {
+                    // 1. Obtener todos los IDs existentes en la DB Nueva (Para no duplicar)
+                    // Buscamos en todas las subcolecciones de movimientos es costoso, 
+                    // mejor iteramos perfiles y sus movimientos.
+                    this.log("Leyendo DB Nueva (Destino)...");
+                    const snapshotPerfiles = await this.dbNew.collection('PERFILES').get();
+                    const idsExistentes = new Set();
+
+                    let count = 0;
+                    for (const doc of snapshotPerfiles.docs) {
+                        const movs = await doc.ref.collection('MOVIMIENTOS').get();
+                        movs.forEach(m => idsExistentes.add(m.id));
+
+                        // También checar colección 'movimientos' minúscula por si acaso
+                        const movsMin = await doc.ref.collection('movimientos').get();
+                        movsMin.forEach(m => idsExistentes.add(m.id));
+
+                        count++;
+                        if (count % 10 === 0) document.getElementById('progress-text').textContent = `Mapeando destino: ${count} perfiles...`;
+                    }
+                    this.log(`Mapa destino completado. ${idsExistentes.size} movimientos existentes.`, "success");
+
+                    // 2. Leer DB Antigua (Origen)
+                    this.log("Leyendo DB Antigua (Origen)...");
+                    const ventasOld = await this.dbOld.collection('VENTAS').get(); // Asumo que es 'VENTAS' la colección principal antigua
+
+                    this.log(`Leídos ${ventasOld.size} registros en origen.`);
+
+                    // 3. Comparar
+                    ventasOld.forEach(doc => {
+                        if (!idsExistentes.has(doc.id)) {
+                            const data = doc.data();
+                            // Identificar equipo
+                            const equipo = data.equipoNumber || data.clientName || 'SIN_EQUIPO';
+
+                            this.nuevosRegistros.push({
+                                id: doc.id,
+                                equipo: equipo,
+                                data: data
+                            });
+                        }
+                    });
+
+                    const cantidad = this.nuevosRegistros.length;
+                    if (cantidad > 0) {
+                        this.log(`⚠️ Se encontraron ${cantidad} registros NUEVOS que faltan en la DB Nueva.`, "warn");
+                        document.getElementById('btn-sync').disabled = false;
+                        document.getElementById('btn-sync').textContent = `Sincronizar ${cantidad} Registros`;
+                    } else {
+                        this.log("✅ Todo está sincronizado. No hay registros nuevos.", "success");
+                    }
+
+                    document.getElementById('btn-analyze').disabled = false;
+
+                } catch (e) {
+                    this.log("Error en análisis: " + e.message, "error");
+                    document.getElementById('btn-analyze').disabled = false;
+                }
+            }
+
+            async sincronizar() {
+                document.getElementById('btn-sync').disabled = true;
+
+                let procesados = 0;
+                const total = this.nuevosRegistros.length;
+
+                for (const item of this.nuevosRegistros) {
+                    try {
+                        // 1. Encontrar o Crear Perfil en Destino
+                        // El ID del perfil lo generamos basado en el número de equipo para consistencia
+                        // Nota: En admin_migration usaban data.equipoNumber.
+
+                        // Normalizar número de equipo
+                        const equipoNum = item.equipo;
+
+                        // Buscar ID de perfil existente con ese número
+                        let perfilId = null;
+                        const perfilQuery = await this.dbNew.collection('PERFILES').where('numero', '==', equipoNum).limit(1).get();
+
+                        if (!perfilQuery.empty) {
+                            perfilId = perfilQuery.docs[0].id;
+                            // Confirmación visual
+                            // this.log(`Actualizando perfil existente para Equipo ${equipoNum}`, "success"); 
+                        } else {
+                            // Crear nuevo perfil si no existe
+                            this.log(`Creando nuevo perfil para equipo ${equipoNum}...`);
+                            const nuevoPerfilRef = this.dbNew.collection('PERFILES').doc();
+                            perfilId = nuevoPerfilRef.id;
+
+                            await nuevoPerfilRef.set({
+                                numero: equipoNum,
+                                nombre: item.data.clientName || `Equipo ${equipoNum}`,
+                                saldo: 0,
+                                activo: true,
+                                fechaCreacion: new Date()
+                            });
+                        }
+
+                        // 2. Insertar Movimiento
+                        const movimientoData = {
+                            ...item.data,
+                            tipo: 'venta', // Asumimos venta si viene de VENTAS
+                            fechaSincronizacion: new Date()
+                        };
+
+                        await this.dbNew.collection('PERFILES').doc(perfilId).collection('MOVIMIENTOS').doc(item.id).set(movimientoData);
+
+                        // 3. Actualizar Saldo del Perfil (Incrementar)
+                        const monto = parseFloat(movimientoData.total || movimientoData.monto || 0);
+                        await this.dbNew.collection('PERFILES').doc(perfilId).update({
+                            saldo: firebase.firestore.FieldValue.increment(monto),
+                            ultimaActualizacion: new Date()
+                        });
+
+                        procesados++;
+                        const pct = (procesados / total) * 100;
+                        document.getElementById('progress-fill').style.width = `${pct}%`;
+                        document.getElementById('progress-text').textContent = `Sincronizando ${procesados}/${total}...`;
+
+                    } catch (e) {
+                        this.log(`Error sincronizando ${item.id}: ${e.message}`, "error");
+                    }
+                }
+
+                this.log("🎉 Sincronización Completada.", "success");
+                alert("Proceso finalizado correctamente.");
+                this.nuevosRegistros = []; // Limpiar
+                document.getElementById('btn-sync').disabled = true;
+                document.getElementById('btn-sync').textContent = "Sincronizado";
+            }
+        }
+
+        const syncApp = new SyncManager();
+        document.addEventListener('DOMContentLoaded', () => syncApp.init());
+
+    </script>
+</body>
+
+</html>

@@ -387,11 +387,18 @@ class InventoryService {
                     newCost = totalValue / newStock;
                 }
 
-                transaction.update(pRead.ref, {
+                const updatePayload = {
                     existencia: newStock,
                     costo: newCost,
                     creditoFiscal: item.creditoFiscal // Propagar estado de CF
-                });
+                };
+
+                // Actualizar proveedor si viene en la entrada
+                if (providerName && providerName.trim().length > 0) {
+                    updatePayload.proveedor = providerName;
+                }
+
+                transaction.update(pRead.ref, updatePayload);
 
                 historyItems.push({
                     productId: item.productId,

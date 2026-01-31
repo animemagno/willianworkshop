@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnóstico de Perfiles</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #00ff00;
+        }
+
+        .log {
+            background: #000;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .error {
+            color: #ff6b6b;
+        }
+
+        .success {
+            color: #51cf66;
+        }
+
+        .info {
+            color: #74c0fc;
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        h1 {
+            color: #74c0fc;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔍 Diagnóstico de Base de Datos</h1>
+
+    <div>
+        <button onclick="checkPerfiles()">1. Verificar PERFILES</button>
+        <button onclick="checkVentas()">2. Verificar VENTAS</button>
+        <button onclick="checkGrupos()">3. Verificar GRUPOS</button>
+        <button onclick="clearLog()">Limpiar Log</button>
+    </div>
+
+    <div id="log" class="log">Esperando comandos...</div>
+
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+
+    <script>
+        // Configuración Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCaZdPPYddeMPTiNm5cCdFL6m9b9swX0-c",
+            authDomain: "williantaller-1426b.firebaseapp.com",
+            projectId: "williantaller-1426b",
+            storageBucket: "williantaller-1426b.firebasestorage.app",
+            messagingSenderId: "757966587061",
+            appId: "1:757966587061:web:6c700e862317119d64aafc"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type;
+            logDiv.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = 'Log limpiado.\n';
+        }
+
+        async function checkPerfiles() {
+            try {
+                log('=== VERIFICANDO COLECCIÓN PERFILES ===', 'info');
+
+                const perfilesSnap = await db.collection('PERFILES').get();
+                log(`📊 Total de perfiles: ${perfilesSnap.size}`, 'success');
+
+                if (perfilesSnap.empty) {
+                    log('⚠️ NO HAY PERFILES EN LA BASE DE DATOS', 'error');
+                    log('💡 Necesitas ejecutar la migración en admin_migration.html', 'info');
+                    log('', 'info');
+                    log('PASOS PARA MIGRAR:', 'info');
+                    log('1. Abre admin_migration.html', 'info');
+                    log('2. Clic en "Conectar Bases de Datos"', 'info');
+                    log('3. Clic en "Analizar Datos"', 'info');
+                    log('4. Clic en "Iniciar Migración"', 'info');
+                    return;
+                }
+
+                let perfilesConSaldo = 0;
+                let perfilesActivos = 0;
+                let totalSaldo = 0;
+
+                for (const doc of perfilesSnap.docs) {
+                    const data = doc.data();
+                    log(`\n📋 Perfil: ${doc.id}`, 'info');
+                    log(`   - Número: ${data.numero}`, 'info');
+                    log(`   - Nombre: ${data.nombre || 'Sin nombre'}`, 'info');
+                    log(`   - Saldo: $${(data.saldo || 0).toFixed(2)}`, data.saldo > 0 ? 'success' : 'info');
+                    log(`   - Total Ventas: $${(data.totalVentas || 0).toFixed(2)}`, 'info');
+                    log(`   - Activo: ${data.activo ? 'Sí' : 'No'}`, data.activo ? 'success' : 'error');
+
+                    if (data.saldo > 0) {
+                        perfilesConSaldo++;
+                        totalSaldo += data.saldo;
+                    }
+                    if (data.activo) perfilesActivos++;
+
+                    // Verificar movimientos
+                    const movimientosSnap = await db.collection('PERFILES').doc(doc.id).collection('MOVIMIENTOS').get();
+                    log(`   - Movimientos: ${movimientosSnap.size}`, 'info');
+                }
+
+                log(`\n✅ RESUMEN:`, 'success');
+                log(`   - Total perfiles: ${perfilesSnap.size}`, 'success');
+                log(`   - Perfiles con saldo > 0: ${perfilesConSaldo}`, 'success');
+                log(`   - Perfiles activos: ${perfilesActivos}`, 'success');
+                log(`   - Saldo total pendiente: $${totalSaldo.toFixed(2)}`, 'success');
+
+                if (perfilesConSaldo === 0) {
+                    log(`\n⚠️ PROBLEMA DETECTADO:`, 'error');
+                    log(`   No hay perfiles con saldo pendiente`, 'error');
+                    log(`   Esto significa que facturas.html no mostrará nada`, 'error');
+                    log(``, 'info');
+                    log(`💡 POSIBLES CAUSAS:`, 'info');
+                    log(`   1. Todos los saldos están en $0.00`, 'info');
+                    log(`   2. La migración no calculó los saldos correctamente`, 'info');
+                    log(`   3. Los perfiles están marcados como inactivos`, 'info');
+                }
+
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+
+        async function checkVentas() {
+            try {
+                log('=== VERIFICANDO COLECCIÓN ventas ===', 'info');
+
+                const ventasSnap = await db.collection('ventas').get();
+                log(`📊 Total de ventas: ${ventasSnap.size}`, 'success');
+
+                if (ventasSnap.empty) {
+                    log('ℹ️ No hay ventas en la colección "ventas"', 'info');
+                    log('💡 Esto es normal si usas el sistema de PERFILES', 'info');
+                    return;
+                }
+
+                let ventasCredito = 0;
+                let ventasConSaldo = 0;
+
+                ventasSnap.forEach(doc => {
+                    const data = doc.data();
+                    if (data.tipo === 'credito') ventasCredito++;
+                    if (data.saldoPendiente && data.saldoPendiente > 0) ventasConSaldo++;
+                });
+
+                log(`   - Ventas a crédito: ${ventasCredito}`, 'info');
+                log(`   - Ventas con saldo pendiente: ${ventasConSaldo}`, 'info');
+
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkGrupos() {
+            try {
+                log('=== VERIFICANDO COLECCIÓN grupos ===', 'info');
+
+                const gruposSnap = await db.collection('grupos').get();
+                log(`📊 Total de grupos: ${gruposSnap.size}`, 'success');
+
+                if (gruposSnap.empty) {
+                    log('ℹ️ No hay grupos creados', 'info');
+                    return;
+                }
+
+                gruposSnap.forEach(doc => {
+                    const data = doc.data();
+                    log(`\n👥 Grupo: ${doc.id}`, 'info');
+                    log(`   - Nombre: ${data.nombre || 'Sin nombre'}`, 'info');
+                    log(`   - Total: $${(data.total || 0).toFixed(2)}`, 'info');
+                    log(`   - Equipos: ${data.equipos ? data.equipos.join(', ') : 'Ninguno'}`, 'info');
+                });
+
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+
+        // Auto-ejecutar al cargar
+        log('✅ Sistema de diagnóstico listo', 'success');
+        log('👆 Haz clic en los botones para verificar la base de datos\n', 'info');
+    </script>
+</body>
+
+</html>

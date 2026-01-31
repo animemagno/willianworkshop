@@ -1558,8 +1558,9 @@ class InventoryController {
         const q = term.toLowerCase();
         // Exclude generic items or ensure they don't clog
         const matches = this.cache.filter(p =>
-            (p.codigo || "").toLowerCase().includes(q) ||
-            (p.descripcion || "").toLowerCase().includes(q)
+            ((p.codigo || "").toLowerCase().includes(q) ||
+                (p.descripcion || "").toLowerCase().includes(q)) &&
+            p.creditoFiscal !== false
         ).slice(0, 10);
 
         if (matches.length > 0) {
@@ -2335,7 +2336,7 @@ class InventoryController {
 
                 const btn = !data.revertido ?
                     `<button class="btn btn-danger btn-sm" onclick="app.revertBatch('${doc.id}')">REVERTIR LOTE</button>` :
-                    '<span style="color:#aaa;">-</span>';
+                    `<button class="icon-btn btn-delete" onclick="app.deleteBatchRecord('${doc.id}')" title="Eliminar del Historial"><i class="fas fa-trash"></i></button>`;
 
                 tbody.innerHTML += `
                     <tr>
@@ -2352,6 +2353,14 @@ class InventoryController {
         } catch (e) {
             tbody.innerHTML = `<tr><td colspan="6" style="color:red">Error: ${e.message}</td></tr>`;
         }
+    }
+
+    async deleteBatchRecord(batchId) {
+        if (!confirm("¿Eliminar este registro del historial de lotes?\n(Nota: Las facturas ya fueron revertidas, esto solo limpia la lista)")) return;
+        try {
+            await db.collection('INVENTARIO_LOTES').doc(batchId).delete();
+            this.loadBatchesLog();
+        } catch (e) { alert("Error: " + e.message); }
     }
 
     async revertBatch(batchId) {
@@ -2398,14 +2407,27 @@ class InventoryController {
 
             const batch = db.batch();
 
-            // Updates de Stock
-            for (const pid of Object.keys(stockReturns)) {
-                const qty = stockReturns[pid];
-                const ref = db.collection('INVENTARIO').doc(pid);
-                batch.update(ref, {
-                    existencia: firebase.firestore.FieldValue.increment(qty)
-                });
-            }
+            // Updates de Stock (Validar existencia antes de agregar al batch)
+            // Nota: Batch update falla si doc no existe. Debemos verificar o usar set con merge si quisieramos recrearlo (pero no tiene sentido recrear sin datos).
+            // Estrategia Robustez: Leer primero los docs para ver cuales existen.
+
+            const productRefs = Object.keys(stockReturns).map(pid => db.collection('INVENTARIO').doc(pid));
+            // Firestore no tiene getAll con array de refs facil en cliente web v8 sin un loop de gets o transaction.
+            // Para simplificar y dado que el error detiene todo, haremos lecturas individuales en paralelo.
+
+            const checks = await Promise.all(productRefs.map(ref => ref.get()));
+
+            checks.forEach((docSnap, i) => {
+                const pid = productRefs[i].id;
+                if (docSnap.exists) {
+                    const qty = stockReturns[pid];
+                    batch.update(docSnap.ref, {
+                        existencia: firebase.firestore.FieldValue.increment(qty)
+                    });
+                } else {
+                    console.warn(`Producto ${pid} no encontrado al revertir lote. Se omitirá devolución de stock.`);
+                }
+            });
 
             // Deletes de Facturas
             for (const ref of invoiceIdsToDelete) {

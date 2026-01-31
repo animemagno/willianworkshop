@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Detalle Equipo - Taller Willian</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="stylesheet" href="css/facturas.css">
+    <style>
+        body.main-wrapper {
+            background: #f0f2f5;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        header {
+            background: linear-gradient(135deg, #3498db, #2c3e50);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        .back-btn {
+            color: white;
+            text-decoration: none;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 15px;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        /* Tarjeta de Resumen Global */
+        .resumen-global {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 5px solid #3498db;
+        }
+
+        .cliente-info h2 {
+            margin: 0;
+            color: #2c3e50;
+            font-size: 2rem;
+        }
+
+        .global-saldo label {
+            display: block;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            color: #7f8c8d;
+            letter-spacing: 1px;
+            text-align: right;
+        }
+
+        .global-saldo .monto {
+            font-size: 2.5rem;
+            color: #e74c3c;
+            font-weight: bold;
+        }
+
+        /* Estilo para cada FACTURA (Card) */
+        .factura-card {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            margin-bottom: 25px;
+            border: 1px solid #e0e0e0;
+            transition: transform 0.2s;
+        }
+
+        .factura-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Header de la Factura */
+        .factura-header {
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .factura-id {
+            font-weight: bold;
+            color: #34495e;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .factura-date {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+
+        .check-icon {
+            color: #27ae60;
+            display: none;
+        }
+
+        /* Se muestra si está pagada */
+
+        /* Cuerpo con Productos */
+        .factura-body {
+            padding: 15px 20px;
+        }
+
+        .producto-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f9f9f9;
+            font-size: 0.95rem;
+        }
+
+        .producto-row:last-child {
+            border-bottom: none;
+        }
+
+        .prod-cant {
+            font-weight: bold;
+            color: #3498db;
+            width: 30px;
+        }
+
+        .prod-desc {
+            flex: 1;
+            color: #2c3e50;
+        }
+
+        .prod-price {
+            font-weight: 600;
+            color: #555;
+        }
+
+        /* Footer con Totales */
+        .factura-footer {
+            padding: 15px 20px;
+            background: #fffcf5;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: flex-end;
+            gap: 30px;
+        }
+
+        .footer-stat {
+            text-align: right;
+        }
+
+        .footer-stat div:first-child {
+            font-size: 0.8rem;
+            color: #95a5a6;
+            text-transform: uppercase;
+        }
+
+        .footer-stat div:last-child {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .stat-total {
+            color: #2c3e50;
+        }
+
+        .stat-abonos {
+            color: #27ae60;
+        }
+
+        .stat-saldo {
+            color: #e74c3c;
+        }
+
+        /* Estado Pagado */
+        .pagada .stat-saldo {
+            color: #27ae60;
+            text-decoration: line-through;
+            opacity: 0.5;
+        }
+
+        .pagada .check-icon {
+            display: inline-block;
+        }
+
+        .pagada .factura-header {
+            background: #eafaf1;
+        }
+
+        /* Estado Pendiente */
+        .pendiente .factura-header {
+            background: #fff5f5;
+            border-left: 3px solid #e74c3c;
+        }
+
+        /* Estado Cancelada */
+        .cancelada {
+            opacity: 0.6;
+        }
+
+        .cancelada .factura-header {
+            background: #f5f5f5;
+        }
+
+        .cancelada .stat-saldo {
+            text-decoration: line-through;
+        }
+
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            z-index: 2000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+    </style>
+</head>
+
+<body class="main-wrapper">
+
+    <div id="loading-overlay">
+        <i class="fas fa-spinner fa-spin fa-3x" style="color: #3498db; margin-bottom: 15px;"></i>
+        <div style="font-size: 1.2rem; color: #2c3e50;">Cargando detalles...</div>
+    </div>
+
+    <header>
+        <a href="facturas.html" class="back-btn"><i class="fas fa-arrow-left"></i> Volver</a>
+        <h1>Detalle de Cliente</h1>
+        <div style="width: 80px;"></div>
+    </header>
+
+    <div class="container" id="main-content" style="display: none;">
+
+        <!-- Resumen Global -->
+        <div class="resumen-global">
+            <div class="cliente-info">
+                <h2><i class="fas fa-user-circle" style="opacity:0.5;"></i> Equipo #<span id="equipo-numero">--</span>
+                </h2>
+                <div style="color:#7f8c8d; margin-top:5px;" id="cliente-nombre">Cargando...</div>
+            </div>
+            <div class="global-saldo">
+                <label>Saldo Pendiente Global</label>
+                <div class="monto" id="saldo-total">--</div>
+            </div>
+        </div>
+
+        <!-- Lista de Facturas -->
+        <div id="lista-facturas">
+            <!-- Se llena dinámicamente -->
+        </div>
+
+        <div id="empty-state" style="text-align:center; padding: 50px; color:#bdc3c7; display:none;">
+            <i class="fas fa-clipboard-list fa-4x" style="margin-bottom:20px;"></i>
+            <p>No hay facturas registradas para este equipo.</p>
+        </div>
+
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCaZdPPYddeMPTiNm5cCdFL6m9b9swX0-c",
+            authDomain: "williantaller-1426b.firebaseapp.com",
+            projectId: "williantaller-1426b",
+            storageBucket: "williantaller-1426b.firebasestorage.app",
+            messagingSenderId: "757966587061",
+            appId: "1:757966587061:web:6c700e862317119d64aafc"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        const formatCurrency = (amount) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+
+        const formatDate = (raw) => {
+            if (!raw) return '';
+            const d = raw.seconds ? new Date(raw.seconds * 1000) : new Date(raw);
+            return isNaN(d) ? '' : d.toLocaleDateString();
+        };
+
+        // Renderizado de Tarjeta de Factura - Compatible con DB Antigua y Nueva
+        const renderFactura = (mov) => {
+            // FECHA: Busca en múltiples campos posibles
+            const fecha = formatDate(
+                mov.fecha ||
+                mov.fechaVenta ||
+                mov.timestamp ||
+                mov.fechaCreacion ||
+                mov.createdAt ||
+                mov.date
+            );
+
+            // TOTAL: Siempre debe existir
+            const total = parseFloat(mov.total || 0);
+
+            // ABONOS: Suma todos los abonos del array O usa saldoPendiente si existe
+            let abonos = 0;
+            if (mov.abonos && Array.isArray(mov.abonos) && mov.abonos.length > 0) {
+                abonos = mov.abonos.reduce((sum, a) => sum + (parseFloat(a.monto) || 0), 0);
+            } else if (mov.montoAbonado) {
+                abonos = parseFloat(mov.montoAbonado);
+            }
+
+
+            // SALDO: Usa saldoPendiente si existe, sino calcula
+            let saldo = 0;
+            if (mov.saldoPendiente !== undefined && mov.saldoPendiente !== null) {
+                saldo = parseFloat(mov.saldoPendiente);
+            } else {
+                saldo = Math.max(0, total - abonos);
+            }
+
+            // ESTADO: Determina el estado real de la factura
+            const status = mov.status || mov.estado || '';
+            const paymentType = mov.paymentType || mov.tipoPago || '';
+            const cancelada = mov.cancelada === true;
+
+            // Lógica de estado mejorada
+            let estaPagada = false;
+            let estadoBadge = '';
+            let estadoClass = '';
+
+            if (cancelada) {
+                estadoBadge = '<span style="background:#95a5a6; color:white; padding:3px 8px; border-radius:3px; font-size:0.75rem; margin-left:8px;">CANCELADA</span>';
+                estadoClass = 'cancelada';
+                estaPagada = false;
+            } else if (status === 'pagado' || paymentType === 'contado' || saldo < 0.01) {
+                estaPagada = true;
+                estadoBadge = '<span style="background:#27ae60; color:white; padding:3px 8px; border-radius:3px; font-size:0.75rem; margin-left:8px;">PAGADO</span>';
+                estadoClass = 'pagada';
+            } else if (status === 'pendiente' || paymentType === 'pendiente' || saldo > 0) {
+                estaPagada = false;
+                estadoBadge = '<span style="background:#e74c3c; color:white; padding:3px 8px; border-radius:3px; font-size:0.75rem; margin-left:8px;">PENDIENTE</span>';
+                estadoClass = 'pendiente';
+            }
+
+            // PRODUCTOS: Busca en todos los nombres posibles
+            let productosHtml = '';
+            const productos = mov.productos || mov.products || mov.items || [];
+
+            if (productos && productos.length > 0) {
+                productosHtml = productos.map(p => {
+                    const cantidad = p.cantidad || p.qty || 1;
+                    const descripcion = p.descripcion || p.nombre || p.name || p.description || 'Producto';
+                    const precio = p.precio || p.price || p.total || 0;
+
+                    return `
+                        <div class="producto-row">
+                            <div class="prod-cant">${cantidad}</div>
+                            <div class="prod-desc">${descripcion}</div>
+                            <div class="prod-price">${formatCurrency(precio)}</div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                productosHtml = `<div style="color:#aaa; font-style:italic;">Sin detalle de productos</div>`;
+            }
+
+            // NÚMERO DE FACTURA: Busca invoiceNumber, ticketId o usa ID
+            const numeroFactura = mov.invoiceNumber || mov.ticketId || mov.facturaId || mov.id.substring(0, 10).toUpperCase();
+
+            return `
+                <div class="factura-card ${estadoClass}">
+                    <div class="factura-header">
+                        <div class="factura-id">
+                            #${numeroFactura}
+                            ${estadoBadge}
+                            <i class="fas fa-check-circle check-icon" title="Pagada"></i>
+                        </div>
+                        <div class="factura-date">${fecha}</div>
+                    </div>
+                    
+                    <div class="factura-body">
+                        ${productosHtml}
+                    </div>
+
+                    <div class="factura-footer">
+                        <div class="footer-stat">
+                            <div>Total</div>
+                            <div class="stat-total">${formatCurrency(total)}</div>
+                        </div>
+                        ${!cancelada && abonos > 0 ? `
+                        <div class="footer-stat">
+                            <div>Abonos</div>
+                            <div class="stat-abonos">+${formatCurrency(abonos)}</div>
+                        </div>` : ''}
+                        ${!cancelada && !estaPagada && saldo > 0 ? `
+                        <div class="footer-stat">
+                            <div>Saldo Pendiente</div>
+                            <div class="stat-saldo">${formatCurrency(saldo)}</div>
+                        </div>` : ''}
+                    </div>
+                </div>
+            `;
+        };
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const params = new URLSearchParams(window.location.search);
+            const numero = params.get('numero');
+
+            if (!numero) { window.location.href = 'facturas.html'; return; }
+
+            try {
+                document.getElementById('equipo-numero').textContent = numero;
+
+                // 1. Buscar Perfil (Flexible)
+                const perfilesSnap = await db.collection('PERFILES').get();
+                let perfilDoc = null;
+
+                perfilesSnap.forEach(doc => {
+                    if (String(doc.data().numero) === String(numero)) perfilDoc = doc;
+                });
+
+                if (!perfilDoc) throw new Error("Equipo no encontrado");
+
+                const perfilData = perfilDoc.data();
+                document.getElementById('cliente-nombre').textContent = perfilData.nombre || 'Cliente General';
+                document.getElementById('saldo-total').textContent = formatCurrency(perfilData.saldo || 0);
+
+                // 2. Cargar Movimientos
+                let snap = await perfilDoc.ref.collection('MOVIMIENTOS').orderBy('fecha', 'desc').limit(50).get();
+                if (snap.empty) snap = await perfilDoc.ref.collection('MOVIMIENTOS').limit(50).get(); // Fallback si no hay índice
+                // Intento minúsculas si falla
+                if (snap.empty) snap = await perfilDoc.ref.collection('movimientos').limit(50).get();
+
+                const container = document.getElementById('lista-facturas');
+
+                if (snap.empty) {
+                    document.getElementById('empty-state').style.display = 'block';
+                } else {
+                    let html = '';
+                    snap.forEach(doc => {
+                        const data = doc.data();
+                        // Solo renderizamos tipo 'venta' como Factura completa. 
+                        // Los 'abonos' sueltos podrían listarse diferente, pero nos enfocamos en Facturas.
+                        if (data.tipo === 'venta' || !data.tipo) {
+                            html += renderFactura({ id: doc.id, ...data });
+                        }
+                    });
+                    container.innerHTML = html;
+                }
+
+                document.getElementById('loading-overlay').style.display = 'none';
+                document.getElementById('main-content').style.display = 'block';
+
+            } catch (e) {
+                alert(e.message);
+                window.location.href = 'facturas.html';
+            }
+        });
+    </script>
+</body>
+
+</html>
