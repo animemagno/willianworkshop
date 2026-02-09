@@ -1282,6 +1282,57 @@
             </div>
         </div>
 
+        <!-- MODAL MAPEO COLUMNAS SALIDAS -->
+        <div id="modalMapExitColumns" class="modal-overlay" style="display: none;">
+            <div class="modal-content" style="max-width: 600px;">
+                <div class="modal-header">
+                    <h3><i class="fas fa-table"></i> Configurar Columnas Excel (Salidas)</h3>
+                    <span class="close-modal-btn"
+                        onclick="document.getElementById('modalMapExitColumns').style.display='none'">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <p>Selecciona qué columna del Excel corresponde a cada dato:</p>
+
+                    <div class="form-group"
+                        style="background:#e8f6f3; padding:10px; border-radius:5px; margin-bottom:15px; border:1px solid #1abc9c;">
+                        <label style="color:#16a085; font-weight:bold;">📂 Hoja de Excel</label>
+                        <select id="map-exit-sheet" class="form-control" onchange="app.onExitSheetChange()"></select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Fecha <span style="color:red">*</span></label>
+                        <select id="map-exit-fecha" class="form-control"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>N° Factura <span style="color:red">*</span></label>
+                        <select id="map-exit-factura" class="form-control"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Cliente (Opcional)</label>
+                        <select id="map-exit-cliente" class="form-control"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Código / Descripción Item <span style="color:red">*</span></label>
+                        <select id="map-exit-item" class="form-control"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Cantidad <span style="color:red">*</span></label>
+                        <select id="map-exit-cantidad" class="form-control"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Precio Venta (Opcional, para ref.)</label>
+                        <select id="map-exit-precio" class="form-control"></select>
+                    </div>
+
+                    <div style="margin-top:20px; text-align:right;">
+                        <button class="btn btn-primary" onclick="app.confirmExitMapping()">
+                            <i class="fas fa-check"></i> Continuar Importación
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- SCRIPTS -->
         <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
         <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>

@@ -339,7 +339,7 @@ class InventoryService {
     async registrarEntradaMasiva(items, providerId, providerName, isCredito) {
         const db = firebase.firestore();
         const entriesRef = db.collection('INVENTARIO_ENTRADAS');
-        const providerRef = providerId ? db.collection('cuentas').doc(providerId) : null;
+        let providerRef = providerId ? db.collection('cuentas').doc(providerId) : null;
 
         return db.runTransaction(async (transaction) => {
             // PHASE 1: READS
@@ -362,6 +362,24 @@ class InventoryService {
             if (isCredito && providerRef) {
                 const pDoc = await transaction.get(providerRef);
                 if (pDoc.exists) providerData = pDoc.data();
+            }
+
+            // PHASE 1.5: VERIFICAR Y CREAR PROVEEDOR SI NO EXISTE
+            // Validar que tengamos un nombre para crear
+            if (!providerId && providerName && providerName.trim().length > 0) {
+                const newProvRef = db.collection('cuentas').doc();
+                transaction.set(newProvRef, {
+                    nombre: providerName.toUpperCase(),
+                    saldo: 0,
+                    telefono: "",
+                    creado: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                providerId = newProvRef.id;
+                providerRef = newProvRef;
+                providerData = { saldo: 0 }; // Inicializar para logica de saldo abajo
+            } else if (providerId && !providerData) {
+                // Caso raro: venia ID pero no existia el doc (no deberia pasar si leimos bien arriba)
+                // Si providerRef existe pero el doc no, providerData es null.
             }
 
             // PHASE 2: WRITES & CALCULATIONS

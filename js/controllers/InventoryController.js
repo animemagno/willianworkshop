@@ -817,32 +817,66 @@ class InventoryController {
         this.closeEntryModal(); // Resetea campos e ID
         this.entryCart = [];
         this.renderEntryCart();
-
-        try {
-            // 1. Cargar Proveedores Registrados (Oficiales)
-            const provs = await this.svc.obtenerProveedores();
-            this.providersCache = provs;
-
-            // 2. Cargar Historial para sugerencias (Últimos usados)
-            const entries = await this.svc.obtenerEntradas();
-            const historicalProviders = [...new Set(entries.map(e => e.providerName).filter(Boolean))];
-
-            // 3. Combinar y actualizar lista de sugerencias
-            const allSuggestions = Array.from(new Set([
-                ...this.providersCache.map(p => p.nombre),
-                ...historicalProviders
-            ])).sort();
-
-            this.ui.updateProviderSuggestions(allSuggestions);
-
-        } catch (e) {
-            console.error("Error al cargar lista de proveedores:", e);
-        }
-
         document.getElementById('entry-modal').style.display = 'flex';
+
+        // 1. Cargar sugerencias inmediatas (Locales + Cache si existe)
+        const localKnown = JSON.parse(localStorage.getItem('known_providers') || '[]');
+
+        // Render inicial rapido
+        const quickList = Array.from(new Set(localKnown)).filter(Boolean).map(s => s.toUpperCase()).sort();
+        this.ui.updateProviderSuggestions(quickList);
+
         // Focus provider
         const provInput = document.getElementById('entry-provider-input');
         if (provInput) provInput.focus();
+
+        try {
+            // 2. Segundo pase: Enriquecer con datos de servidor (Sin bloquear UI)
+
+            // A. Cargar lista oficial de proveedores (Cuentas)
+            const tasks = [];
+            if (!this.providersCache || this.providersCache.length === 0) {
+                tasks.push(this.svc.obtenerProveedores());
+            } else {
+                tasks.push(Promise.resolve(this.providersCache)); // Ya los tenemos
+            }
+
+            // B. Cargar Historial Reciente para aprender proveedores no registrados
+            tasks.push(this.svc.obtenerEntradas());
+
+            const [officialProvs, historicalEntries] = await Promise.all(tasks);
+            this.providersCache = officialProvs || []; // Update cache
+
+            // Extraer nombres del historial que sean válidos
+            const historyNames = (historicalEntries || [])
+                .map(e => e.providerName)
+                .filter(n => n && typeof n === 'string' && n.trim().length > 0);
+
+            // Fusionar todo: Cache Oficial + Historial + LocalStorage
+            // Usamos Set para eliminar duplicados
+            const uniqueSet = new Set([
+                ...(this.providersCache || []).map(p => p.nombre),
+                ...historyNames,
+                ...localKnown
+            ]);
+
+            // Convertir a Array y Normalizar
+            const fullList = Array.from(uniqueSet)
+                .filter(Boolean)
+                .map(s => s.toUpperCase().trim()) // Clean spaces
+                .sort();
+
+            // Actualizar LocalStorage con lo aprendido del historial (Auto-Healing)
+            // Solo si encontramos nuevos que no teniamos localmente
+            if (fullList.length > localKnown.length) {
+                localStorage.setItem('known_providers', JSON.stringify(fullList));
+            }
+
+            this.ui.updateProviderSuggestions(fullList);
+
+        } catch (e) {
+            console.error("Error al cargar lista de proveedores background:", e);
+        }
     }
 
     closeEntryModal() {
@@ -919,8 +953,7 @@ class InventoryController {
     }
 
     resetEntryForm() {
-        const lastProv = localStorage.getItem('last_entry_provider') || '';
-        document.getElementById('entry-provider-input').value = lastProv;
+        document.getElementById('entry-provider-input').value = '';
         document.getElementById('entry-temp-qty').value = '';
         document.getElementById('entry-temp-name').value = '';
         document.getElementById('entry-temp-id').value = '';
@@ -1105,13 +1138,25 @@ class InventoryController {
             if (btn) { btn.disabled = true; btn.innerText = "Procesando..."; }
             try {
                 await this.svc.registrarEntradaMasiva(this.entryCart, provId, provName, isCredit);
+                this.providersCache = null; // Force reload
+
+                // SAVE PROVIDER TO LOCAL STORAGE HISTORY (PERSISTENT)
                 localStorage.setItem('last_entry_provider', provName);
+
+                let known = JSON.parse(localStorage.getItem('known_providers') || '[]');
+                if (!known.includes(provName)) {
+                    known.push(provName);
+                    // Sort alphabetically
+                    known.sort();
+                    localStorage.setItem('known_providers', JSON.stringify(known));
+                }
+
                 alert("Entrada registrada!");
                 this.closeEntryModal();
                 this.loadData();
                 this.loadEntries();
             } catch (e) { alert("Error: " + e.message); }
-            finally { if (btn) { btn.disabled = false; btn.innerText = "Procesar"; } }
+            finally { if (btn) { btn.disabled = false; btn.innerText = "Registrar Entrada"; } }
         }
     }
 
@@ -1797,73 +1842,168 @@ class InventoryController {
         const reader = new FileReader();
         reader.onload = (e) => {
             const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-
-            // Asumimos primera hoja
-            const sheetName = workbook.SheetNames[0];
-            const sheet = workbook.Sheets[sheetName];
-            const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
-
-            this.parseExitExcel(rows);
+            this.currentExcelWorkbook = XLSX.read(data, { type: 'array' });
+            this.openExitMappingModal();
         };
         reader.readAsArrayBuffer(file);
     }
 
-    parseExitExcel(rows) {
+    openExitMappingModal() {
+        const sheetSel = document.getElementById('map-exit-sheet');
+        if (sheetSel && this.currentExcelWorkbook) {
+            sheetSel.innerHTML = '';
+            this.currentExcelWorkbook.SheetNames.forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.innerText = name;
+                sheetSel.appendChild(opt);
+            });
+            // Cargar por defecto la primera hoja
+            this.onExitSheetChange();
+        }
+        document.getElementById('modalMapExitColumns').style.display = 'block';
+    }
+
+    onExitSheetChange() {
+        const sheetName = document.getElementById('map-exit-sheet').value;
+        if (!sheetName || !this.currentExcelWorkbook) return;
+
+        const sheet = this.currentExcelWorkbook.Sheets[sheetName];
+        this.rawExitRows = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
+
+        if (!this.rawExitRows || this.rawExitRows.length === 0) {
+            alert("Hoja vacía");
+            return;
+        }
+
+        // Update selects using first row
+        this.updateExitColumnSelects(this.rawExitRows[0]);
+    }
+
+    updateExitColumnSelects(headers) {
+        const selects = [
+            'map-exit-fecha', 'map-exit-factura', 'map-exit-cliente',
+            'map-exit-item', 'map-exit-cantidad', 'map-exit-precio'
+        ];
+
+        // Generar opciones: "Columna A (Valor)", "Columna B (Valor)"...
+        // O si hay headers, usar headers.
+        // Asumiremos que la fila 0 son headers o data, mostraremos ej
+
+        const optionsHTML = headers.map((h, i) => {
+            let label = typeof h === 'string' ? h : `Columna ${i + 1}`;
+            return `<option value="${i}">${label}</option>`;
+        }).join('');
+
+        // Agregar opcion "Ignorar" o vacio
+        const emptyOpt = `<option value="-1">-- Seleccionar --</option>`;
+
+        selects.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.innerHTML = emptyOpt + optionsHTML;
+            }
+        });
+
+        // Auto-Guess simple
+        this.autoMapExitColumns(headers);
+    }
+
+    autoMapExitColumns(headers) {
+        const clean = headers.map(h => String(h).toLowerCase());
+
+        const map = {
+            'fecha': ['fecha', 'dia', 'date'],
+            'factura': ['factura', 'doc', 'numero', 'comprobante'],
+            'cliente': ['cliente', 'nombre', 'razon'],
+            'item': ['descripcion', 'producto', 'detalle', 'item', 'nombre'],
+            'cantidad': ['cantidad', 'cant', 'unidades', 'qty'],
+            'precio': ['precio', 'unitario', 'valor', 'venta']
+        };
+
+        const setVal = (id, keywords) => {
+            const idx = clean.findIndex(h => keywords.some(k => h.includes(k)));
+            if (idx >= 0) document.getElementById(id).value = idx;
+        };
+
+        setVal('map-exit-fecha', map.fecha);
+        setVal('map-exit-factura', map.factura);
+        setVal('map-exit-cliente', map.cliente);
+        setVal('map-exit-item', map.item);
+        setVal('map-exit-cantidad', map.cantidad);
+        setVal('map-exit-precio', map.precio);
+    }
+
+    confirmExitMapping() {
+        const getVal = (id) => parseInt(document.getElementById(id).value);
+
+        const mapping = {
+            IDX_FECHA: getVal('map-exit-fecha'),
+            IDX_FACTURA: getVal('map-exit-factura'),
+            IDX_CLIENTE: getVal('map-exit-cliente'),
+            IDX_DESC: getVal('map-exit-item'),
+            IDX_CANT: getVal('map-exit-cantidad'),
+            IDX_PRECIO: getVal('map-exit-precio')
+        };
+
+        if (mapping.IDX_FECHA < 0 || mapping.IDX_FACTURA < 0 || mapping.IDX_DESC < 0 || mapping.IDX_CANT < 0) {
+            return alert("Por favor asigna al menos: Fecha, Factura, Item y Cantidad.");
+        }
+
+        document.getElementById('modalMapExitColumns').style.display = 'none';
+        this.parseExitExcel(this.rawExitRows, mapping);
+    }
+
+    parseExitExcel(rows, mapping) {
         this.batchExitsData = [];
         let currentFecha = null;
         let currentFactura = null;
-        let currentClient = "Cliente General";
+        let currentClient = "Cliente General"; // Valor default si no cambia
 
-        // Indices
-        const IDX_FECHA = 0;
-        const IDX_FACTURA = 1;
-        const IDX_CANT = 2;
-        const IDX_DESC = 3;
-        const IDX_PRECIO = 4;
+        const { IDX_FECHA, IDX_FACTURA, IDX_CLIENTE, IDX_DESC, IDX_CANT, IDX_PRECIO } = mapping;
 
         rows.forEach((row, index) => {
-            if (index < 1) return; // Skip header
+            if (index < 1) return; // Skip header assumed at 0
 
-            // 1. Detectar Nueva Factura o Bloque (Por Fecha en Col A)
-            if (row[IDX_FECHA]) {
-                let val = row[IDX_FECHA];
-                // Excel dates are numbers (~45000), Strings are "DD/MM/YYYY"
-                if ((typeof val === 'number' && val > 20000) || (typeof val === 'string' && val.includes('/'))) {
-                    // Es un nuevo bloque
-                    if (typeof val === 'number') {
-                        const jsDate = new Date(Math.round((val - 25569) * 86400 * 1000));
-                        jsDate.setMinutes(jsDate.getMinutes() + jsDate.getTimezoneOffset());
-                        currentFecha = jsDate;
-                    } else {
-                        currentFecha = new Date(val);
-                    }
+            // 1. Detectar Nueva Factura o Bloque (Por Fecha o Factura)
+            // A veces la fecha viene vacia en items siguientes, asumiremos arrastre
 
-                    // Asumimos que la factura está en la misma fila que la fecha
-                    if (row[IDX_FACTURA]) {
-                        currentFactura = String(row[IDX_FACTURA]);
-                    }
+            let valFecha = row[IDX_FECHA];
+            let valFactura = row[IDX_FACTURA];
+            let valCliente = IDX_CLIENTE >= 0 ? row[IDX_CLIENTE] : null;
+
+            // Si hay fecha explicita en la fila, actualizamos el contexto
+            if (valFecha) {
+                // Excel dates logic
+                if (typeof valFecha === 'number' && valFecha > 20000) {
+                    const jsDate = new Date(Math.round((valFecha - 25569) * 86400 * 1000));
+                    jsDate.setMinutes(jsDate.getMinutes() + jsDate.getTimezoneOffset());
+                    currentFecha = jsDate;
+                } else if (typeof valFecha === 'string' && (valFecha.includes('/') || valFecha.includes('-'))) {
+                    currentFecha = new Date(valFecha);
                 }
             }
 
-            // CRITICO: Ignorar filas vacias o filas de TOTALES
-            // Si Col A vacia, Factura Col tiene algo? Verifiquemos si es un monto.
-            if (!row[IDX_FECHA] && row[IDX_FACTURA]) {
-                const valStr = String(row[IDX_FACTURA]);
-                // Si parece dinero ($ o ,), lo ignoramos, es el total visual del excel
-                if (valStr.includes('$') || valStr.includes(',')) {
-                    // Es fila de total, saltar
-                    return;
+            // Si hay factura explicita, actualizamos
+            if (valFactura) {
+                // Validar que no sea un total basura
+                const str = String(valFactura);
+                if (!str.includes('$') && !str.toLowerCase().includes('total')) {
+                    currentFactura = str;
+                    // Si cambiamos de factura, y hay cliente en esta fila, actualizamos cliente
+                    if (valCliente) currentClient = valCliente;
                 }
             }
 
-            // 2. Detectar Item (Tiene Descripcion y Cantidad)
+            // Validar que NO sea una fila de totales (a veces traen fecha vacia pero monto en factura)
+            if (!valFecha && valFactura && String(valFactura).includes('$')) return;
+
+            // 2. Procesar Item
             const desc = row[IDX_DESC];
             const cant = row[IDX_CANT];
 
-            // Validar que tengamos una factura activa y datos de item
+            // Validar que tengamos contexto activo
             if (desc && cant && currentFactura) {
-                // MATCHING
                 const match = this.findBestMatch(desc);
 
                 this.batchExitsData.push({
@@ -1872,9 +2012,9 @@ class InventoryController {
                     cliente: currentClient,
                     itemExcel: desc,
                     cant: parseFloat(cant),
-                    precio: parseFloat(row[IDX_PRECIO] || 0),
+                    precio: IDX_PRECIO >= 0 ? parseFloat(row[IDX_PRECIO] || 0) : 0,
                     match: match,
-                    status: match ? 'OK' : 'NEW' // 'NEW' means we will create it
+                    status: match ? 'OK' : 'NEW'
                 });
             }
         });
