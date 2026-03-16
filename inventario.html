@@ -163,6 +163,9 @@
             <div class="tab-btn" data-target="reportes">
                 <i class="fas fa-chart-bar"></i> Reportes
             </div>
+            <div class="tab-btn" data-target="sincronizacion" style="background-color: #f39c12; color: white;">
+                <i class="fas fa-sync"></i> Sincronizar
+            </div>
         </div>
 
         <!-- 1. LISTA -->
@@ -513,8 +516,43 @@
             </div>
         </div>
 
-        <!-- 6. REPORTES -->
-        <!-- 6. REPORTES -->
+        <!-- 6. SINCRONIZACION -->
+        <div id="tab-sincronizacion" class="tab-content">
+            <h3 style="margin-bottom: 20px; color: #f39c12;"><i class="fas fa-sync"></i> Sincronizar Inventario a TallerWilliam</h3>
+            
+            <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div><i class="fas fa-database"></i> <strong>Origen:</strong> WillianWorkshop (Tu taller actual)</div>
+                    <div style="font-size: 1.5rem; color: #3498db;"><i class="fas fa-arrow-right"></i></div>
+                    <div><i class="fas fa-server"></i> <strong>Destino:</strong> TallerWilliam</div>
+                </div>
+                
+                <div style="text-align: center;">
+                    <button class="btn btn-primary" id="btn-sync-analyze" onclick="window.startSyncAnalysis()"><i class="fas fa-search"></i> Analizar Diferencias</button>
+                    <button class="btn btn-success" id="btn-sync-execute" onclick="window.executeSync()" disabled style="margin-left: 10px;"><i class="fas fa-cloud-upload-alt"></i> Ejecutar Sincronización</button>
+                </div>
+                <div id="sync-status-msg" style="margin-top: 15px; font-weight: bold; text-align: center; color: #666;">Listo para analizar.</div>
+            </div>
+
+            <div style="max-height: 400px; overflow-y: auto; background: white; border: 1px solid #ddd; border-radius: 5px;">
+                <table class="inventario-table">
+                    <thead>
+                        <tr>
+                            <th>Acción</th>
+                            <th>Código</th>
+                            <th>Descripción</th>
+                            <th>Stock Orig. / Dest.</th>
+                            <th>Precio Orig. / Dest.</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sync-diff-body">
+                        <tr><td colspan="5" style="text-align:center;">Haz clic en Analizar Diferencias para comenzar.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 7. REPORTES -->
         <div id="tab-reportes" class="tab-content">
             <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 30px;">
                 <!-- Card Critical -->
@@ -1482,8 +1520,109 @@
         <script src="js/utils/formatters.js"></script>
         <script src="js/services/InventoryService.js"></script>
         <script src="js/services/ExitBatchService.js"></script>
+        <script src="js/services/SyncService.js"></script>
         <script src="js/ui/InventoryUI.js"></script>
         <script src="js/controllers/InventoryController.js"></script>
+
+        <script>
+            // Logica simple para sincronizacion UI
+            window.syncDiffs = [];
+            window.syncService = null;
+            
+            window.startSyncAnalysis = async function() {
+                if(!window.syncService) window.syncService = new SyncService();
+                const btnAnalyze = document.getElementById('btn-sync-analyze');
+                const btnExecute = document.getElementById('btn-sync-execute');
+                const tBody = document.getElementById('sync-diff-body');
+                const msg = document.getElementById('sync-status-msg');
+                
+                btnAnalyze.disabled = true;
+                btnAnalyze.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analizando...';
+                tBody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Analizando las dos bases de datos, por favor espera...</td></tr>';
+                
+                try {
+                    window.syncDiffs = await window.syncService.analizarDiferencias();
+                    
+                    if (window.syncDiffs.length === 0) {
+                        tBody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: green;"><i class="fas fa-check-circle"></i> Todo está sincronizado. No hay cambios.</td></tr>';
+                        btnExecute.disabled = true;
+                        msg.innerText = "No hay cambios pendientes.";
+                    } else {
+                        tBody.innerHTML = '';
+                        let newCount = 0;
+                        let upCount = 0;
+                        
+                        window.syncDiffs.forEach(diff => {
+                            const tr = document.createElement('tr');
+                            if (diff.type === 'NEW') {
+                                newCount++;
+                                tr.style.backgroundColor = '#e8f8f5';
+                            } else {
+                                upCount++;
+                                tr.style.backgroundColor = '#fef9e7';
+                            }
+                            
+                            const badge = diff.type === 'NEW' ? '<span style="background:var(--success-color); color:white; padding:3px 8px; border-radius:4px; font-size:0.8rem">NUEVO</span>' : '<span style="background:#f39c12; color:white; padding:3px 8px; border-radius:4px; font-size:0.8rem">ACTUALIZAR</span>';
+                            const po = diff.source;
+                            
+                            const stockStr = diff.type === 'NEW' ? `${po.existencia}` : `${po.existencia} <span style="color:#aaa">(vs ${diff.destQty})</span>`;
+                            const priceStr = diff.type === 'NEW' ? `$${po.precio}` : `$${po.precio} <span style="color:#aaa">(vs $${diff.destPrice})</span>`;
+                            
+                            tr.innerHTML = `
+                                <td>${badge}</td>
+                                <td>${po.codigo || ''}</td>
+                                <td>${po.descripcion || ''}</td>
+                                <td>${stockStr}</td>
+                                <td>${priceStr}</td>
+                            `;
+                            tBody.appendChild(tr);
+                        });
+                        
+                        btnExecute.disabled = false;
+                        msg.innerText = `Análisis completo: ${newCount} faltantes, ${upCount} para actualizar. (${window.syncDiffs.length} cambios en total)`;
+                    }
+                } catch(e) {
+                    msg.innerHTML = `<span style="color:red"><i class="fas fa-exclamation-triangle"></i> Error: ${e.message}</span>`;
+                    tBody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Error durante el análisis.</td></tr>';
+                } finally {
+                    btnAnalyze.disabled = false;
+                    btnAnalyze.innerHTML = '<i class="fas fa-search"></i> Volver a Analizar';
+                }
+            };
+
+            window.executeSync = async function() {
+                if(!window.syncDiffs || window.syncDiffs.length === 0) return;
+                
+                if (!confirm(`¿Seguro que deseas copiar ${window.syncDiffs.length} cambios al inventario de TallerWilliam? Esta acción no se puede deshacer.`)) {
+                    return;
+                }
+                
+                const btnAnalyze = document.getElementById('btn-sync-analyze');
+                const btnExecute = document.getElementById('btn-sync-execute');
+                const msg = document.getElementById('sync-status-msg');
+                const tBody = document.getElementById('sync-diff-body');
+                
+                btnExecute.disabled = true;
+                btnExecute.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando cambios...';
+                btnAnalyze.disabled = true;
+                
+                try {
+                    const processed = await window.syncService.ejecutarSincronizacion(window.syncDiffs);
+                    alert(`¡Sincronización Exitosa! Se procesaron ${processed} movimientos.`);
+                    
+                    window.syncDiffs = [];
+                    tBody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: green;"><i class="fas fa-check-circle"></i> Sincronización exitosa.</td></tr>';
+                    msg.innerText = "Sincronización terminada.";
+                    
+                } catch(e) {
+                    alert('Ocurrió un error al sincronizar: ' + e.message);
+                    msg.innerHTML = `<span style="color:red"><i class="fas fa-exclamation-triangle"></i> Fallo la sincronización: ${e.message}</span>`;
+                } finally {
+                    btnAnalyze.disabled = false;
+                    btnExecute.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Ejecutar Sincronización';
+                }
+            }
+        </script>
 
         <script>
             // Event listener para botón de impresión
