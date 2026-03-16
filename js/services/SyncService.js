@@ -22,9 +22,16 @@ class SyncService {
         this.dbDestino = this.appDestino.firestore();
     }
 
+    // Helper: obtener stock de un producto sin importar si usa 'existencia' o 'cantidad'
+    _getStock(product) {
+        // Priorizar existencia (willianworkshop), luego cantidad (TallerWilliam)
+        const val = product.existencia ?? product.cantidad ?? 0;
+        return parseFloat(val) || 0;
+    }
+
     async analizarDiferencias() {
         try {
-            // 1. Leer Origen (Local)
+            // 1. Leer Origen (WillianWorkshop)
             const snapOrigen = await this.dbOrigen.collection('INVENTARIO').get();
             const productsOrigen = snapOrigen.docs.map(d => ({ ...d.data(), id: d.id }));
 
@@ -41,26 +48,43 @@ class SyncService {
             const diffList = [];
 
             productsOrigen.forEach(po => {
-                if (!po.codigo) return; // Ignorar si no tiene código (no hay forma segura de vincular)
+                if (!po.codigo) return; // Ignorar si no tiene código
 
                 const code = po.codigo.trim().toUpperCase();
                 const pd = mapDestino[code];
 
-                // Adaptación de nombres de campo (origen: existencia vs destino: cantidad)
-                const qtyOrigen = parseFloat(po.existencia || 0);
+                // Obtener stock con fallback a ambos nombres de campo
+                const qtyOrigen = this._getStock(po);
 
                 if (!pd) {
                     // NO EXISTE EN DESTINO -> NUEVO
-                    diffList.push({ type: 'NEW', source: po, destId: null, destQty: null, destPrice: null });
+                    diffList.push({
+                        type: 'NEW',
+                        source: po,
+                        sourceQty: qtyOrigen,
+                        sourcePrice: parseFloat(po.precio || 0),
+                        destId: null,
+                        destQty: null,
+                        destPrice: null
+                    });
                 } else {
                     // EXISTE -> VERIFICAR CAMBIOS
-                    const qtyDestino = parseFloat(pd.cantidad || 0);
+                    const qtyDestino = this._getStock(pd);
                     const stockDiff = qtyOrigen !== qtyDestino;
-                    const priceDiff = po.precio !== pd.precio || po.costo !== pd.costo;
-                    const descDiff = po.descripcion !== pd.descripcion;
+                    const priceDiff = (parseFloat(po.precio || 0) !== parseFloat(pd.precio || 0))
+                                   || (parseFloat(po.costo || 0) !== parseFloat(pd.costo || 0));
+                    const descDiff = (po.descripcion || '') !== (pd.descripcion || '');
 
                     if (stockDiff || priceDiff || descDiff) {
-                        diffList.push({ type: 'UPDATE', source: po, destId: pd.id, destQty: qtyDestino, destPrice: pd.precio });
+                        diffList.push({
+                            type: 'UPDATE',
+                            source: po,
+                            sourceQty: qtyOrigen,
+                            sourcePrice: parseFloat(po.precio || 0),
+                            destId: pd.id,
+                            destQty: qtyDestino,
+                            destPrice: parseFloat(pd.precio || 0)
+                        });
                     }
                 }
             });
@@ -76,34 +100,34 @@ class SyncService {
         if (!diffList || diffList.length === 0) return 0;
 
         let processed = 0;
-        const batchSize = 400; // Margen de seguridad de Firestore
+        const batchSize = 400;
         let currentBatch = this.dbDestino.batch();
         let batchCount = 0;
 
         for (const item of diffList) {
-            // Transformamos los campos al formato de Destino
+            // Transformamos los campos al formato de Destino (TallerWilliam usa 'cantidad')
+            const qty = this._getStock(item.source);
+
             const dataToSave = {
                 codigo: item.source.codigo,
                 descripcion: item.source.descripcion || '',
-                descripcionTaller: item.source.descripcionFactura || item.source.descripcion || '', // Mapeo cruzado
-                cantidad: parseFloat(item.source.existencia || 0), // Cambio principal: existencia -> cantidad
+                descripcionTaller: item.source.descripcionFactura || item.source.descripcion || '',
+                cantidad: qty,         // TallerWilliam usa 'cantidad'
                 precio: parseFloat(item.source.precio || 0),
                 costo: parseFloat(item.source.costo || 0),
-                minStock: parseFloat(item.source.stockMinimo || 5), // stockMinimo -> minStock
+                minStock: parseFloat(item.source.stockMinimo || 5),
                 aliases: item.source.aliases || [],
                 creditoFiscal: item.source.creditoFiscal || false,
                 ultimaActualizacion: firebase.firestore.FieldValue.serverTimestamp()
             };
 
             if (item.type === 'NEW') {
-                // Crear nuevo doc
                 const newRef = this.dbDestino.collection('INVENTARIO').doc();
                 currentBatch.set(newRef, {
                     ...dataToSave,
                     fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
                 });
             } else if (item.type === 'UPDATE' && item.destId) {
-                // Actualizar existente
                 const ref = this.dbDestino.collection('INVENTARIO').doc(item.destId);
                 currentBatch.update(ref, dataToSave);
             }

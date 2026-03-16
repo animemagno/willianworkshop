@@ -1565,8 +1565,8 @@
                             const badge = diff.type === 'NEW' ? '<span style="background:var(--success-color); color:white; padding:3px 8px; border-radius:4px; font-size:0.8rem">NUEVO</span>' : '<span style="background:#f39c12; color:white; padding:3px 8px; border-radius:4px; font-size:0.8rem">ACTUALIZAR</span>';
                             const po = diff.source;
                             
-                            const stockStr = diff.type === 'NEW' ? `${po.existencia}` : `${po.existencia} <span style="color:#aaa">(vs ${diff.destQty})</span>`;
-                            const priceStr = diff.type === 'NEW' ? `$${po.precio}` : `$${po.precio} <span style="color:#aaa">(vs $${diff.destPrice})</span>`;
+                            const stockStr = diff.type === 'NEW' ? `${diff.sourceQty}` : `${diff.sourceQty} <span style="color:#aaa">(vs ${diff.destQty})</span>`;
+                            const priceStr = diff.type === 'NEW' ? `$${diff.sourcePrice}` : `$${diff.sourcePrice} <span style="color:#aaa">(vs $${diff.destPrice})</span>`;
                             
                             tr.innerHTML = `
                                 <td>${badge}</td>
