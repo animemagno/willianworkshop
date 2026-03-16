@@ -23,6 +23,11 @@ class InventoryController {
         // History Linking Cache
         this.historyUnlinked = [];
 
+        // Servicio de comparación inteligente de lotes
+        this.exitBatchSvc = window.ExitBatchService ? new window.ExitBatchService() : null;
+        this.invoiceClassification = {};
+        this.classificationSummary = { new: 0, identical: 0, modified: 0, total: 0 };
+
         this.init();
     }
 
@@ -930,6 +935,23 @@ class InventoryController {
     // =========================================
     // FISCAL ENTRY PROMPT LOGIC
     // =========================================
+    async promptDeleteAllEntries() {
+        if(confirm("⚠️ ADVERTENCIA: Esta acción eliminará TODO el historial de Entradas de forma permanente.\n\n¿Estás completamente seguro de continuar?")) {
+            const pass = prompt("Para confirmar, escribe 'BORRAR_ENTRADAS'");
+            if (pass === "BORRAR_ENTRADAS") {
+                try {
+                    await this.svc.borrarTodasEntradas();
+                    alert("Todas las entradas han sido eliminadas.");
+                    this.loadEntries();
+                } catch(e) {
+                    alert("Error: " + e);
+                }
+            } else {
+                alert("Operación cancelada. El texto no coincide.");
+            }
+        }
+    }
+
     promptNewEntry() {
         // Show Question Modal
         document.getElementById('modalFiscalQuestion').style.display = 'flex';
@@ -1760,15 +1782,24 @@ class InventoryController {
         }
 
         exits.forEach(e => {
-            // Formato de fecha completo
-            let dateStr = e.fecha || "Sin Fecha";
-            if (e.timestamp) {
-                const d = new Date(e.timestamp.seconds * 1000);
-                dateStr = d.toLocaleString(); // Muestra fecha y hora local
-            } else if (e.fecha) {
-                // Si solo hay fecha STRING YYYY-MM-DD
+            // Formato de fecha completo, priorizando la fecha asignada
+            let dateStr = "Sin Fecha";
+            
+            if (e.fecha && typeof e.fecha === 'string' && e.fecha.includes('-')) {
+                // Si hay fecha (asignada manuelmente o por lote) formato YYYY-MM-DD
                 const parts = e.fecha.split('-');
-                if (parts.length === 3) dateStr = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                if (parts.length === 3) {
+                    dateStr = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                } else {
+                    dateStr = e.fecha;
+                }
+            } else if (e.fecha) {
+                 // Si es otra cadena
+                 dateStr = String(e.fecha);
+            } else if (e.timestamp) {
+                // Fallback a timestamp de creación solo si no hay fecha definida
+                const d = new Date(e.timestamp.seconds * 1000);
+                dateStr = d.toLocaleDateString();
             }
 
             // Generate Items Summary
@@ -1830,6 +1861,23 @@ class InventoryController {
                 await this.svc.eliminarSalida(id);
                 this.loadExitsLog();
             } catch (e) { alert("Error: " + e); }
+        }
+    }
+
+    async promptDeleteAllExits() {
+        if(confirm("⚠️ ADVERTENCIA: Esta acción eliminará TODO el historial de Salidas de forma permanente.\n\n¿Estás completamente seguro de continuar?")) {
+            const pass = prompt("Para confirmar, escribe 'BORRAR_SALIDAS'");
+            if (pass === "BORRAR_SALIDAS") {
+                try {
+                    await this.svc.borrarTodasSalidas();
+                    alert("Todas las salidas han sido eliminadas.");
+                    this.loadExitsLog();
+                } catch(e) {
+                    alert("Error: " + e);
+                }
+            } else {
+                alert("Operación cancelada. El texto no coincide.");
+            }
         }
     }
 
@@ -1934,7 +1982,7 @@ class InventoryController {
         setVal('map-exit-precio', map.precio);
     }
 
-    confirmExitMapping() {
+    async confirmExitMapping() {
         const getVal = (id) => parseInt(document.getElementById(id).value);
 
         const mapping = {
@@ -1951,30 +1999,25 @@ class InventoryController {
         }
 
         document.getElementById('modalMapExitColumns').style.display = 'none';
-        this.parseExitExcel(this.rawExitRows, mapping);
+        await this.parseExitExcel(this.rawExitRows, mapping);
     }
 
-    parseExitExcel(rows, mapping) {
+    async parseExitExcel(rows, mapping) {
         this.batchExitsData = [];
         let currentFecha = null;
         let currentFactura = null;
-        let currentClient = "Cliente General"; // Valor default si no cambia
+        let currentClient = "CLIENTES VARIOS";
 
         const { IDX_FECHA, IDX_FACTURA, IDX_CLIENTE, IDX_DESC, IDX_CANT, IDX_PRECIO } = mapping;
 
         rows.forEach((row, index) => {
-            if (index < 1) return; // Skip header assumed at 0
-
-            // 1. Detectar Nueva Factura o Bloque (Por Fecha o Factura)
-            // A veces la fecha viene vacia en items siguientes, asumiremos arrastre
+            if (index < 1) return;
 
             let valFecha = row[IDX_FECHA];
             let valFactura = row[IDX_FACTURA];
             let valCliente = IDX_CLIENTE >= 0 ? row[IDX_CLIENTE] : null;
 
-            // Si hay fecha explicita en la fila, actualizamos el contexto
             if (valFecha) {
-                // Excel dates logic
                 if (typeof valFecha === 'number' && valFecha > 20000) {
                     const jsDate = new Date(Math.round((valFecha - 25569) * 86400 * 1000));
                     jsDate.setMinutes(jsDate.getMinutes() + jsDate.getTimezoneOffset());
@@ -1984,28 +2027,21 @@ class InventoryController {
                 }
             }
 
-            // Si hay factura explicita, actualizamos
             if (valFactura) {
-                // Validar que no sea un total basura
                 const str = String(valFactura);
                 if (!str.includes('$') && !str.toLowerCase().includes('total')) {
                     currentFactura = str;
-                    // Si cambiamos de factura, y hay cliente en esta fila, actualizamos cliente
                     if (valCliente) currentClient = valCliente;
                 }
             }
 
-            // Validar que NO sea una fila de totales (a veces traen fecha vacia pero monto en factura)
             if (!valFecha && valFactura && String(valFactura).includes('$')) return;
 
-            // 2. Procesar Item
             const desc = row[IDX_DESC];
             const cant = row[IDX_CANT];
 
-            // Validar que tengamos contexto activo
             if (desc && cant && currentFactura) {
                 const match = this.findBestMatch(desc);
-
                 this.batchExitsData.push({
                     fecha: currentFecha || new Date(),
                     factura: currentFactura,
@@ -2018,6 +2054,22 @@ class InventoryController {
                 });
             }
         });
+
+        // NUEVO: Clasificar facturas (comparar con las ya guardadas)
+        if (this.exitBatchSvc && this.batchExitsData.length > 0) {
+            try {
+                const result = await this.exitBatchSvc.classifyInvoices(this.batchExitsData);
+                this.invoiceClassification = result.classification;
+                this.classificationSummary = result.summary;
+            } catch (e) {
+                console.error('Error clasificando facturas:', e);
+                this.invoiceClassification = {};
+                this.classificationSummary = { new: 0, identical: 0, modified: 0, total: 0 };
+            }
+        } else {
+            this.invoiceClassification = {};
+            this.classificationSummary = { new: 0, identical: 0, modified: 0, total: 0 };
+        }
 
         this.renderExitExcelPreview();
     }
@@ -2045,6 +2097,28 @@ class InventoryController {
         document.getElementById('exit-excel-drop-area').style.display = 'none';
         document.getElementById('exit-excel-preview-container').style.display = 'block';
 
+        // Mostrar resumen de comparación
+        const summaryDiv = document.getElementById('exit-import-summary');
+        if (summaryDiv) {
+            const s = this.classificationSummary;
+            if (s.total > 0) {
+                summaryDiv.innerHTML = `
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; padding:12px; background:#f8f9fa; border-radius:8px; border:1px solid #dee2e6; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:5px;">
+                            <i class="fas fa-info-circle" style="color:#17a2b8;"></i>
+                            <strong>${s.total} facturas:</strong>
+                        </div>
+                        <div style="background:#d4edda; color:#155724; padding:4px 12px; border-radius:20px; font-weight:bold; font-size:0.85rem;">🆕 ${s.new} Nuevas</div>
+                        ${s.modified > 0 ? `<div style="background:#fff3cd; color:#856404; padding:4px 12px; border-radius:20px; font-weight:bold; font-size:0.85rem;">✏️ ${s.modified} Modificadas</div>` : ''}
+                        ${s.identical > 0 ? `<div style="background:#e2e3e5; color:#383d41; padding:4px 12px; border-radius:20px; font-weight:bold; font-size:0.85rem;">⏭️ ${s.identical} Sin cambios</div>` : ''}
+                    </div>
+                `;
+                summaryDiv.style.display = 'block';
+            } else {
+                summaryDiv.style.display = 'none';
+            }
+        }
+
         const tbody = document.getElementById('exit-excel-preview-body');
         tbody.innerHTML = '';
 
@@ -2053,29 +2127,56 @@ class InventoryController {
         this.batchExitsData.forEach((row, i) => {
             const fechaStr = row.fecha instanceof Date && !isNaN(row.fecha) ? row.fecha.toLocaleDateString() : '???';
 
+            // Clasificación de la factura
+            const invoiceKey = String(row.factura).trim();
+            const invoiceInfo = this.invoiceClassification[invoiceKey];
+            const isIdentical = invoiceInfo && invoiceInfo.status === 'IDENTICAL';
+            const isModified = invoiceInfo && invoiceInfo.status === 'MODIFIED';
+
             let matchInfo, statusIcon, rowStyle;
 
-            if (row.match) {
+            if (isIdentical) {
+                // Factura idéntica: se omitirá
+                readyCount++;
+                matchInfo = `<span style="color:#adb5bd; font-style:italic;">Ya registrada (se omitirá)</span>`;
+                statusIcon = '<i class="fas fa-check-double" style="color:#adb5bd"></i>';
+                rowStyle = 'opacity:0.5; background:#f5f5f5;';
+            } else if (row.match) {
                 readyCount++;
                 matchInfo = `<span style="color:green; font-weight:bold;">${row.match.descripcion}</span>`;
                 statusIcon = '<i class="fas fa-check-circle" style="color:green"></i>';
-                rowStyle = '';
+                rowStyle = isModified ? 'background:#fffde7; border-left:3px solid #f39c12;' : '';
             } else if (row.skipped) {
                 readyCount++;
                 matchInfo = `<span style="color:#7f8c8d; font-style:italic;">(Omitido: No es producto)</span>`;
                 statusIcon = '<i class="fas fa-forward" style="color:#7f8c8d"></i>';
                 rowStyle = 'background:#f2f2f2; color:#777;';
             } else {
-                // Action Link
                 matchInfo = `<button class="btn btn-sm btn-outline-primary" onclick="app.promptLinkItem(${i})">🔗 Vincular Producto</button> <span style="font-size:0.8rem; color:#666;">"${row.itemExcel}"</span>`;
                 statusIcon = '<i class="fas fa-link" style="color:orange"></i>';
-                rowStyle = 'background:#fffbf0';
+                rowStyle = isModified ? 'background:#fffde7;' : 'background:#fffbf0';
+            }
+
+            // Badge de la factura
+            let invoiceBadge = '';
+            if (invoiceInfo) {
+                switch (invoiceInfo.status) {
+                    case 'NEW':
+                        invoiceBadge = '<br><span style="background:#d4edda; color:#155724; padding:1px 5px; border-radius:3px; font-size:0.7rem;">NUEVA</span>';
+                        break;
+                    case 'MODIFIED':
+                        invoiceBadge = `<br><span style="background:#fff3cd; color:#856404; padding:1px 5px; border-radius:3px; font-size:0.7rem;" title="${invoiceInfo.details || ''}">MODIFICADA</span>`;
+                        break;
+                    case 'IDENTICAL':
+                        invoiceBadge = '<br><span style="background:#e2e3e5; color:#6c757d; padding:1px 5px; border-radius:3px; font-size:0.7rem;">SIN CAMBIOS</span>';
+                        break;
+                }
             }
 
             tbody.innerHTML += `
                  <tr style="${rowStyle}">
                     <td>${fechaStr}</td>
-                    <td>${row.factura}</td>
+                    <td>${row.factura}${invoiceBadge}</td>
                     <td>${row.itemExcel}</td>
                     <td>${row.cant}</td>
                     <td>${matchInfo}</td>
@@ -2087,7 +2188,12 @@ class InventoryController {
         const btn = document.getElementById('btn-process-exit-excel');
         btn.disabled = false;
         const total = this.batchExitsData.length;
-        btn.innerText = `Procesar (${readyCount}/${total} Listos)`;
+        const identicalTotal = this.classificationSummary.identical || 0;
+        const modifiedTotal = this.classificationSummary.modified || 0;
+        let label = `Procesar (${readyCount}/${total} Listos)`;
+        if (identicalTotal > 0) label += ` | ${identicalTotal} se omitirán`;
+        if (modifiedTotal > 0) label += ` | ${modifiedTotal} se actualizarán`;
+        btn.innerText = label;
     }
 
     // --- LINKING MODAL LOGIC ---
@@ -2262,53 +2368,80 @@ class InventoryController {
 
 
     async saveBatchExits() {
-        // Filter Items that are either MATCHED or SKIPPED
-        const readyItems = this.batchExitsData.filter(x => x.match || x.skipped);
-        const unresolved = this.batchExitsData.length - readyItems.length;
+        // Filtrar items listos, EXCLUYENDO los de facturas idénticas
+        const readyItems = this.batchExitsData.filter(x => {
+            const invoiceKey = String(x.factura).trim();
+            const classification = this.invoiceClassification[invoiceKey];
+            if (classification && classification.status === 'IDENTICAL') return false;
+            return x.match || x.skipped;
+        });
 
+        // Contar items no resueltos (excluyendo los de facturas idénticas)
+        const unresolvedItems = this.batchExitsData.filter(x => {
+            const invoiceKey = String(x.factura).trim();
+            const classification = this.invoiceClassification[invoiceKey];
+            if (classification && classification.status === 'IDENTICAL') return false;
+            return !x.match && !x.skipped;
+        });
+        const unresolved = unresolvedItems.length;
+        const identicalCount = this.classificationSummary.identical || 0;
+        const modifiedCount = this.classificationSummary.modified || 0;
+
+        if (readyItems.length === 0 && identicalCount > 0) {
+            return alert(`Todas las facturas del Excel ya están registradas sin cambios. No hay nada nuevo que procesar.`);
+        }
         if (readyItems.length === 0) return alert("No hay items listos para procesar.");
 
-        if (unresolved > 0) {
-            if (!confirm(`⚠️ Hay ${unresolved} items PENDIENTES (Sin vincular ni omitir).\n\n¿Desea PROCESAR SOLO LOS ${readyItems.length} items listos e ignorar el resto?`)) return;
-        }
+        // Mensaje de confirmación detallado
+        let confirmMsg = `Resumen de importación:\n`;
+        confirmMsg += `• ${this.classificationSummary.new || 0} facturas NUEVAS (se crearán)\n`;
+        if (modifiedCount > 0) confirmMsg += `• ${modifiedCount} facturas MODIFICADAS (se actualizarán)\n`;
+        if (identicalCount > 0) confirmMsg += `• ${identicalCount} facturas SIN CAMBIOS (se omitirán)\n`;
+        if (unresolved > 0) confirmMsg += `\n⚠️ ${unresolved} items pendientes de vincular se ignorarán.\n`;
+        confirmMsg += `\n¿Desea continuar?`;
+
+        if (!confirm(confirmMsg)) return;
 
         const btn = document.getElementById('btn-process-exit-excel');
         btn.disabled = true; btn.innerText = "Procesando...";
 
         try {
-            const batch = db.batch();
+            // FASE 1: Revertir facturas MODIFICADAS (devolver stock y borrar doc antiguo)
+            if (modifiedCount > 0 && this.exitBatchSvc) {
+                btn.innerText = "Revirtiendo modificadas...";
+                await this.exitBatchSvc.revertModifiedInvoices(this.invoiceClassification);
+            }
+
+            // FASE 2: Procesar items (NUEVAS + MODIFICADAS, ya sin doc antiguo)
+            btn.innerText = "Guardando facturas...";
+            let batch = db.batch();
+            let opsCount = 0;
             const invoicesMap = {};
 
-            // IMPORTANTE: Agrupar
             for (const item of readyItems) {
-                // Determine Product Data
                 let prodId = null;
-                let prodName = item.itemExcel; // Default to Excel Name
+                let prodName = item.itemExcel;
 
                 if (item.match) {
                     prodId = item.match.id;
-                    prodName = item.match.descripcion; // Official Name
-
-                    // Solo descontar stock si existe match (Y NO ES PROPIAMENTE SERVICIO TIPO PRODUCTO)
+                    prodName = item.match.descripcion;
                     const existingRef = db.collection('INVENTARIO').doc(prodId);
                     batch.update(existingRef, {
                         existencia: firebase.firestore.FieldValue.increment(-item.cant)
                     });
+                    opsCount++;
                 } else if (item.isService) {
-                    prodId = null; // Sin ID
+                    prodId = null;
                     prodName = item.itemExcel + " (SERVICIO)";
-                    // NO DESCONTAMOS STOCK
                 } else if (item.skipped && !item.isService) {
-                    // Es OMITIDO/BASURA, saltar procesamiento de este item en la factura
                     continue;
                 }
 
-                // Group by Invoice Number
                 const key = item.factura;
                 if (!invoicesMap[key]) {
                     invoicesMap[key] = {
-                        numeroFactura: key, // SCHEMANAME MATCHES SERVICE
-                        fecha: item.fecha, // Date Object
+                        numeroFactura: key,
+                        fecha: item.fecha,
                         cliente: item.cliente,
                         items: [],
                         total: 0
@@ -2317,14 +2450,20 @@ class InventoryController {
 
                 invoicesMap[key].items.push({
                     productId: prodId,
-                    descripcionPapel: item.itemExcel, // Keep original name
-                    name: prodName, // Display name
+                    descripcionPapel: item.itemExcel,
+                    name: prodName,
                     cantidad: item.cant,
                     precioUnitario: item.precio,
                     total: item.cant * item.precio
                 });
-
                 invoicesMap[key].total += (item.cant * item.precio);
+
+                // Control de límite de operaciones por lote
+                if (opsCount >= 450) {
+                    await batch.commit();
+                    batch = db.batch();
+                    opsCount = 0;
+                }
             }
 
             const batchId = `lote_${Date.now()}`;
@@ -2332,11 +2471,9 @@ class InventoryController {
             const totalInvoices = Object.keys(invoicesMap).length;
             let totalAmount = 0;
 
-            // Create Invoice Documents in INVENTARIO_SALIDAS
             for (const key in invoicesMap) {
                 const inv = invoicesMap[key];
                 const salidaRef = db.collection('INVENTARIO_SALIDAS').doc();
-
                 totalAmount += inv.total;
 
                 let dateStr = inv.fecha;
@@ -2352,37 +2489,47 @@ class InventoryController {
                     items: inv.items,
                     total: inv.total,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                    importBatchId: batchId // LINK TO BATCH
+                    importBatchId: batchId
                 });
+                opsCount++;
+
+                if (opsCount >= 450) {
+                    await batch.commit();
+                    batch = db.batch();
+                    opsCount = 0;
+                }
             }
 
-            // Save Master Batch Record
             batch.set(summaryRef, {
                 fecha: firebase.firestore.FieldValue.serverTimestamp(),
                 cantidadFacturas: totalInvoices,
                 montoTotal: totalAmount,
-                usuario: localStorage.getItem('usuario') || 'Admin', // Asumiendo local storage
-                revertido: false
+                usuario: localStorage.getItem('usuario') || 'Admin',
+                revertido: false,
+                facturasNuevas: this.classificationSummary.new || 0,
+                facturasModificadas: modifiedCount,
+                facturasOmitidas: identicalCount
             });
 
             await batch.commit();
 
-            alert(`✅ Importación completada.\nSe generaron ${totalInvoices} facturas bajo el Lote #${batchId.slice(-6)}.`);
+            // Mensaje final detallado
+            let msg = `✅ Importación completada.\n`;
+            msg += `Se procesaron ${totalInvoices} facturas (Lote #${batchId.slice(-6)}).\n`;
+            if (modifiedCount > 0) msg += `${modifiedCount} factura(s) fueron actualizadas.\n`;
+            if (identicalCount > 0) msg += `${identicalCount} factura(s) sin cambios fueron omitidas.`;
+
+            alert(msg);
             document.getElementById('modalImportarSalidas').style.display = 'none';
             this.loadData();
             this.loadExitsLog();
-            // Opcional: Cargar lista de lotes si estuviéramos mostrándola
-            // this.loadBatchesLog(); 
 
         } catch (e) {
             console.error(e);
-            alert("Error crítico al guardar: " + e.message);
+            alert("Error al guardar: " + e.message);
         } finally {
             btn.disabled = false;
-            // Recalculate counts
-            const valid = this.batchExitsData.filter(x => x.match || x.skipped).length;
-            const total = this.batchExitsData.length;
-            btn.innerText = `Procesar (${valid}/${total} Listos)`;
+            btn.innerText = `Procesar`;
         }
     }
     // =========================================

@@ -228,9 +228,25 @@ class InventoryService {
             const snapshot = await firebase.firestore()
                 .collection('INVENTARIO_SALIDAS')
                 .orderBy('fecha', 'desc') // Usar fecha de factura
-                .limit(50)
+                .limit(100)
                 .get();
-            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+            const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            // Ordenar secundariamente por número de factura (descendente) de forma numérica
+            docs.sort((a, b) => {
+                if (a.fecha !== b.fecha) {
+                    const dateA = a.fecha || "";
+                    const dateB = b.fecha || "";
+                    return dateB.localeCompare(dateA);
+                }
+                
+                const numA = parseInt(a.numeroFactura) || 0;
+                const numB = parseInt(b.numeroFactura) || 0;
+                return numB - numA;
+            });
+            
+            return docs;
         } catch (e) {
             console.error(e);
             return [];
@@ -280,6 +296,31 @@ class InventoryService {
         } catch (e) {
             console.error(e);
             throw e;
+        }
+    }
+
+    // Eliminar TODAS las salidas
+    async borrarTodasSalidas() {
+        try {
+            const snapshot = await firebase.firestore().collection('INVENTARIO_SALIDAS').get();
+            if (snapshot.empty) return true;
+
+            let currentBatch = firebase.firestore().batch();
+            let count = 0;
+
+            for (const doc of snapshot.docs) {
+                currentBatch.delete(doc.ref);
+                count++;
+                if (count % 490 === 0) {
+                    await currentBatch.commit();
+                    currentBatch = firebase.firestore().batch();
+                }
+            }
+            await currentBatch.commit();
+            return true;
+        } catch (error) {
+            console.error("Error borrando todas las salidas:", error);
+            throw error;
         }
     }
 
@@ -594,6 +635,31 @@ class InventoryService {
         } catch (e) {
             console.error("Error eliminando entrada:", e);
             throw e;
+        }
+    }
+
+    // Eliminar TODAS las entradas
+    async borrarTodasEntradas() {
+        try {
+            const snapshot = await firebase.firestore().collection('INVENTARIO_ENTRADAS').get();
+            if (snapshot.empty) return true;
+
+            let currentBatch = firebase.firestore().batch();
+            let count = 0;
+
+            for (const doc of snapshot.docs) {
+                currentBatch.delete(doc.ref);
+                count++;
+                if (count % 490 === 0) {
+                    await currentBatch.commit();
+                    currentBatch = firebase.firestore().batch();
+                }
+            }
+            await currentBatch.commit();
+            return true;
+        } catch (error) {
+            console.error("Error borrando todas las entradas:", error);
+            throw error;
         }
     }
 
