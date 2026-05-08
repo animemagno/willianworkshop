@@ -32,7 +32,7 @@ const RegistrosApp = {
 
         } catch (error) {
             console.error("Error al iniciar RegistrosApp:", error);
-            alert("Error de conexión. Revisa tu internet.");
+            alert("Error al iniciar el módulo: " + error.message);
         } finally {
             this.showLoading(false);
         }
@@ -44,19 +44,20 @@ const RegistrosApp = {
     },
 
     setupUI() {
-        // Poner la fecha de hoy por defecto (zona horaria local)
-        document.getElementById('global-fecha').value = this.getLocalISODate();
-
         // Enfocar en producto al inicio para usar el lector rápido
-        document.getElementById('fast-producto').focus();
+        const inputProd = document.getElementById('fast-producto');
+        if (inputProd) inputProd.focus();
     },
 
     setupEventListeners() {
         // Formulario de ingreso rápido (El submit ahora se maneja directamente en el onsubmit del HTML para evitar recargas)
         // Archivo Excel
-        document.getElementById('excel-file').addEventListener('change', (e) => {
-            this.handleExcelUpload(e);
-        });
+        const excelFile = document.getElementById('excel-file') || document.getElementById('import-excel-input');
+        if (excelFile) {
+            excelFile.addEventListener('change', (e) => {
+                this.handleExcelUpload(e);
+            });
+        }
 
         // Filtros
         const searchInput = document.getElementById('search-registro');
@@ -65,50 +66,84 @@ const RegistrosApp = {
         }
     },
 
-    updateFastEntryTableState() {
+    renderFastEntryTable() {
         const tbody = document.getElementById('fast-entry-tbody');
-        const rows = Array.from(tbody.querySelectorAll('tr')).filter(tr => tr.id !== 'empty-state-row');
+        if (!tbody) return;
+
+        const pendientes = this.allRegistros.filter(r => r.estado === 'pendiente');
 
         let totalItems = 0;
         let resumenMap = {};
 
-        rows.forEach(tr => {
-            const qtyCell = tr.querySelector('td:first-child');
-            const prodCell = tr.querySelectorAll('td')[1];
+        tbody.innerHTML = '';
 
-            if (qtyCell && prodCell) {
-                const qty = parseInt(qtyCell.getAttribute('data-val')) || 1;
-                const prod = prodCell.getAttribute('data-val');
-                totalItems += qty;
-
-                if (resumenMap[prod]) {
-                    resumenMap[prod] += qty;
-                } else {
-                    resumenMap[prod] = qty;
-                }
-            }
-        });
-
-        document.getElementById('total-items').innerText = totalItems;
-
-        // Handle empty state for main list
-        const emptyStateRow = document.getElementById('empty-state-row');
-        if (rows.length === 0) {
-            if (emptyStateRow) emptyStateRow.style.display = 'table-row';
+        if (pendientes.length === 0) {
+            tbody.innerHTML = `
+                <tr id="empty-state-row">
+                    <td colspan="6" style="text-align: center; padding: 40px 20px; color: #aaa;">
+                        <i class="fas fa-box-open" style="font-size: 40px; margin-bottom: 10px;"></i>
+                        <p>No hay productos pendientes.</p>
+                        <p style="font-size: 13px;">Agrega productos desde el formulario para comenzar.</p>
+                    </td>
+                </tr>
+            `;
         } else {
-            if (emptyStateRow) emptyStateRow.style.display = 'none';
+            // Ordenar por timestamp descendente para ver los más recientes arriba
+            pendientes.sort((a, b) => {
+                let tA = 0;
+                if (a.timestamp) {
+                    if (typeof a.timestamp.toMillis === 'function') tA = a.timestamp.toMillis();
+                    else if (a.timestamp instanceof Date) tA = a.timestamp.getTime();
+                    else if (typeof a.timestamp === 'number') tA = a.timestamp;
+                }
+                let tB = 0;
+                if (b.timestamp) {
+                    if (typeof b.timestamp.toMillis === 'function') tB = b.timestamp.toMillis();
+                    else if (b.timestamp instanceof Date) tB = b.timestamp.getTime();
+                    else if (typeof b.timestamp === 'number') tB = b.timestamp;
+                }
+                return tB - tA;
+            });
+
+            pendientes.forEach(reg => {
+                totalItems += reg.cantidad;
+
+                if (resumenMap[reg.producto]) {
+                    resumenMap[reg.producto] += reg.cantidad;
+                } else {
+                    resumenMap[reg.producto] = reg.cantidad;
+                }
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${reg.cantidad}</strong></td>
+                    <td><span style="font-size: 13px; color: #7f8c8d;">${reg.fecha || '-'}</span></td>
+                    <td>${reg.producto}</td>
+                    <td>${reg.cuenta || '-'}</td>
+                    <td><span style="font-size:13px; color:#666;">${reg.observacion || '-'}</span></td>
+                    <td style="text-align: center;">
+                        <button type="button" class="btn btn-danger" style="padding: 5px; width: 30px; height: 30px; border-radius: 50%;" onclick="RegistrosApp.deleteRegistro('${reg.id}')" title="Eliminar fila">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
         }
+
+        const totalItemsSpan = document.getElementById('total-items');
+        if (totalItemsSpan) totalItemsSpan.innerText = totalItems;
 
         // Render Resumen
         const resumenTbody = document.getElementById('resumen-tbody');
+        if (!resumenTbody) return;
+
         if (Object.keys(resumenMap).length === 0) {
             resumenTbody.innerHTML = `
                 <tr id="resumen-empty-state">
-                    <td colspan="2">
-                        <div class="empty-state">
-                            <i class="fas fa-chart-bar"></i>
-                            <p>El resumen aparecerá aquí.</p>
-                        </div>
+                    <td colspan="2" style="text-align: center; padding: 40px 20px; color: #aaa;">
+                        <i class="fas fa-chart-bar" style="font-size: 40px; margin-bottom: 10px;"></i>
+                        <p>El resumen aparecerá aquí.</p>
                     </td>
                 </tr>
             `;
@@ -125,7 +160,7 @@ const RegistrosApp = {
         }
     },
 
-    addFastEntryRow() {
+    async addFastEntryRow() {
         const productoInput = document.getElementById('fast-producto');
         const cantidadInput = document.getElementById('fast-cantidad');
         const cuentaInput = document.getElementById('fast-cuenta');
@@ -144,19 +179,35 @@ const RegistrosApp = {
 
         let productId = null;
 
-        const cantidad = cantidadInput.value;
+        let cantidad = parseInt(cantidadInput.value);
+        if (isNaN(cantidad) || cantidad < 1) cantidad = 1;
         const cuenta = cuentaInput.value.trim();
         const observacion = observacionInput.value.trim();
 
         if (!inputValue) return;
 
+        // Función auxiliar para comparar códigos ignorando ceros a la izquierda
+        const compareCodes = (code1, code2) => {
+            if (!code1 || !code2) return false;
+            // Quitamos ceros a la izquierda para comparar "03714" con "3714"
+            const c1 = code1.toLowerCase().replace(/^0+/, '');
+            const c2 = code2.toLowerCase().replace(/^0+/, '');
+            // Si después de quitar ceros quedan vacíos (ej. era "0"), los comparamos como "0"
+            return (c1 || "0") === (c2 || "0");
+        };
+
         // Búsqueda en caché local de InventoryController
         if (window.app && window.app.cache) {
             const match = window.app.cache.find(p => {
-                return (p.codigo && p.codigo.toLowerCase() === inputValue) ||
-                       (p.descripcion && p.descripcion.toLowerCase() === inputValue) ||
-                       (p.aliases && p.aliases.includes(inputValue)) ||
-                       (p.codigosProveedor && p.codigosProveedor.some(c => c.toLowerCase() === inputValue));
+                // Separar el código principal por espacios, comas o guiones por si tiene múltiples códigos (ej. "AA12 3714 1414")
+                const mainCodes = p.codigo ? p.codigo.split(/[\s,-]+/) : [];
+                
+                const matchMain = mainCodes.some(c => compareCodes(c, inputValue));
+                const matchDesc = p.descripcion && compareCodes(p.descripcion, inputValue);
+                const matchAlias = p.aliases && p.aliases.some(a => compareCodes(a, inputValue));
+                const matchProv = p.codigosProveedor && p.codigosProveedor.some(c => compareCodes(c, inputValue));
+
+                return matchMain || matchDesc || matchAlias || matchProv;
             });
 
             if (match) {
@@ -164,36 +215,29 @@ const RegistrosApp = {
                 productId = match.id;
             } else {
                 console.warn("Producto escaneado no encontrado en BD:", productoDesc);
+                productoDesc += " ⚠️ NO ENCONTRADO";
             }
         }
 
-        const tbody = document.getElementById('fast-entry-tbody');
-        const tr = document.createElement('tr');
-        tr.className = 'flash-success';
-        tr.setAttribute('data-product-id', productId || '');
-        tr.innerHTML = `
-            <td data-val="${cantidad}"><strong>${cantidad}</strong></td>
-            <td data-val="${productoDesc}">
-                ${productoDesc}
-                ${!productId ? '<span style="color:red; font-size:10px; display:block;"><i class="fas fa-exclamation-triangle"></i> No Encontrado en Base de Datos</span>' : ''}
-            </td>
-            <td data-val="${cuenta}">${cuenta || '-'}</td>
-            <td data-val="${observacion}"><span style="font-size:13px; color:#666;">${observacion || '-'}</span></td>
-            <td style="text-align: center;">
-                <button type="button" class="btn btn-danger" style="padding: 5px; width: 30px; height: 30px; border-radius: 50%;" onclick="this.closest('tr').remove(); RegistrosApp.updateFastEntryTableState();" title="Eliminar fila">
-                    <i class="fas fa-times"></i>
-                </button>
-            </td>
-        `;
-
-        // Insertar al inicio para que el último escaneado quede arriba
-        if (tbody.firstChild) {
-            tbody.insertBefore(tr, tbody.firstChild);
-        } else {
-            tbody.appendChild(tr);
+        // Guardar instantáneamente en Firebase
+        try {
+            const docRef = RegistrosApp.registrosRef.doc();
+            await docRef.set({
+                fecha: RegistrosApp.getLocalISODate() || "",
+                producto: productoDesc || "",
+                productId: productId || null,
+                cantidad: cantidad || 1,
+                cuenta: cuenta || "",
+                observacion: observacion || "",
+                estado: 'pendiente',
+                origen: 'manual',
+                timestamp: Date.now()
+            });
+        } catch (error) {
+            console.error("Error guardando registro:", error);
+            alert("Error al guardar el producto: " + error.message);
+            return;
         }
-
-        this.updateFastEntryTableState();
 
         // Resetear inputs para el siguiente producto
         productoInput.value = '';
@@ -202,79 +246,6 @@ const RegistrosApp = {
 
         // Volver a enfocar el producto para escaneo continuo
         productoInput.focus();
-    },
-
-    async saveFastEntries() {
-        const fecha = document.getElementById('global-fecha').value;
-        if (!fecha) {
-            alert('Por favor selecciona una fecha global.');
-            return;
-        }
-
-        const tbody = document.getElementById('fast-entry-tbody');
-        const rows = Array.from(tbody.querySelectorAll('tr')).filter(tr => tr.id !== 'empty-state-row');
-
-        if (rows.length === 0) {
-            alert('No has agregado ningún producto a la tabla.');
-            return;
-        }
-
-        this.showLoading(true);
-        try {
-            const batch = this.db.batch();
-            let count = 0;
-
-            rows.forEach(tr => {
-                const tds = tr.querySelectorAll('td');
-                const cantidad = parseInt(tds[0].getAttribute('data-val')) || 1;
-                const producto = tds[1].getAttribute('data-val');
-                const cuenta = tds[2].getAttribute('data-val');
-                const observacion = tds[3].getAttribute('data-val');
-                const pId = tr.getAttribute('data-product-id') || null;
-
-                const docRef = this.registrosRef.doc();
-                batch.set(docRef, {
-                    fecha: fecha,
-                    producto: producto,
-                    productId: pId,
-                    cantidad: cantidad,
-                    cuenta: cuenta,
-                    observacion: observacion,
-                    estado: 'pendiente',
-                    origen: 'manual',
-                    timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
-                });
-                count++;
-            });
-
-            await batch.commit();
-
-            // Limpiar tabla pero mantener el empty state
-            const emptyStateHTML = document.getElementById('empty-state-row') ? document.getElementById('empty-state-row').outerHTML : '';
-            tbody.innerHTML = emptyStateHTML || `
-                <tr id="empty-state-row">
-                    <td colspan="5">
-                        <div class="empty-state">
-                            <i class="fas fa-box-open"></i>
-                            <p>No hay productos en la lista.</p>
-                            <p style="font-size: 13px;">Agrega productos desde el formulario para comenzar.</p>
-                        </div>
-                    </td>
-                </tr>
-            `;
-
-            this.updateFastEntryTableState();
-
-            // Opcional: limpiar cuenta global para la siguiente tanda
-            document.getElementById('fast-cuenta').value = '';
-            document.getElementById('fast-producto').focus();
-
-        } catch (error) {
-            console.error("Error guardando entradas:", error);
-            alert("Error al guardar. Revisa tu conexión.");
-        } finally {
-            this.showLoading(false);
-        }
     },
 
     handleExcelUpload(e) {
@@ -390,7 +361,7 @@ const RegistrosApp = {
                 cuenta: cuenta,
                 estado: 'pendiente',
                 origen: 'excel',
-                timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
+                timestamp: Date.now()
             });
 
             operationsCount++;
@@ -428,6 +399,7 @@ const RegistrosApp = {
                 });
                 this.renderDatesList();
                 this.renderFacturacionData();
+                this.renderFastEntryTable();
             }, error => {
                 console.error("Error al escuchar registros:", error);
             });
@@ -683,6 +655,8 @@ const RegistrosApp = {
         const sortedDates = Object.keys(dateMap).sort((a, b) => b.localeCompare(a));
 
         const listContainer = document.getElementById('dates-list');
+        if (!listContainer) return;
+
         listContainer.innerHTML = '';
 
         if (sortedDates.length === 0) {
@@ -1083,7 +1057,10 @@ const RegistrosApp = {
     },
 
     showLoading(show) {
-        document.getElementById('loading-overlay').style.display = show ? 'flex' : 'none';
+        const el = document.getElementById('loading-overlay');
+        if (el) {
+            el.style.display = show ? 'flex' : 'none';
+        }
     },
 
     switchTab(tabId, btnElement) {

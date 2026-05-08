@@ -573,10 +573,7 @@
                     <!-- Left: Formulario -->
                     <div style="display: flex; flex-direction: column; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
                         <h2 style="margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; color: #34495e; font-size: 18px;"><i class="fas fa-barcode"></i> Ingreso de Producto</h2>
-                        <div style="margin-bottom: 20px;">
-                            <label for="global-fecha" style="font-weight: bold; color: #34495e; display: block; margin-bottom: 5px;">Fecha del Registro</label>
-                            <input type="date" id="global-fecha" required style="border: 2px solid #3498db; width: 100%; padding: 10px; border-radius: 4px;">
-                        </div>
+                        <!-- Fecha automática en el backend -->
 
                         <form id="fast-entry-form" onsubmit="event.preventDefault(); RegistrosApp.addFastEntryRow(); return false;" style="display: flex; flex-direction: column; flex-grow: 1;">
                             <div style="margin-bottom: 15px;">
@@ -607,7 +604,7 @@
                     <div style="display: flex; flex-direction: column; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
                         <div style="display: flex; gap: 20px; border-bottom: 1px solid #ddd; margin-bottom: 15px;">
                             <button style="background: none; border: none; padding: 8px 5px; font-size: 16px; font-weight: 600; color: #3498db; border-bottom: 3px solid #3498db; cursor: pointer;" onclick="document.getElementById('inner-tab-lista').style.display='block'; document.getElementById('inner-tab-resumen').style.display='none'; this.style.color='#3498db'; this.style.borderBottom='3px solid #3498db'; this.nextElementSibling.style.color='#666'; this.nextElementSibling.style.borderBottom='3px solid transparent';">
-                                <i class="fas fa-list-ul"></i> Tabla de Registros a Guardar
+                                <i class="fas fa-list-ul"></i> Registros Pendientes
                             </button>
                             <button style="background: none; border: none; padding: 8px 5px; font-size: 16px; font-weight: 600; color: #666; border-bottom: 3px solid transparent; cursor: pointer;" onclick="document.getElementById('inner-tab-resumen').style.display='block'; document.getElementById('inner-tab-lista').style.display='none'; this.style.color='#3498db'; this.style.borderBottom='3px solid #3498db'; this.previousElementSibling.style.color='#666'; this.previousElementSibling.style.borderBottom='3px solid transparent';">
                                 <i class="fas fa-chart-pie"></i> Resumen Dinámico
@@ -620,6 +617,7 @@
                                     <thead>
                                         <tr style="background: #f8f9fa;">
                                             <th style="width: 70px; padding: 8px; border: 1px solid #ddd;">Cant.</th>
+                                            <th style="width: 100px; padding: 8px; border: 1px solid #ddd;">Fecha</th>
                                             <th style="padding: 8px; border: 1px solid #ddd;">Descripción / Producto</th>
                                             <th style="width: 150px; padding: 8px; border: 1px solid #ddd;">Cuenta</th>
                                             <th style="width: 200px; padding: 8px; border: 1px solid #ddd;">Observación</th>
@@ -628,7 +626,7 @@
                                     </thead>
                                     <tbody id="fast-entry-tbody">
                                         <tr id="empty-state-row">
-                                            <td colspan="5" style="text-align: center; padding: 40px 20px; color: #aaa;">
+                                            <td colspan="6" style="text-align: center; padding: 40px 20px; color: #aaa;">
                                                 <i class="fas fa-box-open" style="font-size: 40px; margin-bottom: 10px;"></i>
                                                 <p>No hay productos en la lista.</p>
                                                 <p style="font-size: 13px;">Agrega productos desde el formulario para comenzar.</p>
@@ -664,9 +662,7 @@
                             <div style="font-size: 18px; font-weight: bold; color: #3498db;">
                                 <i class="fas fa-cubes"></i> Total de Artículos: <span id="total-items">0</span>
                             </div>
-                            <button class="btn btn-primary" style="width: auto; padding: 12px 25px; font-size: 18px;" onclick="RegistrosApp.saveFastEntries()">
-                                <i class="fas fa-save"></i> Guardar Todo en Base de Datos
-                            </button>
+
                         </div>
                     </div>
 
