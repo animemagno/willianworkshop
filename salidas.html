@@ -64,7 +64,8 @@
             gap: 20px;
             align-items: stretch;
             transition: grid-template-columns 0.4s ease;
-            min-height: calc(100vh - 120px);
+            height: calc(100vh - 120px); /* Alto de pantalla para tablet y PC */
+            box-sizing: border-box;
         }
 
         .salidas-grid.active-col1 {
@@ -81,6 +82,7 @@
                 display: flex;
                 flex-direction: column;
                 gap: 20px;
+                height: auto !important; /* Desactivar alto fijo en móvil */
             }
         }
 
@@ -167,8 +169,8 @@
 
         /* Contenedores de tabla scrollable */
         .table-responsive-scroll {
-            flex-grow: 1;
-            max-height: calc(100vh - 250px);
+            flex: 1;
+            min-height: 0;
             border: 1px solid #e2e8f0;
             border-radius: 8px;
             overflow-y: auto;
@@ -325,7 +327,7 @@
                     <input type="text" id="factura-numero" class="large-input" placeholder="N° Factura..." style="max-width: 140px; text-align: center;">
                 </div>
 
-                <div class="table-responsive-scroll" style="max-height: calc(100vh - 350px); min-height: 250px;">
+                <div class="table-responsive-scroll">
                     <table class="inventario-table" style="margin: 0; width: 100%; border-collapse: collapse;">
                         <thead>
                             <tr style="background: #f8f9fa;">

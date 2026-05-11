@@ -513,7 +513,29 @@ const RegistrosApp = {
         if (!listadoTbody || !resumenTbody) return;
 
         const pendientes = this.allRegistros.filter(r => r.estado === 'pendiente');
-        pendientes.sort((a, b) => a.fecha.localeCompare(b.fecha));
+
+        // Ordenar por fecha descendente (más recientes arriba) y desempatar por timestamp descendente
+        pendientes.sort((a, b) => {
+            const dateA = a.fecha || "";
+            const dateB = b.fecha || "";
+            if (dateA !== dateB) {
+                return dateB.localeCompare(dateA); // Descendente (ej. "2026-05-02" antes de "2026-05-01")
+            }
+            
+            let tA = 0;
+            if (a.timestamp) {
+                if (typeof a.timestamp.toMillis === 'function') tA = a.timestamp.toMillis();
+                else if (a.timestamp instanceof Date) tA = a.timestamp.getTime();
+                else if (typeof a.timestamp === 'number') tA = a.timestamp;
+            }
+            let tB = 0;
+            if (b.timestamp) {
+                if (typeof b.timestamp.toMillis === 'function') tB = b.timestamp.toMillis();
+                else if (b.timestamp instanceof Date) tB = b.timestamp.getTime();
+                else if (typeof b.timestamp === 'number') tB = b.timestamp;
+            }
+            return tB - tA;
+        });
 
         // Unificar todo el descuento por producto (sincronización entre tarjetas)
         const facturadoPorProducto = {};
