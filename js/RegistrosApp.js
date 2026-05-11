@@ -95,8 +95,14 @@ const RegistrosApp = {
                 </tr>
             `;
         } else {
-            // Ordenar por timestamp descendente para ver los más recientes arriba
+            // Ordenar por fecha descendente (más recientes arriba) y desempatar por timestamp descendente
             pendientes.sort((a, b) => {
+                const dateA = a.fecha || "";
+                const dateB = b.fecha || "";
+                if (dateA !== dateB) {
+                    return dateB.localeCompare(dateA); // Descendente (ej. "2026-05-02" antes de "2026-05-01")
+                }
+                
                 let tA = 0;
                 if (a.timestamp) {
                     if (typeof a.timestamp.toMillis === 'function') tA = a.timestamp.toMillis();
@@ -551,13 +557,19 @@ const RegistrosApp = {
             hasVisible = true;
             const tr = document.createElement('tr');
             tr.setAttribute('draggable', 'true');
-            tr.style.cursor = 'grab';
+            tr.style.cursor = 'pointer'; // Indicador de clickabilidad premium
+
+            const data = { type: 'summary', producto: reg.producto, max: resumenMap[reg.producto].count, productId: reg.productId || null };
 
             tr.ondragstart = (e) => {
-                // Se envía el producto, el máximo original y el productId para la factura
-                const data = { type: 'summary', producto: reg.producto, max: resumenMap[reg.producto].count, productId: reg.productId || null };
                 e.dataTransfer.setData('text/plain', JSON.stringify(data));
                 e.dataTransfer.effectAllowed = 'copy';
+            };
+
+            // Evento táctil/clic para tablet y PC
+            tr.onclick = (e) => {
+                e.stopPropagation(); // Detener propagación para evitar colapsar la tarjeta
+                this.addItemToFactura(data);
             };
 
             tr.innerHTML = `
@@ -589,12 +601,19 @@ const RegistrosApp = {
             hasResumen = true;
             const tr = document.createElement('tr');
             tr.setAttribute('draggable', 'true');
-            tr.style.cursor = 'grab';
+            tr.style.cursor = 'pointer'; // Indicador táctil premium
+
+            const data = { type: 'summary', producto: prod, max: totalOriginal, productId: resumenMap[prod].productId || null };
 
             tr.ondragstart = (e) => {
-                const data = { type: 'summary', producto: prod, max: totalOriginal, productId: resumenMap[prod].productId || null };
                 e.dataTransfer.setData('text/plain', JSON.stringify(data));
                 e.dataTransfer.effectAllowed = 'copy';
+            };
+
+            // Evento táctil/clic para tablet y PC
+            tr.onclick = (e) => {
+                e.stopPropagation(); // Detener propagación para evitar colapsar la tarjeta
+                this.addItemToFactura(data);
             };
 
             tr.innerHTML = `
@@ -623,16 +642,8 @@ const RegistrosApp = {
         e.currentTarget.style.borderColor = '#bdc3c7';
     },
 
-    dropToFactura(e) {
-        e.preventDefault();
-        document.getElementById('factura-dropzone').style.backgroundColor = '#fafbfc';
-
-        const dataStr = e.dataTransfer.getData('text/plain');
-        if (!dataStr) return;
-
+    addItemToFactura(data) {
         try {
-            const data = JSON.parse(dataStr);
-
             // Check if already in factura
             let existingItem = null;
             if (data.type === 'single') {
@@ -659,7 +670,7 @@ const RegistrosApp = {
                     type: data.type,
                     originalId: data.id || null,
                     producto: data.producto,
-                    cantidadFacturar: 1, // Por defecto se agrega 1 al arrastrar
+                    cantidadFacturar: 1,
                     max: data.max,
                     vinculoId: data.productId || null,
                     precioUnitario: 0,
@@ -671,6 +682,21 @@ const RegistrosApp = {
 
             this.renderFactura();
             this.renderFacturacionData();
+        } catch (err) {
+            console.error("Error al agregar a la factura:", err);
+        }
+    },
+
+    dropToFactura(e) {
+        e.preventDefault();
+        document.getElementById('factura-dropzone').style.backgroundColor = '#fafbfc';
+
+        const dataStr = e.dataTransfer.getData('text/plain');
+        if (!dataStr) return;
+
+        try {
+            const data = JSON.parse(dataStr);
+            this.addItemToFactura(data);
         } catch (err) {
             console.error("Error al soltar:", err);
         }
@@ -1285,7 +1311,7 @@ const RegistrosApp = {
         const modal = document.getElementById('modalLinkProduct');
         if (!modal) return;
         
-        // Configurar flags globales para que selectLinkProduct en InventoryController sepa que viene de REGISTROS
+        // Configurar flags globales para compatibilidad si InventoryController existe
         if (window.app) {
             window.app.isRegistryLinking = true;
             window.app.currentRegistryId = id;
@@ -1298,11 +1324,159 @@ const RegistrosApp = {
         modal.style.display = 'flex';
         document.getElementById('link-search-input').focus();
         
-        // Configurar live search
-        if (window.app) {
-            document.getElementById('link-search-input').onkeyup = (e) => window.app.searchLinkProduct(e.target.value);
-            window.app.searchLinkProduct("");
+        // Configurar live search independiente
+        const linkInput = document.getElementById('link-search-input');
+        if (linkInput) {
+            linkInput.onkeyup = (e) => this.searchLinkProduct(e.target.value);
+            this.searchLinkProduct("");
         }
+    },
+
+    searchLinkProduct(term) {
+        const tbody = document.getElementById('link-results-body');
+        if (!tbody) return;
+
+        const cleanTerm = term ? term.toLowerCase().trim() : "";
+        const cache = (window.app && window.app.cache) ? window.app.cache : [];
+
+        let matches;
+        if (!cleanTerm) {
+            matches = cache.slice(0, 50);
+        } else {
+            matches = cache.filter(p =>
+                (p.codigo && p.codigo.toLowerCase().includes(cleanTerm)) ||
+                (p.descripcion && p.descripcion.toLowerCase().includes(cleanTerm))
+            ).slice(0, 50);
+        }
+
+        tbody.innerHTML = '';
+        if (matches.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center">No se encontraron coincidencias.</td></tr>';
+            return;
+        }
+
+        matches.forEach(p => {
+            const row = `
+                <tr>
+                    <td><strong>${p.codigo || ''}</strong></td>
+                    <td>${p.descripcion || ''}</td>
+                    <td>${p.existencia || p.stock || 0}</td>
+                    <td>$${p.precio || 0}</td>
+                    <td>
+                        <button class="btn btn-sm btn-success" onclick="RegistrosApp.selectLinkProduct('${p.id}')">
+                            <i class="fas fa-check"></i> Seleccionar
+                        </button>
+                    </td>
+                </tr>
+             `;
+            tbody.innerHTML += row;
+        });
+    },
+
+    async selectLinkProduct(productId) {
+        const cache = (window.app && window.app.cache) ? window.app.cache : [];
+        const product = cache.find(p => p.id === productId);
+
+        if (!product || !this.currentLinkRegistryId) return;
+
+        if (!confirm(`¿Vincular permanentemente "${this.currentLinkRegistryName}" con el producto "${product.descripcion}"?\n\nEl sistema aprenderá este alias y actualizará todos los registros pendientes con este nombre.`)) return;
+
+        try {
+            // Guardar alias en Firestore para el producto (aprender el alias)
+            const ref = this.db.collection('INVENTARIO').doc(product.id);
+            await ref.update({
+                aliases: firebase.firestore.FieldValue.arrayUnion(this.currentLinkRegistryName)
+            });
+
+            if (!product.aliases) product.aliases = [];
+            product.aliases.push(this.currentLinkRegistryName);
+
+            // Actualizar el registro actual y todos los pendientes iguales
+            const batch = this.db.batch();
+            
+            // 1. Actualizar el principal clickeado
+            const mainRef = this.db.collection('REGISTROS_SALIDA').doc(this.currentLinkRegistryId);
+            batch.update(mainRef, {
+                productId: product.id,
+                producto: product.descripcion
+            });
+
+            // 2. Actualizar todos los demás registros pendientes con el mismo nombre
+            const unlinkedDesc = this.currentLinkRegistryName;
+            const snapshot = await this.db.collection('REGISTROS_SALIDA')
+                .where('producto', '==', unlinkedDesc)
+                .where('estado', '==', 'pendiente')
+                .get();
+
+            snapshot.forEach(doc => {
+                if (doc.id !== this.currentLinkRegistryId) {
+                    batch.update(doc.ref, {
+                        productId: product.id,
+                        producto: product.descripcion
+                    });
+                }
+            });
+
+            await batch.commit();
+            alert("✅ Vinculación completada correctamente.");
+        } catch (err) {
+            console.error("Error vinculando registro:", err);
+            alert("Error al vincular: " + err.message);
+        }
+
+        // Limpiar flags
+        this.currentLinkRegistryId = null;
+        this.currentLinkRegistryName = null;
+
+        // Cerrar modal
+        const modal = document.getElementById('modalLinkProduct');
+        if (modal) modal.style.display = 'none';
+    },
+
+    async skipLinkItem() {
+        if (!this.currentLinkRegistryId) return;
+
+        const targetName = this.currentLinkRegistryName;
+        let isService = false;
+
+        if (confirm(`¿Este ítem "${targetName}" es un SERVICIO (Mano de Obra)?\n\n[ACEPTAR] = SI, es Servicio (No descuenta stock)\n[CANCELAR] = NO, es Omitido (Se ignorará)`)) {
+            isService = true;
+        }
+
+        try {
+            const batch = this.db.batch();
+            
+            // 1. Actualizar el principal clickeado
+            const mainRef = this.db.collection('REGISTROS_SALIDA').doc(this.currentLinkRegistryId);
+            batch.update(mainRef, {
+                productId: isService ? 'SERVICIO' : 'OMITIDO',
+                producto: isService ? 'Mano de Obra / Servicio' : 'Item Omitido'
+            });
+
+            // 2. Actualizar todos los demás registros pendientes con el mismo nombre
+            const snapshot = await this.db.collection('REGISTROS_SALIDA')
+                .where('producto', '==', targetName)
+                .where('estado', '==', 'pendiente')
+                .get();
+
+            snapshot.forEach(doc => {
+                if (doc.id !== this.currentLinkRegistryId) {
+                    batch.update(doc.ref, {
+                        productId: isService ? 'SERVICIO' : 'OMITIDO',
+                        producto: isService ? 'Mano de Obra / Servicio' : 'Item Omitido'
+                    });
+                }
+            });
+
+            await batch.commit();
+            alert("✅ Vinculación omitida/servicio completada.");
+        } catch (err) {
+            console.error("Error al omitir:", err);
+            alert("Error al omitir: " + err.message);
+        }
+
+        const modal = document.getElementById('modalLinkProduct');
+        if (modal) modal.style.display = 'none';
     },
 
     async deleteOnlyPendingRegistros() {

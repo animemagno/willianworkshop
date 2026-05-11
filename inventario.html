@@ -189,6 +189,26 @@
             font-size: 1.5rem;
             color: #3498db;
         }
+
+        /* MEJORAS TÁCTILES Y VISUALES PARA TABLET EN FACTURACIÓN (SALIDAS) */
+        .salidas-card .inventario-table td {
+            padding: 12px 10px !important;
+            font-size: 0.95rem;
+        }
+
+        .salidas-card .inventario-table tbody tr {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .salidas-card .inventario-table tbody tr:hover {
+            background-color: #e8f4fd !important; /* Color celeste suave premium */
+        }
+
+        .salidas-card .inventario-table tbody tr:active {
+            background-color: #d4eafd !important;
+            transform: scale(0.99);
+        }
     </style>
 </head>
 
@@ -233,10 +253,10 @@
             <div class="tab-btn" data-target="entradas">
                 <i class="fas fa-truck-loading"></i> Entradas
             </div>
-            <div class="tab-btn" data-target="salidas">
+            <div class="tab-btn" onclick="window.location.href='salidas.html'">
                 <i class="fas fa-sign-out-alt"></i> Salidas
             </div>
-            <div class="tab-btn" data-target="registro">
+            <div class="tab-btn" onclick="window.location.href='registro.html'">
                 <i class="fas fa-barcode"></i> Registro
             </div>
             <div class="tab-btn" data-target="reportes">
@@ -558,247 +578,9 @@
             </div>
         </div>
 
-        <!-- 5. SALIDAS (FACTURACIÓN) -->
-        <div id="tab-salidas" class="tab-content">
-            <div style="max-width: 1400px; margin: 0 auto;">
-                <div id="salidas-grid" class="salidas-grid">
+        <!-- 5. SALIDAS (MIGRADO A salidas.html) -->
 
-                    <!-- Tarjeta 1: Listado Pendiente -->
-                    <div id="card-listado" class="salidas-card" onclick="toggleSalidasCard(1)">
-                        <!-- Indicador de colapsado -->
-                        <div class="collapsed-indicator">
-                            <i class="fas fa-list-ol"></i>
-                            <h3>1. Todos los Registros</h3>
-                            <span style="font-size: 0.8rem; color: #3498db; margin-top: 10px;"><i class="fas fa-expand-alt"></i> Expandir</span>
-                        </div>
-
-                        <h2 style="font-size: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; color: #34495e;"><i class="fas fa-list-ol"></i> 1. Todos los Registros</h2>
-                        <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Orden de ingreso. Arrastra a la factura.</p>
-                        <div class="table-responsive" style="flex-grow: 1; max-height: 500px; border: 1px solid #eee; overflow-y: auto;">
-                            <table class="inventario-table" style="font-size: 13px; width: 100%; border-collapse: collapse; margin: 0;">
-                                <thead>
-                                    <tr style="background: #f8f9fa;">
-                                        <th style="width: 80px; padding: 8px; border: 1px solid #ddd;">Fecha</th>
-                                        <th style="width: 50px; padding: 8px; border: 1px solid #ddd;">Cant.</th>
-                                        <th style="padding: 8px; border: 1px solid #ddd;">Producto</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="fact-listado-tbody">
-                                    <!-- JS inserts draggable rows -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Tarjeta 2: Resumen Pendiente -->
-                    <div id="card-resumen" class="salidas-card" onclick="toggleSalidasCard(2)">
-                        <!-- Indicador de colapsado -->
-                        <div class="collapsed-indicator">
-                            <i class="fas fa-layer-group"></i>
-                            <h3>2. Resumen Agrupado</h3>
-                            <span style="font-size: 0.8rem; color: #3498db; margin-top: 10px;"><i class="fas fa-expand-alt"></i> Expandir</span>
-                        </div>
-
-                        <h2 style="font-size: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; color: #34495e;"><i class="fas fa-layer-group"></i> 2. Resumen Agrupado</h2>
-                        <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Totales por producto. Arrastra a la factura.</p>
-                        <div class="table-responsive" style="flex-grow: 1; max-height: 500px; border: 1px solid #eee; overflow-y: auto;">
-                            <table class="inventario-table" style="font-size: 13px; width: 100%; border-collapse: collapse; margin: 0;">
-                                <thead>
-                                    <tr style="background: #f8f9fa;">
-                                        <th style="padding: 8px; border: 1px solid #ddd;">Producto</th>
-                                        <th style="width: 60px; padding: 8px; border: 1px solid #ddd;">Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="fact-resumen-tbody">
-                                    <!-- JS inserts draggable rows -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Tarjeta 3: La Factura (Dropzone) -->
-                    <div style="display: flex; flex-direction: column; padding: 15px; border: 2px dashed #bdc3c7; background-color: #fafbfc; transition: all 0.3s; border-radius: 8px;"
-                        id="factura-dropzone" ondragover="RegistrosApp.allowDrop(event)"
-                        ondragleave="RegistrosApp.dragLeave(event)" ondrop="RegistrosApp.dropToFactura(event)">
-                        <h2 style="font-size: 16px; color: #27ae60; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px;"><i class="fas fa-file-invoice-dollar"></i> 3. Factura en Construcción</h2>
-
-                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                            <input type="text" id="factura-cliente" placeholder="Cliente o Cuenta..." style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; flex: 1;">
-                            <input type="text" id="factura-numero" placeholder="N° Factura..." style="max-width: 120px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                        </div>
-
-                        <div class="table-responsive" style="flex-grow: 1; min-height: 350px; border: 1px solid #ddd; background: white; overflow-y: auto;">
-                            <table class="inventario-table" style="margin-bottom: 0; width: 100%; border-collapse: collapse;">
-                                <thead>
-                                    <tr style="background: #f8f9fa;">
-                                        <th style="width: 60px; padding: 8px; border: 1px solid #ddd;">Cant.</th>
-                                        <th style="padding: 8px; border: 1px solid #ddd;">Producto Facturado</th>
-                                        <th style="width: 90px; padding: 8px; border: 1px solid #ddd;">P. Unit.</th>
-                                        <th style="width: 85px; padding: 8px; border: 1px solid #ddd;">Total</th>
-                                        <th style="width: 40px; padding: 8px; border: 1px solid #ddd;"></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="factura-tbody">
-                                    <tr id="factura-empty-state">
-                                        <td colspan="5" style="text-align: center; padding: 40px 20px; color: #aaa;">
-                                            <i class="fas fa-hand-holding-box" style="font-size: 30px; margin-bottom: 10px;"></i>
-                                            <br>Arrastra los productos aquí para agregarlos a la factura<br>
-                                            <small>(Límite de 14 productos)</small>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- Bloque de Total General en la Tarjeta -->
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; font-weight: bold; font-size: 16px; padding: 10px; background: #e8f4f8; border-radius: 4px; border: 1px solid #d4e6ed; color: #2c3e50;">
-                            <span>Total Factura:</span>
-                            <span>$<span id="card-factura-total">0.00</span></span>
-                        </div>
-
-                        <button class="btn btn-success" style="width: 100%; margin-top: 15px; padding: 12px; font-size: 16px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer;" onclick="RegistrosApp.openProcessModal()">
-                            <i class="fas fa-check-circle"></i> Procesar y Descontar
-                        </button>
-                    </div>
-
-                </div>
-            </div>
-        </div>
-
-        <!-- 5.5 REGISTRO (ESCÁNER) -->
-        <div id="tab-registro" class="tab-content">
-            <div style="max-width: 1400px; margin: 0 auto;">
-                <div style="display: grid; grid-template-columns: 400px 1fr; gap: 20px; align-items: stretch;">
-
-                    <!-- Left Column: Formulario + Importar Excel -->
-                    <div style="display: flex; flex-direction: column; gap: 20px;">
-                        <!-- Left: Formulario -->
-                        <div style="display: flex; flex-direction: column; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                            <h2 style="margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; color: #34495e; font-size: 18px;"><i class="fas fa-barcode"></i> Ingreso de Producto</h2>
-                            <!-- Fecha automática en el backend -->
-
-                            <form id="fast-entry-form" onsubmit="event.preventDefault(); RegistrosApp.addFastEntryRow(); return false;" style="display: flex; flex-direction: column; flex-grow: 1;">
-                                <div style="margin-bottom: 15px;">
-                                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Producto (Código o Descripción)</label>
-                                    <input type="text" id="fast-producto" placeholder="Escanea o escribe..." required autocomplete="off" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                                </div>
-                                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                                    <div style="flex: 1;">
-                                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Cant.</label>
-                                        <input type="number" id="fast-cantidad" value="1" min="1" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                                    </div>
-                                    <div style="flex: 2;">
-                                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Cuenta (Opcional)</label>
-                                        <input type="text" id="fast-cuenta" placeholder="Mayorista..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                                    </div>
-                                </div>
-                                <div style="margin-bottom: 15px;">
-                                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Observación (Opcional)</label>
-                                    <input type="text" id="fast-observacion" placeholder="Detalles extra..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                                </div>
-                                <button type="submit" class="btn" style="background-color: #3498db; color: white; width: 100%; margin-top: auto; padding: 12px; font-size: 16px;">
-                                    <i class="fas fa-arrow-right"></i> Agregar a la Tabla
-                                </button>
-                            </form>
-                        </div>
-
-                        <!-- Importar Excel de Registros -->
-                        <div style="display: flex; flex-direction: column; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-top: 4px solid #27ae60;">
-                            <h2 style="margin-bottom: 10px; color: #27ae60; font-size: 18px;"><i class="fas fa-file-excel"></i> Importar desde Excel</h2>
-                            <p style="font-size: 13px; color: #666; margin-bottom: 15px;">Sube un archivo Excel para cargar registros masivos del mes.</p>
-                            
-                            <button type="button" class="btn" style="background-color: #27ae60; color: white; width: 100%; padding: 12px; font-size: 15px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="document.getElementById('fast-excel-file').click()">
-                                <i class="fas fa-file-excel"></i> Seleccionar Archivo Excel
-                            </button>
-                            <input type="file" id="fast-excel-file" accept=".xlsx, .xls" style="display: none;">
-                            <span id="fast-excel-filename-display" style="margin-top: 10px; font-size: 13px; font-weight: bold; color: #555; text-align: center; display: block;"></span>
-
-                            <!-- Selector de Hojas (Se muestra al cargar el archivo) -->
-                            <div id="fast-excel-sheets-container" style="display: none; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;">
-                                <label style="display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; color: #2c3e50;">Selecciona la Hoja de Excel:</label>
-                                <select id="fast-excel-sheet-select" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 15px;"></select>
-                                <button type="button" class="btn" style="background-color: #27ae60; color: white; width: 100%; padding: 10px; font-size: 14px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer;" onclick="RegistrosApp.processSelectedFastExcelSheet()">
-                                    <i class="fas fa-check"></i> Cargar Hoja Seleccionada
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Right: Tabla Tipo Excel (Lista Pendiente) -->
-                    <div style="display: flex; flex-direction: column; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
-                            <div style="display: flex; gap: 20px;">
-                                <button style="background: none; border: none; padding: 8px 5px; font-size: 16px; font-weight: 600; color: #3498db; border-bottom: 3px solid #3498db; cursor: pointer;" onclick="document.getElementById('inner-tab-lista').style.display='block'; document.getElementById('inner-tab-resumen').style.display='none'; this.style.color='#3498db'; this.style.borderBottom='3px solid #3498db'; this.nextElementSibling.style.color='#666'; this.nextElementSibling.style.borderBottom='3px solid transparent';">
-                                    <i class="fas fa-list-ul"></i> Registros Pendientes
-                                </button>
-                                <button style="background: none; border: none; padding: 8px 5px; font-size: 16px; font-weight: 600; color: #666; border-bottom: 3px solid transparent; cursor: pointer;" onclick="document.getElementById('inner-tab-resumen').style.display='block'; document.getElementById('inner-tab-lista').style.display='none'; this.style.color='#3498db'; this.style.borderBottom='3px solid #3498db'; this.previousElementSibling.style.color='#666'; this.previousElementSibling.style.borderBottom='3px solid transparent';">
-                                    <i class="fas fa-chart-pie"></i> Resumen Dinámico
-                                </button>
-                            </div>
-                            <!-- Botón Eliminar Todo -->
-                            <button class="btn" style="background-color: #e74c3c; color: white; padding: 8px 12px; font-size: 13px; font-weight: bold; border-radius: 4px; display: flex; align-items: center; gap: 6px; border: none; cursor: pointer;" onclick="RegistrosApp.deleteOnlyPendingRegistros()">
-                                <i class="fas fa-trash-alt"></i> Borrar Todo el Volumen
-                            </button>
-                        </div>
-
-                        <div id="inner-tab-lista" style="flex-grow: 1; display: block;">
-                            <div class="table-responsive" style="flex-grow: 1; min-height: 250px; border: 1px solid #ddd; border-radius: 4px; overflow-y: auto;">
-                                <table class="inventario-table" style="margin-bottom: 0; width: 100%; border-collapse: collapse;">
-                                    <thead>
-                                        <tr style="background: #f8f9fa;">
-                                            <th style="width: 70px; padding: 8px; border: 1px solid #ddd;">Cant.</th>
-                                            <th style="width: 100px; padding: 8px; border: 1px solid #ddd;">Fecha</th>
-                                            <th style="padding: 8px; border: 1px solid #ddd;">Descripción / Producto</th>
-                                            <th style="width: 150px; padding: 8px; border: 1px solid #ddd;">Cuenta</th>
-                                            <th style="width: 200px; padding: 8px; border: 1px solid #ddd;">Observación</th>
-                                            <th style="width: 50px; padding: 8px; border: 1px solid #ddd;"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="fast-entry-tbody">
-                                        <tr id="empty-state-row">
-                                            <td colspan="6" style="text-align: center; padding: 40px 20px; color: #aaa;">
-                                                <i class="fas fa-box-open" style="font-size: 40px; margin-bottom: 10px;"></i>
-                                                <p>No hay productos en la lista.</p>
-                                                <p style="font-size: 13px;">Agrega productos desde el formulario para comenzar.</p>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <div id="inner-tab-resumen" style="flex-grow: 1; display: none;">
-                            <div class="table-responsive" style="flex-grow: 1; min-height: 250px; border: 1px solid #ddd; border-radius: 4px; overflow-y: auto;">
-                                <table class="inventario-table" style="margin-bottom: 0; width: 100%; border-collapse: collapse;">
-                                    <thead>
-                                        <tr style="background: #f8f9fa;">
-                                            <th style="padding: 8px; border: 1px solid #ddd;">Descripción / Producto</th>
-                                            <th style="width: 120px; padding: 8px; border: 1px solid #ddd;">Cantidad Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="resumen-tbody">
-                                        <tr id="resumen-empty-state">
-                                            <td colspan="2" style="text-align: center; padding: 40px 20px; color: #aaa;">
-                                                <i class="fas fa-chart-bar" style="font-size: 40px; margin-bottom: 10px;"></i>
-                                                <p>El resumen aparecerá aquí.</p>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee;">
-                            <div style="font-size: 18px; font-weight: bold; color: #3498db;">
-                                <i class="fas fa-cubes"></i> Total de Artículos: <span id="total-items">0</span>
-                            </div>
-
-                        </div>
-                    </div>
-
-                </div>
-            </div>
-        </div>
+        <!-- 5.5 REGISTRO (MIGRADO A registro.html) -->
 
         <!-- 6. SINCRONIZACION -->
         <div id="tab-sincronizacion" class="tab-content">

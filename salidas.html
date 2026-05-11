@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salidas (Facturación) - Taller Willian</title>
+    <!-- CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/inventario.css">
+    
+    <style>
+        /* Estilos optimizados para pantalla completa y tablet de Salidas */
+        body {
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+        }
+
+        .btn-back {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            color: white;
+            text-decoration: none;
+            padding: 10px 18px;
+            border-radius: 6px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
+        }
+
+        .btn-back:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateX(-3px);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .container-full {
+            max-width: 100%;
+            width: 100%;
+            margin: 0 auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* Rejilla de Salidas adaptada a Pantalla Completa */
+        .salidas-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1.3fr;
+            gap: 20px;
+            align-items: stretch;
+            transition: grid-template-columns 0.4s ease;
+            min-height: calc(100vh - 120px);
+        }
+
+        .salidas-grid.active-col1 {
+            grid-template-columns: 1.8fr 0.3fr 1.3fr;
+        }
+
+        .salidas-grid.active-col2 {
+            grid-template-columns: 0.3fr 1.8fr 1.3fr;
+        }
+
+        @media (max-width: 1024px) {
+            .salidas-grid {
+                grid-template-columns: 1fr !important;
+                display: flex;
+                flex-direction: column;
+                gap: 20px;
+            }
+        }
+
+        /* Tarjetas de Salidas */
+        .salidas-card {
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            transition: all 0.4s ease;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid rgba(0,0,0,0.03);
+        }
+
+        .salidas-card.collapsed {
+            background: #f8f9fa;
+            border: 1px dashed #cbd5e0;
+            opacity: 0.8;
+            cursor: pointer;
+        }
+
+        .salidas-card.collapsed:hover {
+            background: #edf2f7;
+            opacity: 1;
+        }
+
+        /* Ocultar contenido normal si está colapsado */
+        .salidas-card.collapsed > *:not(.collapsed-indicator) {
+            display: none !important;
+        }
+
+        /* Mostrar indicador de colapsado */
+        .salidas-card .collapsed-indicator {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            color: #718096;
+            padding: 20px 0;
+        }
+
+        .salidas-card.collapsed .collapsed-indicator {
+            display: flex;
+        }
+
+        .collapsed-indicator h3 {
+            writing-mode: vertical-lr;
+            transform: rotate(180deg);
+            margin: 15px 0;
+            font-size: 1rem;
+            white-space: nowrap;
+            color: #2c3e50;
+        }
+
+        .collapsed-indicator i {
+            font-size: 1.5rem;
+            color: #3498db;
+        }
+
+        /* Mejoras táctiles en tablas de salidas */
+        .salidas-card .inventario-table td {
+            padding: 12px 10px !important;
+            font-size: 0.95rem;
+        }
+
+        .salidas-card .inventario-table tbody tr {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .salidas-card .inventario-table tbody tr:hover {
+            background-color: #e8f4fd !important;
+        }
+
+        .salidas-card .inventario-table tbody tr:active {
+            background-color: #d4eafd !important;
+            transform: scale(0.99);
+        }
+
+        /* Contenedores de tabla scrollable */
+        .table-responsive-scroll {
+            flex-grow: 1;
+            max-height: calc(100vh - 250px);
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow-y: auto;
+            background: white;
+        }
+
+        /* Inputs ultra cómodos para tablet */
+        .large-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ccd1d9;
+            border-radius: 6px;
+            font-size: 1rem;
+            box-sizing: border-box;
+            transition: all 0.2s ease;
+            background-color: #fcfdfd;
+        }
+
+        .large-input:focus {
+            border-color: #3498db;
+            background-color: white;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
+            outline: none;
+        }
+
+        /* Pantalla de carga */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.85);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- PANTALLA DE CARGA -->
+    <div id="salidas-loading" class="loading-screen">
+        <div class="loading-spinner"></div>
+        <h3 style="color: #2c3e50; font-family: inherit;">Cargando Panel de Salidas...</h3>
+        <p style="color: #718096; margin: 0;">Obteniendo registros pendientes y lista de precios</p>
+    </div>
+
+    <!-- CABECERA PRINCIPAL -->
+    <header>
+        <div style="display: flex; align-items: center; gap: 20px;">
+            <a href="inventario.html" class="btn-back">
+                <i class="fas fa-arrow-left"></i> Volver al Inventario
+            </a>
+            <h1 style="margin: 0; font-size: 1.4rem; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-sign-out-alt"></i> Módulo de Salidas (Facturación)
+            </h1>
+        </div>
+        <div style="font-weight: 500; font-size: 0.95rem; color: #bdc3c7;">
+            Taller Willian - Facturación de Salidas
+        </div>
+    </header>
+
+    <!-- CONTENEDOR PRINCIPAL -->
+    <div class="container-full">
+        <div id="salidas-grid" class="salidas-grid">
+
+            <!-- Tarjeta 1: Listado Pendiente -->
+            <div id="card-listado" class="salidas-card" onclick="toggleSalidasCard(1)">
+                <!-- Indicador de colapsado -->
+                <div class="collapsed-indicator">
+                    <i class="fas fa-list-ol"></i>
+                    <h3>1. Todos los Registros</h3>
+                    <span style="font-size: 0.85rem; color: #3498db; margin-top: 10px; font-weight: bold;"><i class="fas fa-expand-alt"></i> Expandir</span>
+                </div>
+
+                <h2 style="font-size: 1.15rem; border-bottom: 1px solid #f1f1f1; padding-bottom: 12px; margin-bottom: 12px; color: #2c3e50; display: flex; align-items: center; gap: 8px;"><i class="fas fa-list-ol"></i> 1. Todos los Registros</h2>
+                <p style="font-size: 0.85rem; color: #718096; margin-top: 0; margin-bottom: 15px;">
+                    Orden de ingreso. <strong>Toca una fila</strong> para agregarla o arrástrala.
+                </p>
+                <div class="table-responsive-scroll">
+                    <table class="inventario-table" style="margin: 0; width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f8f9fa;">
+                                <th style="width: 100px; border: 1px solid #ddd;">Fecha</th>
+                                <th style="width: 60px; text-align: center; border: 1px solid #ddd;">Cant.</th>
+                                <th style="border: 1px solid #ddd;">Producto</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fact-listado-tbody">
+                            <!-- JS inserts rows -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tarjeta 2: Resumen Pendiente -->
+            <div id="card-resumen" class="salidas-card" onclick="toggleSalidasCard(2)">
+                <!-- Indicador de colapsado -->
+                <div class="collapsed-indicator">
+                    <i class="fas fa-layer-group"></i>
+                    <h3>2. Resumen Agrupado</h3>
+                    <span style="font-size: 0.85rem; color: #3498db; margin-top: 10px; font-weight: bold;"><i class="fas fa-expand-alt"></i> Expandir</span>
+                </div>
+
+                <h2 style="font-size: 1.15rem; border-bottom: 1px solid #f1f1f1; padding-bottom: 12px; margin-bottom: 12px; color: #2c3e50; display: flex; align-items: center; gap: 8px;"><i class="fas fa-layer-group"></i> 2. Resumen Agrupado</h2>
+                <p style="font-size: 0.85rem; color: #718096; margin-top: 0; margin-bottom: 15px;">
+                    Totales unificados por producto. <strong>Toca una fila</strong> para agregarla.
+                </p>
+                <div class="table-responsive-scroll">
+                    <table class="inventario-table" style="margin: 0; width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f8f9fa;">
+                                <th style="border: 1px solid #ddd;">Producto</th>
+                                <th style="width: 70px; text-align: center; border: 1px solid #ddd;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fact-resumen-tbody">
+                            <!-- JS inserts rows -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tarjeta 3: La Factura (Dropzone) -->
+            <div style="display: flex; flex-direction: column; padding: 20px; border: 2px dashed #3498db; background-color: #f7fafc; transition: all 0.3s; border-radius: 10px;"
+                id="factura-dropzone" ondragover="RegistrosApp.allowDrop(event)"
+                ondragleave="RegistrosApp.dragLeave(event)" ondrop="RegistrosApp.dropToFactura(event)">
+                
+                <h2 style="font-size: 1.2rem; color: #27ae60; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; margin-top: 0; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-file-invoice-dollar"></i> 3. Factura en Construcción
+                </h2>
+
+                <div style="display: flex; gap: 12px; margin-bottom: 15px;">
+                    <input type="text" id="factura-cliente" class="large-input" placeholder="Cliente o Cuenta..." style="flex: 1;">
+                    <input type="text" id="factura-numero" class="large-input" placeholder="N° Factura..." style="max-width: 140px; text-align: center;">
+                </div>
+
+                <div class="table-responsive-scroll" style="max-height: calc(100vh - 350px); min-height: 250px;">
+                    <table class="inventario-table" style="margin: 0; width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f8f9fa;">
+                                <th style="width: 60px; text-align: center; border: 1px solid #ddd;">Cant.</th>
+                                <th style="border: 1px solid #ddd;">Producto Facturado</th>
+                                <th style="width: 90px; border: 1px solid #ddd;">P. Unit.</th>
+                                <th style="width: 90px; border: 1px solid #ddd;">Total</th>
+                                <th style="width: 50px; border: 1px solid #ddd;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="factura-tbody">
+                            <tr id="factura-empty-state">
+                                <td colspan="5" style="text-align: center; padding: 60px 20px; color: #a0aec0;">
+                                    <i class="fas fa-hand-holding-box" style="font-size: 40px; margin-bottom: 12px; color: #cbd5e0;"></i>
+                                    <br><strong style="font-size: 1rem;">La factura está vacía</strong>
+                                    <br><span style="font-size: 0.85rem; color: #a0aec0;">Toca o arrastra los productos de la izquierda</span>
+                                    <br><small style="font-size: 0.8rem; color: #a0aec0;">(Límite de 14 productos)</small>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Bloque de Total General en la Tarjeta -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; font-weight: bold; font-size: 1.1rem; padding: 12px 15px; background: #e6fffa; border-radius: 6px; border: 1px solid #b2f5ea; color: #234e52;">
+                    <span>Total Factura:</span>
+                    <span>$<span id="card-factura-total">0.00</span></span>
+                </div>
+
+                <button class="btn btn-success" style="width: 100%; margin-top: 15px; padding: 15px; font-size: 1.1rem; font-weight: bold; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px rgba(39, 174, 96, 0.2);" onclick="RegistrosApp.openProcessModal()">
+                    <i class="fas fa-check-circle"></i> Procesar y Descontar
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- MODAL PROCESAR FACTURA -->
+    <div id="modal-procesar-factura" class="modal-overlay" style="display: none; z-index: 2000;">
+        <div class="modal-content" style="width: 90%; max-width: 1000px; max-height: 90vh; overflow-y: auto; padding: 25px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 12px;">
+                <h2 class="card-title" style="margin: 0; border: none; padding: 0; font-size: 1.3rem; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-file-invoice"></i> Procesar Factura
+                </h2>
+                <button onclick="document.getElementById('modal-procesar-factura').style.display='none'" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #888;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+                <div style="flex: 1; padding: 18px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.2s;" id="opt-factura-repuestos" onclick="RegistrosApp.selectInvoiceType('repuestos')">
+                    <i class="fas fa-tools" style="font-size: 32px; color: #e67e22; margin-bottom: 10px;"></i>
+                    <h3 style="margin-top: 0; margin-bottom: 5px; font-size: 1.1rem;">Factura de Repuestos</h3>
+                    <p style="font-size: 0.85rem; color: #666; margin: 0;">Precios especiales para mayoristas</p>
+                </div>
+                <div style="flex: 1; padding: 18px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.2s;" id="opt-factura-normal" onclick="RegistrosApp.selectInvoiceType('normal')">
+                    <i class="fas fa-store" style="font-size: 32px; color: #3498db; margin-bottom: 10px;"></i>
+                    <h3 style="margin-top: 0; margin-bottom: 5px; font-size: 1.1rem;">Factura Normal</h3>
+                    <p style="font-size: 0.85rem; color: #666; margin: 0;">Precios estándar al público</p>
+                </div>
+            </div>
+
+            <div id="invoice-prices-section" style="display: none;">
+                <div class="table-responsive" style="border: 1px solid #ddd; border-radius: 6px; margin-bottom: 20px; max-height: 350px; overflow-y: auto;">
+                    <table class="inventario-table">
+                        <thead>
+                            <tr style="background: #f8f9fa;">
+                                <th style="width: 50px; text-align: center;">Cant.</th>
+                                <th>Producto</th>
+                                <th style="width: 220px;">Vínculo Inventario</th>
+                                <th style="width: 100px; text-align: right;">Costo Unit. ($)</th>
+                                <th style="width: 110px; text-align: right;">Precio Unit. ($)</th>
+                                <th style="width: 100px; text-align: center;">Ganancia (%)</th>
+                                <th style="width: 110px; text-align: right;">Total ($)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="invoice-prices-tbody">
+                            <!-- JS llenará esto -->
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="6" style="text-align: right; font-weight: bold; font-size: 1.15rem; padding: 15px; background-color: #f8f9fa;">TOTAL FACTURA:</td>
+                                <td style="font-weight: bold; font-size: 1.15rem; color: #27ae60; padding: 15px; text-align: right; background-color: #f8f9fa;">
+                                    $<span id="invoice-grand-total">0.00</span>
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button class="btn btn-danger" onclick="document.getElementById('modal-procesar-factura').style.display='none'" style="padding: 10px 20px; font-weight: bold;">Cancelar</button>
+                    <button class="btn btn-success" onclick="RegistrosApp.finalizeInvoice()" style="padding: 10px 20px; font-weight: bold; display: flex; align-items: center; gap: 8px;"><i class="fas fa-check"></i> Finalizar Factura</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS DE FIREBASE SDK (V8 COMPAT) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <!-- INICIALIZACIÓN E IMPORTACIÓN DE PRODUCTOS PARA CACHÉ -->
+    <script>
+        // Configuración de Firebase igual que en inventario.html
+        const firebaseConfig = {
+            apiKey: "AIzaSyCaZdPPYddeMPTiNm5cCdFL6m9b9swX0-c",
+            authDomain: "williantaller-1426b.firebaseapp.com",
+            projectId: "williantaller-1426b",
+            storageBucket: "williantaller-1426b.firebasestorage.app",
+            messagingSenderId: "757966587061",
+            appId: "1:757966587061:web:6c700e862317119d64aafc"
+        };
+        firebase.initializeApp(firebaseConfig);
+        window.db = firebase.firestore();
+
+        // Carga en segundo plano de la base de datos de productos para el escáner
+        window.app = { cache: [] };
+
+        async function preloadProductCache() {
+            try {
+                const snapshot = await window.db.collection('INVENTARIO').get();
+                const products = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    products.push({
+                        id: doc.id,
+                        codigo: data.codigo || "",
+                        descripcion: data.descripcion || "",
+                        aliases: data.busqueda || [],
+                        codigosProveedor: data.codigosProveedor || [],
+                        costo: data.costo || 0,
+                        precio: data.precio || 0
+                    });
+                });
+                window.app.cache = products;
+                console.log("Caché de productos inicializada en salidas:", products.length, "ítems.");
+                
+                // Ocultar pantalla de carga
+                document.getElementById('salidas-loading').style.display = 'none';
+                
+            } catch (error) {
+                console.error("Error al cargar la caché de productos para salidas:", error);
+                alert("Error crítico al cargar productos: " + error.message + "\nPor favor recarga la página.");
+            }
+        }
+
+        // Ejecutar precarga al cargar la página
+        document.addEventListener('DOMContentLoaded', preloadProductCache);
+
+        // Función para alternar el tamaño de las tarjetas en la pestaña de Salidas
+        window.toggleSalidasCard = function (activeCardNum) {
+            const card1 = document.getElementById('card-listado');
+            const card2 = document.getElementById('card-resumen');
+            
+            // Si ninguna está colapsada (estado inicial) y se hace clic en una, colapsar la otra
+            const isInitialState = !card1.classList.contains('collapsed') && !card2.classList.contains('collapsed');
+            
+            if (!isInitialState) {
+                // Si ya está expandida, no hacer nada para evitar parpadeos
+                if (activeCardNum === 1 && !card1.classList.contains('collapsed')) return;
+                if (activeCardNum === 2 && !card2.classList.contains('collapsed')) return;
+            }
+            
+            const grid = document.getElementById('salidas-grid');
+            if (activeCardNum === 1) {
+                grid.classList.add('active-col1');
+                grid.classList.remove('active-col2');
+                card1.classList.remove('collapsed');
+                card2.classList.add('collapsed');
+            } else {
+                grid.classList.add('active-col2');
+                grid.classList.remove('active-col1');
+                card1.classList.add('collapsed');
+                card2.classList.remove('collapsed');
+            }
+        };
+    </script>
+
+    <!-- Modal: Vincular Producto -->
+    <div id="modalLinkProduct" class="modal-overlay" style="display: none; z-index: 2100;">
+        <div class="modal-content" style="max-width: 800px; padding: 25px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 12px;">
+                <h2 style="margin: 0; border: none; padding: 0; font-size: 1.3rem; display: flex; align-items: center; gap: 8px;"><i class="fas fa-link"></i> Vincular Producto</h2>
+                <span style="font-size: 24px; cursor: pointer; color: #888;" onclick="document.getElementById('modalLinkProduct').style.display='none'">&times;</span>
+            </div>
+            <div>
+                <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #217346;">
+                    <p style="margin:0; font-weight:bold; color:#555; font-size: 0.9rem;">Item en Excel:</p>
+                    <h3 id="link-excel-name" style="margin:5px 0 0 0; color:#333; font-size: 1.1rem;">...</h3>
+                </div>
+
+                <div class="search-bar" style="margin-bottom: 15px;">
+                    <input type="text" id="link-search-input" class="large-input" placeholder="Escribe para buscar en inventario...">
+                </div>
+
+                <div style="height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 15px; background: white;">
+                    <table class="inventario-table" style="width: 100%; border-collapse: collapse; margin: 0;">
+                        <thead>
+                            <tr style="background: #f8f9fa;">
+                                <th style="border: 1px solid #ddd; padding: 10px;">Código</th>
+                                <th style="border: 1px solid #ddd; padding: 10px;">Descripción</th>
+                                <th style="border: 1px solid #ddd; padding: 10px; width: 70px; text-align: center;">Stock</th>
+                                <th style="border: 1px solid #ddd; padding: 10px; width: 80px; text-align: right;">Precio</th>
+                                <th style="border: 1px solid #ddd; padding: 10px; width: 100px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="link-results-body">
+                            <!-- Results here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="background: #fff3cd; color: #856404; padding: 12px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 20px; line-height: 1.4; border: 1px solid #ffeeba;">
+                    <i class="fas fa-info-circle"></i> Si este ítem es un servicio (Mano de Obra) o no afecta inventario, usa el botón "Omitir".
+                </div>
+            </div>
+            <div style="display:flex; justify-content:space-between; gap: 10px;">
+                <button class="btn" style="background-color: #7f8c8d; color: white; padding: 10px 18px; font-weight: bold; border-radius: 6px; border: none; cursor: pointer;" onclick="RegistrosApp.skipLinkItem()">
+                    <i class="fas fa-forward"></i> Omitir / Marcar Servicio
+                </button>
+                <button class="btn btn-danger" style="padding: 10px 18px; font-weight: bold; border-radius: 6px;" onclick="document.getElementById('modalLinkProduct').style.display='none'">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CARGAR SCRIPT DE REGISTROS -->
+    <script src="js/RegistrosApp.js"></script>
+
+</body>
+
+</html>

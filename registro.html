@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro (Escáner) - Taller Willian</title>
+    <!-- CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="css/inventario.css">
+    
+    <style>
+        /* Estilos optimizados para pantalla completa y tablet */
+        body {
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+        }
+
+        .btn-back {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            color: white;
+            text-decoration: none;
+            padding: 10px 18px;
+            border-radius: 6px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
+        }
+
+        .btn-back:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateX(-3px);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .container-full {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .registro-grid {
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            gap: 25px;
+            align-items: stretch;
+        }
+
+        @media (max-width: 1024px) {
+            .registro-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Paneles Premium */
+        .registro-card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid rgba(0,0,0,0.03);
+            transition: transform 0.2s ease;
+        }
+
+        .registro-card h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #f1f1f1;
+            padding-bottom: 12px;
+            color: #2c3e50;
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Inputs ultra cómodos para tablet */
+        .large-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ccd1d9;
+            border-radius: 6px;
+            font-size: 1rem;
+            box-sizing: border-box;
+            transition: all 0.2s ease;
+            background-color: #fcfdfd;
+        }
+
+        .large-input:focus {
+            border-color: #3498db;
+            background-color: white;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
+            outline: none;
+        }
+
+        .form-group-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #4a5568;
+            font-size: 0.95rem;
+        }
+
+        /* Botón de envío grande */
+        .btn-submit-large {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 15px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 6px rgba(52, 152, 219, 0.2);
+            margin-top: 15px;
+        }
+
+        .btn-submit-large:hover {
+            background-color: #2980b9;
+            box-shadow: 0 6px 12px rgba(52, 152, 219, 0.3);
+            transform: translateY(-1px);
+        }
+
+        /* Pestañas internas del listado */
+        .tab-menu-inner {
+            display: flex;
+            gap: 15px;
+            border-bottom: 2px solid #e2e8f0;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+
+        .tab-btn-inner {
+            background: none;
+            border: none;
+            padding: 12px 10px;
+            font-size: 1.05rem;
+            font-weight: bold;
+            color: #718096;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tab-btn-inner.active {
+            color: #3498db;
+            border-bottom-color: #3498db;
+        }
+
+        /* Estilo para las tablas del listado */
+        .table-container-large {
+            flex-grow: 1;
+            min-height: 400px;
+            max-height: calc(100vh - 280px);
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow-y: auto;
+            background: white;
+        }
+
+        /* Mejoras en filas de registros */
+        .inventario-table tbody tr {
+            transition: background-color 0.2s ease;
+        }
+
+        .inventario-table tbody tr:hover {
+            background-color: #f7fafc !important;
+        }
+
+        .inventario-table td {
+            padding: 12px 15px !important;
+            font-size: 0.95rem;
+        }
+
+        .inventario-table th {
+            padding: 12px 15px !important;
+            font-size: 0.95rem;
+            background-color: #f8f9fa;
+        }
+
+        /* Pantalla de carga */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.85);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- PANTALLA DE CARGA -->
+    <div id="registro-loading" class="loading-screen">
+        <div class="loading-spinner"></div>
+        <h3 style="color: #2c3e50; font-family: inherit;">Inicializando Módulo de Registro...</h3>
+        <p style="color: #718096; margin: 0;">Cargando base de datos del inventario</p>
+    </div>
+
+    <!-- CABECERA PRINCIPAL -->
+    <header>
+        <div style="display: flex; align-items: center; gap: 20px;">
+            <a href="inventario.html" class="btn-back">
+                <i class="fas fa-arrow-left"></i> Volver al Inventario
+            </a>
+            <h1 style="margin: 0; font-size: 1.4rem; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-barcode"></i> Módulo de Registro (Pantalla Completa)
+            </h1>
+        </div>
+        <div style="font-weight: 500; font-size: 0.95rem; color: #bdc3c7;">
+            Taller Willian - Escaneo de Salidas
+        </div>
+    </header>
+
+    <!-- CONTENEDOR PRINCIPAL -->
+    <div class="container-full">
+        <div class="registro-grid">
+
+            <!-- COLUMNA IZQUIERDA: Formulario + Importación -->
+            <div style="display: flex; flex-direction: column; gap: 25px;">
+                
+                <!-- 1. Formulario de ingreso rápido -->
+                <div class="registro-card">
+                    <h2><i class="fas fa-keyboard"></i> Ingreso de Producto</h2>
+                    
+                    <form id="fast-entry-form" onsubmit="event.preventDefault(); RegistrosApp.addFastEntryRow(); return false;" style="display: flex; flex-direction: column; gap: 15px;">
+                        <div>
+                            <label class="form-group-label" for="fast-producto">Producto (Código, Descripción o Escáner) *</label>
+                            <input type="text" id="fast-producto" class="large-input" placeholder="Escanea el código de barras o escribe..." required autocomplete="off">
+                        </div>
+                        
+                        <div style="display: flex; gap: 15px;">
+                            <div style="flex: 1;">
+                                <label class="form-group-label" for="fast-cantidad">Cantidad *</label>
+                                <input type="number" id="fast-cantidad" class="large-input" value="1" min="1" required style="text-align: center;">
+                            </div>
+                            <div style="flex: 2;">
+                                <label class="form-group-label" for="fast-cuenta">Cuenta (Opcional)</label>
+                                <input type="text" id="fast-cuenta" class="large-input" placeholder="Ej: Mayorista, Cliente...">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="form-group-label" for="fast-observacion">Observación (Opcional)</label>
+                            <input type="text" id="fast-observacion" class="large-input" placeholder="Detalles o comentarios extra...">
+                        </div>
+                        
+                        <button type="submit" class="btn-submit-large">
+                            <i class="fas fa-plus"></i> Agregar a la Tabla
+                        </button>
+                    </form>
+                </div>
+
+                <!-- 2. Importación desde Excel -->
+                <div class="registro-card" style="border-top: 4px solid #27ae60;">
+                    <h2 style="color: #27ae60;"><i class="fas fa-file-excel"></i> Importar desde Excel</h2>
+                    <p style="font-size: 0.9rem; color: #4a5568; margin-top: 0; margin-bottom: 20px; line-height: 1.4;">
+                        Carga masiva de registros del mes mediante un archivo Excel (.xlsx, .xls).
+                    </p>
+                    
+                    <button type="button" class="btn-submit-large" style="background-color: #27ae60; box-shadow: 0 4px 6px rgba(39, 174, 96, 0.2); margin-top: 0;" onclick="document.getElementById('fast-excel-file').click()">
+                        <i class="fas fa-file-excel"></i> Seleccionar Archivo Excel
+                    </button>
+                    <input type="file" id="fast-excel-file" accept=".xlsx, .xls" style="display: none;">
+                    <span id="fast-excel-filename-display" style="margin-top: 12px; font-size: 0.9rem; font-weight: bold; color: #4a5568; text-align: center; display: block;"></span>
+
+                    <!-- Selector de Hojas de Excel -->
+                    <div id="fast-excel-sheets-container" style="display: none; margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                        <label class="form-group-label">Selecciona la Hoja de Excel:</label>
+                        <select id="fast-excel-sheet-select" class="large-input" style="margin-bottom: 15px;"></select>
+                        <button type="button" class="btn-submit-large" style="background-color: #2196f3; box-shadow: 0 4px 6px rgba(33, 150, 243, 0.2); margin-top: 0;" onclick="RegistrosApp.processSelectedFastExcelSheet()">
+                            <i class="fas fa-check"></i> Cargar Hoja Seleccionada
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- COLUMNA DERECHA: Listado y Resumen -->
+            <div class="registro-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 15px; border-bottom: 1px solid #f1f1f1; padding-bottom: 12px;">
+                    <!-- Selector de pestañas internas -->
+                    <div class="tab-menu-inner">
+                        <button id="tab-btn-lista" class="tab-btn-inner active" onclick="switchInnerTab('lista')">
+                            <i class="fas fa-list-ul"></i> Registros Pendientes
+                        </button>
+                        <button id="tab-btn-resumen" class="tab-btn-inner" onclick="switchInnerTab('resumen')">
+                            <i class="fas fa-chart-pie"></i> Resumen Dinámico
+                        </button>
+                    </div>
+                    <!-- Botón Borrar Todo -->
+                    <button class="btn" style="background-color: #e74c3c; color: white; padding: 10px 16px; font-size: 0.9rem; font-weight: bold; border-radius: 6px; display: flex; align-items: center; gap: 8px; border: none; cursor: pointer; transition: background 0.2s;" onclick="RegistrosApp.deleteOnlyPendingRegistros()">
+                        <i class="fas fa-trash-alt"></i> Borrar Todo el Volumen
+                    </button>
+                </div>
+
+                <!-- Contenedor 1: Lista de Registros Pendientes -->
+                <div id="inner-tab-lista" style="display: block; flex-grow: 1;">
+                    <div class="table-container-large">
+                        <table class="inventario-table" style="margin: 0; width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: #f8f9fa;">
+                                    <th style="width: 70px; text-align: center; border: 1px solid #ddd;">Cant.</th>
+                                    <th style="width: 110px; border: 1px solid #ddd;">Fecha</th>
+                                    <th style="border: 1px solid #ddd;">Descripción / Producto</th>
+                                    <th style="width: 150px; border: 1px solid #ddd;">Cuenta</th>
+                                    <th style="width: 220px; border: 1px solid #ddd;">Observación</th>
+                                    <th style="width: 60px; text-align: center; border: 1px solid #ddd;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="fast-entry-tbody">
+                                <tr id="empty-state-row">
+                                    <td colspan="6" style="text-align: center; padding: 60px 20px; color: #a0aec0;">
+                                        <i class="fas fa-box-open" style="font-size: 45px; margin-bottom: 12px; color: #cbd5e0;"></i>
+                                        <p style="margin: 0; font-weight: bold; font-size: 1.1rem;">No hay productos en la lista.</p>
+                                        <p style="font-size: 0.9rem; margin-top: 5px; color: #a0aec0;">Agrega productos desde el formulario para comenzar.</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Contenedor 2: Resumen Dinámico -->
+                <div id="inner-tab-resumen" style="display: none; flex-grow: 1;">
+                    <div class="table-container-large">
+                        <table class="inventario-table" style="margin: 0; width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: #f8f9fa;">
+                                    <th style="border: 1px solid #ddd;">Descripción / Producto</th>
+                                    <th style="width: 150px; text-align: center; border: 1px solid #ddd;">Cantidad Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resumen-tbody">
+                                <tr id="resumen-empty-state">
+                                    <td colspan="2" style="text-align: center; padding: 60px 20px; color: #a0aec0;">
+                                        <i class="fas fa-chart-bar" style="font-size: 45px; margin-bottom: 12px; color: #cbd5e0;"></i>
+                                        <p style="margin: 0; font-weight: bold; font-size: 1.1rem;">El resumen dinámico está vacío.</p>
+                                        <p style="font-size: 0.9rem; margin-top: 5px; color: #a0aec0;">Se calcularán los totales conforme agregues productos.</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Barra de totales -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 15px; border-top: 2px solid #edf2f7;">
+                    <div style="font-size: 1.2rem; font-weight: bold; color: #2b6cb0; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-cubes"></i> Total de Artículos: <span id="total-items">0</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- SCRIPTS DE FIREBASE SDK (V8 COMPAT) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <!-- INICIALIZACIÓN E IMPORTACIÓN DE PRODUCTOS PARA CACHÉ -->
+    <script>
+        // Configuración de Firebase igual que en inventario.html
+        const firebaseConfig = {
+            apiKey: "AIzaSyCaZdPPYddeMPTiNm5cCdFL6m9b9swX0-c",
+            authDomain: "williantaller-1426b.firebaseapp.com",
+            projectId: "williantaller-1426b",
+            storageBucket: "williantaller-1426b.firebasestorage.app",
+            messagingSenderId: "757966587061",
+            appId: "1:757966587061:web:6c700e862317119d64aafc"
+        };
+        firebase.initializeApp(firebaseConfig);
+        window.db = firebase.firestore();
+
+        // Carga en segundo plano de la base de datos de productos para el escáner
+        window.app = { cache: [] };
+
+        async function preloadProductCache() {
+            try {
+                const snapshot = await window.db.collection('INVENTARIO').get();
+                const products = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    products.push({
+                        id: doc.id,
+                        codigo: data.codigo || "",
+                        descripcion: data.descripcion || "",
+                        aliases: data.busqueda || [], // aliases mapeado a busqueda
+                        codigosProveedor: data.codigosProveedor || [],
+                        costo: data.costo || 0,
+                        precio: data.precio || 0,
+                        existencia: data.existencia || 0
+                    });
+                });
+                window.app.cache = products;
+                console.log("Caché de productos inicializada con éxito:", products.length, "ítems.");
+                
+                // Ocultar pantalla de carga
+                document.getElementById('registro-loading').style.display = 'none';
+                
+                // Enfocar en el campo del producto para escaneo continuo inmediato
+                const prodInput = document.getElementById('fast-producto');
+                if (prodInput) prodInput.focus();
+                
+            } catch (error) {
+                console.error("Error al cargar la caché de productos para el escáner:", error);
+                alert("Error crítico al cargar productos: " + error.message + "\nPor favor recarga la página.");
+            }
+        }
+
+        // Ejecutar precarga al cargar la página
+        document.addEventListener('DOMContentLoaded', preloadProductCache);
+
+        // Control de pestañas internas (Registros vs Resumen)
+        function switchInnerTab(tabName) {
+            const tabLista = document.getElementById('inner-tab-lista');
+            const tabResumen = document.getElementById('inner-tab-resumen');
+            const btnLista = document.getElementById('tab-btn-lista');
+            const btnResumen = document.getElementById('tab-btn-resumen');
+
+            if (tabName === 'lista') {
+                tabLista.style.display = 'block';
+                tabResumen.style.display = 'none';
+                btnLista.classList.add('active');
+                btnResumen.classList.remove('active');
+            } else {
+                tabLista.style.display = 'none';
+                tabResumen.style.display = 'block';
+                btnLista.classList.remove('active');
+                btnResumen.classList.add('active');
+            }
+        }
+    </script>
+
+    <!-- Modal: Vincular Producto -->
+    <div id="modalLinkProduct" class="modal-overlay" style="display: none; z-index: 2100;">
+        <div class="modal-content" style="max-width: 800px; padding: 25px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 12px;">
+                <h2 style="margin: 0; border: none; padding: 0; font-size: 1.3rem; display: flex; align-items: center; gap: 8px;"><i class="fas fa-link"></i> Vincular Producto</h2>
+                <span style="font-size: 24px; cursor: pointer; color: #888;" onclick="document.getElementById('modalLinkProduct').style.display='none'">&times;</span>
+            </div>
+            <div>
+                <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #217346;">
+                    <p style="margin:0; font-weight:bold; color:#555; font-size: 0.9rem;">Item en Excel:</p>
+                    <h3 id="link-excel-name" style="margin:5px 0 0 0; color:#333; font-size: 1.1rem;">...</h3>
+                </div>
+
+                <div class="search-bar" style="margin-bottom: 15px;">
+                    <input type="text" id="link-search-input" class="large-input" placeholder="Escribe para buscar en inventario...">
+                </div>
+
+                <div style="height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 15px; background: white;">
+                    <table class="inventario-table" style="width: 100%; border-collapse: collapse; margin: 0;">
+                        <thead>
+                            <tr style="background: #f8f9fa;">
+                                <th style="border: 1px solid #ddd; padding: 10px;">Código</th>
+                                <th style="border: 1px solid #ddd; padding: 10px;">Descripción</th>
+                                <th style="border: 1px solid #ddd; padding: 10px; width: 70px; text-align: center;">Stock</th>
+                                <th style="border: 1px solid #ddd; padding: 10px; width: 80px; text-align: right;">Precio</th>
+                                <th style="border: 1px solid #ddd; padding: 10px; width: 100px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="link-results-body">
+                            <!-- Results here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="background: #fff3cd; color: #856404; padding: 12px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 20px; line-height: 1.4; border: 1px solid #ffeeba;">
+                    <i class="fas fa-info-circle"></i> Si este ítem es un servicio (Mano de Obra) o no afecta inventario, usa el botón "Omitir".
+                </div>
+            </div>
+            <div style="display:flex; justify-content:space-between; gap: 10px;">
+                <button class="btn" style="background-color: #7f8c8d; color: white; padding: 10px 18px; font-weight: bold; border-radius: 6px; border: none; cursor: pointer;" onclick="RegistrosApp.skipLinkItem()">
+                    <i class="fas fa-forward"></i> Omitir / Marcar Servicio
+                </button>
+                <button class="btn btn-danger" style="padding: 10px 18px; font-weight: bold; border-radius: 6px;" onclick="document.getElementById('modalLinkProduct').style.display='none'">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CARGAR SCRIPT DE REGISTROS -->
+    <script src="js/RegistrosApp.js"></script>
+
+</body>
+
+</html>
