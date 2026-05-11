@@ -727,15 +727,21 @@ const RegistrosApp = {
     async loadItemPrices(item) {
         const safeId = item.producto.replace(/\//g, '-').trim();
         let currentVinculoId = item.vinculoId;
+        let precioEncontrado = false;
 
         try {
+            // 1. Intentar buscar por ID de vínculo en el inventario
             if (currentVinculoId && window.app && window.app.cache) {
                 const cachedProduct = window.app.cache.find(p => p.id === currentVinculoId);
                 if (cachedProduct) {
                     item.costoUnitario = cachedProduct.costo || 0;
                     item.precioUnitario = cachedProduct.precio || 0;
+                    precioEncontrado = true;
                 }
-            } else {
+            }
+
+            // 2. Si no se encontró en el inventario por ID, buscar en PRECIOS_REGISTROS
+            if (!precioEncontrado) {
                 const doc = await this.preciosRef.doc(safeId).get();
                 if (doc.exists) {
                     const data = doc.data();
@@ -747,13 +753,18 @@ const RegistrosApp = {
                             if (p) item.costoUnitario = p.costo || 0;
                         }
                     }
-                } else if (window.app && window.app.cache) {
-                    const match = window.app.cache.find(p => p.descripcion.toLowerCase() === item.producto.toLowerCase());
-                    if (match) {
-                        item.vinculoId = match.id;
-                        item.costoUnitario = match.costo || 0;
-                        item.precioUnitario = match.precio || 0;
-                    }
+                    precioEncontrado = true;
+                }
+            }
+
+            // 3. Si aún no se encuentra, buscar en el inventario por el nombre descriptivo exacto
+            if (!precioEncontrado && window.app && window.app.cache) {
+                const match = window.app.cache.find(p => p.descripcion && p.descripcion.toLowerCase().trim() === item.producto.toLowerCase().trim());
+                if (match) {
+                    item.vinculoId = match.id;
+                    item.costoUnitario = match.costo || 0;
+                    item.precioUnitario = match.precio || 0;
+                    precioEncontrado = true;
                 }
             }
         } catch (e) {
@@ -1000,35 +1011,64 @@ const RegistrosApp = {
     },
 
     // ==========================================
-    // MODAL DE FACTURACIÓN Y PRECIOS
+    // FLUJO PASO A PASO INTEGRADO EN PANTALLA (SIN MODALES)
     // ==========================================
+    currentStep: 1,
+
+    nextStep() {
+        if (this.currentStep === 1) {
+            if (this.facturaItems.length === 0) {
+                alert("Debes agregar al menos un repuesto a la factura.");
+                return;
+            }
+            this.goToStep(2);
+        } else if (this.currentStep === 2) {
+            this.goToBillingStep();
+        } else if (this.currentStep === 3) {
+            this.finalizeInvoice();
+        }
+    },
+
+    goToStep(step) {
+        this.currentStep = step;
+
+        const cardListado = document.getElementById('card-listado');
+        const cardResumen = document.getElementById('card-resumen');
+        const cardServicios = document.getElementById('card-servicios-mano-obra');
+        const cardPrecios = document.getElementById('card-facturacion-precios');
+
+        const btnSiguiente = document.getElementById('btn-siguiente-factura');
+        const btnSiguienteText = document.getElementById('btn-siguiente-factura-text');
+
+        // Ocultar todos
+        if (cardListado) cardListado.style.display = 'none';
+        if (cardResumen) cardResumen.style.display = 'none';
+        if (cardServicios) cardServicios.style.display = 'none';
+        if (cardPrecios) cardPrecios.style.display = 'none';
+
+        if (step === 1) {
+            if (cardListado) cardListado.style.display = 'flex';
+            if (cardResumen) cardResumen.style.display = 'flex';
+            if (btnSiguienteText) btnSiguienteText.innerText = "Siguiente: Servicios";
+            if (btnSiguiente) btnSiguiente.style.display = 'flex';
+        } else if (step === 2) {
+            if (cardServicios) cardServicios.style.display = 'flex';
+            if (btnSiguienteText) btnSiguienteText.innerText = "Siguiente: Precios";
+            if (btnSiguiente) btnSiguiente.style.display = 'flex';
+
+            // Desmarcar checkboxes de servicios y vaciar mano de obra
+            document.querySelectorAll('.service-checkbox').forEach(cb => cb.checked = false);
+            const manoObraEl = document.getElementById('services-mano-obra');
+            if (manoObraEl) manoObraEl.value = "0.00";
+        } else if (step === 3) {
+            if (cardPrecios) cardPrecios.style.display = 'flex';
+            if (btnSiguienteText) btnSiguienteText.innerText = "Finalizar Factura";
+        }
+    },
+
     async openProcessModal() {
-        // Inicializar paso 1 del modal
-        const step1 = document.getElementById('step-1-services');
-        const step2 = document.getElementById('step-2-billing');
-        if (step1) step1.style.display = 'block';
-        if (step2) step2.style.display = 'none';
-
-        // Desmarcar checkboxes de servicios y vaciar mano de obra
-        document.querySelectorAll('.service-checkbox').forEach(cb => cb.checked = false);
-        const manoObraEl = document.getElementById('services-mano-obra');
-        if (manoObraEl) manoObraEl.value = "0.00";
-
-        this.facturaTipo = null;
-        const optR = document.getElementById('opt-factura-repuestos');
-        const optN = document.getElementById('opt-factura-normal');
-        if (optR) {
-            optR.style.borderColor = '#ddd';
-            optR.style.backgroundColor = 'transparent';
-        }
-        if (optN) {
-            optN.style.borderColor = '#ddd';
-            optN.style.backgroundColor = 'transparent';
-        }
-        const priceSec = document.getElementById('invoice-prices-section');
-        if (priceSec) priceSec.style.display = 'none';
-
-        document.getElementById('modal-procesar-factura').style.display = 'flex';
+        // Redirigir dinámicamente al paso 2 por compatibilidad
+        this.nextStep();
     },
 
     async selectInvoiceType(tipo) {
@@ -1064,17 +1104,21 @@ const RegistrosApp = {
             let currentVinculoId = item.vinculoId;
             item.costoUnitario = 0;
             let loadedPrice = 0;
+            let precioEncontrado = false;
 
             try {
-                // Si tenemos el vinculoId (escaneado), cargar directamente de la caché
+                // 1. Si tenemos el vinculoId, cargar directamente de la caché
                 if (currentVinculoId && window.app && window.app.cache) {
                     const cachedProduct = window.app.cache.find(p => p.id === currentVinculoId);
                     if (cachedProduct) {
                         item.costoUnitario = cachedProduct.costo || 0;
                         loadedPrice = this.facturaTipo === 'repuestos' ? (cachedProduct.precioRepuestos || cachedProduct.precio || 0) : (cachedProduct.precio || 0);
+                        precioEncontrado = true;
                     }
-                } else {
-                    // Fallback a buscar por nombre si no fue escaneado (ej. ingresado manualmente o excel viejo)
+                }
+
+                // 2. Fallback a buscar por nombre en PRECIOS_REGISTROS si no se encontró o no tiene vínculo
+                if (!precioEncontrado) {
                     const doc = await this.preciosRef.doc(safeId).get();
                     if (doc.exists) {
                         const data = doc.data();
@@ -1089,14 +1133,18 @@ const RegistrosApp = {
                                 if (invDoc.exists) item.costoUnitario = invDoc.data().costo || 0;
                             }
                         }
-                    } else if (window.app && window.app.cache) {
-                        // Buscar por nombre exacto
-                        const match = window.app.cache.find(p => p.descripcion.toLowerCase() === item.producto.toLowerCase());
-                        if (match) {
-                            item.vinculoId = match.id;
-                            item.costoUnitario = match.costo || 0;
-                            loadedPrice = this.facturaTipo === 'repuestos' ? (match.precioRepuestos || match.precio || 0) : (match.precio || 0);
-                        }
+                        precioEncontrado = true;
+                    }
+                }
+
+                // 3. Fallback a buscar por nombre descriptivo exacto en la caché
+                if (!precioEncontrado && window.app && window.app.cache) {
+                    const match = window.app.cache.find(p => p.descripcion && p.descripcion.toLowerCase().trim() === item.producto.toLowerCase().trim());
+                    if (match) {
+                        item.vinculoId = match.id;
+                        item.costoUnitario = match.costo || 0;
+                        loadedPrice = this.facturaTipo === 'repuestos' ? (match.precioRepuestos || match.precio || 0) : (match.precio || 0);
+                        precioEncontrado = true;
                     }
                 }
             } catch (e) {
@@ -1282,9 +1330,11 @@ const RegistrosApp = {
             // Limpiar factura
             this.facturaItems = [];
             this.renderFactura();
-            document.getElementById('modal-procesar-factura').style.display = 'none';
             document.getElementById('factura-cliente').value = '';
             document.getElementById('factura-numero').value = '';
+
+            // Regresar al Paso 1
+            this.goToStep(1);
 
         } catch (error) {
             document.getElementById('loading-overlay').style.display = 'none';
@@ -1589,16 +1639,18 @@ const RegistrosApp = {
             });
         }
 
-        document.getElementById('step-1-services').style.display = 'none';
-        document.getElementById('step-2-billing').style.display = 'block';
+        this.goToStep(3);
 
         // Pre-seleccionar tipo normal por defecto
         this.selectInvoiceType(this.facturaTipo || 'normal');
     },
 
     backToServicesStep() {
-        document.getElementById('step-1-services').style.display = 'block';
-        document.getElementById('step-2-billing').style.display = 'none';
+        this.goToStep(2);
+    },
+
+    backToRepuestosStep() {
+        this.goToStep(1);
     },
 
     currentHistorialTab: 'list',
