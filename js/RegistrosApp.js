@@ -1003,17 +1003,30 @@ const RegistrosApp = {
     // MODAL DE FACTURACIÓN Y PRECIOS
     // ==========================================
     async openProcessModal() {
-        if (this.facturaItems.length === 0) {
-            alert("Agrega al menos un producto a la factura antes de procesar.");
-            return;
-        }
+        // Inicializar paso 1 del modal
+        const step1 = document.getElementById('step-1-services');
+        const step2 = document.getElementById('step-2-billing');
+        if (step1) step1.style.display = 'block';
+        if (step2) step2.style.display = 'none';
+
+        // Desmarcar checkboxes de servicios y vaciar mano de obra
+        document.querySelectorAll('.service-checkbox').forEach(cb => cb.checked = false);
+        const manoObraEl = document.getElementById('services-mano-obra');
+        if (manoObraEl) manoObraEl.value = "0.00";
 
         this.facturaTipo = null;
-        document.getElementById('opt-factura-repuestos').style.borderColor = '#ddd';
-        document.getElementById('opt-factura-repuestos').style.backgroundColor = 'transparent';
-        document.getElementById('opt-factura-normal').style.borderColor = '#ddd';
-        document.getElementById('opt-factura-normal').style.backgroundColor = 'transparent';
-        document.getElementById('invoice-prices-section').style.display = 'none';
+        const optR = document.getElementById('opt-factura-repuestos');
+        const optN = document.getElementById('opt-factura-normal');
+        if (optR) {
+            optR.style.borderColor = '#ddd';
+            optR.style.backgroundColor = 'transparent';
+        }
+        if (optN) {
+            optN.style.borderColor = '#ddd';
+            optN.style.backgroundColor = 'transparent';
+        }
+        const priceSec = document.getElementById('invoice-prices-section');
+        if (priceSec) priceSec.style.display = 'none';
 
         document.getElementById('modal-procesar-factura').style.display = 'flex';
     },
@@ -1163,6 +1176,7 @@ const RegistrosApp = {
 
             // Guardar o actualizar la memoria de precios
             this.facturaItems.forEach(item => {
+                if (item.isManoDeObra) return; // Omitir mano de obra en memoria de precios de repuestos
                 const safeId = item.producto.replace(/\//g, '-').trim();
                 const realDocRef = this.preciosRef.doc(safeId);
 
@@ -1195,6 +1209,7 @@ const RegistrosApp = {
             pendientesParaFacturar.sort((a, b) => a.fecha.localeCompare(b.fecha)); // Ordenar por fecha (FIFO)
 
             this.facturaItems.forEach(item => {
+                if (item.isManoDeObra) return; // Omitir Mano de obra del descuento de pendientes
                 let cantidadFaltante = item.cantidadFacturar;
                 for (let i = 0; i < pendientesParaFacturar.length; i++) {
                     let reg = pendientesParaFacturar[i];
@@ -1536,6 +1551,352 @@ const RegistrosApp = {
             } finally {
                 this.showLoading(false);
             }
+        }
+    },
+
+    // ==========================================
+    // SECCIÓN DE SERVICIOS, HISTORIAL E IMPORTACIÓN MASIVA
+    // ==========================================
+    goToBillingStep() {
+        const selectedServices = [];
+        document.querySelectorAll('.service-checkbox:checked').forEach(cb => {
+            selectedServices.push(cb.value);
+        });
+        const manoObraMonto = parseFloat(document.getElementById('services-mano-obra').value) || 0;
+
+        if (this.facturaItems.length === 0 && selectedServices.length === 0 && manoObraMonto === 0) {
+            alert("Debes agregar al menos un repuesto, un servicio o ingresar un monto de mano de obra.");
+            return;
+        }
+
+        // Eliminar cualquier ítem previo de Mano de Obra virtual para evitar duplicados al regresar
+        this.facturaItems = this.facturaItems.filter(item => !item.isManoDeObra);
+
+        // Si se ingresó Mano de Obra o se marcaron servicios, agregar el ítem virtual
+        if (manoObraMonto > 0 || selectedServices.length > 0) {
+            let desc = "Mano de Obra";
+            if (selectedServices.length > 0) {
+                desc += " (" + selectedServices.join(", ") + ")";
+            }
+            this.facturaItems.push({
+                producto: desc,
+                cantidad: 1,
+                cantidadFacturar: 1,
+                precioUnitario: manoObraMonto,
+                costoUnitario: 0,
+                vinculoId: null,
+                isManoDeObra: true
+            });
+        }
+
+        document.getElementById('step-1-services').style.display = 'none';
+        document.getElementById('step-2-billing').style.display = 'block';
+
+        // Pre-seleccionar tipo normal por defecto
+        this.selectInvoiceType(this.facturaTipo || 'normal');
+    },
+
+    backToServicesStep() {
+        document.getElementById('step-1-services').style.display = 'block';
+        document.getElementById('step-2-billing').style.display = 'none';
+    },
+
+    currentHistorialTab: 'list',
+    switchHistorialTab(tabId) {
+        this.currentHistorialTab = tabId;
+        const listBtn = document.getElementById('tab-historial-list');
+        const importBtn = document.getElementById('tab-historial-import');
+        const listContent = document.getElementById('historial-tab-list-content');
+        const importContent = document.getElementById('historial-tab-import-content');
+
+        if (tabId === 'list') {
+            listBtn.style.borderBottomColor = '#3498db';
+            listBtn.style.color = '#3498db';
+            importBtn.style.borderBottomColor = 'transparent';
+            importBtn.style.color = '#718096';
+            listContent.style.display = 'block';
+            importContent.style.display = 'none';
+            this.loadInvoicesHistory();
+        } else {
+            importBtn.style.borderBottomColor = '#3498db';
+            importBtn.style.color = '#3498db';
+            listBtn.style.borderBottomColor = 'transparent';
+            listBtn.style.color = '#718096';
+            listContent.style.display = 'none';
+            importContent.style.display = 'block';
+        }
+    },
+
+    allHistoricalInvoices: [],
+    async openInvoicesHistoryModal() {
+        document.getElementById('modal-historial-facturas').style.display = 'flex';
+        this.switchHistorialTab('list');
+    },
+
+    async loadInvoicesHistory() {
+        const tbody = document.getElementById('historial-invoices-tbody');
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px;"><div class="spinner" style="margin:auto; border-top-color:#3498db;"></div><p style="margin-top:10px; color:#718096;">Cargando historial...</p></td></tr>';
+
+        try {
+            const snapshot = await this.db.collection('INVENTARIO_SALIDAS')
+                .orderBy('fecha', 'desc')
+                .limit(150)
+                .get();
+
+            this.allHistoricalInvoices = [];
+            snapshot.forEach(doc => {
+                this.allHistoricalInvoices.push({
+                    id: doc.id,
+                    ...doc.data()
+                });
+            });
+
+            this.renderInvoicesHistory(this.allHistoricalInvoices);
+        } catch (error) {
+            console.error("Error al cargar historial:", error);
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#e53e3e;"><i class="fas fa-exclamation-circle"></i> Error al cargar el historial: ' + error.message + '</td></tr>';
+        }
+    },
+
+    renderInvoicesHistory(invoices) {
+        const tbody = document.getElementById('historial-invoices-tbody');
+        tbody.innerHTML = '';
+
+        if (invoices.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:#718096;"><i class="fas fa-folder-open" style="font-size:30px; margin-bottom:8px;"></i><br>No se encontraron facturas.</td></tr>';
+            return;
+        }
+
+        invoices.forEach(inv => {
+            const dateFormatted = this.formatDate(inv.fecha);
+            const totalVal = typeof inv.total === 'number' ? inv.total : 0;
+            const typeText = inv.tipo === 'repuestos' ? 'Repuestos' : 'Normal';
+            const typeClass = inv.tipo === 'repuestos' ? 'status-pending' : 'status-invoiced';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="padding: 12px; border: 1px solid #edf2f7; font-weight: 500;">${dateFormatted}</td>
+                <td style="padding: 12px; border: 1px solid #edf2f7; font-weight: 600; color: #2d3748;">${inv.CLIENTE || 'Cliente General'}</td>
+                <td style="padding: 12px; border: 1px solid #edf2f7; text-align: center; font-family: monospace; font-size: 0.95rem;">${inv.numeroFactura || '<span style="color:#cbd5e0;">-</span>'}</td>
+                <td style="padding: 12px; border: 1px solid #edf2f7; text-align: center;"><span class="status-badge ${typeClass}">${typeText}</span></td>
+                <td style="padding: 12px; border: 1px solid #edf2f7; text-align: right; font-weight: bold; color: #2b6cb0;">$${totalVal.toFixed(2)}</td>
+                <td style="padding: 12px; border: 1px solid #edf2f7; text-align: center;">
+                    <button class="btn" style="background:#3182ce; color:white; padding:6px 12px; font-size:13px; font-weight:bold; border-radius:4px; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:5px;" onclick="RegistrosApp.viewInvoiceDetail('${inv.id}')">
+                        <i class="fas fa-eye"></i> Ver Detalle
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    },
+
+    filterInvoicesHistory() {
+        const query = document.getElementById('historial-search').value.toLowerCase().trim();
+        if (!query) {
+            this.renderInvoicesHistory(this.allHistoricalInvoices);
+            return;
+        }
+
+        const filtered = this.allHistoricalInvoices.filter(inv => {
+            const matchCliente = (inv.CLIENTE || '').toLowerCase().includes(query);
+            const matchNumero = (inv.numeroFactura || '').toLowerCase().includes(query);
+            const matchFecha = (inv.fecha || '').toLowerCase().includes(query);
+            return matchCliente || matchNumero || matchFecha;
+        });
+
+        this.renderInvoicesHistory(filtered);
+    },
+
+    viewInvoiceDetail(id) {
+        const inv = this.allHistoricalInvoices.find(i => i.id === id);
+        if (!inv) return;
+
+        document.getElementById('detail-invoice-client').innerText = inv.CLIENTE || 'Cliente General';
+        document.getElementById('detail-invoice-number').innerText = inv.numeroFactura || 'Sin número';
+        document.getElementById('detail-invoice-date').innerText = this.formatDate(inv.fecha);
+        
+        const typeText = inv.tipo === 'repuestos' ? 'Repuestos' : 'Normal';
+        const typeClass = inv.tipo === 'repuestos' ? 'status-pending' : 'status-invoiced';
+        const typeEl = document.getElementById('detail-invoice-type');
+        typeEl.innerText = typeText;
+        typeEl.className = "status-badge " + typeClass;
+
+        const tbody = document.getElementById('detail-invoice-tbody');
+        tbody.innerHTML = '';
+
+        const items = inv.items || [];
+        items.forEach(item => {
+            const desc = item.descripcionPapel || item.producto || 'Repuesto';
+            const cant = item.cantidad || 0;
+            const unit = item.precioUnitario || 0;
+            const tot = cant * unit;
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="text-align: center; border: 1px solid #edf2f7; padding: 8px; font-weight: bold;">${cant}</td>
+                <td style="border: 1px solid #edf2f7; padding: 8px; font-size:13px;">${desc}</td>
+                <td style="text-align: right; border: 1px solid #edf2f7; padding: 8px; color:#555;">$${unit.toFixed(2)}</td>
+                <td style="text-align: right; border: 1px solid #edf2f7; padding: 8px; font-weight: bold;">$${tot.toFixed(2)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        const totalVal = typeof inv.total === 'number' ? inv.total : 0;
+        document.getElementById('detail-invoice-total').innerText = "$" + totalVal.toFixed(2);
+
+        document.getElementById('modal-detalle-factura').style.display = 'flex';
+    },
+
+    parsedHistoricalInvoices: [],
+    handleHistoricalExcelUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                
+                // Leer todo el excel como objeto
+                const rawData = XLSX.utils.sheet_to_json(worksheet, { defval: null });
+                if (rawData.length === 0) {
+                    alert("El archivo Excel está vacío.");
+                    return;
+                }
+
+                // Intentar mapear columnas de forma inteligente
+                const mappedRows = [];
+                rawData.forEach(row => {
+                    let fecha = "";
+                    let cliente = "Cliente General";
+                    let factura = "";
+                    let producto = "";
+                    let cantidad = 1;
+                    let precio = 0;
+
+                    // Buscar columnas que coincidan
+                    Object.keys(row).forEach(key => {
+                        const cleanKey = key.toLowerCase().trim();
+                        if (cleanKey.includes("fech") || cleanKey === "date") {
+                            let val = row[key];
+                            if (val instanceof Date) {
+                                fecha = val.toISOString().substring(0, 10);
+                            } else if (val) {
+                                fecha = String(val).trim().substring(0, 10);
+                            }
+                        } else if (cleanKey.includes("client") || cleanKey === "cuenta" || cleanKey.includes("nombr")) {
+                            cliente = row[key] ? String(row[key]).trim() : "Cliente General";
+                        } else if (cleanKey.includes("fact") || cleanKey.includes("num") || cleanKey.includes("doc")) {
+                            factura = row[key] ? String(row[key]).trim() : "";
+                        } else if (cleanKey.includes("prod") || cleanKey.includes("desc") || cleanKey.includes("art") || cleanKey.includes("item")) {
+                            producto = row[key] ? String(row[key]).trim() : "";
+                        } else if (cleanKey.includes("cant") || cleanKey === "qty") {
+                            cantidad = parseFloat(row[key]) || 1;
+                        } else if (cleanKey.includes("prec") || cleanKey.includes("unit") || cleanKey === "val") {
+                            precio = parseFloat(row[key]) || 0;
+                        }
+                    });
+
+                    if (producto) {
+                        mappedRows.push({ fecha, cliente, factura, producto, cantidad, precio });
+                    }
+                });
+
+                if (mappedRows.length === 0) {
+                    alert("No se encontraron registros de productos en el Excel. Por favor verifica las columnas.");
+                    return;
+                }
+
+                // Agrupar filas por Número de Factura + Cliente + Fecha
+                const groups = {};
+                mappedRows.forEach(row => {
+                    // Si no tiene número de factura, usar cliente y fecha como llave única temporal
+                    const groupKey = (row.factura || "S-N") + "_" + row.cliente + "_" + (row.fecha || "S-F");
+                    if (!groups[groupKey]) {
+                        groups[groupKey] = {
+                            CLIENTE: row.cliente,
+                            numeroFactura: row.factura,
+                            fecha: row.fecha || new Date().toISOString().substring(0, 10),
+                            tipo: "normal",
+                            items: []
+                        };
+                    }
+                    groups[groupKey].items.push({
+                        descripcionPapel: row.producto,
+                        cantidad: row.cantidad,
+                        precioUnitario: row.precio,
+                        costoUnitario: 0,
+                        productId: null,
+                        total: row.cantidad * row.precio
+                    });
+                });
+
+                // Convertir grupos a lista y calcular totales de factura
+                this.parsedHistoricalInvoices = Object.values(groups).map(group => {
+                    const total = group.items.reduce((sum, it) => sum + it.total, 0);
+                    return {
+                        ...group,
+                        total: total,
+                        costoTotal: 0,
+                        gananciaNeta: total
+                    };
+                });
+
+                // Mostrar resumen de carga
+                document.getElementById('import-historical-rows-count').innerText = mappedRows.length;
+                document.getElementById('import-historical-invoices-count').innerText = this.parsedHistoricalInvoices.length;
+                document.getElementById('import-historical-status').style.display = 'block';
+
+            } catch (err) {
+                console.error("Error al leer Excel histórico:", err);
+                alert("Ocurrió un error al procesar el archivo Excel: " + err.message);
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    },
+
+    async finalizeHistoricalExcelImport() {
+        if (this.parsedHistoricalInvoices.length === 0) return;
+
+        this.showLoading(true);
+        try {
+            let batch = this.db.batch();
+            let operationsCount = 0;
+
+            for (let inv of this.parsedHistoricalInvoices) {
+                const docRef = this.db.collection('INVENTARIO_SALIDAS').doc();
+                batch.set(docRef, {
+                    ...inv,
+                    timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
+                });
+                operationsCount++;
+
+                // Límite de Firebase Batch de 500 operaciones
+                if (operationsCount >= 450) {
+                    await batch.commit();
+                    batch = this.db.batch();
+                    operationsCount = 0;
+                }
+            }
+
+            if (operationsCount > 0) {
+                await batch.commit();
+            }
+
+            alert(`¡Carga exitosa! Se han importado ${this.parsedHistoricalInvoices.length} facturas anteriores de manera correcta.`);
+            document.getElementById('import-historical-status').style.display = 'none';
+            document.getElementById('excel-historical-file').value = '';
+            this.parsedHistoricalInvoices = [];
+            this.switchHistorialTab('list');
+
+        } catch (error) {
+            console.error("Error al subir facturas históricas:", error);
+            alert("Hubo un problema al guardar las facturas en la base de datos: " + error.message);
+        } finally {
+            this.showLoading(false);
         }
     }
 };
