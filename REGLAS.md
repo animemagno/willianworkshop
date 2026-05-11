@@ -37,3 +37,9 @@ Para evitar la degradación del código por errores acumulados:
 ## 5. Idioma y Proactividad Técnica
 *   **Idioma Oficial:** Todo el trabajo, comentarios, commits y documentación debe realizarse en **ESPAÑOL**.
 *   **Proactividad Técnica:** El Agente tiene libertad (y deber) de analizar las tareas implementadas y sugerir mejoras lógicas, arquitectónicas o incluso cambios de lenguaje/herramientas si esto facilita el trabajo o mejora la calidad del producto final. No limitarse solo a lo pedido si existe una solución técnica superior.
+
+## 6. Estructura de Inventario y Auditoría de Ventas
+*   **Inventario Congelado (`INVENTARIO`):** Las existencias físicas en la base de datos permanecen congeladas al facturar.
+*   **Resumen de Ventas (`RESUMEN_SALIDAS_MES`):** Se guardan de forma acumulativa las cantidades vendidas durante el mes actual.
+*   **Simulación de Stock en Pantalla:** El sistema siempre muestra en pantalla el stock calculado restando automáticamente las ventas mensuales al stock congelado.
+*   **Auditoría Manual:** El botón de auditoría permite comparar los números, restar permanentemente las ventas del mes en la base de datos oficial y reiniciar el mes de manera limpia.
