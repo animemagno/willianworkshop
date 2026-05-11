@@ -121,11 +121,16 @@ const RegistrosApp = {
                     resumenMap[reg.producto] = reg.cantidad;
                 }
 
+                const isLinked = reg.productId ? true : false;
+                const displayProduct = isLinked 
+                    ? reg.producto 
+                    : `${reg.producto} <button class="btn" style="padding: 2px 6px; font-size: 11px; margin-left: 8px; border-radius: 4px; border: 1px solid #d35400; color: #d35400; background: #fffcf8; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;" onclick="RegistrosApp.openLinkRegistryModal('${reg.id}', '${reg.producto.replace(/'/g, "\\'")}')"><i class="fas fa-link"></i> Vincular</button>`;
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><strong>${reg.cantidad}</strong></td>
-                    <td><span style="font-size: 13px; color: #7f8c8d;">${reg.fecha || '-'}</span></td>
-                    <td>${reg.producto}</td>
+                    <td><span style="font-size: 13px; color: #7f8c8d;">${this.formatDate(reg.fecha)}</span></td>
+                    <td>${displayProduct}</td>
                     <td>${reg.cuenta || '-'}</td>
                     <td><span style="font-size:13px; color:#666;">${reg.observacion || '-'}</span></td>
                     <td style="text-align: center;">
@@ -267,25 +272,78 @@ const RegistrosApp = {
                 const data = new Uint8Array(event.target.result);
                 // Usar cellDates: true para que la librería maneje las fechas de Excel automáticamente
                 const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-
-                // Convertir a JSON crudo garantizando que las columnas A, B, C y D siempre existan incluso si están vacías
-                const rawData = XLSX.utils.sheet_to_json(worksheet, { header: "A", defval: null });
-
-                await this.processExcelData(rawData);
-
-                // Limpiar input
-                e.target.value = '';
+                
+                this.currentWorkbook = workbook;
+                
+                // Mostrar nombre del archivo
+                const filenameDisplay = document.getElementById('fast-excel-filename-display');
+                if (filenameDisplay) filenameDisplay.innerText = `Archivo: ${file.name}`;
+                
+                // Llenar selector de hojas
+                const sheetSel = document.getElementById('fast-excel-sheet-select');
+                if (sheetSel) {
+                    sheetSel.innerHTML = '';
+                    workbook.SheetNames.forEach(name => {
+                        const opt = document.createElement('option');
+                        opt.value = name;
+                        opt.innerText = name;
+                        sheetSel.appendChild(opt);
+                    });
+                }
+                
+                // Mostrar contenedor del selector de hojas
+                const sheetsContainer = document.getElementById('fast-excel-sheets-container');
+                if (sheetsContainer) sheetsContainer.style.display = 'block';
+                
             } catch (error) {
                 console.error("Error leyendo Excel:", error);
-                alert("Error al leer el archivo Excel. Asegúrate de que el formato sea correcto.");
+                alert("Error al leer el archivo Excel: " + error.message);
             } finally {
                 this.showLoading(false);
             }
         };
 
         reader.readAsArrayBuffer(file);
+    },
+
+    async processSelectedFastExcelSheet() {
+        if (!this.currentWorkbook) {
+            alert("Por favor selecciona un archivo Excel primero.");
+            return;
+        }
+        
+        const sheetName = document.getElementById('fast-excel-sheet-select').value;
+        if (!sheetName) {
+            alert("Selecciona una hoja válida.");
+            return;
+        }
+        
+        this.showLoading(true);
+        try {
+            const worksheet = this.currentWorkbook.Sheets[sheetName];
+            // Convertir a JSON crudo garantizando que las columnas A, B, C y D siempre existan incluso si están vacías
+            const rawData = XLSX.utils.sheet_to_json(worksheet, { header: "A", defval: null });
+            
+            await this.processExcelData(rawData);
+            
+            // Ocultar selector de hojas y limpiar campos
+            const sheetsContainer = document.getElementById('fast-excel-sheets-container');
+            if (sheetsContainer) sheetsContainer.style.display = 'none';
+            
+            const filenameDisplay = document.getElementById('fast-excel-filename-display');
+            if (filenameDisplay) filenameDisplay.innerText = '';
+            
+            const fileInput = document.getElementById('fast-excel-file');
+            if (fileInput) fileInput.value = '';
+            
+            this.currentWorkbook = null;
+            
+        } catch (error) {
+            console.error("Error al procesar hoja:", error);
+            alert("Error al procesar la hoja de Excel: " + error.message);
+        } finally {
+            this.showLoading(false);
+        }
     },
 
     async processExcelData(rows) {
@@ -315,7 +373,11 @@ const RegistrosApp = {
             if (fechaRaw !== undefined && fechaRaw !== null) {
                 if (fechaRaw instanceof Date) {
                     if (!isNaN(fechaRaw.getTime())) {
-                        tempDateStr = this.getLocalISODate(fechaRaw);
+                        // Extraer partes UTC directamente para evitar desplazamientos por zona horaria
+                        const y = fechaRaw.getUTCFullYear();
+                        const m = String(fechaRaw.getUTCMonth() + 1).padStart(2, '0');
+                        const d = String(fechaRaw.getUTCDate()).padStart(2, '0');
+                        tempDateStr = `${y}-${m}-${d}`;
                         newDateDetected = true;
                     }
                 } else if (typeof fechaRaw === 'string') {
@@ -323,10 +385,14 @@ const RegistrosApp = {
                     if (cleanStr.includes('/') || cleanStr.includes('-')) {
                         const parts = cleanStr.includes('/') ? cleanStr.split('/') : cleanStr.split('-');
                         if (parts.length === 3) {
+                            let y = parts[2];
+                            if (y.length === 2) {
+                                y = "20" + y; // Corregir año de 2 dígitos (ej. "26" -> "2026")
+                            }
                             if (parts[0].length === 4) {
                                 tempDateStr = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
                             } else {
-                                tempDateStr = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                                tempDateStr = `${y}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
                             }
                             newDateDetected = true;
                         }
@@ -336,7 +402,10 @@ const RegistrosApp = {
                     if (fechaRaw > 30000) {
                         const excelEpoch = new Date(Date.UTC(1899, 11, 30));
                         const jsDate = new Date(excelEpoch.getTime() + fechaRaw * 86400000);
-                        tempDateStr = this.getLocalISODate(jsDate);
+                        const y = jsDate.getUTCFullYear();
+                        const m = String(jsDate.getUTCMonth() + 1).padStart(2, '0');
+                        const d = String(jsDate.getUTCDate()).padStart(2, '0');
+                        tempDateStr = `${y}-${m}-${d}`;
                         newDateDetected = true;
                     }
                 }
@@ -362,11 +431,15 @@ const RegistrosApp = {
             // Fecha final a usar
             const fechaAUsar = currentExcelDate;
 
-            // Intentar vincular con producto del inventario
+            // Intentar vincular de forma inteligente con producto del inventario usando descripción y alias
             let productId = null;
             let productoDesc = producto;
             if (window.app && window.app.cache) {
-                const match = window.app.cache.find(p => p.descripcion.toLowerCase().trim() === producto.toLowerCase().trim());
+                const match = window.app.cache.find(p => {
+                    const matchDesc = p.descripcion && p.descripcion.toLowerCase().trim() === producto.toLowerCase().trim();
+                    const matchAlias = p.aliases && p.aliases.some(a => a.toLowerCase().trim() === producto.toLowerCase().trim());
+                    return matchDesc || matchAlias;
+                });
                 if (match) {
                     productId = match.id;
                     productoDesc = match.descripcion;
@@ -1202,6 +1275,71 @@ const RegistrosApp = {
         // Activar botón
         if (btnElement) {
             btnElement.classList.add('active');
+        }
+    },
+
+    openLinkRegistryModal(id, productoName) {
+        this.currentLinkRegistryId = id;
+        this.currentLinkRegistryName = productoName;
+        
+        const modal = document.getElementById('modalLinkProduct');
+        if (!modal) return;
+        
+        // Configurar flags globales para que selectLinkProduct en InventoryController sepa que viene de REGISTROS
+        if (window.app) {
+            window.app.isRegistryLinking = true;
+            window.app.currentRegistryId = id;
+            window.app.currentRegistryName = productoName;
+        }
+        
+        document.getElementById('link-excel-name').innerText = productoName;
+        document.getElementById('link-search-input').value = "";
+        
+        modal.style.display = 'flex';
+        document.getElementById('link-search-input').focus();
+        
+        // Configurar live search
+        if (window.app) {
+            document.getElementById('link-search-input').onkeyup = (e) => window.app.searchLinkProduct(e.target.value);
+            window.app.searchLinkProduct("");
+        }
+    },
+
+    async deleteOnlyPendingRegistros() {
+        const pendientes = this.allRegistros.filter(r => r.estado === 'pendiente');
+        if (pendientes.length === 0) {
+            alert("No hay registros pendientes para eliminar.");
+            return;
+        }
+
+        if (confirm(`⚠️ ¿Estás seguro de eliminar TODOS los ${pendientes.length} registros pendientes en pantalla?\n\nEsta acción eliminará tanto los ingresados manualmente como los de Excel que aún no se hayan facturado.`)) {
+            this.showLoading(true);
+            try {
+                let batch = this.db.batch();
+                let operationsCount = 0;
+
+                for (let reg of pendientes) {
+                    batch.delete(this.registrosRef.doc(reg.id));
+                    operationsCount++;
+
+                    if (operationsCount >= 450) {
+                        await batch.commit();
+                        batch = this.db.batch();
+                        operationsCount = 0;
+                    }
+                }
+
+                if (operationsCount > 0) {
+                    await batch.commit();
+                }
+
+                alert("¡Registros pendientes eliminados correctamente!");
+            } catch (error) {
+                console.error("Error al eliminar registros pendientes:", error);
+                alert("Hubo un error al eliminar los registros pendientes: " + error.message);
+            } finally {
+                this.showLoading(false);
+            }
         }
     }
 };

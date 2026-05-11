@@ -2379,6 +2379,59 @@ class InventoryController {
     async selectLinkProduct(productId) {
         const product = this.cache.find(p => p.id === productId);
 
+        // 0. SCENARIO: REGISTRY LINKING (From RegistrosApp)
+        if (this.isRegistryLinking) {
+            if (!product || !this.currentRegistryId) return;
+
+            if (!confirm(`¿Vincular permanentemente "${this.currentRegistryName}" con el producto "${product.descripcion}"?\n\nEl sistema aprenderá este alias y actualizará todos los registros pendientes con este nombre.`)) return;
+
+            // Guardar alias en Firestore para el producto (aprender el alias)
+            await this.linkProductAlias(this.currentRegistryName, product);
+
+            // Actualizar el registro actual y todos los pendientes iguales
+            try {
+                const batch = db.batch();
+                
+                // 1. Actualizar el principal clickeado
+                const mainRef = db.collection('REGISTROS_SALIDA').doc(this.currentRegistryId);
+                batch.update(mainRef, {
+                    productId: product.id,
+                    producto: product.descripcion
+                });
+
+                // 2. Actualizar todos los demás registros pendientes con el mismo nombre
+                const unlinkedDesc = this.currentRegistryName;
+                const snapshot = await db.collection('REGISTROS_SALIDA')
+                    .where('producto', '==', unlinkedDesc)
+                    .where('estado', '==', 'pendiente')
+                    .get();
+
+                snapshot.forEach(doc => {
+                    if (doc.id !== this.currentRegistryId) {
+                        batch.update(doc.ref, {
+                            productId: product.id,
+                            producto: product.descripcion
+                        });
+                    }
+                });
+
+                await batch.commit();
+                alert("✅ Vinculación completada correctamente.");
+            } catch (err) {
+                console.error("Error vinculando registro:", err);
+                alert("Error al vincular: " + err.message);
+            }
+
+            // Limpiar flags
+            this.isRegistryLinking = false;
+            this.currentRegistryId = null;
+            this.currentRegistryName = null;
+
+            // Cerrar modal
+            document.getElementById('modalLinkProduct').style.display = 'none';
+            return;
+        }
+
         // 1. SCENARIO: HISTORY LINKING
         if (this.isHistoryLinking) {
             if (!this.currentHistoryName || !product) return;

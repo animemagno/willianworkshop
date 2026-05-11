@@ -711,17 +711,33 @@
                                 <i class="fas fa-file-excel"></i> Seleccionar Archivo Excel
                             </button>
                             <input type="file" id="fast-excel-file" accept=".xlsx, .xls" style="display: none;">
+                            <span id="fast-excel-filename-display" style="margin-top: 10px; font-size: 13px; font-weight: bold; color: #555; text-align: center; display: block;"></span>
+
+                            <!-- Selector de Hojas (Se muestra al cargar el archivo) -->
+                            <div id="fast-excel-sheets-container" style="display: none; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;">
+                                <label style="display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; color: #2c3e50;">Selecciona la Hoja de Excel:</label>
+                                <select id="fast-excel-sheet-select" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 15px;"></select>
+                                <button type="button" class="btn" style="background-color: #27ae60; color: white; width: 100%; padding: 10px; font-size: 14px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer;" onclick="RegistrosApp.processSelectedFastExcelSheet()">
+                                    <i class="fas fa-check"></i> Cargar Hoja Seleccionada
+                                </button>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Right: Tabla Tipo Excel (Lista Pendiente) -->
                     <div style="display: flex; flex-direction: column; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                        <div style="display: flex; gap: 20px; border-bottom: 1px solid #ddd; margin-bottom: 15px;">
-                            <button style="background: none; border: none; padding: 8px 5px; font-size: 16px; font-weight: 600; color: #3498db; border-bottom: 3px solid #3498db; cursor: pointer;" onclick="document.getElementById('inner-tab-lista').style.display='block'; document.getElementById('inner-tab-resumen').style.display='none'; this.style.color='#3498db'; this.style.borderBottom='3px solid #3498db'; this.nextElementSibling.style.color='#666'; this.nextElementSibling.style.borderBottom='3px solid transparent';">
-                                <i class="fas fa-list-ul"></i> Registros Pendientes
-                            </button>
-                            <button style="background: none; border: none; padding: 8px 5px; font-size: 16px; font-weight: 600; color: #666; border-bottom: 3px solid transparent; cursor: pointer;" onclick="document.getElementById('inner-tab-resumen').style.display='block'; document.getElementById('inner-tab-lista').style.display='none'; this.style.color='#3498db'; this.style.borderBottom='3px solid #3498db'; this.previousElementSibling.style.color='#666'; this.previousElementSibling.style.borderBottom='3px solid transparent';">
-                                <i class="fas fa-chart-pie"></i> Resumen Dinámico
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                            <div style="display: flex; gap: 20px;">
+                                <button style="background: none; border: none; padding: 8px 5px; font-size: 16px; font-weight: 600; color: #3498db; border-bottom: 3px solid #3498db; cursor: pointer;" onclick="document.getElementById('inner-tab-lista').style.display='block'; document.getElementById('inner-tab-resumen').style.display='none'; this.style.color='#3498db'; this.style.borderBottom='3px solid #3498db'; this.nextElementSibling.style.color='#666'; this.nextElementSibling.style.borderBottom='3px solid transparent';">
+                                    <i class="fas fa-list-ul"></i> Registros Pendientes
+                                </button>
+                                <button style="background: none; border: none; padding: 8px 5px; font-size: 16px; font-weight: 600; color: #666; border-bottom: 3px solid transparent; cursor: pointer;" onclick="document.getElementById('inner-tab-resumen').style.display='block'; document.getElementById('inner-tab-lista').style.display='none'; this.style.color='#3498db'; this.style.borderBottom='3px solid #3498db'; this.previousElementSibling.style.color='#666'; this.previousElementSibling.style.borderBottom='3px solid transparent';">
+                                    <i class="fas fa-chart-pie"></i> Resumen Dinámico
+                                </button>
+                            </div>
+                            <!-- Botón Eliminar Todo -->
+                            <button class="btn" style="background-color: #e74c3c; color: white; padding: 8px 12px; font-size: 13px; font-weight: bold; border-radius: 4px; display: flex; align-items: center; gap: 6px; border: none; cursor: pointer;" onclick="RegistrosApp.deleteOnlyPendingRegistros()">
+                                <i class="fas fa-trash-alt"></i> Borrar Todo el Volumen
                             </button>
                         </div>
 
