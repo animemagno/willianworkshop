@@ -558,15 +558,19 @@ const RegistrosApp = {
                     alert('No puedes agregar más. Límite pendiente alcanzado.');
                 }
             } else {
-                this.facturaItems.push({
+                const newItem = {
                     id: Date.now().toString(),
                     type: data.type,
                     originalId: data.id || null,
                     producto: data.producto,
                     cantidadFacturar: 1, // Por defecto se agrega 1 al arrastrar
                     max: data.max,
-                    vinculoId: data.productId || null
-                });
+                    vinculoId: data.productId || null,
+                    precioUnitario: 0,
+                    costoUnitario: 0
+                };
+                this.facturaItems.push(newItem);
+                this.loadItemPrices(newItem);
             }
 
             this.renderFactura();
@@ -574,6 +578,44 @@ const RegistrosApp = {
         } catch (err) {
             console.error("Error al soltar:", err);
         }
+    },
+
+    async loadItemPrices(item) {
+        const safeId = item.producto.replace(/\//g, '-').trim();
+        let currentVinculoId = item.vinculoId;
+
+        try {
+            if (currentVinculoId && window.app && window.app.cache) {
+                const cachedProduct = window.app.cache.find(p => p.id === currentVinculoId);
+                if (cachedProduct) {
+                    item.costoUnitario = cachedProduct.costo || 0;
+                    item.precioUnitario = cachedProduct.precio || 0;
+                }
+            } else {
+                const doc = await this.preciosRef.doc(safeId).get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    item.precioUnitario = data.precioNormal || 0;
+                    if (data.vinculoId) {
+                        item.vinculoId = data.vinculoId;
+                        if (window.app && window.app.cache) {
+                            const p = window.app.cache.find(c => c.id === data.vinculoId);
+                            if (p) item.costoUnitario = p.costo || 0;
+                        }
+                    }
+                } else if (window.app && window.app.cache) {
+                    const match = window.app.cache.find(p => p.descripcion.toLowerCase() === item.producto.toLowerCase());
+                    if (match) {
+                        item.vinculoId = match.id;
+                        item.costoUnitario = match.costo || 0;
+                        item.precioUnitario = match.precio || 0;
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Error buscando precio para", item.producto, e);
+        }
+        this.renderFactura();
     },
 
     renderFactura() {
@@ -593,16 +635,24 @@ const RegistrosApp = {
         if (this.facturaItems.length === 0) {
             tbody.innerHTML = `
                 <tr id="factura-empty-state">
-                    <td colspan="3" style="text-align: center; padding: 40px 20px; color: #aaa;">
+                    <td colspan="5" style="text-align: center; padding: 40px 20px; color: #aaa;">
                         <i class="fas fa-hand-holding-box" style="font-size: 30px; margin-bottom: 10px;"></i>
-                        <br>Arrastra los productos aquí para agregarlos a la factura
+                        <br>Arrastra los productos aquí para agregarlos a la factura<br>
+                        <small>(Límite de 14 productos)</small>
                     </td>
                 </tr>
             `;
+            const cardTotalEl = document.getElementById('card-factura-total');
+            if (cardTotalEl) cardTotalEl.innerText = "0.00";
             return;
         }
 
+        let grandTotal = 0;
+
         this.facturaItems.forEach(item => {
+            const total = item.cantidadFacturar * (item.precioUnitario || 0);
+            grandTotal += total;
+
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>
@@ -612,6 +662,12 @@ const RegistrosApp = {
                     ${item.producto}
                     <div style="font-size:11px; color:#888;">Disponible: ${item.max}</div>
                 </td>
+                <td>
+                    <input type="number" class="form-control" step="0.01" min="0" value="${(item.precioUnitario || 0).toFixed(2)}" style="width:75px; padding:2px 5px;" onchange="RegistrosApp.updateFacturaItemPrice('${item.id}', this.value)">
+                </td>
+                <td style="font-weight: bold; font-size:13px; text-align: right; padding-right: 5px;">
+                    $${total.toFixed(2)}
+                </td>
                 <td style="text-align: center;">
                     <button class="btn btn-danger" style="padding: 2px 6px; font-size:12px;" onclick="RegistrosApp.removeFacturaItem('${item.id}')">
                         <i class="fas fa-times"></i>
@@ -620,6 +676,9 @@ const RegistrosApp = {
             `;
             tbody.appendChild(tr);
         });
+
+        const cardTotalEl = document.getElementById('card-factura-total');
+        if (cardTotalEl) cardTotalEl.innerText = grandTotal.toFixed(2);
     },
 
     updateFacturaItemQty(id, newQty, max) {
@@ -634,6 +693,16 @@ const RegistrosApp = {
             item.cantidadFacturar = val;
             this.renderFactura();
             this.renderFacturacionData();
+        }
+    },
+
+    updateFacturaItemPrice(id, newPrice) {
+        const item = this.facturaItems.find(i => i.id === id);
+        if (item) {
+            let val = parseFloat(newPrice);
+            if (isNaN(val) || val < 0) val = 0;
+            item.precioUnitario = val;
+            this.renderFactura();
         }
     },
 
@@ -836,8 +905,8 @@ const RegistrosApp = {
             const safeId = item.producto.replace(/\//g, '-').trim();
             // Preserve vinculoId si viene del escaneo
             let currentVinculoId = item.vinculoId;
-            item.precioUnitario = 0;
             item.costoUnitario = 0;
+            let loadedPrice = 0;
 
             try {
                 // Si tenemos el vinculoId (escaneado), cargar directamente de la caché
@@ -845,14 +914,14 @@ const RegistrosApp = {
                     const cachedProduct = window.app.cache.find(p => p.id === currentVinculoId);
                     if (cachedProduct) {
                         item.costoUnitario = cachedProduct.costo || 0;
-                        item.precioUnitario = this.facturaTipo === 'repuestos' ? (cachedProduct.precioRepuestos || cachedProduct.precio || 0) : (cachedProduct.precio || 0);
+                        loadedPrice = this.facturaTipo === 'repuestos' ? (cachedProduct.precioRepuestos || cachedProduct.precio || 0) : (cachedProduct.precio || 0);
                     }
                 } else {
                     // Fallback a buscar por nombre si no fue escaneado (ej. ingresado manualmente o excel viejo)
                     const doc = await this.preciosRef.doc(safeId).get();
                     if (doc.exists) {
                         const data = doc.data();
-                        item.precioUnitario = this.facturaTipo === 'repuestos' ? (data.precioRepuestos || 0) : (data.precioNormal || 0);
+                        loadedPrice = this.facturaTipo === 'repuestos' ? (data.precioRepuestos || 0) : (data.precioNormal || 0);
                         if (data.vinculoId) {
                             item.vinculoId = data.vinculoId;
                             if (window.app && window.app.cache) {
@@ -869,12 +938,18 @@ const RegistrosApp = {
                         if (match) {
                             item.vinculoId = match.id;
                             item.costoUnitario = match.costo || 0;
-                            item.precioUnitario = this.facturaTipo === 'repuestos' ? (match.precioRepuestos || match.precio || 0) : (match.precio || 0);
+                            loadedPrice = this.facturaTipo === 'repuestos' ? (match.precioRepuestos || match.precio || 0) : (match.precio || 0);
                         }
                     }
                 }
             } catch (e) {
                 console.error("Error buscando precio para", item.producto, e);
+            }
+
+            // Si el precio unitario del item es 0, usamos el cargado.
+            // Si ya tiene un precio mayor que 0, lo conservamos (ej. editado en Card 3).
+            if (!item.precioUnitario || item.precioUnitario === 0) {
+                item.precioUnitario = loadedPrice;
             }
         }
 
@@ -959,12 +1034,15 @@ const RegistrosApp = {
 
                 batch.set(realDocRef, updateData, { merge: true });
 
-                // Descontar inventario físico si hay vinculoId
+                // Acumular en RESUMEN_SALIDAS_MES en vez de descontar directamente de INVENTARIO (Inmovilizado)
                 if (item.vinculoId) {
-                    const invRef = this.db.collection('INVENTARIO').doc(item.vinculoId);
-                    batch.update(invRef, {
-                        existencia: window.firebase.firestore.FieldValue.increment(-item.cantidadFacturar)
-                    });
+                    const resumenRef = this.db.collection('RESUMEN_SALIDAS_MES').doc(item.vinculoId);
+                    batch.set(resumenRef, {
+                        productId: item.vinculoId,
+                        producto: item.producto,
+                        cantidadFacturada: window.firebase.firestore.FieldValue.increment(item.cantidadFacturar),
+                        mes: this.getLocalISODate().substring(0, 7)
+                    }, { merge: true });
                 }
             });
 
@@ -1040,7 +1118,7 @@ const RegistrosApp = {
             await batch.commit();
 
             document.getElementById('loading-overlay').style.display = 'none';
-            alert("¡Factura procesada con éxito! El inventario ha sido descontado.");
+            alert("¡Factura procesada con éxito! Las existencias actuales en pantalla reflejan el cambio y se guardó para la auditoría.");
 
             // Limpiar factura
             this.facturaItems = [];

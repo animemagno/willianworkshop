@@ -3,6 +3,7 @@
 Este archivo contiene las normas obligatorias que debe seguir el Agente (IA) durante el desarrollo de este proyecto.
 
 ## 1. Comunicación
+*   **Respuestas Cortas y Simples:** Las respuestas tienen que ser cortas y simples sin palabras técnicas o sin vocabulario técnico.
 *   **Lenguaje Sencillo:** No usar palabras técnicas complejas (como "DOM", "Listeners", "Refactorización"). Explicar todo de forma simple y para un usuario no experto.
 *   **Concisión:** Resumir las explicaciones de forma entendible y directa. Ir al grano.
 

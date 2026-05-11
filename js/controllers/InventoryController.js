@@ -406,7 +406,26 @@ class InventoryController {
         if (tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center">Cargando datos...</td></tr>';
 
         try {
-            this.cache = await this.svc.obtenerTodos();
+            // Cargar resumen de salidas del mes (para simulación de stock)
+            const db = firebase.firestore();
+            const resumenSnapshot = await db.collection('RESUMEN_SALIDAS_MES').get();
+            const resumenMap = {};
+            resumenSnapshot.forEach(doc => {
+                resumenMap[doc.id] = doc.data().cantidadFacturada || 0;
+            });
+
+            const rawProducts = await this.svc.obtenerTodos();
+            
+            // Restar cantidades vendidas para obtener el stock simulado/actual
+            this.cache = rawProducts.map(p => {
+                const soldQty = resumenMap[p.id] || 0;
+                return {
+                    ...p,
+                    existenciaOriginal: p.existencia || 0, // Conservar el original para la auditoría
+                    existencia: Math.max(0, (p.existencia || 0) - soldQty) // Stock simulado
+                };
+            });
+
             this.filtered = [...this.cache];
             this.applySort();
         } catch (error) {
@@ -465,7 +484,7 @@ class InventoryController {
 
     render() {
         // Adapter: Convert Service Data to UI Data
-        const uiData = this.filtered.slice(0, 200).map(p => ({
+        const uiData = this.filtered.slice(0, 300).map(p => ({
             id: p.id,
             codigo: p.codigo,
             codigosProveedor: [],
@@ -1484,6 +1503,110 @@ class InventoryController {
             this.renderAliasList(list);
             document.getElementById('modalAliasManager').style.display = 'flex';
         } catch (e) { console.error(e); }
+    }
+
+    async openAuditoriaModal() {
+        const modal = document.getElementById('modalAuditoria');
+        const listBody = document.getElementById('auditoria-list-body');
+        const loading = document.getElementById('auditoria-loading');
+        
+        if (!modal) return;
+        modal.style.display = 'flex';
+        listBody.innerHTML = '';
+        loading.style.display = 'block';
+        
+        try {
+            const db = firebase.firestore();
+            const snapshot = await db.collection('RESUMEN_SALIDAS_MES').get();
+            const soldItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            loading.style.display = 'none';
+            if (soldItems.length === 0) {
+                listBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 20px; color: #888;">
+                            No hay productos facturados pendientes de auditoría en este periodo.
+                        </td>
+                    </tr>
+                `;
+                document.getElementById('btn-confirm-auditoria').disabled = true;
+                return;
+            }
+            
+            document.getElementById('btn-confirm-auditoria').disabled = false;
+            
+            soldItems.forEach(item => {
+                const prod = this.cache.find(p => p.id === item.productId);
+                const stockDB = prod ? (prod.existenciaOriginal !== undefined ? prod.existenciaOriginal : prod.existencia) : 0;
+                const stockSimulado = Math.max(0, stockDB - item.cantidadFacturada);
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="padding: 10px; border-bottom: 1px solid #eee;"><strong>${prod ? prod.codigo : '---'}</strong></td>
+                    <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.producto}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center; font-weight: bold; color: #7f8c8d;">${stockDB}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center; font-weight: bold; color: #e74c3c;">-${item.cantidadFacturada}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center; font-weight: bold; color: #2ecc71;">${stockSimulado}</td>
+                `;
+                listBody.appendChild(tr);
+            });
+        } catch (e) {
+            console.error("Error al cargar auditoría:", e);
+            loading.innerText = "Error: " + e.message;
+        }
+    }
+
+    async confirmAuditoria() {
+        if (!confirm("¿Está seguro de aplicar la auditoría?\n\nEsto descontará permanentemente el stock vendido del inventario oficial en la base de datos y reiniciará el contador de ventas del mes.")) {
+            return;
+        }
+        
+        const btn = document.getElementById('btn-confirm-auditoria');
+        btn.disabled = true;
+        btn.innerText = "Procesando...";
+        
+        try {
+            const db = firebase.firestore();
+            const snapshot = await db.collection('RESUMEN_SALIDAS_MES').get();
+            const soldItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            let batch = db.batch();
+            let count = 0;
+            
+            for (const item of soldItems) {
+                if (item.productId) {
+                    const invRef = db.collection('INVENTARIO').doc(item.productId);
+                    batch.update(invRef, {
+                        existencia: firebase.firestore.FieldValue.increment(-item.cantidadFacturada)
+                    });
+                }
+                
+                // Borrar de RESUMEN_SALIDAS_MES
+                const resRef = db.collection('RESUMEN_SALIDAS_MES').doc(item.id);
+                batch.delete(resRef);
+                
+                count += 2; // Dos operaciones por producto
+                if (count >= 450) {
+                    await batch.commit();
+                    batch = db.batch();
+                    count = 0;
+                }
+            }
+            
+            if (count > 0) {
+                await batch.commit();
+            }
+            
+            alert("¡Auditoría procesada con éxito! El inventario ha sido actualizado y el mes reiniciado.");
+            document.getElementById('modalAuditoria').style.display = 'none';
+            await this.loadData(); // Recargar datos
+        } catch (e) {
+            console.error("Error al procesar auditoría:", e);
+            alert("Error al procesar auditoría: " + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "Confirmar Auditoría";
+        }
     }
 
     renderAliasList(list) {
