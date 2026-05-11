@@ -408,21 +408,31 @@ class InventoryController {
         try {
             // Cargar resumen de salidas del mes (para simulación de stock)
             const db = firebase.firestore();
-            const resumenSnapshot = await db.collection('RESUMEN_SALIDAS_MES').get();
-            const resumenMap = {};
-            resumenSnapshot.forEach(doc => {
-                resumenMap[doc.id] = doc.data().cantidadFacturada || 0;
+            
+            // 1. Obtener resumen de salidas (ventas)
+            const resumenSalidasSnapshot = await db.collection('RESUMEN_SALIDAS_MES').get();
+            const salidasMap = {};
+            resumenSalidasSnapshot.forEach(doc => {
+                salidasMap[doc.id] = doc.data().cantidadFacturada || 0;
+            });
+
+            // 2. Obtener resumen de entradas (compras)
+            const resumenEntradasSnapshot = await db.collection('RESUMEN_ENTRADAS_MES').get();
+            const entradasMap = {};
+            resumenEntradasSnapshot.forEach(doc => {
+                entradasMap[doc.id] = doc.data().cantidadEntrada || 0;
             });
 
             const rawProducts = await this.svc.obtenerTodos();
             
-            // Restar cantidades vendidas para obtener el stock simulado/actual
+            // 3. Combinar para obtener el stock simulado/actual
             this.cache = rawProducts.map(p => {
-                const soldQty = resumenMap[p.id] || 0;
+                const soldQty = salidasMap[p.id] || 0;
+                const addedQty = entradasMap[p.id] || 0;
                 return {
                     ...p,
                     existenciaOriginal: p.existencia || 0, // Conservar el original para la auditoría
-                    existencia: (p.existencia || 0) - soldQty // Stock simulado (permite valores negativos)
+                    existencia: (p.existencia || 0) + addedQty - soldQty // Stock simulado (permite valores negativos)
                 };
             });
 
@@ -1002,6 +1012,7 @@ class InventoryController {
 
         // Reset Cart
         this.entryCart = [];
+        this.lastTaxIncluded = true;
         this.renderEntryCart();
 
         // Enforce Tax Visibility based on current session State
@@ -1059,12 +1070,7 @@ class InventoryController {
         if (!name) { alert("Nombre requerido"); return; }
         if (isNaN(cost)) { alert("Costo requerido"); return; }
 
-        // IVA Logic (Apply before anything else)
-        const taxEl = document.querySelector('input[name="entry-tax-included"]:checked');
-        const taxIncluded = taxEl ? taxEl.value === 'yes' : true; // Default SI
-
-        // If Price DOES NOT include tax, we add 13% to get Costo Final
-        if (!taxIncluded) cost = cost * 1.13;
+        // El costo ingresado se almacena en el carrito tal como fue escrito por el usuario según la opción de impuestos activa.
 
         // Validamos si es producto existente
         const isExisting = id && this.cache.some(p => p.id === id);
@@ -1110,6 +1116,7 @@ class InventoryController {
             displayCode: data.displayCode,
             codigosProveedor: data.codigosProveedor || [], // Array
             name: data.name,
+            descripcionFactura: data.descripcionFactura || data.name,
             qty: data.qty,
             cost: data.cost,
             salePrice: data.salePrice, // Will be passed to service
@@ -1127,6 +1134,161 @@ class InventoryController {
         this.renderEntryCart();
     }
 
+    async importInvoiceJSON(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (!data) throw new Error("El archivo JSON está vacío o es inválido.");
+
+                let items = [];
+                let providerName = "";
+
+                // 1. Detectar si es un Documento Tributario Electrónico (DTE) de El Salvador
+                if (data.identificacion && data.cuerpoDocumento && Array.isArray(data.cuerpoDocumento)) {
+                    items = data.cuerpoDocumento;
+                    if (data.emisor) {
+                        providerName = data.emisor.nombreComercial || data.emisor.nombre || "";
+                    }
+                }
+                // 2. Fallbacks de soporte para otros formatos estándar o arrays de ítems
+                else if (Array.isArray(data)) {
+                    items = data;
+                } else if (data.items && Array.isArray(data.items)) {
+                    items = data.items;
+                    providerName = data.proveedor || data.provider || "";
+                } else if (data.productos && Array.isArray(data.productos)) {
+                    items = data.productos;
+                    providerName = data.proveedor || data.provider || "";
+                } else {
+                    items = [data];
+                }
+
+                if (items.length === 0) {
+                    alert("No se encontraron productos válidos para importar en el archivo JSON.");
+                    return;
+                }
+
+                // Autocompletar proveedor si existe
+                if (providerName) {
+                    const provInput = document.getElementById('entry-provider-input');
+                    if (provInput) {
+                        provInput.value = providerName.toUpperCase();
+                    }
+                }
+
+                let importedCount = 0;
+
+                // Procesar cada ítem de la factura
+                for (const item of items) {
+                    // Normalizar campos soportando nombres de DTE, español e inglés
+                    const rawName = (item.descripcion || item.nombre || item.name || item.productName || "").toString().trim();
+                    if (!rawName) continue; // Saltear si no tiene nombre/descripción
+
+                    let rawCode = (item.codigo || item.code || item.productCode || "").toString().trim();
+                    const qty = parseFloat(item.cantidad || item.qty || item.quantity || 1);
+                    
+                    // Cálculo inteligente del costo unitario neto (después de cualquier descuento si aplica)
+                    let rawCost = parseFloat(item.precioUni || item.costo || item.cost || item.costoUnitario || item.price || 0);
+                    if (item.ventaGravada && qty > 0) {
+                        rawCost = parseFloat(item.ventaGravada) / qty;
+                    }
+
+                    const rawSalePrice = item.precio || item.salePrice || item.precioVenta ? parseFloat(item.precio || item.salePrice || item.precioVenta) : null;
+
+                    // Si el código del DTE viene nulo o vacío, intentamos extraer la primera palabra de la descripción si parece un código
+                    if (!rawCode && rawName) {
+                        const firstWord = rawName.split(" ")[0];
+                        if (firstWord && firstWord.length >= 3 && /^[A-Z0-9_-]+$/i.test(firstWord)) {
+                            rawCode = firstWord;
+                        }
+                    }
+
+                    // Buscar coincidencia inteligente en la caché de productos
+                    let matchedProduct = null;
+
+                    // Paso A: Buscar por código exacto (código principal o códigos extra del proveedor)
+                    if (rawCode) {
+                        const targetCode = rawCode.toLowerCase();
+                        matchedProduct = this.cache.find(p => {
+                            const mainCode = (p.codigo || "").toLowerCase().trim();
+                            const pCodes = Array.isArray(p.codigosProveedor) ? p.codigosProveedor.map(c => c.toLowerCase().trim()) : [];
+                            return mainCode === targetCode || pCodes.includes(targetCode);
+                        });
+                    }
+
+                    // Paso B: Si no coincidió, buscar por descripción exacta de forma limpia
+                    if (!matchedProduct && rawName) {
+                        const cleanName = rawName.toLowerCase().replace(/\s+/g, ' ').trim();
+                        matchedProduct = this.cache.find(p => {
+                            const pName = (p.descripcion || "").toLowerCase().replace(/\s+/g, ' ').trim();
+                            return pName === cleanName;
+                        });
+                    }
+
+                    // Paso C: Si sigue sin coincidir, buscar coincidencias parciales inteligentes en la descripción
+                    if (!matchedProduct && rawName) {
+                        const cleanName = rawName.toLowerCase().replace(/\s+/g, ' ').trim();
+                        matchedProduct = this.cache.find(p => {
+                            const pName = (p.descripcion || "").toLowerCase().replace(/\s+/g, ' ').trim();
+                            return pName.includes(cleanName) || cleanName.includes(pName);
+                        });
+                    }
+
+                    // Determinar el factor de descuento global si la factura DTE incluye un totalDescu
+                    let discountFactor = 1;
+                    if (data.resumen && data.resumen.totalDescu > 0 && data.resumen.totalGravada > 0) {
+                        const totalPagar = parseFloat(data.resumen.totalPagar || 0);
+                        const totalGravada = parseFloat(data.resumen.totalGravada || 0);
+                        if (totalGravada > 0 && totalPagar > 0) {
+                            // En DTE, el total sin descuento con IVA es totalGravada * 1.13
+                            discountFactor = totalPagar / (totalGravada * 1.13);
+                        }
+                    }
+
+                    // Costo unitario base descontado (antes de IVA, que es como viene en el DTE)
+                    let baseCost = rawCost * discountFactor;
+
+                    // Si el usuario tiene seleccionado "Precios incluyen IVA: SI", los precios de la tabla se mostrarán con IVA.
+                    // Multiplicamos por 1.13 para convertir el precio antes de IVA a precio con IVA.
+                    // Si seleccionó "NO", se guarda antes de IVA tal cual.
+                    const taxEl = document.querySelector('input[name="entry-tax-included"]:checked');
+                    const taxIncluded = taxEl ? taxEl.value === 'yes' : true;
+                    
+                    const finalCost = taxIncluded ? baseCost * 1.13 : baseCost;
+
+                    // Agregar al carrito
+                    this.entryCart.push({
+                        tempId: Date.now() + Math.random(), // Evitar duplicaciones rápidas de ID
+                        productId: matchedProduct ? matchedProduct.id : null,
+                        displayCode: matchedProduct ? matchedProduct.codigo : rawCode,
+                        codigosProveedor: matchedProduct ? (matchedProduct.codigosProveedor || []) : [],
+                        name: matchedProduct ? matchedProduct.descripcion : rawName,
+                        descripcionFactura: matchedProduct ? (matchedProduct.descripcionFactura || rawName) : rawName,
+                        qty: qty,
+                        cost: finalCost,
+                        salePrice: rawSalePrice,
+                        creditoFiscal: matchedProduct ? (matchedProduct.creditoFiscal || false) : false,
+                        subtotal: qty * finalCost
+                    });
+
+                    importedCount++;
+                }
+
+                this.renderEntryCart();
+                alert(`¡Factura DTE importada con éxito! Se cargaron ${importedCount} productos al carrito de entrada.`);
+                event.target.value = ''; // Limpiar input para re-subir
+            } catch (err) {
+                console.error(err);
+                alert("Error al leer el archivo de factura JSON: " + err.message);
+            }
+        };
+        reader.readAsText(file);
+    }
+
     renderEntryCart() {
         const tbody = document.getElementById('entry-cart-body');
         if (!tbody) return;
@@ -1140,17 +1302,180 @@ class InventoryController {
                 ? `<span style="color:green; font-weight:bold;">$${item.salePrice.toFixed(2)}</span>`
                 : '<span style="color:#ccc;">-</span>';
 
+            // Identificar si es producto nuevo en la base de datos
+            const isNewProduct = !item.productId;
+            const codeBadge = isNewProduct 
+                ? `<span style="background-color:#e67e22; color:white; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:bold; display:inline-block;">NUEVO</span>`
+                : `<small style="font-weight:bold; color:#34495e;">${item.displayCode}</small>`;
+
+            const nameCellContent = `
+                <div style="display:flex; flex-direction:column; gap:4px; min-width: 250px;">
+                    <!-- Taller -->
+                    <div style="display:flex; align-items:center; gap:5px;">
+                        <span style="font-size:0.75rem; font-weight:bold; color:var(--primary-color, #1abc9c); white-space:nowrap; width: 50px;">Taller:</span>
+                        <input type="text" value="${item.name}" style="flex:1; border:1px solid #ddd; border-radius:4px; padding:2px 5px; font-weight:bold; font-size:0.8rem;" onchange="app.updateCartName(${item.tempId}, this.value)">
+                    </div>
+                    <!-- Factura -->
+                    <div style="display:flex; align-items:center; gap:5px;">
+                        <span style="font-size:0.75rem; font-weight:bold; color:#e67e22; white-space:nowrap; width: 50px;">Factura:</span>
+                        <input type="text" value="${item.descripcionFactura || ''}" style="flex:1; border:1px solid #ddd; border-radius:4px; padding:2px 5px; font-size:0.75rem; color:#555;" onchange="app.updateCartInvoiceName(${item.tempId}, this.value)">
+                    </div>
+                    ${isNewProduct ? `
+                    <a href="#" onclick="app.combineCartItem(${item.tempId}); return false;" style="font-size:0.75rem; color:#3498db; text-decoration:none; display:inline-flex; align-items:center; gap:3px; font-weight:bold; margin-top: 2px;">
+                        <i class="fas fa-link"></i> Asociar/Combinar con existente
+                    </a>` : ''}
+                </div>
+            `;
+
             tbody.innerHTML += `<tr>
-                <td><small>${item.displayCode || 'NUEVO'}</small></td>
-                <td style="text-align:center">${item.qty}</td>
-                <td>${item.name}</td>
-                <td style="text-align:right; font-size:0.85rem; color:#666;">$${item.cost.toFixed(4)}</td>
+                <td>${codeBadge}</td>
+                <td style="text-align:center">
+                    <input type="number" value="${item.qty}" min="0.1" step="0.1" style="width: 70px; text-align: center; border: 1px solid #ddd; border-radius: 4px; padding: 2px 4px; font-weight: bold;" onchange="app.updateCartQty(${item.tempId}, this.value)">
+                </td>
+                <td>${nameCellContent}</td>
+                <td style="text-align:right">
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 3px;">
+                        <span>$</span>
+                        <input type="number" value="${item.cost.toFixed(2)}" min="0" step="0.01" style="width: 90px; text-align: right; border: 1px solid #ddd; border-radius: 4px; padding: 2px 4px; font-weight: bold; color: #2c3e50;" onchange="app.updateCartCost(${item.tempId}, this.value)">
+                    </div>
+                </td>
                 <td style="text-align:right">${salePriceStr}</td>
-                <td style="text-align:right">$${item.subtotal.toFixed(2)}</td>
+                <td style="text-align:right; font-weight: bold; color: var(--primary-color, #1abc9c);">$${item.subtotal.toFixed(2)}</td>
                 <td style="text-align:center"><button onclick="app.removeEntryItem(${item.tempId})" style="color:red;border:none;background:none;cursor:pointer;"><i class="fas fa-times"></i></button></td>
             </tr>`;
         });
-        document.getElementById('entry-total-value').innerText = total.toFixed(2);
+
+        const taxEl = document.querySelector('input[name="entry-tax-included"]:checked');
+        const taxIncluded = taxEl ? taxEl.value === 'yes' : true;
+
+        let subtotalVal = 0;
+        let ivaVal = 0;
+        let totalVal = 0;
+
+        if (taxIncluded) {
+            totalVal = total;
+            subtotalVal = totalVal / 1.13;
+            ivaVal = totalVal - subtotalVal;
+        } else {
+            subtotalVal = total;
+            ivaVal = subtotalVal * 0.13;
+            totalVal = subtotalVal + ivaVal;
+        }
+
+        const subtotalEl = document.getElementById('entry-subtotal-value');
+        if (subtotalEl) subtotalEl.innerText = subtotalVal.toFixed(2);
+        
+        const ivaEl = document.getElementById('entry-iva-value');
+        if (ivaEl) ivaEl.innerText = ivaVal.toFixed(2);
+        
+        const totalEl = document.getElementById('entry-total-value');
+        if (totalEl) totalEl.innerText = totalVal.toFixed(2);
+    }
+
+    toggleEntryTaxMode() {
+        const taxEl = document.querySelector('input[name="entry-tax-included"]:checked');
+        const taxIncluded = taxEl ? taxEl.value === 'yes' : true;
+
+        if (this.lastTaxIncluded !== undefined && this.lastTaxIncluded !== taxIncluded) {
+            this.entryCart.forEach(item => {
+                if (taxIncluded) {
+                    // Cambió a SI (incluye IVA): multiplicar costos por 1.13 para mostrarlos con IVA
+                    item.cost = item.cost * 1.13;
+                } else {
+                    // Cambió a NO (no incluye IVA): dividir costos por 1.13 para mostrarlos sin IVA
+                    item.cost = item.cost / 1.13;
+                }
+                item.subtotal = item.qty * item.cost;
+            });
+        }
+        this.lastTaxIncluded = taxIncluded;
+        this.renderEntryCart();
+    }
+
+    async combineCartItem(tid) {
+        const query = prompt("Ingrese el código o parte del nombre del producto existente para buscar en el inventario:");
+        if (!query) return;
+
+        const results = this.cache.filter(p => 
+            (p.codigo || "").toLowerCase().includes(query.toLowerCase()) ||
+            (p.descripcion || "").toLowerCase().includes(query.toLowerCase())
+        );
+
+        if (results.length === 0) {
+            alert("No se encontraron productos que coincidan.");
+            return;
+        }
+
+        if (results.length === 1) {
+            const p = results[0];
+            if (confirm(`¿Combinar/Asociar este artículo de la factura con el producto existente:\n"${p.codigo || 'S/C'} - ${p.descripcion}"?`)) {
+                this.linkProductToCartItem(tid, p);
+            }
+        } else {
+            let msg = "Seleccione el número del producto con el que desea combinarlo:\n\n";
+            results.slice(0, 10).forEach((p, idx) => {
+                msg += `${idx + 1}. ${p.codigo || 'S/C'} - ${p.descripcion}\n`;
+            });
+            if (results.length > 10) msg += "... (se muestran los primeros 10 resultados)";
+            
+            const selection = prompt(msg);
+            if (!selection) return;
+            const idx = parseInt(selection) - 1;
+            if (idx >= 0 && idx < results.length && idx < 10) {
+                const p = results[idx];
+                this.linkProductToCartItem(tid, p);
+            } else {
+                alert("Selección inválida.");
+            }
+        }
+    }
+
+    linkProductToCartItem(tid, p) {
+        const item = this.entryCart.find(i => i.tempId === tid);
+        if (item) {
+            item.productId = p.id;
+            item.displayCode = p.codigo;
+            item.name = p.descripcion;
+            item.creditoFiscal = p.creditoFiscal || false;
+            this.renderEntryCart();
+            alert(`Artículo combinado con éxito: "${p.descripcion}"`);
+        }
+    }
+
+    updateCartQty(tid, value) {
+        const qty = parseFloat(value);
+        if (isNaN(qty) || qty <= 0) return;
+        const item = this.entryCart.find(i => i.tempId === tid);
+        if (item) {
+            item.qty = qty;
+            item.subtotal = qty * item.cost;
+            this.renderEntryCart();
+        }
+    }
+
+    updateCartCost(tid, value) {
+        const cost = parseFloat(value);
+        if (isNaN(cost) || cost < 0) return;
+        const item = this.entryCart.find(i => i.tempId === tid);
+        if (item) {
+            item.cost = cost;
+            item.subtotal = item.qty * cost;
+            this.renderEntryCart();
+        }
+    }
+
+    updateCartName(tid, value) {
+        const item = this.entryCart.find(i => i.tempId === tid);
+        if (item) {
+            item.name = value.trim();
+        }
+    }
+
+    updateCartInvoiceName(tid, value) {
+        const item = this.entryCart.find(i => i.tempId === tid);
+        if (item) {
+            item.descripcionFactura = value.trim();
+        }
     }
 
     removeEntryItem(tid) {
@@ -1177,8 +1502,22 @@ class InventoryController {
         if (confirm(`¿Procesar Entrada de ${this.entryCart.length} items?`)) {
             const btn = document.getElementById('btn-process-entry');
             if (btn) { btn.disabled = true; btn.innerText = "Procesando..."; }
-            try {
-                await this.svc.registrarEntradaMasiva(this.entryCart, provId, provName, isCredit);
+             try {
+                // Si el usuario indicó que "Precios incluyen IVA: NO", multiplicamos los costos por 1.13 antes de mandarlo a Firebase.
+                // Así se guardan con IVA incluido en el inventario y se carga el saldo total de crédito con IVA al proveedor.
+                const taxEl = document.querySelector('input[name="entry-tax-included"]:checked');
+                const taxIncluded = taxEl ? taxEl.value === 'yes' : true;
+
+                const processedCart = this.entryCart.map(item => {
+                    const finalCost = taxIncluded ? item.cost : item.cost * 1.13;
+                    return {
+                        ...item,
+                        cost: finalCost,
+                        subtotal: item.qty * finalCost
+                    };
+                });
+
+                await this.svc.registrarEntradaMasiva(processedCart, provId, provName, isCredit);
                 this.providersCache = null; // Force reload
 
                 // SAVE PROVIDER TO LOCAL STORAGE HISTORY (PERSISTENT)
@@ -1517,15 +1856,36 @@ class InventoryController {
         
         try {
             const db = firebase.firestore();
-            const snapshot = await db.collection('RESUMEN_SALIDAS_MES').get();
-            const soldItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             
+            // 1. Obtener ventas del mes
+            const salesSnapshot = await db.collection('RESUMEN_SALIDAS_MES').get();
+            const soldItems = salesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const soldMap = {};
+            soldItems.forEach(item => {
+                soldMap[item.productId || item.id] = item.cantidadFacturada || 0;
+            });
+
+            // 2. Obtener compras del mes
+            const entriesSnapshot = await db.collection('RESUMEN_ENTRADAS_MES').get();
+            const addedItems = entriesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const addedMap = {};
+            addedItems.forEach(item => {
+                addedMap[item.productId || item.id] = item.cantidadEntrada || 0;
+            });
+
             loading.style.display = 'none';
-            if (soldItems.length === 0) {
+            
+            // Unir todos los IDs que se movieron (ventas o compras)
+            const allMovedIds = new Set([
+                ...soldItems.map(item => item.productId || item.id),
+                ...addedItems.map(item => item.productId || item.id)
+            ]);
+
+            if (allMovedIds.size === 0) {
                 listBody.innerHTML = `
                     <tr>
-                        <td colspan="5" style="text-align: center; padding: 20px; color: #888;">
-                            No hay productos facturados pendientes de auditoría en este periodo.
+                        <td colspan="6" style="text-align: center; padding: 20px; color: #888;">
+                            No hay movimientos (compras ni ventas) pendientes de auditoría en este periodo.
                         </td>
                     </tr>
                 `;
@@ -1535,18 +1895,22 @@ class InventoryController {
             
             document.getElementById('btn-confirm-auditoria').disabled = false;
             
-            soldItems.forEach(item => {
-                const prod = this.cache.find(p => p.id === item.productId);
+            allMovedIds.forEach(prodId => {
+                const prod = this.cache.find(p => p.id === prodId);
                 const stockDB = prod ? (prod.existenciaOriginal !== undefined ? prod.existenciaOriginal : prod.existencia) : 0;
-                const stockSimulado = stockDB - item.cantidadFacturada; // Permite valores negativos
+                
+                const qtySold = soldMap[prodId] || 0;
+                const qtyAdded = addedMap[prodId] || 0;
+                const stockSimulado = stockDB + qtyAdded - qtySold;
                 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td style="padding: 10px; border-bottom: 1px solid #eee;"><strong>${prod ? prod.codigo : '---'}</strong></td>
-                    <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.producto}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #eee;">${prod ? prod.descripcion : (soldItems.find(x => x.productId === prodId)?.producto || addedItems.find(x => x.productId === prodId)?.producto || 'Producto Desconocido')}</td>
                     <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center; font-weight: bold; color: #7f8c8d;">${stockDB}</td>
-                    <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center; font-weight: bold; color: #e74c3c;">-${item.cantidadFacturada}</td>
-                    <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center; font-weight: bold; color: #2ecc71;">${stockSimulado}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center; font-weight: bold; color: #2ecc71;">${qtyAdded > 0 ? '+' + qtyAdded : 0}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center; font-weight: bold; color: #e74c3c;">${qtySold > 0 ? '-' + qtySold : 0}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center; font-weight: bold; color: var(--primary-color, #1abc9c);">${stockSimulado}</td>
                 `;
                 listBody.appendChild(tr);
             });
@@ -1557,7 +1921,7 @@ class InventoryController {
     }
 
     async confirmAuditoria() {
-        if (!confirm("¿Está seguro de aplicar la auditoría?\n\nEsto descontará permanentemente el stock vendido del inventario oficial en la base de datos y reiniciará el contador de ventas del mes.")) {
+        if (!confirm("¿Está seguro de aplicar la auditoría mensual?\n\nEsto actualizará de forma definitiva el stock oficial de la base de datos (compras y ventas acumuladas) y reiniciará el mes.")) {
             return;
         }
         
@@ -1567,25 +1931,94 @@ class InventoryController {
         
         try {
             const db = firebase.firestore();
-            const snapshot = await db.collection('RESUMEN_SALIDAS_MES').get();
-            const soldItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            // 1. Obtener ventas del mes
+            const salesSnapshot = await db.collection('RESUMEN_SALIDAS_MES').get();
+            const soldItems = salesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            // 2. Obtener compras del mes
+            const entriesSnapshot = await db.collection('RESUMEN_ENTRADAS_MES').get();
+            const addedItems = entriesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             
             let batch = db.batch();
             let count = 0;
             
-            for (const item of soldItems) {
-                if (item.productId) {
-                    const invRef = db.collection('INVENTARIO').doc(item.productId);
-                    batch.update(invRef, {
-                        existencia: firebase.firestore.FieldValue.increment(-item.cantidadFacturada)
-                    });
-                }
+            // Unir todos los IDs con movimientos
+            const allMovedIds = new Set([
+                ...soldItems.map(item => item.productId || item.id),
+                ...addedItems.map(item => item.productId || item.id)
+            ]);
+
+            // Mapear acumulados por productId
+            const soldMap = {};
+            soldItems.forEach(item => {
+                soldMap[item.productId || item.id] = item.cantidadFacturada || 0;
+            });
+
+            const addedMap = {};
+            const costMap = {};
+            addedItems.forEach(item => {
+                addedMap[item.productId || item.id] = item.cantidadEntrada || 0;
+                costMap[item.productId || item.id] = item.costoAcumulado || 0;
+            });
+
+            // FASE 1: Actualizar productos en INVENTARIO (existencia y costo)
+            for (const prodId of allMovedIds) {
+                const qtySold = soldMap[prodId] || 0;
+                const qtyAdded = addedMap[prodId] || 0;
+                const netChange = qtyAdded - qtySold;
                 
-                // Borrar de RESUMEN_SALIDAS_MES
+                const invRef = db.collection('INVENTARIO').doc(prodId);
+                
+                // Cálculo de costo promedio ponderado si hubo compras
+                let costUpdate = {};
+                if (qtyAdded > 0) {
+                    const prod = this.cache.find(p => p.id === prodId);
+                    if (prod) {
+                        const currentStock = parseFloat(prod.existenciaOriginal !== undefined ? prod.existenciaOriginal : prod.existencia || 0);
+                        const currentCost = parseFloat(prod.costo || 0);
+                        const addedCost = costMap[prodId] || 0;
+                        
+                        const newStock = currentStock + qtyAdded;
+                        if (newStock > 0) {
+                            const totalValue = (currentStock * currentCost) + addedCost;
+                            const newCost = totalValue / newStock;
+                            costUpdate.costo = newCost;
+                        }
+                    }
+                }
+
+                // Actualizar existencia y costo promedio
+                batch.update(invRef, {
+                    existencia: firebase.firestore.FieldValue.increment(netChange),
+                    ...costUpdate
+                });
+                count++;
+                
+                if (count >= 450) {
+                    await batch.commit();
+                    batch = db.batch();
+                    count = 0;
+                }
+            }
+
+            // FASE 2: Borrar RESUMEN_SALIDAS_MES
+            for (const item of soldItems) {
                 const resRef = db.collection('RESUMEN_SALIDAS_MES').doc(item.id);
                 batch.delete(resRef);
-                
-                count += 2; // Dos operaciones por producto
+                count++;
+                if (count >= 450) {
+                    await batch.commit();
+                    batch = db.batch();
+                    count = 0;
+                }
+            }
+
+            // FASE 3: Borrar RESUMEN_ENTRADAS_MES
+            for (const item of addedItems) {
+                const resRef = db.collection('RESUMEN_ENTRADAS_MES').doc(item.id);
+                batch.delete(resRef);
+                count++;
                 if (count >= 450) {
                     await batch.commit();
                     batch = db.batch();
@@ -1597,7 +2030,7 @@ class InventoryController {
                 await batch.commit();
             }
             
-            alert("¡Auditoría procesada con éxito! El inventario ha sido actualizado y el mes reiniciado.");
+            alert("¡Auditoría mensual procesada con éxito! El inventario ha sido actualizado y el mes reiniciado.");
             document.getElementById('modalAuditoria').style.display = 'none';
             await this.loadData(); // Recargar datos
         } catch (e) {

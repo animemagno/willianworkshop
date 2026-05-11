@@ -432,23 +432,21 @@ class InventoryService {
                 const pData = pRead.doc.data();
                 const item = pRead.item;
 
-                const currentStock = parseFloat(pData.existencia || 0);
                 const currentCost = parseFloat(pData.costo || 0);
                 const entryQty = parseFloat(item.qty);
                 const entryCost = parseFloat(item.cost);
 
-                const newStock = currentStock + entryQty;
-                let newCost = currentCost;
-
-                // WAC
-                if (newStock > 0) {
-                    const totalValue = (currentStock * currentCost) + (entryQty * entryCost);
-                    newCost = totalValue / newStock;
-                }
+                // Acumular en RESUMEN_ENTRADAS_MES en vez de sumarle directamente a INVENTARIO
+                const resumenRef = db.collection('RESUMEN_ENTRADAS_MES').doc(item.productId);
+                transaction.set(resumenRef, {
+                    productId: item.productId,
+                    producto: pData.descripcion,
+                    cantidadEntrada: firebase.firestore.FieldValue.increment(entryQty),
+                    costoAcumulado: firebase.firestore.FieldValue.increment(entryQty * entryCost),
+                    mes: new Date().toISOString().substring(0, 7)
+                }, { merge: true });
 
                 const updatePayload = {
-                    existencia: newStock,
-                    costo: newCost,
                     creditoFiscal: item.creditoFiscal // Propagar estado de CF
                 };
 
@@ -466,7 +464,7 @@ class InventoryService {
                     cantidad: entryQty,
                     costoUnitario: entryCost,
                     costoAnterior: currentCost,
-                    costoNuevo: newCost,
+                    costoNuevo: currentCost, // El nuevo costo promedio se calculará en la auditoría final
                     total: entryQty * entryCost
                 });
 
@@ -484,18 +482,29 @@ class InventoryService {
                 // Parse optional multi-codes
                 const extraCodes = Array.isArray(item.codigosProveedor) ? item.codigosProveedor : [];
 
+                // Crear el producto en el catálogo oficial de INVENTARIO congelado en 0
                 transaction.set(newProdRef, {
                     codigo: finalCode,
-                    codigosProveedor: extraCodes, // NEW: Multi-Code
+                    codigosProveedor: extraCodes,
                     descripcion: item.name,
                     descripcionFactura: item.name,
                     costo: entryCost,
-                    precio: finalPrice, // NEW: Manual or 0
-                    existencia: entryQty,
+                    precio: finalPrice,
+                    existencia: 0, // Congelado en 0 hasta la auditoría
                     stockMinimo: 5,
-                    creditoFiscal: item.creditoFiscal || false, // NEW: Save CF Status
+                    creditoFiscal: item.creditoFiscal || false,
                     proveedor: providerName || ""
                 });
+
+                // Registrar el stock inicial en la colección de tránsito de compras
+                const resumenRef = db.collection('RESUMEN_ENTRADAS_MES').doc(newProdRef.id);
+                transaction.set(resumenRef, {
+                    productId: newProdRef.id,
+                    producto: item.name,
+                    cantidadEntrada: firebase.firestore.FieldValue.increment(entryQty),
+                    costoAcumulado: firebase.firestore.FieldValue.increment(entryQty * entryCost),
+                    mes: new Date().toISOString().substring(0, 7)
+                }, { merge: true });
 
                 historyItems.push({
                     productId: newProdRef.id,
@@ -585,30 +594,17 @@ class InventoryService {
             }
 
             // PHASE 2: WRITES
-            // 2.1 Update Products
+            // 2.1 Update RESUMEN_ENTRADAS_MES instead of INVENTARIO directly
             for (const pr of productReads) {
                 if (pr.doc.exists) {
-                    const pData = pr.doc.data();
-                    const currentStock = parseFloat(pData.existencia || 0);
-                    const currentAvgCost = parseFloat(pData.costo || 0);
                     const qtyToRemove = parseFloat(pr.item.cantidad);
                     const costToRemove = parseFloat(pr.item.costoUnitario);
 
-                    const finalStock = currentStock - qtyToRemove;
-                    let finalCost = currentAvgCost;
-
-                    if (finalStock > 0) {
-                        const currentTotalVal = currentStock * currentAvgCost;
-                        const valToRemove = qtyToRemove * costToRemove;
-                        // Avoid negative cost results if math is slightly off
-                        const finalTotalVal = currentTotalVal - valToRemove;
-                        finalCost = finalTotalVal / finalStock;
-                        if (finalCost < 0) finalCost = 0;
-                    } else {
-                        finalCost = 0;
-                    }
-
-                    transaction.update(pr.ref, { existencia: finalStock, costo: finalCost });
+                    const resumenRef = db.collection('RESUMEN_ENTRADAS_MES').doc(pr.item.productId);
+                    transaction.set(resumenRef, {
+                        cantidadEntrada: firebase.firestore.FieldValue.increment(-qtyToRemove),
+                        costoAcumulado: firebase.firestore.FieldValue.increment(-qtyToRemove * costToRemove)
+                    }, { merge: true });
                 }
             }
 
