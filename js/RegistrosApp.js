@@ -59,6 +59,13 @@ const RegistrosApp = {
             });
         }
 
+        const fastExcelFile = document.getElementById('fast-excel-file');
+        if (fastExcelFile) {
+            fastExcelFile.addEventListener('change', (e) => {
+                this.handleExcelUpload(e);
+            });
+        }
+
         // Filtros
         const searchInput = document.getElementById('search-registro');
         if (searchInput) {
@@ -349,16 +356,32 @@ const RegistrosApp = {
             // Columna D: Cuenta
             const cuenta = row.D ? String(row.D).trim() : '';
 
+            // Columna E: Observacion
+            const observacion = row.E ? String(row.E).trim() : '';
+
             // Fecha final a usar
             const fechaAUsar = currentExcelDate;
+
+            // Intentar vincular con producto del inventario
+            let productId = null;
+            let productoDesc = producto;
+            if (window.app && window.app.cache) {
+                const match = window.app.cache.find(p => p.descripcion.toLowerCase().trim() === producto.toLowerCase().trim());
+                if (match) {
+                    productId = match.id;
+                    productoDesc = match.descripcion;
+                }
+            }
 
             // Crear documento en Firestore
             const docRef = this.registrosRef.doc();
             batch.set(docRef, {
                 fecha: fechaAUsar,
-                producto: producto,
+                producto: productoDesc,
+                productId: productId,
                 cantidad: cantidad,
                 cuenta: cuenta,
+                observacion: observacion,
                 estado: 'pendiente',
                 origen: 'excel',
                 timestamp: Date.now()
