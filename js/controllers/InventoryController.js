@@ -422,7 +422,7 @@ class InventoryController {
                 return {
                     ...p,
                     existenciaOriginal: p.existencia || 0, // Conservar el original para la auditoría
-                    existencia: Math.max(0, (p.existencia || 0) - soldQty) // Stock simulado
+                    existencia: (p.existencia || 0) - soldQty // Stock simulado (permite valores negativos)
                 };
             });
 
@@ -1538,7 +1538,7 @@ class InventoryController {
             soldItems.forEach(item => {
                 const prod = this.cache.find(p => p.id === item.productId);
                 const stockDB = prod ? (prod.existenciaOriginal !== undefined ? prod.existenciaOriginal : prod.existencia) : 0;
-                const stockSimulado = Math.max(0, stockDB - item.cantidadFacturada);
+                const stockSimulado = stockDB - item.cantidadFacturada; // Permite valores negativos
                 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
