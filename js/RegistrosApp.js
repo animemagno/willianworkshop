@@ -709,6 +709,61 @@ const RegistrosApp = {
         }
     },
 
+    addServiceToFactura(serviceName, isManoDeObraPrice = false) {
+        try {
+            // Buscar si ya existe este servicio en la factura
+            let existingItem = this.facturaItems.find(item => item.producto === serviceName && item.isManoDeObra);
+
+            if (existingItem) {
+                if (isManoDeObraPrice) {
+                    // Solicitar actualización de precio para Mano de Obra
+                    const priceStr = prompt(`Ingrese el nuevo monto para ${serviceName} ($):`, existingItem.precioUnitario.toFixed(2));
+                    if (priceStr !== null) {
+                        const price = parseFloat(priceStr);
+                        if (!isNaN(price) && price >= 0) {
+                            existingItem.precioUnitario = price;
+                        }
+                    }
+                } else {
+                    // Incrementar cantidad para otros servicios
+                    existingItem.cantidadFacturar += 1;
+                }
+            } else {
+                let price = 0;
+                if (isManoDeObraPrice) {
+                    const priceStr = prompt(`Ingrese el monto para ${serviceName} ($):`, "0.00");
+                    if (priceStr === null) return; // Cancelado
+                    const parsedPrice = parseFloat(priceStr);
+                    if (!isNaN(parsedPrice) && parsedPrice >= 0) {
+                        price = parsedPrice;
+                    }
+                }
+
+                if (!existingItem && this.facturaItems.length >= this.MAX_FACTURA_ITEMS) {
+                    alert("La factura ha alcanzado el límite de 14 ítems.");
+                    return;
+                }
+
+                const newItem = {
+                    id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                    producto: serviceName,
+                    cantidadFacturar: 1,
+                    max: 999, // Límite virtual alto para servicios
+                    vinculoId: null,
+                    precioUnitario: price,
+                    costoUnitario: 0,
+                    isManoDeObra: true
+                };
+                this.facturaItems.push(newItem);
+            }
+
+            this.renderFactura();
+            this.renderFacturacionData();
+        } catch (err) {
+            console.error("Error al agregar servicio:", err);
+        }
+    },
+
     dropToFactura(e) {
         e.preventDefault();
         document.getElementById('factura-dropzone').style.backgroundColor = '#fafbfc';
@@ -808,6 +863,15 @@ const RegistrosApp = {
             const total = item.cantidadFacturar * (item.precioUnitario || 0);
             grandTotal += total;
 
+            const isGeneralService = item.isManoDeObra && item.producto !== 'Mano de Obra';
+            const precioHTML = isGeneralService 
+                ? `<span style="color: #cbd5e0; font-size: 14px; font-weight: bold; display: block; text-align: center;">-</span>`
+                : `<input type="number" class="form-control" step="0.01" min="0" value="${(item.precioUnitario || 0).toFixed(2)}" style="width:75px; padding:2px 5px;" onchange="RegistrosApp.updateFacturaItemPrice('${item.id}', this.value)">`;
+
+            const totalHTML = isGeneralService
+                ? `<span style="color: #cbd5e0; font-size: 14px; font-weight: bold; display: block; text-align: center;">-</span>`
+                : `$${total.toFixed(2)}`;
+
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>
@@ -815,13 +879,13 @@ const RegistrosApp = {
                 </td>
                 <td>
                     ${item.producto}
-                    <div style="font-size:11px; color:#888;">Disponible: ${item.max}</div>
+                    ${item.isManoDeObra ? '<div style="font-size:11px; color:#27ae60; font-weight: bold;"><i class="fas fa-tools"></i> Servicio de Taller</div>' : `<div style="font-size:11px; color:#888;">Disponible: ${item.max}</div>`}
                 </td>
                 <td>
-                    <input type="number" class="form-control" step="0.01" min="0" value="${(item.precioUnitario || 0).toFixed(2)}" style="width:75px; padding:2px 5px;" onchange="RegistrosApp.updateFacturaItemPrice('${item.id}', this.value)">
+                    ${precioHTML}
                 </td>
                 <td style="font-weight: bold; font-size:13px; text-align: right; padding-right: 5px;">
-                    $${total.toFixed(2)}
+                    ${totalHTML}
                 </td>
                 <td style="text-align: center;">
                     <button class="btn btn-danger" style="padding: 2px 6px; font-size:12px;" onclick="RegistrosApp.removeFacturaItem('${item.id}')">
@@ -1056,10 +1120,7 @@ const RegistrosApp = {
             if (btnSiguienteText) btnSiguienteText.innerText = "Siguiente: Precios";
             if (btnSiguiente) btnSiguiente.style.display = 'flex';
 
-            // Desmarcar checkboxes de servicios y vaciar mano de obra
-            document.querySelectorAll('.service-checkbox').forEach(cb => cb.checked = false);
-            const manoObraEl = document.getElementById('services-mano-obra');
-            if (manoObraEl) manoObraEl.value = "0.00";
+            // Servicios interactivos cargados en facturaDirecta
         } else if (step === 3) {
             if (cardPrecios) cardPrecios.style.display = 'flex';
             if (btnSiguienteText) btnSiguienteText.innerText = "Finalizar Factura";
@@ -1078,18 +1139,27 @@ const RegistrosApp = {
         const optN = document.getElementById('opt-factura-normal');
 
         if (tipo === 'repuestos') {
-            optR.style.borderColor = 'var(--accent-color)';
-            optR.style.backgroundColor = '#fff3e0';
-            optN.style.borderColor = '#ddd';
-            optN.style.backgroundColor = 'transparent';
+            if (optR) {
+                optR.style.borderColor = 'var(--accent-color)';
+                optR.style.backgroundColor = '#fff3e0';
+            }
+            if (optN) {
+                optN.style.borderColor = '#ddd';
+                optN.style.backgroundColor = 'transparent';
+            }
         } else {
-            optN.style.borderColor = 'var(--primary-color)';
-            optN.style.backgroundColor = '#e8f4f8';
-            optR.style.borderColor = '#ddd';
-            optR.style.backgroundColor = 'transparent';
+            if (optN) {
+                optN.style.borderColor = 'var(--primary-color)';
+                optN.style.backgroundColor = '#e8f4f8';
+            }
+            if (optR) {
+                optR.style.borderColor = '#ddd';
+                optR.style.backgroundColor = 'transparent';
+            }
         }
 
-        document.getElementById('invoice-prices-section').style.display = 'block';
+        const section = document.getElementById('invoice-prices-section');
+        if (section) section.style.display = 'block';
         await this.loadPreciosYRenderizar();
     },
 
@@ -1098,6 +1168,9 @@ const RegistrosApp = {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;"><div class="spinner" style="margin: 20px auto; border-top-color: var(--primary-color);"></div><p>Cargando precios...</p></td></tr>';
 
         for (let item of this.facturaItems) {
+            if (item.isManoDeObra) {
+                continue; // Saltar carga para servicios/mano de obra
+            }
             // Limpiamos el nombre para usarlo como ID en Firebase (evitar barras)
             const safeId = item.producto.replace(/\//g, '-').trim();
             // Preserve vinculoId si viene del escaneo
@@ -1168,25 +1241,47 @@ const RegistrosApp = {
         this.facturaItems.forEach((item, index) => {
             const total = item.cantidadFacturar * item.precioUnitario;
             const gananciaPorcentaje = item.costoUnitario > 0 ? ((item.precioUnitario - item.costoUnitario) / item.costoUnitario * 100) : 100;
+            const isService = !!item.isManoDeObra;
+            const isGeneralService = isService && item.producto !== 'Mano de Obra';
+
+            const vinculoHTML = isService 
+                ? `<span style="font-size: 12px; font-weight: bold; color: #00796b; background: #e6fffa; padding: 4px 8px; border-radius: 4px; border: 1px solid #b2f5ea; display: inline-flex; align-items: center; gap: 4px;"><i class="fas fa-tools"></i> Servicio</span>`
+                : `<button class="btn" style="background: #eee; color: #555; padding: 5px 10px; font-size: 12px; border: 1px solid #ccc; width: 100%;">
+                       <i class="fas fa-link"></i> ${item.vinculoId ? 'Vinculado' : 'Vincular (Próximamente)'}
+                   </button>`;
+
+            const costoHTML = isService 
+                ? `<span style="color: #cbd5e0; font-size: 14px;">-</span>`
+                : `$${(item.costoUnitario || 0).toFixed(2)}`;
+
+            const precioInputHTML = isGeneralService
+                ? `<span style="color: #cbd5e0; font-size: 14px; font-weight: bold;">-</span>`
+                : `<input type="number" class="form-control" step="0.01" min="0" value="${item.precioUnitario.toFixed(2)}"
+                        onchange="RegistrosApp.updateItemPrice(${index}, this.value)" style="width: 90px; padding: 6px; font-size: 14px;">`;
+
+            const gananciaHTML = isGeneralService
+                ? `<span style="color: #cbd5e0; font-size: 14px; font-weight: bold;">-</span>`
+                : (isService ? `100.0%` : `<span id="inv-ganancia-${index}">${gananciaPorcentaje.toFixed(1)}</span>%`);
+
+            const totalSpanHTML = isGeneralService
+                ? `<span style="color: #cbd5e0; font-size: 14px; font-weight: bold;">-</span>`
+                : `$<span id="inv-total-${index}">${total.toFixed(2)}</span>`;
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><strong>${item.cantidadFacturar}</strong></td>
                 <td style="font-size: 13px; font-weight: 500;">${item.producto}</td>
                 <td>
-                    <button class="btn" style="background: #eee; color: #555; padding: 5px 10px; font-size: 12px; border: 1px solid #ccc; width: 100%;">
-                        <i class="fas fa-link"></i> ${item.vinculoId ? 'Vinculado' : 'Vincular (Próximamente)'}
-                    </button>
+                    ${vinculoHTML}
                 </td>
-                <td style="font-size: 14px; color: #555;">$${(item.costoUnitario || 0).toFixed(2)}</td>
+                <td style="font-size: 14px; color: #555;">${costoHTML}</td>
                 <td>
-                    <input type="number" class="form-control" step="0.01" min="0" value="${item.precioUnitario.toFixed(2)}"
-                        onchange="RegistrosApp.updateItemPrice(${index}, this.value)" style="width: 90px; padding: 6px; font-size: 14px;">
+                    ${precioInputHTML}
                 </td>
-                <td style="font-weight: bold; color: ${gananciaPorcentaje > 0 ? 'var(--success-color)' : 'var(--danger-color)'};">
-                    <span id="inv-ganancia-${index}">${gananciaPorcentaje.toFixed(1)}</span>%
+                <td style="font-weight: bold; color: ${isGeneralService ? '#4a5568' : (isService || gananciaPorcentaje > 0 ? 'var(--success-color)' : 'var(--danger-color)')};">
+                    ${gananciaHTML}
                 </td>
-                <td style="font-weight: bold; font-size: 15px;">$<span id="inv-total-${index}">${total.toFixed(2)}</span></td>
+                <td style="font-weight: bold; font-size: 15px;">${totalSpanHTML}</td>
             `;
             tbody.appendChild(tr);
         });
@@ -1608,35 +1703,9 @@ const RegistrosApp = {
     // SECCIÓN DE SERVICIOS, HISTORIAL E IMPORTACIÓN MASIVA
     // ==========================================
     goToBillingStep() {
-        const selectedServices = [];
-        document.querySelectorAll('.service-checkbox:checked').forEach(cb => {
-            selectedServices.push(cb.value);
-        });
-        const manoObraMonto = parseFloat(document.getElementById('services-mano-obra').value) || 0;
-
-        if (this.facturaItems.length === 0 && selectedServices.length === 0 && manoObraMonto === 0) {
-            alert("Debes agregar al menos un repuesto, un servicio o ingresar un monto de mano de obra.");
+        if (this.facturaItems.length === 0) {
+            alert("Debes agregar al menos un repuesto, servicio o mano de obra.");
             return;
-        }
-
-        // Eliminar cualquier ítem previo de Mano de Obra virtual para evitar duplicados al regresar
-        this.facturaItems = this.facturaItems.filter(item => !item.isManoDeObra);
-
-        // Si se ingresó Mano de Obra o se marcaron servicios, agregar el ítem virtual
-        if (manoObraMonto > 0 || selectedServices.length > 0) {
-            let desc = "Mano de Obra";
-            if (selectedServices.length > 0) {
-                desc += " (" + selectedServices.join(", ") + ")";
-            }
-            this.facturaItems.push({
-                producto: desc,
-                cantidad: 1,
-                cantidadFacturar: 1,
-                precioUnitario: manoObraMonto,
-                costoUnitario: 0,
-                vinculoId: null,
-                isManoDeObra: true
-            });
         }
 
         this.goToStep(3);
