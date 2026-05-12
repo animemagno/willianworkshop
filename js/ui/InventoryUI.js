@@ -20,7 +20,7 @@ class InventoryUI {
         if (!products || products.length === 0) {
             this.els.tableBody.innerHTML = `
                 <tr>
-                    <td colspan="10" style="text-align:center; padding:30px; color:#888;">
+                    <td colspan="11" style="text-align:center; padding:30px; color:#888;">
                         <i class="fas fa-box-open" style="font-size:2rem;margin-bottom:10px;"></i><br>
                         No se encontraron productos
                     </td>
@@ -48,6 +48,7 @@ class InventoryUI {
                     <td>${p.descInventario}</td>
                     <td style="display:none;"><small>${p.descFactura || ''}</small></td>
                     <td style="text-align:left;">$${(p.precioCosto || 0).toFixed(2)}</td>
+                    <td style="text-align:left; color:#7f8c8d;">$${(p.costoSinIva || 0).toFixed(2)}</td>
                     <td class="precio" style="font-weight:bold; color:#2c3e50; text-align:left;">${precioFmt}</td>
                     <td class="${stockClass}" style="text-align:center;">${p.existencia}</td>
                     <td style="text-align:center;">${p.stockMinimo || 0}</td>

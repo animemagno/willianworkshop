@@ -432,9 +432,17 @@ class InventoryService {
                 const pData = pRead.doc.data();
                 const item = pRead.item;
 
-                const currentCost = parseFloat(pData.costo || 0);
+                const currentCosto = parseFloat(pData.costo || 0);       // con IVA
+                const currentStock = parseFloat(pData.existencia || 0);
                 const entryQty = parseFloat(item.qty);
-                const entryCost = parseFloat(item.cost);
+                const entryCosto = parseFloat(item.cost);                  // ya llega con IVA (processEntry lo convierte)
+
+                // Precio promedio ponderado (con IVA)
+                const totalStock = currentStock + entryQty;
+                const nuevoCosto = totalStock > 0
+                    ? (currentStock * currentCosto + entryQty * entryCosto) / totalStock
+                    : entryCosto;
+                const nuevoCostoSinIva = nuevoCosto / 1.13;
 
                 // Acumular en RESUMEN_ENTRADAS_MES en vez de sumarle directamente a INVENTARIO
                 const resumenRef = db.collection('RESUMEN_ENTRADAS_MES').doc(item.productId);
@@ -442,17 +450,24 @@ class InventoryService {
                     productId: item.productId,
                     producto: pData.descripcion,
                     cantidadEntrada: firebase.firestore.FieldValue.increment(entryQty),
-                    costoAcumulado: firebase.firestore.FieldValue.increment(entryQty * entryCost),
+                    costoAcumulado: firebase.firestore.FieldValue.increment(entryQty * entryCosto),
                     mes: new Date().toISOString().substring(0, 7)
                 }, { merge: true });
 
                 const updatePayload = {
-                    creditoFiscal: item.creditoFiscal // Propagar estado de CF
+                    costo: nuevoCosto,
+                    costoSinIva: nuevoCostoSinIva,
+                    creditoFiscal: item.creditoFiscal
                 };
 
                 // Actualizar proveedor si viene en la entrada
                 if (providerName && providerName.trim().length > 0) {
                     updatePayload.proveedor = providerName;
+                }
+
+                // Actualizar descripcionFactura solo si el item trae un nombre de factura diferente
+                if (item.descripcionFactura && item.descripcionFactura.trim().length > 0) {
+                    updatePayload.descripcionFactura = item.descripcionFactura.trim();
                 }
 
                 transaction.update(pRead.ref, updatePayload);
@@ -462,33 +477,43 @@ class InventoryService {
                     productCode: pData.codigo || "",
                     productName: pData.descripcion,
                     cantidad: entryQty,
-                    costoUnitario: entryCost,
-                    costoAnterior: currentCost,
-                    costoNuevo: currentCost, // El nuevo costo promedio se calculará en la auditoría final
-                    total: entryQty * entryCost
+                    costoUnitario: entryCosto,
+                    costoAnterior: currentCosto,
+                    costoNuevo: nuevoCosto,
+                    costoSinIva: nuevoCostoSinIva,
+                    total: entryQty * entryCosto
                 });
 
-                totalCostInvoice += (entryQty * entryCost);
+                totalCostInvoice += (entryQty * entryCosto);
             }
 
             // 2. Procesar Productos Nuevos
             for (const item of newProductOps) {
                 const newProdRef = this.collection.doc();
                 const entryQty = parseFloat(item.qty);
-                const entryCost = parseFloat(item.cost);
+                const entryCosto = parseFloat(item.cost); // ya llega con IVA
                 const finalCode = item.displayCode || "";
                 const finalPrice = item.salePrice !== null ? parseFloat(item.salePrice) : 0;
+                const costoSinIva = entryCosto / 1.13;
 
                 // Parse optional multi-codes
                 const extraCodes = Array.isArray(item.codigosProveedor) ? item.codigosProveedor : [];
+
+                // Nombre del taller = item.name (el usuario lo asignó en el carrito)
+                // Nombre de factura = item.descripcionFactura (viene del JSON o del campo editable)
+                const nombreTaller = (item.name || "").trim();
+                const nombreFactura = (item.descripcionFactura && item.descripcionFactura.trim().length > 0)
+                    ? item.descripcionFactura.trim()
+                    : nombreTaller;
 
                 // Crear el producto en el catálogo oficial de INVENTARIO congelado en 0
                 transaction.set(newProdRef, {
                     codigo: finalCode,
                     codigosProveedor: extraCodes,
-                    descripcion: item.name,
-                    descripcionFactura: item.name,
-                    costo: entryCost,
+                    descripcion: nombreTaller,
+                    descripcionFactura: nombreFactura,
+                    costo: entryCosto,
+                    costoSinIva: costoSinIva,
                     precio: finalPrice,
                     existencia: 0, // Congelado en 0 hasta la auditoría
                     stockMinimo: 5,
@@ -500,24 +525,25 @@ class InventoryService {
                 const resumenRef = db.collection('RESUMEN_ENTRADAS_MES').doc(newProdRef.id);
                 transaction.set(resumenRef, {
                     productId: newProdRef.id,
-                    producto: item.name,
+                    producto: nombreTaller,
                     cantidadEntrada: firebase.firestore.FieldValue.increment(entryQty),
-                    costoAcumulado: firebase.firestore.FieldValue.increment(entryQty * entryCost),
+                    costoAcumulado: firebase.firestore.FieldValue.increment(entryQty * entryCosto),
                     mes: new Date().toISOString().substring(0, 7)
                 }, { merge: true });
 
                 historyItems.push({
                     productId: newProdRef.id,
                     productCode: finalCode,
-                    productName: item.name,
+                    productName: nombreTaller,
                     cantidad: entryQty,
-                    costoUnitario: entryCost,
+                    costoUnitario: entryCosto,
+                    costoSinIva: costoSinIva,
                     costoAnterior: 0,
-                    costoNuevo: entryCost,
-                    total: entryQty * entryCost
+                    costoNuevo: entryCosto,
+                    total: entryQty * entryCosto
                 });
 
-                totalCostInvoice += (entryQty * entryCost);
+                totalCostInvoice += (entryQty * entryCosto);
             }
 
             // 3. Guardar Registro Maestro de Entrada

@@ -440,7 +440,7 @@ class InventoryController {
             this.applySort();
         } catch (error) {
             console.error(error);
-            if (tbody) tbody.innerHTML = `<tr><td colspan="10" style="color:red; text-align:center">Error: ${error.message}</td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="11" style="color:red; text-align:center">Error: ${error.message}</td></tr>`;
         }
     }
 
@@ -501,6 +501,7 @@ class InventoryController {
             descInventario: p.descripcion,
             descFactura: p.descripcionFactura,
             precioCosto: p.costo || 0,
+            costoSinIva: p.costoSinIva !== undefined ? p.costoSinIva : ((p.costo || 0) / 1.13),
             precioVenta: p.precio || 0,
             existencia: p.existencia || 0,
             stockMinimo: p.stockMinimo || 5,
