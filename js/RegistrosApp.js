@@ -43,6 +43,44 @@ const RegistrosApp = {
         return (new Date(dateObj.getTime() - offset)).toISOString().split('T')[0];
     },
 
+    parseDateToMillis(dateStr) {
+        if (!dateStr) return 0;
+        const str = String(dateStr).trim();
+        let y, m, d;
+        if (str.includes('-')) {
+            const parts = str.split('-');
+            if (parts[0].length === 4) {
+                // YYYY-MM-DD
+                y = parseInt(parts[0]);
+                m = parseInt(parts[1]) - 1;
+                d = parseInt(parts[2]);
+            } else {
+                // DD-MM-YYYY
+                y = parseInt(parts[2]);
+                m = parseInt(parts[1]) - 1;
+                d = parseInt(parts[0]);
+            }
+        } else if (str.includes('/')) {
+            const parts = str.split('/');
+            if (parts[0].length === 4) {
+                // YYYY/MM/DD
+                y = parseInt(parts[0]);
+                m = parseInt(parts[1]) - 1;
+                d = parseInt(parts[2]);
+            } else {
+                // DD/MM/YYYY
+                y = parseInt(parts[2]);
+                if (y < 100) y += 2000; // corregir año de 2 dígitos
+                m = parseInt(parts[1]) - 1;
+                d = parseInt(parts[0]);
+            }
+        } else {
+            return 0;
+        }
+        if (isNaN(y) || isNaN(m) || isNaN(d)) return 0;
+        return new Date(y, m, d).getTime();
+    },
+
     setupUI() {
         // Enfocar en producto al inicio para usar el lector rápido
         const inputProd = document.getElementById('fast-producto');
@@ -95,12 +133,13 @@ const RegistrosApp = {
                 </tr>
             `;
         } else {
-            // Ordenar por fecha descendente (más recientes arriba) y desempatar por timestamp descendente
+            // Ordenar por fecha descendente (más recientes arriba) y desempatar por timestamp ascendente (orden de ingreso)
             pendientes.sort((a, b) => {
-                const dateA = a.fecha || "";
-                const dateB = b.fecha || "";
-                if (dateA !== dateB) {
-                    return dateB.localeCompare(dateA); // Descendente (ej. "2026-05-02" antes de "2026-05-01")
+                const millisA = this.parseDateToMillis(a.fecha);
+                const millisB = this.parseDateToMillis(b.fecha);
+                
+                if (millisA !== millisB) {
+                    return millisB - millisA; // Descendente (más recientes arriba)
                 }
                 
                 let tA = 0;
@@ -115,7 +154,7 @@ const RegistrosApp = {
                     else if (b.timestamp instanceof Date) tB = b.timestamp.getTime();
                     else if (typeof b.timestamp === 'number') tB = b.timestamp;
                 }
-                return tB - tA;
+                return tA - tB; // Ascendente (orden de ingreso)
             });
 
             pendientes.forEach(reg => {
@@ -167,14 +206,17 @@ const RegistrosApp = {
             `;
         } else {
             resumenTbody.innerHTML = '';
-            for (const prod in resumenMap) {
+            // Obtener productos y ordenarlos alfabéticamente
+            const sortedProducts = Object.keys(resumenMap).sort((a, b) => a.localeCompare(b));
+            
+            sortedProducts.forEach(prod => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${prod}</td>
                     <td><strong>${resumenMap[prod]}</strong></td>
                 `;
                 resumenTbody.appendChild(tr);
-            }
+            });
         }
     },
 
@@ -393,7 +435,10 @@ const RegistrosApp = {
                         if (parts.length === 3) {
                             let y = parts[2];
                             if (y.length === 2) {
-                                y = "20" + y; // Corregir año de 2 dígitos (ej. "26" -> "2026")
+                                if (y === "06") y = "2026"; // Corregir "06" -> "2026" (evitar 2006)
+                                else y = "20" + y;
+                            } else if (y.length === 1 && y === "6") {
+                                y = "2026"; // Corregir "6" -> "2026"
                             }
                             if (parts[0].length === 4) {
                                 tempDateStr = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
@@ -497,7 +542,18 @@ const RegistrosApp = {
             .onSnapshot(snapshot => {
                 this.allRegistros = [];
                 snapshot.forEach(doc => {
-                    this.allRegistros.push({ id: doc.id, ...doc.data() });
+                    const data = doc.data();
+                    
+                    // Auto-corrección en caliente de fechas guardadas erróneamente con año 2006
+                    if (data.fecha && data.fecha.startsWith("2006-")) {
+                        const nuevaFecha = data.fecha.replace("2006-", "2026-");
+                        this.registrosRef.doc(doc.id).update({ fecha: nuevaFecha })
+                            .then(() => console.log(`Auto-corregida fecha de ${data.fecha} a ${nuevaFecha} en doc: ${doc.id}`))
+                            .catch(err => console.error("Error al auto-corregir fecha:", err));
+                        data.fecha = nuevaFecha; // Modificar en caliente localmente para visualización instantánea
+                    }
+                    
+                    this.allRegistros.push({ id: doc.id, ...data });
                 });
                 this.renderDatesList();
                 this.renderFacturacionData();
@@ -514,12 +570,13 @@ const RegistrosApp = {
 
         const pendientes = this.allRegistros.filter(r => r.estado === 'pendiente');
 
-        // Ordenar por fecha descendente (más recientes arriba) y desempatar por timestamp descendente
+        // Ordenar por fecha descendente (más recientes arriba) y desempatar por timestamp ascendente (orden de ingreso)
         pendientes.sort((a, b) => {
-            const dateA = a.fecha || "";
-            const dateB = b.fecha || "";
-            if (dateA !== dateB) {
-                return dateB.localeCompare(dateA); // Descendente (ej. "2026-05-02" antes de "2026-05-01")
+            const millisA = this.parseDateToMillis(a.fecha);
+            const millisB = this.parseDateToMillis(b.fecha);
+            
+            if (millisA !== millisB) {
+                return millisB - millisA; // Descendente (más recientes arriba)
             }
             
             let tA = 0;
@@ -534,7 +591,7 @@ const RegistrosApp = {
                 else if (b.timestamp instanceof Date) tB = b.timestamp.getTime();
                 else if (typeof b.timestamp === 'number') tB = b.timestamp;
             }
-            return tB - tA;
+            return tA - tB; // Ascendente (orden de ingreso)
         });
 
         // Unificar todo el descuento por producto (sincronización entre tarjetas)
@@ -1018,6 +1075,13 @@ const RegistrosApp = {
             const statusClass = reg.estado === 'pendiente' ? 'status-pending' : 'status-invoiced';
             const statusText = reg.estado === 'pendiente' ? 'Pendiente' : 'Facturado';
 
+            // Botón para recuperar quirúrgicamente registros huérfanos de facturas eliminadas antes
+            const revertButtonHTML = reg.estado === 'facturado'
+                ? `<button class="btn" style="padding:5px 10px; font-size:12px; background:#2ecc71; color:white; border:none; border-radius:4px; margin-right:5px; cursor:pointer;" onclick="RegistrosApp.revertRegistryToPending('${reg.id}')" title="Devolver a Pendiente">
+                       <i class="fas fa-undo"></i> Devolver
+                   </button>`
+                : '';
+
             tr.innerHTML = `
                 <td><strong>${reg.cantidad}</strong></td>
                 <td>${reg.producto}</td>
@@ -1025,6 +1089,7 @@ const RegistrosApp = {
                 <td><span style="font-size:13px; color:#666;">${reg.observacion || ''}</span></td>
                 <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                 <td style="text-align: center;">
+                    ${revertButtonHTML}
                     <button class="btn btn-danger" style="padding:5px 10px; font-size:12px;" onclick="RegistrosApp.deleteRegistro('${reg.id}')" title="Eliminar este registro">
                         <i class="fas fa-trash"></i>
                     </button>
@@ -1032,6 +1097,23 @@ const RegistrosApp = {
             `;
             tbody.appendChild(tr);
         });
+    },
+
+    async revertRegistryToPending(id) {
+        if (confirm('¿Devolver manualmente este producto al estado "Pendiente"? (Volverá a aparecer en la lista para facturar)')) {
+            try {
+                await this.registrosRef.doc(id).update({
+                    estado: 'pendiente',
+                    precioFacturado: window.firebase.firestore.FieldValue.delete(),
+                    costoFacturado: window.firebase.firestore.FieldValue.delete(),
+                    facturaId: window.firebase.firestore.FieldValue.delete()
+                });
+                alert("✅ Producto devuelto a Pendiente correctamente.");
+            } catch (error) {
+                console.error("Error al revertir registro:", error);
+                alert("Error al restaurar: " + error.message);
+            }
+        }
     },
 
     async deleteRegistro(id) {
@@ -1314,8 +1396,12 @@ const RegistrosApp = {
 
     async finalizeInvoice() {
         try {
-            document.getElementById('loading-overlay').style.display = 'flex';
+            this.showLoading(true);
             const batch = this.db.batch();
+
+            // Generar ID de factura por adelantado para vincular los registros
+            const facturaRef = this.db.collection('INVENTARIO_SALIDAS').doc();
+            const facturaId = facturaRef.id;
 
             // Guardar o actualizar la memoria de precios
             this.facturaItems.forEach(item => {
@@ -1362,6 +1448,7 @@ const RegistrosApp = {
                             // Se consume todo el registro
                             batch.update(regRef, {
                                 estado: 'facturado',
+                                facturaId: facturaId,
                                 precioFacturado: item.precioUnitario,
                                 costoFacturado: item.costoUnitario || 0
                             });
@@ -1378,6 +1465,7 @@ const RegistrosApp = {
                                 ...reg,
                                 cantidad: cantidadFaltante,
                                 estado: 'facturado',
+                                facturaId: facturaId,
                                 precioFacturado: item.precioUnitario,
                                 costoFacturado: item.costoUnitario || 0,
                                 timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
@@ -1391,7 +1479,6 @@ const RegistrosApp = {
             });
 
             // Guardar factura en colección INVENTARIO_SALIDAS (Compatible con willianworkshop)
-            const facturaRef = this.db.collection('INVENTARIO_SALIDAS').doc();
             const cliente = document.getElementById('factura-cliente').value || 'Cliente General';
             const numero = document.getElementById('factura-numero').value || '';
             const grandTotal = this.facturaItems.reduce((sum, item) => sum + (item.cantidadFacturar * item.precioUnitario), 0);
@@ -1419,7 +1506,7 @@ const RegistrosApp = {
 
             await batch.commit();
 
-            document.getElementById('loading-overlay').style.display = 'none';
+            this.showLoading(false);
             alert("¡Factura procesada con éxito! Las existencias actuales en pantalla reflejan el cambio y se guardó para la auditoría.");
 
             // Limpiar factura
@@ -1432,14 +1519,136 @@ const RegistrosApp = {
             this.goToStep(1);
 
         } catch (error) {
-            document.getElementById('loading-overlay').style.display = 'none';
+            this.showLoading(false);
             console.error("Error al procesar", error);
             alert("Error al procesar la factura: " + error.message);
         }
     },
 
+    async deleteInvoice(facturaId) {
+        if (!confirm('⚠️ ¿Estás seguro de ANULAR y ELIMINAR esta factura?\n\nEsto devolverá todos los productos facturados a la lista de "Pendientes" y restará la cantidad del reporte mensual.')) {
+            return;
+        }
+
+        this.showLoading(true);
+        try {
+            const batch = this.db.batch();
+
+            // 1. Obtener los datos de la factura
+            const facturaDoc = await this.db.collection('INVENTARIO_SALIDAS').doc(facturaId).get();
+            if (!facturaDoc.exists) {
+                alert("La factura seleccionada no existe en la base de datos.");
+                this.showLoading(false);
+                return;
+            }
+
+            const facturaData = facturaDoc.data();
+            const items = facturaData.items || [];
+
+            // 2. Descontar del RESUMEN_SALIDAS_MES para cada producto de la factura
+            items.forEach(item => {
+                const pId = item.productId || item.vinculoId;
+                if (pId && pId !== 'SERVICIO' && pId !== 'OMITIDO') {
+                    const resumenRef = this.db.collection('RESUMEN_SALIDAS_MES').doc(pId);
+                    batch.set(resumenRef, {
+                        cantidadFacturada: window.firebase.firestore.FieldValue.increment(-item.cantidad)
+                    }, { merge: true });
+                }
+            });
+
+            // 3. Buscar todos los registros de REGISTROS_SALIDA que tengan este facturaId para restaurarlos
+            const registrosSnap = await this.registrosRef.where('facturaId', '==', facturaId).get();
+            if (!registrosSnap.empty) {
+                // Caso Nuevo/Preciso: Si tiene facturaId, los restauramos de inmediato
+                registrosSnap.forEach(doc => {
+                    const regRef = this.registrosRef.doc(doc.id);
+                    batch.update(regRef, {
+                        estado: 'pendiente',
+                        facturaId: window.firebase.firestore.FieldValue.delete(),
+                        precioFacturado: window.firebase.firestore.FieldValue.delete(),
+                        costoFacturado: window.firebase.firestore.FieldValue.delete()
+                    });
+                });
+            } else {
+                // Caso Fallback (Facturas antiguas o sin facturaId):
+                // Para cada producto de la factura, buscamos registros ya facturados con ese mismo nombre
+                // y devolvemos la cantidad correspondiente a "pendiente"
+                for (let item of items) {
+                    const prodName = item.descripcionPapel || item.producto;
+                    const qtyToRestore = item.cantidad || 0;
+                    if (qtyToRestore <= 0) continue;
+
+                    const querySnap = await this.registrosRef
+                        .where('producto', '==', prodName)
+                        .where('estado', '==', 'facturado')
+                        .get();
+
+                    let currentRestored = 0;
+                    querySnap.forEach(doc => {
+                        if (currentRestored >= qtyToRestore) return;
+
+                        const regData = doc.data();
+                        const regQty = regData.cantidad || 1;
+
+                        if (currentRestored + regQty <= qtyToRestore) {
+                            // Se puede restaurar el registro completo
+                            const regRef = this.registrosRef.doc(doc.id);
+                            batch.update(regRef, {
+                                estado: 'pendiente',
+                                precioFacturado: window.firebase.firestore.FieldValue.delete(),
+                                costoFacturado: window.firebase.firestore.FieldValue.delete()
+                            });
+                            currentRestored += regQty;
+                        } else {
+                            // Restauración parcial: dividimos para ajustar la cantidad exacta
+                            const leftOver = regQty - (qtyToRestore - currentRestored);
+                            const regRef = this.registrosRef.doc(doc.id);
+                            
+                            // El original lo dejamos como facturado con la diferencia sobrante
+                            batch.update(regRef, {
+                                cantidad: leftOver
+                            });
+
+                            // Creamos uno nuevo pendiente con la cantidad restaurada
+                            const newDocRef = this.registrosRef.doc();
+                            batch.set(newDocRef, {
+                                ...regData,
+                                cantidad: qtyToRestore - currentRestored,
+                                estado: 'pendiente',
+                                timestamp: Date.now()
+                            });
+                            // Limpiar campos de facturación en el nuevo
+                            batch.update(newDocRef, {
+                                precioFacturado: window.firebase.firestore.FieldValue.delete(),
+                                costoFacturado: window.firebase.firestore.FieldValue.delete(),
+                                facturaId: window.firebase.firestore.FieldValue.delete()
+                            });
+
+                            currentRestored = qtyToRestore;
+                        }
+                    });
+                }
+            }
+
+            // 4. Eliminar el documento de la factura
+            batch.delete(this.db.collection('INVENTARIO_SALIDAS').doc(facturaId));
+
+            await batch.commit();
+            alert("✅ Factura anulada con éxito. Todos los productos han vuelto a estar Pendientes.");
+
+            // Recargar historial
+            this.loadInvoicesHistory();
+
+        } catch (error) {
+            console.error("Error al anular la factura:", error);
+            alert("Error al anular la factura: " + error.message);
+        } finally {
+            this.showLoading(false);
+        }
+    },
+
     showLoading(show) {
-        const el = document.getElementById('loading-overlay');
+        const el = document.getElementById('loading-overlay') || document.getElementById('salidas-loading');
         if (el) {
             el.style.display = show ? 'flex' : 'none';
         }
@@ -1864,6 +2073,15 @@ const RegistrosApp = {
 
         const totalVal = typeof inv.total === 'number' ? inv.total : 0;
         document.getElementById('detail-invoice-total').innerText = "$" + totalVal.toFixed(2);
+
+        // Enlazar el botón de anular factura dinámicamente
+        const btnAnular = document.getElementById('btn-anular-factura');
+        if (btnAnular) {
+            btnAnular.onclick = () => {
+                document.getElementById('modal-detalle-factura').style.display = 'none';
+                RegistrosApp.deleteInvoice(id);
+            };
+        }
 
         document.getElementById('modal-detalle-factura').style.display = 'flex';
     },
