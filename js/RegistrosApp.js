@@ -103,6 +103,20 @@ const RegistrosApp = {
         return `${day}/${month}/${year}`;
     },
 
+    standardizeProductName(name) {
+        if (!name) return '';
+        let clean = String(name).trim();
+        // Normalizar "1000ml" o "1000 ml" o "1000ML" o "1000 ML" a "1 Litro"
+        clean = clean.replace(/\b1000\s*(ml|ML)\b/g, '1 Litro');
+        // Normalizar "1litro" o "1 litro" o "1 LITRO" a "1 Litro"
+        clean = clean.replace(/\b1\s*(litro|LITRO|Litro)\b/g, '1 Litro');
+        // Normalizar "1l" o "1 l" o "1L" o "1L" en aceites
+        if (clean.toLowerCase().includes('aceite')) {
+            clean = clean.replace(/\b1\s*(l|L)\b/g, '1 Litro');
+        }
+        return clean;
+    },
+
     setupUI() {
         // Enfocar en producto al inicio para usar el lector rápido
         const inputProd = document.getElementById('fast-producto');
@@ -181,11 +195,12 @@ const RegistrosApp = {
 
             pendientes.forEach(reg => {
                 totalItems += reg.cantidad;
+                const normProd = this.standardizeProductName(reg.producto);
 
-                if (resumenMap[reg.producto]) {
-                    resumenMap[reg.producto] += reg.cantidad;
+                if (resumenMap[normProd]) {
+                    resumenMap[normProd] += reg.cantidad;
                 } else {
-                    resumenMap[reg.producto] = reg.cantidad;
+                    resumenMap[normProd] = reg.cantidad;
                 }
 
                 const isLinked = reg.productId ? true : false;
@@ -634,7 +649,8 @@ const RegistrosApp = {
         const facturadoPorProducto = {};
         this.facturaItems.forEach(item => {
             if (!item.producto) return;
-            const key = item.producto.toLowerCase().trim();
+            const normProd = this.standardizeProductName(item.producto);
+            const key = normProd.toLowerCase().trim();
             facturadoPorProducto[key] = (facturadoPorProducto[key] || 0) + item.cantidadFacturar;
         });
 
@@ -642,9 +658,10 @@ const RegistrosApp = {
         let resumenMap = {};
         pendientes.forEach(reg => {
             if (!reg.producto) return;
-            const key = reg.producto.toLowerCase().trim();
+            const normProd = this.standardizeProductName(reg.producto);
+            const key = normProd.toLowerCase().trim();
             if (!resumenMap[key]) {
-                resumenMap[key] = { name: reg.producto, count: 0, productId: reg.productId || null };
+                resumenMap[key] = { name: normProd, count: 0, productId: reg.productId || null };
             }
             resumenMap[key].count += reg.cantidad;
         });
@@ -1492,7 +1509,7 @@ const RegistrosApp = {
                 let cantidadFaltante = item.cantidadFacturar;
                 for (let i = 0; i < pendientesParaFacturar.length; i++) {
                     let reg = pendientesParaFacturar[i];
-                    if (reg.producto && item.producto && reg.producto.toLowerCase().trim() === item.producto.toLowerCase().trim() && cantidadFaltante > 0) {
+                    if (reg.producto && item.producto && this.standardizeProductName(reg.producto).toLowerCase().trim() === this.standardizeProductName(item.producto).toLowerCase().trim() && cantidadFaltante > 0) {
                         let regRef = this.registrosRef.doc(reg.id);
                         if (reg.cantidad <= cantidadFaltante) {
                             // Se consume todo el registro
