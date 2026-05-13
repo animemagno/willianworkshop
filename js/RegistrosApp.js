@@ -205,7 +205,7 @@ const RegistrosApp = {
 
                 const isLinked = reg.productId ? true : false;
                 const displayProduct = isLinked 
-                    ? reg.producto 
+                    ? `${officialName} <span style="font-size:11px; color:#3498db; cursor:pointer; margin-left:6px;" onclick="RegistrosApp.openLinkRegistryModal('${reg.id}', '${reg.producto.replace(/'/g, "\\'")}')" title="Editar vínculo con Inventario"><i class="fas fa-edit"></i></span>`
                     : `${reg.producto} <button class="btn" style="padding: 2px 6px; font-size: 11px; margin-left: 8px; border-radius: 4px; border: 1px solid #d35400; color: #d35400; background: #fffcf8; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;" onclick="RegistrosApp.openLinkRegistryModal('${reg.id}', '${reg.producto.replace(/'/g, "\\'")}')"><i class="fas fa-link"></i> Vincular</button>`;
 
                 const tr = document.createElement('tr');
@@ -1155,9 +1155,18 @@ const RegistrosApp = {
 
             const obsColor = reg.estado === 'facturado' ? '#2e7d32' : '#666';
 
+            const officialName = this.getOfficialProductName(reg);
+            const isLinked = reg.productId ? true : false;
+
+            const productDisplayHTML = reg.estado === 'facturado'
+                ? `<span>${officialName}</span>`
+                : isLinked
+                    ? `<span>${officialName}</span> <span style="font-size:11px; color:#3498db; cursor:pointer; margin-left:6px;" onclick="RegistrosApp.openLinkRegistryModal('${reg.id}', '${reg.producto.replace(/'/g, "\\'")}')" title="Editar vínculo con Inventario"><i class="fas fa-edit"></i></span>`
+                    : `<span style="color:#e67e22;">${reg.producto}</span> <button class="btn" style="padding: 2px 6px; font-size: 11px; margin-left: 8px; border-radius: 4px; border: 1px solid #d35400; color: #d35400; background: #fffcf8; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;" onclick="RegistrosApp.openLinkRegistryModal('${reg.id}', '${reg.producto.replace(/'/g, "\\'")}')"><i class="fas fa-link"></i> Vincular</button>`;
+
             tr.innerHTML = `
                 <td><strong>${reg.cantidad}</strong></td>
-                <td>${reg.producto}</td>
+                <td>${productDisplayHTML}</td>
                 <td>${reg.cuenta || '<span style="color:#ccc;">-</span>'}</td>
                 <td><span style="font-size:13px; color:${obsColor};">${reg.observacion || ''}</span></td>
                 <td><span class="status-badge ${statusClass}">${statusText}</span></td>
