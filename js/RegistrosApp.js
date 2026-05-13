@@ -108,13 +108,70 @@ const RegistrosApp = {
         let rawName = typeof regOrName === 'object' ? (regOrName.producto || '') : regOrName;
         let pId = typeof regOrName === 'object' ? (regOrName.productId || regOrName.vinculoId || null) : productId;
 
-        if (pId && window.app && window.app.cache) {
-            const cachedProduct = window.app.cache.find(p => p.id === pId);
+        if (window.app && window.app.cache) {
+            let cachedProduct = null;
+            if (pId) {
+                cachedProduct = window.app.cache.find(p => p.id === pId);
+            }
+
+            // Fallback súper inteligente y automático: si no se encontró por ID, normalizar volumen y buscar
+            if (!cachedProduct && rawName) {
+                const normRaw = this.normalizeVolumeInString(rawName);
+                cachedProduct = window.app.cache.find(p => {
+                    const normDesc = this.normalizeVolumeInString(p.descripcion);
+                    const normAlias = p.aliases && p.aliases.some(a => this.normalizeVolumeInString(a) === normRaw);
+                    return normDesc === normRaw || normAlias;
+                });
+            }
+
             if (cachedProduct) {
                 return cachedProduct.descripcion || cachedProduct.descripcionTaller || rawName;
             }
         }
         return rawName;
+    },
+
+    getGroupingKey(regOrName, productId = null) {
+        if (!regOrName) return '';
+        let rawName = typeof regOrName === 'object' ? (regOrName.producto || '') : regOrName;
+        let pId = typeof regOrName === 'object' ? (regOrName.productId || regOrName.vinculoId || null) : productId;
+
+        if (window.app && window.app.cache) {
+            let cachedProduct = null;
+            if (pId) {
+                cachedProduct = window.app.cache.find(p => p.id === pId);
+            }
+
+            // Fallback súper inteligente y automático: si no se encontró por ID, normalizar volumen y buscar
+            if (!cachedProduct && rawName) {
+                const normRaw = this.normalizeVolumeInString(rawName);
+                cachedProduct = window.app.cache.find(p => {
+                    const normDesc = this.normalizeVolumeInString(p.descripcion);
+                    const normAlias = p.aliases && p.aliases.some(a => this.normalizeVolumeInString(a) === normRaw);
+                    return normDesc === normRaw || normAlias;
+                });
+            }
+
+            if (cachedProduct) {
+                // Si el producto tiene un código en el inventario, agrupar por ese código
+                if (cachedProduct.codigo && cachedProduct.codigo.trim()) {
+                    return cachedProduct.codigo.toLowerCase().trim();
+                }
+                // Si no tiene código, usar su descripción oficial
+                const officialName = cachedProduct.descripcion || cachedProduct.descripcionTaller || rawName;
+                return officialName.toLowerCase().trim();
+            }
+        }
+        return rawName.toLowerCase().trim();
+    },
+
+    normalizeVolumeInString(str) {
+        if (!str) return '';
+        let normalized = str.toLowerCase().trim();
+        normalized = normalized.replace(/\b1\s*litros?\b/g, '1000ml');
+        normalized = normalized.replace(/\b1\s*l\b/g, '1000ml');
+        normalized = normalized.replace(/\b1000\s*ml\b/g, '1000ml');
+        return normalized.replace(/\s+/g, ' ');
     },
 
     setupUI() {
@@ -195,13 +252,13 @@ const RegistrosApp = {
 
             pendientes.forEach(reg => {
                 totalItems += reg.cantidad;
+                const key = this.getGroupingKey(reg);
                 const officialName = this.getOfficialProductName(reg);
 
-                if (resumenMap[officialName]) {
-                    resumenMap[officialName] += reg.cantidad;
-                } else {
-                    resumenMap[officialName] = reg.cantidad;
+                if (!resumenMap[key]) {
+                    resumenMap[key] = { name: officialName, count: 0 };
                 }
+                resumenMap[key].count += reg.cantidad;
 
                 const isLinked = reg.productId ? true : false;
                 const displayProduct = isLinked 
@@ -243,14 +300,14 @@ const RegistrosApp = {
             `;
         } else {
             resumenTbody.innerHTML = '';
-            // Obtener productos y ordenarlos alfabéticamente
-            const sortedProducts = Object.keys(resumenMap).sort((a, b) => a.localeCompare(b));
+            // Obtener productos y ordenarlos alfabéticamente por su nombre oficial
+            const sortedKeys = Object.keys(resumenMap).sort((a, b) => resumenMap[a].name.localeCompare(resumenMap[b].name));
             
-            sortedProducts.forEach(prod => {
+            sortedKeys.forEach(key => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td>${prod}</td>
-                    <td><strong>${resumenMap[prod]}</strong></td>
+                    <td>${resumenMap[key].name}</td>
+                    <td><strong>${resumenMap[key].count}</strong></td>
                 `;
                 resumenTbody.appendChild(tr);
             });
@@ -645,21 +702,20 @@ const RegistrosApp = {
             return tA - tB; // Ascendente (orden de ingreso)
         });
 
-        // Unificar todo el descuento por producto (sincronización entre tarjetas) - Claves en minúsculas para robustez
+        // Unificar todo el descuento por producto (sincronización entre tarjetas) - Claves unificadas por código de barra o nombre oficial
         const facturadoPorProducto = {};
         this.facturaItems.forEach(item => {
             if (!item.producto) return;
-            const officialName = this.getOfficialProductName(item.producto, item.vinculoId);
-            const key = officialName.toLowerCase().trim();
+            const key = this.getGroupingKey(item.producto, item.vinculoId);
             facturadoPorProducto[key] = (facturadoPorProducto[key] || 0) + item.cantidadFacturar;
         });
 
-        // Calcular los totales originales por producto y guardar su productId
+        // Calcular los totales originales agrupando por clave de agrupación (código o nombre oficial)
         let resumenMap = {};
         pendientes.forEach(reg => {
             if (!reg.producto) return;
+            const key = this.getGroupingKey(reg);
             const officialName = this.getOfficialProductName(reg);
-            const key = officialName.toLowerCase().trim();
             if (!resumenMap[key]) {
                 resumenMap[key] = { name: officialName, count: 0, productId: reg.productId || null };
             }
@@ -676,8 +732,8 @@ const RegistrosApp = {
         pendientes.forEach(reg => {
             let cantidadDisponible = reg.cantidad;
             if (!reg.producto) return;
+            const key = this.getGroupingKey(reg);
             const officialName = this.getOfficialProductName(reg);
-            const key = officialName.toLowerCase().trim();
 
             // Descontar usando FIFO (lo más antiguo primero)
             if (aDescontarTarjeta1[key] > 0) {
@@ -1519,7 +1575,7 @@ const RegistrosApp = {
                 let cantidadFaltante = item.cantidadFacturar;
                 for (let i = 0; i < pendientesParaFacturar.length; i++) {
                     let reg = pendientesParaFacturar[i];
-                    if (reg.producto && item.producto && this.getOfficialProductName(reg).toLowerCase().trim() === this.getOfficialProductName(item.producto, item.vinculoId).toLowerCase().trim() && cantidadFaltante > 0) {
+                    if (reg.producto && item.producto && this.getGroupingKey(reg) === this.getGroupingKey(item.producto, item.vinculoId) && cantidadFaltante > 0) {
                         let regRef = this.registrosRef.doc(reg.id);
                         if (reg.cantidad <= cantidadFaltante) {
                             // Se consume todo el registro
