@@ -771,7 +771,7 @@ const RegistrosApp = {
             if (data.type === 'single') {
                 existingItem = this.facturaItems.find(item => item.type === 'single' && item.originalId === data.id);
             } else {
-                existingItem = this.facturaItems.find(item => item.type === 'summary' && item.producto === data.producto);
+                existingItem = this.facturaItems.find(item => item.type === 'summary' && item.producto.toLowerCase().trim() === data.producto.toLowerCase().trim());
             }
 
             if (!existingItem && this.facturaItems.length >= this.MAX_FACTURA_ITEMS) {
