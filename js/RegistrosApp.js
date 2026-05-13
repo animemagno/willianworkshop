@@ -81,6 +81,17 @@ const RegistrosApp = {
         return new Date(y, m, d).getTime();
     },
 
+    normalizeDateStr(dateStr) {
+        if (!dateStr) return '';
+        const millis = this.parseDateToMillis(dateStr);
+        if (millis === 0) return dateStr;
+        const d = new Date(millis);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}/${month}/${year}`;
+    },
+
     setupUI() {
         // Enfocar en producto al inicio para usar el lector rápido
         const inputProd = document.getElementById('fast-producto');
@@ -992,12 +1003,16 @@ const RegistrosApp = {
         // Build map of dates and counts
         const dateMap = {};
         this.allRegistros.forEach(reg => {
-            if (!dateMap[reg.fecha]) dateMap[reg.fecha] = 0;
-            dateMap[reg.fecha]++;
+            const norm = this.normalizeDateStr(reg.fecha);
+            if (!norm) return;
+            if (!dateMap[norm]) dateMap[norm] = 0;
+            dateMap[norm]++;
         });
 
         // Sort dates descending
-        const sortedDates = Object.keys(dateMap).sort((a, b) => b.localeCompare(a));
+        const sortedDates = Object.keys(dateMap).sort((a, b) => {
+            return this.parseDateToMillis(b) - this.parseDateToMillis(a);
+        });
 
         const listContainer = document.getElementById('dates-list');
         if (!listContainer) return;
@@ -1016,7 +1031,7 @@ const RegistrosApp = {
             sortedDates.forEach(dateStr => {
                 const btn = document.createElement('button');
                 btn.className = `date-btn ${this.currentSelectedDate === dateStr ? 'active' : ''}`;
-                btn.innerHTML = `<span><i class="fas fa-calendar-day"></i> ${this.formatDate(dateStr)}</span> <span class="badge">${dateMap[dateStr]}</span>`;
+                btn.innerHTML = `<span><i class="fas fa-calendar-day"></i> ${dateStr}</span> <span class="badge">${dateMap[dateStr]}</span>`;
                 btn.onclick = () => {
                     this.currentSelectedDate = dateStr;
                     // Update active classes without full rerender of list
@@ -1040,17 +1055,18 @@ const RegistrosApp = {
         const titleEl = document.getElementById('selected-date-title');
 
         if (!this.currentSelectedDate) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#7f8c8d;">Selecciona un día</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#7f8d8d;">Selecciona un día</td></tr>';
             if (titleEl) titleEl.innerHTML = `<i class="fas fa-list"></i> Historial`;
             return;
         }
 
-        if (titleEl) titleEl.innerHTML = `<i class="fas fa-list"></i> Historial del día: <span style="color:var(--accent-color)">${this.formatDate(this.currentSelectedDate)}</span>`;
+        if (titleEl) titleEl.innerHTML = `<i class="fas fa-list"></i> Historial del día: <span style="color:var(--accent-color)">${this.currentSelectedDate}</span>`;
 
         tbody.innerHTML = '';
 
         let filtered = this.allRegistros.filter(reg => {
-            if (reg.fecha !== this.currentSelectedDate) return false;
+            const norm = this.normalizeDateStr(reg.fecha);
+            if (norm !== this.currentSelectedDate) return false;
 
             const matchSearch = reg.producto.toLowerCase().includes(searchTerm) ||
                 (reg.cuenta && reg.cuenta.toLowerCase().includes(searchTerm));
@@ -1148,12 +1164,7 @@ const RegistrosApp = {
     },
 
     formatDate(dateStr) {
-        if (!dateStr) return '';
-        const parts = dateStr.split('-');
-        if (parts.length === 3) {
-            return `${parts[2]}/${parts[1]}/${parts[0]}`;
-        }
-        return dateStr;
+        return this.normalizeDateStr(dateStr);
     },
 
     // ==========================================
