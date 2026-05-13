@@ -28,6 +28,7 @@ const RegistrosApp = {
 
             this.setupUI();
             this.setupEventListeners();
+            await this.loadActiveInvoices();
             this.listenToRegistros();
 
         } catch (error) {
@@ -35,6 +36,16 @@ const RegistrosApp = {
             alert("Error al iniciar el módulo: " + error.message);
         } finally {
             this.showLoading(false);
+        }
+    },
+
+    async loadActiveInvoices() {
+        try {
+            const snap = await this.db.collection('INVENTARIO_SALIDAS').get();
+            this.activeInvoiceIds = new Set(snap.docs.map(doc => doc.id));
+        } catch (err) {
+            console.error("Error al cargar facturas activas para auto-sanación:", err);
+            this.activeInvoiceIds = new Set();
         }
     },
 
@@ -562,6 +573,20 @@ const RegistrosApp = {
                             .then(() => console.log(`Auto-corregida fecha de ${data.fecha} a ${nuevaFecha} en doc: ${doc.id}`))
                             .catch(err => console.error("Error al auto-corregir fecha:", err));
                         data.fecha = nuevaFecha; // Modificar en caliente localmente para visualización instantánea
+                    }
+
+                    // Auto-sanación de registros huérfanos con estado "facturado" pero cuya factura ya no existe
+                    if (data.estado === 'facturado') {
+                        if (!data.facturaId || (this.activeInvoiceIds && !this.activeInvoiceIds.has(data.facturaId))) {
+                            console.warn(`Auto-sanando registro huérfano ${doc.id}: factura ausente o eliminada.`);
+                            this.registrosRef.doc(doc.id).update({
+                                estado: 'pendiente',
+                                facturaId: window.firebase.firestore.FieldValue.delete(),
+                                precioFacturado: window.firebase.firestore.FieldValue.delete(),
+                                costoFacturado: window.firebase.firestore.FieldValue.delete()
+                            }).catch(err => console.error("Error auto-sanando:", err));
+                            data.estado = 'pendiente'; // Modificar en caliente localmente
+                        }
                     }
                     
                     this.allRegistros.push({ id: doc.id, ...data });
