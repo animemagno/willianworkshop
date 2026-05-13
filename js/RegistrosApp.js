@@ -630,19 +630,23 @@ const RegistrosApp = {
             return tA - tB; // Ascendente (orden de ingreso)
         });
 
-        // Unificar todo el descuento por producto (sincronización entre tarjetas)
+        // Unificar todo el descuento por producto (sincronización entre tarjetas) - Claves en minúsculas para robustez
         const facturadoPorProducto = {};
         this.facturaItems.forEach(item => {
-            facturadoPorProducto[item.producto] = (facturadoPorProducto[item.producto] || 0) + item.cantidadFacturar;
+            if (!item.producto) return;
+            const key = item.producto.toLowerCase().trim();
+            facturadoPorProducto[key] = (facturadoPorProducto[key] || 0) + item.cantidadFacturar;
         });
 
         // Calcular los totales originales por producto y guardar su productId
         let resumenMap = {};
         pendientes.forEach(reg => {
-            if (!resumenMap[reg.producto]) {
-                resumenMap[reg.producto] = { count: 0, productId: reg.productId || null };
+            if (!reg.producto) return;
+            const key = reg.producto.toLowerCase().trim();
+            if (!resumenMap[key]) {
+                resumenMap[key] = { name: reg.producto, count: 0, productId: reg.productId || null };
             }
-            resumenMap[reg.producto].count += reg.cantidad;
+            resumenMap[key].count += reg.cantidad;
         });
 
         // Copia para ir descontando de la Tarjeta 1 (FIFO)
@@ -654,15 +658,17 @@ const RegistrosApp = {
         // 1. Llenar Tarjeta 1 (Listado Completo)
         pendientes.forEach(reg => {
             let cantidadDisponible = reg.cantidad;
+            if (!reg.producto) return;
+            const key = reg.producto.toLowerCase().trim();
 
             // Descontar usando FIFO (lo más antiguo primero)
-            if (aDescontarTarjeta1[reg.producto] > 0) {
-                if (aDescontarTarjeta1[reg.producto] >= cantidadDisponible) {
-                    aDescontarTarjeta1[reg.producto] -= cantidadDisponible;
+            if (aDescontarTarjeta1[key] > 0) {
+                if (aDescontarTarjeta1[key] >= cantidadDisponible) {
+                    aDescontarTarjeta1[key] -= cantidadDisponible;
                     cantidadDisponible = 0;
                 } else {
-                    cantidadDisponible -= aDescontarTarjeta1[reg.producto];
-                    aDescontarTarjeta1[reg.producto] = 0;
+                    cantidadDisponible -= aDescontarTarjeta1[key];
+                    aDescontarTarjeta1[key] = 0;
                 }
             }
 
@@ -674,7 +680,7 @@ const RegistrosApp = {
             tr.setAttribute('draggable', 'true');
             tr.style.cursor = 'pointer'; // Indicador de clickabilidad premium
 
-            const data = { type: 'summary', producto: reg.producto, max: resumenMap[reg.producto].count, productId: reg.productId || null };
+            const data = { type: 'summary', producto: reg.producto, max: resumenMap[key].count, productId: reg.productId || null };
 
             tr.ondragstart = (e) => {
                 e.dataTransfer.setData('text/plain', JSON.stringify(data));
@@ -703,12 +709,13 @@ const RegistrosApp = {
         resumenTbody.innerHTML = '';
         let hasResumen = false;
 
-        // Obtener los productos y ordenarlos alfabéticamente
-        const sortedProducts = Object.keys(resumenMap).sort((a, b) => a.localeCompare(b));
+        // Obtener los productos y ordenarlos alfabéticamente por su nombre original
+        const sortedKeys = Object.keys(resumenMap).sort((a, b) => resumenMap[a].name.localeCompare(resumenMap[b].name));
 
-        for (const prod of sortedProducts) {
-            const totalOriginal = resumenMap[prod].count;
-            const yaFacturado = facturadoPorProducto[prod] || 0;
+        for (const key of sortedKeys) {
+            const prodName = resumenMap[key].name;
+            const totalOriginal = resumenMap[key].count;
+            const yaFacturado = facturadoPorProducto[key] || 0;
             const restante = totalOriginal - yaFacturado;
 
             if (restante <= 0) continue;
@@ -1478,14 +1485,14 @@ const RegistrosApp = {
 
             // Pasar registros pendientes a facturado (FIFO)
             let pendientesParaFacturar = this.allRegistros.filter(r => r.estado === 'pendiente');
-            pendientesParaFacturar.sort((a, b) => a.fecha.localeCompare(b.fecha)); // Ordenar por fecha (FIFO)
+            pendientesParaFacturar.sort((a, b) => this.parseDateToMillis(a.fecha) - this.parseDateToMillis(b.fecha)); // Ordenar por fecha cronológicamente de forma robusta (FIFO)
 
             this.facturaItems.forEach(item => {
                 if (item.isManoDeObra) return; // Omitir Mano de obra del descuento de pendientes
                 let cantidadFaltante = item.cantidadFacturar;
                 for (let i = 0; i < pendientesParaFacturar.length; i++) {
                     let reg = pendientesParaFacturar[i];
-                    if (reg.producto === item.producto && cantidadFaltante > 0) {
+                    if (reg.producto && item.producto && reg.producto.toLowerCase().trim() === item.producto.toLowerCase().trim() && cantidadFaltante > 0) {
                         let regRef = this.registrosRef.doc(reg.id);
                         if (reg.cantidad <= cantidadFaltante) {
                             // Se consume todo el registro
