@@ -725,7 +725,7 @@ const RegistrosApp = {
             tr.setAttribute('draggable', 'true');
             tr.style.cursor = 'pointer'; // Indicador táctil premium
 
-            const data = { type: 'summary', producto: prod, max: totalOriginal, productId: resumenMap[prod].productId || null };
+            const data = { type: 'summary', producto: prodName, max: totalOriginal, productId: resumenMap[key].productId || null };
 
             tr.ondragstart = (e) => {
                 e.dataTransfer.setData('text/plain', JSON.stringify(data));
@@ -739,7 +739,7 @@ const RegistrosApp = {
             };
 
             tr.innerHTML = `
-                <td>${prod}</td>
+                <td>${prodName}</td>
                 <td><strong>${restante}</strong></td>
             `;
             resumenTbody.appendChild(tr);
