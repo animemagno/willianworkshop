@@ -8,6 +8,11 @@ const RegistrosApp = {
     registrosRef: null,
     unsubscribe: null,
     allRegistros: [],
+    mapeoRef: null,
+    mapeoNombres: {}, // { nombreExcel_clave → codigoInventario }
+    currentLinkContext: 'registry', // 'registry' | 'invoice'
+    currentLinkInvoiceId: null,
+    currentLinkInvoiceItemIndex: null,
 
     async init() {
         this.showLoading(true);
@@ -20,6 +25,7 @@ const RegistrosApp = {
             this.db = window.firebase.firestore();
             this.registrosRef = this.db.collection('REGISTROS_SALIDA');
             this.preciosRef = this.db.collection('PRECIOS_REGISTROS');
+            this.mapeoRef = this.db.collection('MAPEO_NOMBRES');
             this.MAX_FACTURA_ITEMS = 14;
             this.facturaTipo = null;
 
@@ -29,6 +35,7 @@ const RegistrosApp = {
             this.setupUI();
             this.setupEventListeners();
             await this.loadActiveInvoices();
+            await this.loadMapeoNombres();
             this.listenToRegistros();
 
         } catch (error) {
@@ -39,14 +46,29 @@ const RegistrosApp = {
         }
     },
 
-    async loadActiveInvoices() {
-        try {
-            const snap = await this.db.collection('INVENTARIO_SALIDAS').get();
-            this.activeInvoiceIds = new Set(snap.docs.map(doc => doc.id));
-        } catch (err) {
-            console.error("Error al cargar facturas activas para auto-sanación:", err);
-            this.activeInvoiceIds = new Set();
-        }
+    activeInvoicesUnsubscribe: null,
+
+    loadActiveInvoices() {
+        if (this.activeInvoicesUnsubscribe) this.activeInvoicesUnsubscribe();
+
+        return new Promise((resolve) => {
+            let isInitial = true;
+            this.activeInvoicesUnsubscribe = this.db.collection('INVENTARIO_SALIDAS')
+                .onSnapshot(snap => {
+                    this.activeInvoiceIds = new Set(snap.docs.map(doc => doc.id));
+                    if (isInitial) {
+                        isInitial = false;
+                        resolve();
+                    }
+                }, err => {
+                    console.error("Error al escuchar facturas activas para auto-sanación:", err);
+                    if (!this.activeInvoiceIds) this.activeInvoiceIds = new Set();
+                    if (isInitial) {
+                        isInitial = false;
+                        resolve();
+                    }
+                });
+        });
     },
 
     getLocalISODate(dateObj = new Date()) {
@@ -172,6 +194,41 @@ const RegistrosApp = {
         normalized = normalized.replace(/\b1\s*l\b/g, '1000ml');
         normalized = normalized.replace(/\b1000\s*ml\b/g, '1000ml');
         return normalized.replace(/\s+/g, ' ');
+    },
+
+    // Convierte un nombre a clave válida para ID de documento Firestore
+    sanitizeForDocId(str) {
+        return str.toLowerCase().trim().replace(/[/.#$\[\]]/g, '_');
+    },
+
+    // Carga todos los vínculos manuales guardados en MAPEO_NOMBRES
+    async loadMapeoNombres() {
+        try {
+            if (!this.mapeoRef) return;
+            const snap = await this.mapeoRef.get();
+            this.mapeoNombres = {};
+            snap.forEach(doc => {
+                const data = doc.data();
+                if (data.codigoInventario) {
+                    this.mapeoNombres[doc.id] = data.codigoInventario;
+                }
+            });
+            console.log(`MAPEO_NOMBRES cargado: ${Object.keys(this.mapeoNombres).length} entradas.`);
+        } catch (err) {
+            console.error('Error cargando MAPEO_NOMBRES:', err);
+            this.mapeoNombres = {};
+        }
+    },
+
+    // Busca un producto en el caché por su código de inventario
+    findProductByCodigo(codigo) {
+        if (!codigo || !window.app || !window.app.cache) return null;
+        const codigoBuscar = codigo.toLowerCase().trim();
+        return window.app.cache.find(p => {
+            if (!p.codigo) return false;
+            const partes = p.codigo.split(/[\s,-]+/);
+            return partes.some(c => c.toLowerCase().trim() === codigoBuscar);
+        }) || null;
     },
 
     setupUI() {
@@ -576,18 +633,33 @@ const RegistrosApp = {
             // Fecha final a usar
             const fechaAUsar = currentExcelDate;
 
-            // Intentar vincular de forma inteligente con producto del inventario usando descripción y alias
+            // Intentar vincular usando MAPEO_NOMBRES primero (vínculos manuales guardados)
             let productId = null;
             let productoDesc = producto;
             if (window.app && window.app.cache) {
-                const match = window.app.cache.find(p => {
-                    const matchDesc = p.descripcion && p.descripcion.toLowerCase().trim() === producto.toLowerCase().trim();
-                    const matchAlias = p.aliases && p.aliases.some(a => a.toLowerCase().trim() === producto.toLowerCase().trim());
-                    return matchDesc || matchAlias;
-                });
-                if (match) {
-                    productId = match.id;
-                    productoDesc = match.descripcion;
+                // 1. Buscar en el diccionario de vínculos manuales
+                const mapeoKey = this.sanitizeForDocId(producto);
+                const codigoMapeado = this.mapeoNombres ? this.mapeoNombres[mapeoKey] : null;
+                if (codigoMapeado) {
+                    const matchMapeado = this.findProductByCodigo(codigoMapeado);
+                    if (matchMapeado) {
+                        productId = matchMapeado.id;
+                        productoDesc = matchMapeado.descripcion;
+                    }
+                    // Si el código ya no existe en inventario, no crear vínculo fantasma
+                }
+
+                // 2. Fallback: coincidencia exacta por descripción o alias
+                if (!productId) {
+                    const match = window.app.cache.find(p => {
+                        const matchDesc = p.descripcion && p.descripcion.toLowerCase().trim() === producto.toLowerCase().trim();
+                        const matchAlias = p.aliases && p.aliases.some(a => a.toLowerCase().trim() === producto.toLowerCase().trim());
+                        return matchDesc || matchAlias;
+                    });
+                    if (match) {
+                        productId = match.id;
+                        productoDesc = match.descripcion;
+                    }
                 }
             }
 
@@ -1315,6 +1387,7 @@ const RegistrosApp = {
         const cardResumen = document.getElementById('card-resumen');
         const cardServicios = document.getElementById('card-servicios-mano-obra');
         const cardPrecios = document.getElementById('card-facturacion-precios');
+        const facturaDropzone = document.getElementById('factura-dropzone');
 
         const btnSiguiente = document.getElementById('btn-siguiente-factura');
         const btnSiguienteText = document.getElementById('btn-siguiente-factura-text');
@@ -1328,17 +1401,21 @@ const RegistrosApp = {
         if (step === 1) {
             if (cardListado) cardListado.style.display = 'flex';
             if (cardResumen) cardResumen.style.display = 'flex';
+            if (facturaDropzone) facturaDropzone.style.display = 'flex';
             if (btnSiguienteText) btnSiguienteText.innerText = "Siguiente: Servicios";
             if (btnSiguiente) btnSiguiente.style.display = 'flex';
         } else if (step === 2) {
             if (cardServicios) cardServicios.style.display = 'flex';
+            if (facturaDropzone) facturaDropzone.style.display = 'flex';
             if (btnSiguienteText) btnSiguienteText.innerText = "Siguiente: Precios";
             if (btnSiguiente) btnSiguiente.style.display = 'flex';
 
             // Servicios interactivos cargados en facturaDirecta
         } else if (step === 3) {
             if (cardPrecios) cardPrecios.style.display = 'flex';
+            if (facturaDropzone) facturaDropzone.style.display = 'none';
             if (btnSiguienteText) btnSiguienteText.innerText = "Finalizar Factura";
+            this.loadMonthlyProfitsSummary();
         }
     },
 
@@ -1455,9 +1532,9 @@ const RegistrosApp = {
 
         this.facturaItems.forEach((item, index) => {
             const total = item.cantidadFacturar * item.precioUnitario;
-            const gananciaPorcentaje = item.costoUnitario > 0 ? ((item.precioUnitario - item.costoUnitario) / item.costoUnitario * 100) : 100;
             const isService = !!item.isManoDeObra;
-            const isGeneralService = isService && item.producto !== 'Mano de Obra';
+            const costoUnitario = item.costoUnitario || 0;
+            const gananciaEfectivo = (item.precioUnitario - costoUnitario) * item.cantidadFacturar;
 
             const vinculoHTML = isService 
                 ? `<span style="font-size: 12px; font-weight: bold; color: #00796b; background: #e6fffa; padding: 4px 8px; border-radius: 4px; border: 1px solid #b2f5ea; display: inline-flex; align-items: center; gap: 4px;"><i class="fas fa-tools"></i> Servicio</span>`
@@ -1467,20 +1544,14 @@ const RegistrosApp = {
 
             const costoHTML = isService 
                 ? `<span style="color: #cbd5e0; font-size: 14px;">-</span>`
-                : `$${(item.costoUnitario || 0).toFixed(2)}`;
+                : `$${costoUnitario.toFixed(2)}`;
 
-            const precioInputHTML = isGeneralService
-                ? `<span style="color: #cbd5e0; font-size: 14px; font-weight: bold;">-</span>`
-                : `<input type="number" class="form-control" step="0.01" min="0" value="${item.precioUnitario.toFixed(2)}"
+            const precioInputHTML = `<input type="number" class="form-control" step="0.01" min="0" value="${item.precioUnitario.toFixed(2)}"
                         onchange="RegistrosApp.updateItemPrice(${index}, this.value)" style="width: 90px; padding: 6px; font-size: 14px;">`;
 
-            const gananciaHTML = isGeneralService
-                ? `<span style="color: #cbd5e0; font-size: 14px; font-weight: bold;">-</span>`
-                : (isService ? `100.0%` : `<span id="inv-ganancia-${index}">${gananciaPorcentaje.toFixed(1)}</span>%`);
+            const gananciaHTML = `$<span id="inv-ganancia-${index}">${gananciaEfectivo.toFixed(2)}</span>`;
 
-            const totalSpanHTML = isGeneralService
-                ? `<span style="color: #cbd5e0; font-size: 14px; font-weight: bold;">-</span>`
-                : `$<span id="inv-total-${index}">${total.toFixed(2)}</span>`;
+            const totalSpanHTML = `$<span id="inv-total-${index}">${total.toFixed(2)}</span>`;
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
@@ -1493,10 +1564,10 @@ const RegistrosApp = {
                 <td>
                     ${precioInputHTML}
                 </td>
-                <td style="font-weight: bold; color: ${isGeneralService ? '#4a5568' : (isService || gananciaPorcentaje > 0 ? 'var(--success-color)' : 'var(--danger-color)')};">
+                <td style="font-weight: bold; text-align: right; color: ${gananciaEfectivo >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">
                     ${gananciaHTML}
                 </td>
-                <td style="font-weight: bold; font-size: 15px;">${totalSpanHTML}</td>
+                <td style="font-weight: bold; font-size: 15px; text-align: right;">${totalSpanHTML}</td>
             `;
             tbody.appendChild(tr);
         });
@@ -1511,20 +1582,40 @@ const RegistrosApp = {
         const total = val * item.cantidadFacturar;
         document.getElementById(`inv-total-${index}`).innerText = total.toFixed(2);
 
-        const costo = item.costoUnitario || 0;
-        const ganancia = costo > 0 ? ((val - costo) / costo * 100) : 100;
+        const gananciaEfectivo = (val - (item.costoUnitario || 0)) * item.cantidadFacturar;
         const gananciaEl = document.getElementById(`inv-ganancia-${index}`);
         if (gananciaEl) {
-            gananciaEl.innerText = ganancia.toFixed(1);
-            gananciaEl.parentElement.style.color = ganancia > 0 ? 'var(--success-color)' : 'var(--danger-color)';
+            gananciaEl.innerText = gananciaEfectivo.toFixed(2);
+            gananciaEl.parentElement.style.color = gananciaEfectivo >= 0 ? 'var(--success-color)' : 'var(--danger-color)';
         }
 
         this.updateInvoiceGrandTotal();
     },
 
     updateInvoiceGrandTotal() {
-        const grandTotal = this.facturaItems.reduce((sum, item) => sum + (item.cantidadFacturar * item.precioUnitario), 0);
-        document.getElementById('invoice-grand-total').innerText = grandTotal.toFixed(2);
+        let grandTotal = 0;
+        let gananciaProductos = 0;
+        let totalManoObra = 0;
+
+        this.facturaItems.forEach(item => {
+            const rowTotal = item.cantidadFacturar * item.precioUnitario;
+            grandTotal += rowTotal;
+
+            if (item.isManoDeObra) {
+                totalManoObra += rowTotal;
+            } else {
+                const rowGain = (item.precioUnitario - (item.costoUnitario || 0)) * item.cantidadFacturar;
+                gananciaProductos += rowGain;
+            }
+        });
+
+        const elGrandTotal = document.getElementById('invoice-grand-total');
+        const elGananciaProd = document.getElementById('invoice-ganancia-productos');
+        const elManoObra = document.getElementById('invoice-mano-obra');
+
+        if (elGrandTotal) elGrandTotal.innerText = grandTotal.toFixed(2);
+        if (elGananciaProd) elGananciaProd.innerText = gananciaProductos.toFixed(2);
+        if (elManoObra) elManoObra.innerText = totalManoObra.toFixed(2);
     },
 
     async finalizeInvoice() {
@@ -1535,6 +1626,11 @@ const RegistrosApp = {
             // Generar ID de factura por adelantado para vincular los registros
             const facturaRef = this.db.collection('INVENTARIO_SALIDAS').doc();
             const facturaId = facturaRef.id;
+
+            // Asegurar que activeInvoiceIds reconozca esta factura antes de que se lance el snapshot y la auto-sanación la borre
+            if (this.activeInvoiceIds) {
+                this.activeInvoiceIds.add(facturaId);
+            }
 
             // Guardar o actualizar la memoria de precios
             this.facturaItems.forEach(item => {
@@ -1616,6 +1712,9 @@ const RegistrosApp = {
             const numero = document.getElementById('factura-numero').value || '';
             const grandTotal = this.facturaItems.reduce((sum, item) => sum + (item.cantidadFacturar * item.precioUnitario), 0);
             const totalCosto = this.facturaItems.reduce((sum, item) => sum + (item.cantidadFacturar * (item.costoUnitario || 0)), 0);
+            const totalManoObra = this.facturaItems.reduce((sum, item) => sum + (item.isManoDeObra ? (item.cantidadFacturar * item.precioUnitario) : 0), 0);
+            const totalProductos = grandTotal - totalManoObra;
+            const gananciaProductos = totalProductos - totalCosto;
             const gananciaNeta = grandTotal - totalCosto;
 
             batch.set(facturaRef, {
@@ -1624,7 +1723,10 @@ const RegistrosApp = {
                 tipo: this.facturaTipo,
                 total: grandTotal,
                 costoTotal: totalCosto,
+                totalManoObra: totalManoObra,
+                gananciaProductos: gananciaProductos,
                 gananciaNeta: gananciaNeta,
+                tieneItemsSinVincular: this.facturaItems.some(i => !i.isManoDeObra && !i.vinculoId),
                 fecha: this.getLocalISODate(), // formato YYYY-MM-DD (Local)
                 timestamp: window.firebase.firestore.FieldValue.serverTimestamp(),
                 items: this.facturaItems.map(item => ({
@@ -1633,6 +1735,7 @@ const RegistrosApp = {
                     precioUnitario: item.precioUnitario,
                     costoUnitario: item.costoUnitario || 0,
                     productId: item.vinculoId || null,
+                    isManoDeObra: !!item.isManoDeObra,
                     total: item.cantidadFacturar * item.precioUnitario
                 }))
             });
@@ -1653,8 +1756,73 @@ const RegistrosApp = {
 
         } catch (error) {
             this.showLoading(false);
-            console.error("Error al procesar", error);
-            alert("Error al procesar la factura: " + error.message);
+        }
+    },
+
+    async loadMonthlyProfitsSummary() {
+        try {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const prefix = `${year}-${month}`; // ej: "2026-05"
+
+            const elNombreMes = document.getElementById('resumen-mes-nombre');
+            const mesesNombres = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+            if (elNombreMes) elNombreMes.innerText = mesesNombres[now.getMonth()];
+
+            // Buscar facturas del mes actual
+            const snapshot = await this.db.collection('INVENTARIO_SALIDAS')
+                .where('fecha', '>=', prefix + '-01')
+                .where('fecha', '<=', prefix + '-31')
+                .get();
+
+            let totalFacturadoMes = 0;
+            let gananciaProductosMes = 0;
+            let manoObraMes = 0;
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const invTotal = typeof data.total === 'number' ? data.total : 0;
+                totalFacturadoMes += invTotal;
+
+                if (typeof data.totalManoObra === 'number' && typeof data.gananciaProductos === 'number') {
+                    manoObraMes += data.totalManoObra;
+                    gananciaProductosMes += data.gananciaProductos;
+                } else {
+                    // Fallback para facturas ya guardadas antes de esta actualización
+                    const items = data.items || [];
+                    let rowManoObra = 0;
+                    let rowCostoTotal = 0;
+                    items.forEach(it => {
+                        const isServ = it.isManoDeObra || it.productId === 'SERVICIO' || (it.descripcionPapel && (it.descripcionPapel.toLowerCase().includes('mano de obra') || it.descripcionPapel.toLowerCase().includes('servicio')));
+                        const qty = it.cantidad || 0;
+                        const price = it.precioUnitario || 0;
+                        const cost = it.costoUnitario || 0;
+                        const itTotal = qty * price;
+
+                        if (isServ) {
+                            rowManoObra += itTotal;
+                        } else {
+                            rowCostoTotal += (qty * cost);
+                        }
+                    });
+
+                    manoObraMes += rowManoObra;
+                    const rowProdTotal = invTotal - rowManoObra;
+                    gananciaProductosMes += (rowProdTotal - rowCostoTotal);
+                }
+            });
+
+            const elTotalFact = document.getElementById('mes-total-facturado');
+            const elGananciaProd = document.getElementById('mes-ganancia-productos');
+            const elManoObra = document.getElementById('mes-mano-obra');
+
+            if (elTotalFact) elTotalFact.innerText = totalFacturadoMes.toFixed(2);
+            if (elGananciaProd) elGananciaProd.innerText = gananciaProductosMes.toFixed(2);
+            if (elManoObra) elManoObra.innerText = manoObraMes.toFixed(2);
+
+        } catch (err) {
+            console.error("Error al cargar resumen de ganancias del mes:", err);
         }
     },
 
@@ -1666,6 +1834,11 @@ const RegistrosApp = {
         this.showLoading(true);
         try {
             const batch = this.db.batch();
+
+            // Eliminar de activeInvoiceIds localmente de inmediato para estar sincronizados
+            if (this.activeInvoiceIds) {
+                this.activeInvoiceIds.delete(facturaId);
+            }
 
             // 1. Obtener los datos de la factura
             const facturaDoc = await this.db.collection('INVENTARIO_SALIDAS').doc(facturaId).get();
@@ -1829,6 +2002,7 @@ const RegistrosApp = {
     },
 
     openLinkRegistryModal(id, productoName) {
+        this.currentLinkContext = 'registry';
         this.currentLinkRegistryId = id;
         this.currentLinkRegistryName = productoName;
         
@@ -1898,6 +2072,10 @@ const RegistrosApp = {
     },
 
     async selectLinkProduct(productId) {
+        if (this.currentLinkContext === 'invoice') {
+            await this.selectLinkProductForInvoice(productId);
+            return;
+        }
         const cache = (window.app && window.app.cache) ? window.app.cache : [];
         const product = cache.find(p => p.id === productId);
 
@@ -1942,6 +2120,25 @@ const RegistrosApp = {
             });
 
             await batch.commit();
+
+            // Guardar en MAPEO_NOMBRES si el producto tiene código en inventario
+            if (product.codigo && product.codigo.trim()) {
+                try {
+                    const mapeoKey = this.sanitizeForDocId(this.currentLinkRegistryName);
+                    await this.mapeoRef.doc(mapeoKey).set({
+                        nombreExcel: this.currentLinkRegistryName,
+                        codigoInventario: product.codigo.trim(),
+                        descripcionInventario: product.descripcion || '',
+                        timestamp: Date.now()
+                    }, { merge: true });
+                    // Actualizar memoria local para que funcione de inmediato
+                    this.mapeoNombres[mapeoKey] = product.codigo.trim();
+                    console.log(`Mapeo guardado: "${this.currentLinkRegistryName}" → código "${product.codigo}"`);
+                } catch (mapeoErr) {
+                    console.error('Error guardando MAPEO_NOMBRES:', mapeoErr);
+                }
+            }
+
             alert("✅ Vinculación completada correctamente.");
         } catch (err) {
             console.error("Error vinculando registro:", err);
@@ -1999,6 +2196,91 @@ const RegistrosApp = {
             alert("Error al omitir: " + err.message);
         }
 
+        const modal = document.getElementById('modalLinkProduct');
+        if (modal) modal.style.display = 'none';
+    },
+
+    openLinkInvoiceItemModal(facturaId, itemIndex) {
+        const inv = this.allHistoricalInvoices.find(i => i.id === facturaId);
+        if (!inv) return;
+        const item = (inv.items || [])[itemIndex];
+        if (!item) return;
+        const itemName = item.descripcionPapel || item.producto || '';
+        this.currentLinkContext = 'invoice';
+        this.currentLinkInvoiceId = facturaId;
+        this.currentLinkInvoiceItemIndex = itemIndex;
+        this.currentLinkRegistryName = itemName;
+        const modal = document.getElementById('modalLinkProduct');
+        if (!modal) return;
+        document.getElementById('link-excel-name').innerText = itemName;
+        document.getElementById('link-search-input').value = '';
+        modal.style.display = 'flex';
+        document.getElementById('link-search-input').focus();
+        const linkInput = document.getElementById('link-search-input');
+        if (linkInput) {
+            linkInput.onkeyup = (e) => this.searchLinkProduct(e.target.value);
+            this.searchLinkProduct('');
+        }
+    },
+
+    async selectLinkProductForInvoice(productId) {
+        const cache = (window.app && window.app.cache) ? window.app.cache : [];
+        const product = cache.find(p => p.id === productId);
+        if (!product || this.currentLinkInvoiceId === null) return;
+        if (!confirm(`¿Vincular "${this.currentLinkRegistryName}" con "${product.descripcion}"?\n\nSe registrará el descuento en el inventario mensual.`)) return;
+        try {
+            const facturaId = this.currentLinkInvoiceId;
+            const itemIndex = this.currentLinkInvoiceItemIndex;
+            const facturaDoc = await this.db.collection('INVENTARIO_SALIDAS').doc(facturaId).get();
+            if (!facturaDoc.exists) { alert('Factura no encontrada.'); return; }
+            const items = JSON.parse(JSON.stringify(facturaDoc.data().items || []));
+            if (itemIndex < 0 || itemIndex >= items.length) return;
+            const cantidad = items[itemIndex].cantidad || 0;
+            items[itemIndex] = { ...items[itemIndex], productId: product.id };
+            const allLinked = items.every(it =>
+                it.isManoDeObra ||
+                (it.productId && it.productId !== 'SERVICIO' && it.productId !== 'OMITIDO')
+            );
+            const batch = this.db.batch();
+            batch.update(this.db.collection('INVENTARIO_SALIDAS').doc(facturaId), {
+                items: items,
+                tieneItemsSinVincular: !allLinked
+            });
+            if (cantidad > 0) {
+                const resRef = this.db.collection('RESUMEN_SALIDAS_MES').doc(product.id);
+                batch.set(resRef, {
+                    productId: product.id,
+                    producto: product.descripcion,
+                    cantidadFacturada: window.firebase.firestore.FieldValue.increment(cantidad),
+                    mes: this.getLocalISODate().substring(0, 7)
+                }, { merge: true });
+            }
+            await batch.commit();
+            const localInv = this.allHistoricalInvoices.find(i => i.id === facturaId);
+            if (localInv) { localInv.items = items; localInv.tieneItemsSinVincular = !allLinked; }
+            if (product.codigo && product.codigo.trim()) {
+                try {
+                    const mk = this.sanitizeForDocId(this.currentLinkRegistryName);
+                    await this.mapeoRef.doc(mk).set({
+                        nombreExcel: this.currentLinkRegistryName,
+                        codigoInventario: product.codigo.trim(),
+                        descripcionInventario: product.descripcion || '',
+                        timestamp: Date.now()
+                    }, { merge: true });
+                    this.mapeoNombres[mk] = product.codigo.trim();
+                } catch (me) { console.error('MAPEO_NOMBRES error:', me); }
+            }
+            alert('✅ Vinculación completada. El descuento fue registrado.');
+            this.renderInvoicesHistory(this.allHistoricalInvoices);
+            this.viewInvoiceDetail(facturaId);
+        } catch (err) {
+            console.error('Error vinculando ítem de factura:', err);
+            alert('Error al vincular: ' + err.message);
+        }
+        this.currentLinkContext = 'registry';
+        this.currentLinkInvoiceId = null;
+        this.currentLinkInvoiceItemIndex = null;
+        this.currentLinkRegistryName = null;
         const modal = document.getElementById('modalLinkProduct');
         if (modal) modal.style.display = 'none';
     },
@@ -2092,8 +2374,9 @@ const RegistrosApp = {
 
     allHistoricalInvoices: [],
     async openInvoicesHistoryModal() {
-        document.getElementById('modal-historial-facturas').style.display = 'flex';
-        this.switchHistorialTab('list');
+        if (typeof switchMainTab === 'function') {
+            switchMainTab('historial');
+        }
     },
 
     async loadInvoicesHistory() {
@@ -2135,11 +2418,16 @@ const RegistrosApp = {
             const totalVal = typeof inv.total === 'number' ? inv.total : 0;
             const typeText = inv.tipo === 'repuestos' ? 'Repuestos' : 'Normal';
             const typeClass = inv.tipo === 'repuestos' ? 'status-pending' : 'status-invoiced';
+            const sinVincular = !!inv.tieneItemsSinVincular;
+            const alertaBadge = sinVincular
+                ? `<span style="display:inline-flex;align-items:center;gap:3px;background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:bold;margin-left:6px;"><i class='fas fa-exclamation-triangle'></i> Sin vincular</span>`
+                : '';
 
             const tr = document.createElement('tr');
+            if (sinVincular) tr.style.cssText = 'background:#fffbeb; border-left:4px solid #f59e0b;';
             tr.innerHTML = `
                 <td style="padding: 12px; border: 1px solid #edf2f7; font-weight: 500;">${dateFormatted}</td>
-                <td style="padding: 12px; border: 1px solid #edf2f7; font-weight: 600; color: #2d3748;">${inv.CLIENTE || 'Cliente General'}</td>
+                <td style="padding: 12px; border: 1px solid #edf2f7; font-weight: 600; color: #2d3748;">${inv.CLIENTE || 'Cliente General'}${alertaBadge}</td>
                 <td style="padding: 12px; border: 1px solid #edf2f7; text-align: center; font-family: monospace; font-size: 0.95rem;">${inv.numeroFactura || '<span style="color:#cbd5e0;">-</span>'}</td>
                 <td style="padding: 12px; border: 1px solid #edf2f7; text-align: center;"><span class="status-badge ${typeClass}">${typeText}</span></td>
                 <td style="padding: 12px; border: 1px solid #edf2f7; text-align: right; font-weight: bold; color: #2b6cb0;">$${totalVal.toFixed(2)}</td>
@@ -2188,16 +2476,26 @@ const RegistrosApp = {
         tbody.innerHTML = '';
 
         const items = inv.items || [];
-        items.forEach(item => {
+        items.forEach((item, itemIdx) => {
             const desc = item.descripcionPapel || item.producto || 'Repuesto';
             const cant = item.cantidad || 0;
             const unit = item.precioUnitario || 0;
             const tot = cant * unit;
-
+            const esServicio = item.isManoDeObra || item.productId === 'SERVICIO' || item.productId === 'OMITIDO';
+            const estaVinculado = !esServicio && !!item.productId;
+            let estadoHTML = '';
+            if (esServicio) {
+                estadoHTML = `<span style="font-size:10px;color:#00796b;background:#e6fffa;padding:1px 6px;border-radius:3px;margin-left:5px;font-weight:bold;">Servicio</span>`;
+            } else if (estaVinculado) {
+                estadoHTML = `<span style="font-size:10px;color:#276749;background:#f0fff4;padding:1px 6px;border-radius:3px;margin-left:5px;font-weight:bold;"><i class='fas fa-check'></i> Vinculado</span>`;
+            } else {
+                estadoHTML = `<button class="btn" style="font-size:11px;padding:2px 8px;margin-left:6px;background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:4px;cursor:pointer;" onclick="RegistrosApp.openLinkInvoiceItemModal('${id}',${itemIdx})"><i class='fas fa-link'></i> Vincular</button>`;
+            }
             const tr = document.createElement('tr');
+            if (!esServicio && !estaVinculado) tr.style.backgroundColor = '#fffbeb';
             tr.innerHTML = `
                 <td style="text-align: center; border: 1px solid #edf2f7; padding: 8px; font-weight: bold;">${cant}</td>
-                <td style="border: 1px solid #edf2f7; padding: 8px; font-size:13px;">${desc}</td>
+                <td style="border: 1px solid #edf2f7; padding: 8px; font-size:13px;">${desc}${estadoHTML}</td>
                 <td style="text-align: right; border: 1px solid #edf2f7; padding: 8px; color:#555;">$${unit.toFixed(2)}</td>
                 <td style="text-align: right; border: 1px solid #edf2f7; padding: 8px; font-weight: bold;">$${tot.toFixed(2)}</td>
             `;
@@ -2241,6 +2539,9 @@ const RegistrosApp = {
 
                 // Intentar mapear columnas de forma inteligente
                 const mappedRows = [];
+                let lastFecha = new Date().toISOString().substring(0, 10);
+                let lastFactura = "S-N";
+
                 rawData.forEach(row => {
                     let fecha = "";
                     let cliente = "Cliente General";
@@ -2256,21 +2557,32 @@ const RegistrosApp = {
                             let val = row[key];
                             if (val instanceof Date) {
                                 fecha = val.toISOString().substring(0, 10);
-                            } else if (val) {
+                            } else if (val && String(val).trim()) {
                                 fecha = String(val).trim().substring(0, 10);
                             }
                         } else if (cleanKey.includes("client") || cleanKey === "cuenta" || cleanKey.includes("nombr")) {
-                            cliente = row[key] ? String(row[key]).trim() : "Cliente General";
+                            if (row[key]) cliente = String(row[key]).trim();
                         } else if (cleanKey.includes("fact") || cleanKey.includes("num") || cleanKey.includes("doc")) {
-                            factura = row[key] ? String(row[key]).trim() : "";
+                            if (row[key]) factura = String(row[key]).trim();
                         } else if (cleanKey.includes("prod") || cleanKey.includes("desc") || cleanKey.includes("art") || cleanKey.includes("item")) {
-                            producto = row[key] ? String(row[key]).trim() : "";
+                            if (row[key]) producto = String(row[key]).trim();
                         } else if (cleanKey.includes("cant") || cleanKey === "qty") {
-                            cantidad = parseFloat(row[key]) || 1;
+                            if (row[key] !== null && row[key] !== undefined && String(row[key]).trim() !== '') {
+                                cantidad = parseFloat(row[key]) || 1;
+                            }
                         } else if (cleanKey.includes("prec") || cleanKey.includes("unit") || cleanKey === "val") {
-                            precio = parseFloat(row[key]) || 0;
+                            if (row[key] !== null && row[key] !== undefined && String(row[key]).trim() !== '') {
+                                let pStr = String(row[key]).replace('$', '').trim();
+                                precio = parseFloat(pStr) || 0;
+                            }
                         }
                     });
+
+                    if (fecha) lastFecha = fecha;
+                    else fecha = lastFecha;
+
+                    if (factura) lastFactura = factura;
+                    else factura = lastFactura;
 
                     if (producto) {
                         mappedRows.push({ fecha, cliente, factura, producto, cantidad, precio });
@@ -2285,7 +2597,6 @@ const RegistrosApp = {
                 // Agrupar filas por Número de Factura + Cliente + Fecha
                 const groups = {};
                 mappedRows.forEach(row => {
-                    // Si no tiene número de factura, usar cliente y fecha como llave única temporal
                     const groupKey = (row.factura || "S-N") + "_" + row.cliente + "_" + (row.fecha || "S-F");
                     if (!groups[groupKey]) {
                         groups[groupKey] = {
@@ -2296,12 +2607,23 @@ const RegistrosApp = {
                             items: []
                         };
                     }
+                    
+                    const isServicio = row.producto.toLowerCase().includes('mano de obra') || row.producto.toLowerCase().includes('servicio');
+                    let matchedProductId = isServicio ? 'SERVICIO' : null;
+                    
+                    if (!isServicio) {
+                        const match = RegistrosApp.findProductByCodigo(row.producto);
+                        if (match && match.id) matchedProductId = match.id;
+                    }
+
                     groups[groupKey].items.push({
                         descripcionPapel: row.producto,
                         cantidad: row.cantidad,
                         precioUnitario: row.precio,
                         costoUnitario: 0,
-                        productId: null,
+                        productId: matchedProductId,
+                        isManoDeObra: isServicio,
+                        vinculoId: matchedProductId ? 'AUTO_EXCEL' : null,
                         total: row.cantidad * row.precio
                     });
                 });
@@ -2309,11 +2631,13 @@ const RegistrosApp = {
                 // Convertir grupos a lista y calcular totales de factura
                 this.parsedHistoricalInvoices = Object.values(groups).map(group => {
                     const total = group.items.reduce((sum, it) => sum + it.total, 0);
+                    const tieneSinVincular = group.items.some(i => !i.isManoDeObra && !i.productId);
                     return {
                         ...group,
                         total: total,
                         costoTotal: 0,
-                        gananciaNeta: total
+                        gananciaNeta: total,
+                        tieneItemsSinVincular: tieneSinVincular
                     };
                 });
 
