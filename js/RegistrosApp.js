@@ -1116,6 +1116,11 @@ const RegistrosApp = {
             const statusClass = reg.estado === 'pendiente' ? 'status-pending' : 'status-invoiced';
             const statusText = reg.estado === 'pendiente' ? 'Pendiente' : 'Facturado';
 
+            if (reg.estado === 'facturado') {
+                tr.style.backgroundColor = '#f1faf5'; // Fondo verde pastel ultra sutil
+                tr.style.borderLeft = '4px solid #2ecc71'; // Línea verde viva izquierda para indicador de completado
+            }
+
             // Botón para recuperar quirúrgicamente registros huérfanos de facturas eliminadas antes
             const revertButtonHTML = reg.estado === 'facturado'
                 ? `<button class="btn" style="padding:5px 10px; font-size:12px; background:#2ecc71; color:white; border:none; border-radius:4px; margin-right:5px; cursor:pointer;" onclick="RegistrosApp.revertRegistryToPending('${reg.id}')" title="Devolver a Pendiente">
@@ -1123,11 +1128,13 @@ const RegistrosApp = {
                    </button>`
                 : '';
 
+            const obsColor = reg.estado === 'facturado' ? '#2e7d32' : '#666';
+
             tr.innerHTML = `
                 <td><strong>${reg.cantidad}</strong></td>
                 <td>${reg.producto}</td>
                 <td>${reg.cuenta || '<span style="color:#ccc;">-</span>'}</td>
-                <td><span style="font-size:13px; color:#666;">${reg.observacion || ''}</span></td>
+                <td><span style="font-size:13px; color:${obsColor};">${reg.observacion || ''}</span></td>
                 <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                 <td style="text-align: center;">
                     ${revertButtonHTML}
