@@ -37,6 +37,7 @@ const RegistrosApp = {
             await this.loadActiveInvoices();
             await this.loadMapeoNombres();
             this.listenToRegistros();
+            this.loadInvoicesHistory();
 
         } catch (error) {
             console.error("Error al iniciar RegistrosApp:", error);
@@ -283,13 +284,13 @@ const RegistrosApp = {
                 </tr>
             `;
         } else {
-            // Ordenar por fecha descendente (más recientes arriba) y desempatar por timestamp ascendente (orden de ingreso)
+            // Ordenar por fecha ascendente (más antiguas arriba) y desempatar por timestamp ascendente (orden de ingreso)
             pendientes.sort((a, b) => {
                 const millisA = this.parseDateToMillis(a.fecha);
                 const millisB = this.parseDateToMillis(b.fecha);
                 
                 if (millisA !== millisB) {
-                    return millisB - millisA; // Descendente (más recientes arriba)
+                    return millisA - millisB; // Ascendente (más antiguas arriba)
                 }
                 
                 let tA = 0;
@@ -750,13 +751,13 @@ const RegistrosApp = {
 
         const pendientes = this.allRegistros.filter(r => r.estado === 'pendiente');
 
-        // Ordenar por fecha descendente (más recientes arriba) y desempatar por timestamp ascendente (orden de ingreso)
+        // Ordenar por fecha ascendente (más antiguas arriba) y desempatar por timestamp ascendente (orden de ingreso)
         pendientes.sort((a, b) => {
             const millisA = this.parseDateToMillis(a.fecha);
             const millisB = this.parseDateToMillis(b.fecha);
             
             if (millisA !== millisB) {
-                return millisB - millisA; // Descendente (más recientes arriba)
+                return millisA - millisB; // Ascendente (más antiguas arriba)
             }
             
             let tA = 0;
@@ -1451,7 +1452,7 @@ const RegistrosApp = {
         }
 
         const section = document.getElementById('invoice-prices-section');
-        if (section) section.style.display = 'block';
+        if (section) section.style.display = 'grid';
         await this.loadPreciosYRenderizar();
     },
 
@@ -1753,6 +1754,7 @@ const RegistrosApp = {
 
             // Regresar al Paso 1
             this.goToStep(1);
+            this.loadInvoicesHistory();
 
         } catch (error) {
             this.showLoading(false);
@@ -1941,6 +1943,9 @@ const RegistrosApp = {
 
             await batch.commit();
             alert("✅ Factura anulada con éxito. Todos los productos han vuelto a estar Pendientes.");
+
+            const inputNum = document.getElementById('factura-numero');
+            if (inputNum) inputNum.value = '';
 
             // Recargar historial
             this.loadInvoicesHistory();
@@ -2227,7 +2232,18 @@ const RegistrosApp = {
         const cache = (window.app && window.app.cache) ? window.app.cache : [];
         const product = cache.find(p => p.id === productId);
         if (!product || this.currentLinkInvoiceId === null) return;
-        if (!confirm(`¿Vincular "${this.currentLinkRegistryName}" con "${product.descripcion}"?\n\nSe registrará el descuento en el inventario mensual.`)) return;
+
+        const inv = this.allHistoricalInvoices.find(i => i.id === this.currentLinkInvoiceId);
+        const invDate = inv ? (inv.fecha || '') : '';
+        const currentMonth = this.getLocalISODate().substring(0, 7);
+        const isCurrentMonth = invDate && invDate.startsWith(currentMonth);
+
+        const confirmMsg = isCurrentMonth
+            ? `¿Vincular "${this.currentLinkRegistryName}" con "${product.descripcion}"?\n\nSe registrará el descuento en el inventario mensual.`
+            : `¿Vincular "${this.currentLinkRegistryName}" con "${product.descripcion}"?\n\nNota: Como esta factura es de un mes anterior (${invDate}), NO se descontará stock del mes actual.`;
+
+        if (!confirm(confirmMsg)) return;
+
         try {
             const facturaId = this.currentLinkInvoiceId;
             const itemIndex = this.currentLinkInvoiceItemIndex;
@@ -2246,15 +2262,17 @@ const RegistrosApp = {
                 items: items,
                 tieneItemsSinVincular: !allLinked
             });
-            if (cantidad > 0) {
+
+            if (cantidad > 0 && isCurrentMonth) {
                 const resRef = this.db.collection('RESUMEN_SALIDAS_MES').doc(product.id);
                 batch.set(resRef, {
                     productId: product.id,
                     producto: product.descripcion,
                     cantidadFacturada: window.firebase.firestore.FieldValue.increment(cantidad),
-                    mes: this.getLocalISODate().substring(0, 7)
+                    mes: currentMonth
                 }, { merge: true });
             }
+
             await batch.commit();
             const localInv = this.allHistoricalInvoices.find(i => i.id === facturaId);
             if (localInv) { localInv.items = items; localInv.tieneItemsSinVincular = !allLinked; }
@@ -2270,7 +2288,13 @@ const RegistrosApp = {
                     this.mapeoNombres[mk] = product.codigo.trim();
                 } catch (me) { console.error('MAPEO_NOMBRES error:', me); }
             }
-            alert('✅ Vinculación completada. El descuento fue registrado.');
+
+            if (isCurrentMonth) {
+                alert('✅ Vinculación completada. El descuento fue registrado.');
+            } else {
+                alert('✅ Vinculación completada. (Sin descuento por ser mes anterior).');
+            }
+
             this.renderInvoicesHistory(this.allHistoricalInvoices);
             this.viewInvoiceDetail(facturaId);
         } catch (err) {
@@ -2397,7 +2421,31 @@ const RegistrosApp = {
                 });
             });
 
+            this.allHistoricalInvoices.sort((a, b) => {
+                const nA = String(a.numeroFactura || '').replace(/\D/g, '');
+                const nB = String(b.numeroFactura || '').replace(/\D/g, '');
+                const numA = parseInt(nA, 10) || 0;
+                const numB = parseInt(nB, 10) || 0;
+                if (numA !== numB) {
+                    return numB - numA;
+                }
+                const tA = this.parseDateToMillis(a.fecha);
+                const tB = this.parseDateToMillis(b.fecha);
+                return tB - tA;
+            });
+
             this.renderInvoicesHistory(this.allHistoricalInvoices);
+
+            if (this.allHistoricalInvoices.length > 0) {
+                const lastInvoice = this.allHistoricalInvoices[0];
+                const lastNumStr = String(lastInvoice.numeroFactura || '').replace(/\D/g, '');
+                const lastNum = parseInt(lastNumStr, 10) || 0;
+                const nextNum = lastNum > 0 ? lastNum + 1 : '';
+                const inputNum = document.getElementById('factura-numero');
+                if (inputNum && (!inputNum.value || String(inputNum.value).trim() === '')) {
+                    inputNum.value = nextNum;
+                }
+            }
         } catch (error) {
             console.error("Error al cargar historial:", error);
             tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#e53e3e;"><i class="fas fa-exclamation-circle"></i> Error al cargar el historial: ' + error.message + '</td></tr>';
@@ -2458,9 +2506,13 @@ const RegistrosApp = {
         this.renderInvoicesHistory(filtered);
     },
 
+    currentViewedInvoiceId: null,
+
     viewInvoiceDetail(id) {
         const inv = this.allHistoricalInvoices.find(i => i.id === id);
         if (!inv) return;
+
+        this.currentViewedInvoiceId = id;
 
         document.getElementById('detail-invoice-client').innerText = inv.CLIENTE || 'Cliente General';
         document.getElementById('detail-invoice-number').innerText = inv.numeroFactura || 'Sin número';
@@ -2515,6 +2567,30 @@ const RegistrosApp = {
         }
 
         document.getElementById('modal-detalle-factura').style.display = 'flex';
+    },
+
+    prevInvoiceDetail() {
+        if (!this.currentViewedInvoiceId) return;
+        const idx = this.allHistoricalInvoices.findIndex(inv => inv.id === this.currentViewedInvoiceId);
+        if (idx > 0) {
+            this.viewInvoiceDetail(this.allHistoricalInvoices[idx - 1].id);
+        } else {
+            alert("Ya estás en la primera factura de la lista.");
+        }
+    },
+
+    nextInvoiceDetail() {
+        if (!this.currentViewedInvoiceId) return;
+        const idx = this.allHistoricalInvoices.findIndex(inv => inv.id === this.currentViewedInvoiceId);
+        if (idx >= 0 && idx < this.allHistoricalInvoices.length - 1) {
+            this.viewInvoiceDetail(this.allHistoricalInvoices[idx + 1].id);
+        } else {
+            alert("Ya estás en la última factura de la lista.");
+        }
+    },
+
+    printInvoiceDetail() {
+        window.print();
     },
 
     parsedHistoricalInvoices: [],
@@ -2639,6 +2715,19 @@ const RegistrosApp = {
                         gananciaNeta: total,
                         tieneItemsSinVincular: tieneSinVincular
                     };
+                });
+
+                this.parsedHistoricalInvoices.sort((a, b) => {
+                    const nA = String(a.numeroFactura || '').replace(/\D/g, '');
+                    const nB = String(b.numeroFactura || '').replace(/\D/g, '');
+                    const numA = parseInt(nA, 10) || 0;
+                    const numB = parseInt(nB, 10) || 0;
+                    if (numA !== numB) {
+                        return numB - numA;
+                    }
+                    const tA = this.parseDateToMillis(a.fecha);
+                    const tB = this.parseDateToMillis(b.fecha);
+                    return tB - tA;
                 });
 
                 // Mostrar resumen de carga
