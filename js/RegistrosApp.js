@@ -3,6 +3,21 @@
  * Controla la lógica de la pantalla de Registro de Salidas (Manual y por Excel)
  */
 
+window.alert = function(message) {
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            text: message,
+            icon: message.includes('⚠️') || message.includes('PELIGRO') || message.includes('Error') || message.includes('problema') ? 'warning' : (message.includes('✅') || message.includes('éxito') || message.includes('correctamente') || message.includes('¡') ? 'success' : 'info'),
+            confirmButtonColor: '#3498db',
+            customClass: {
+                popup: 'premium-popup'
+            }
+        });
+    } else {
+        console.log(message);
+    }
+};
+
 const RegistrosApp = {
     db: null,
     registrosRef: null,
@@ -13,6 +28,24 @@ const RegistrosApp = {
     currentLinkContext: 'registry', // 'registry' | 'invoice'
     currentLinkInvoiceId: null,
     currentLinkInvoiceItemIndex: null,
+
+    async confirmDialog(message) {
+        if (typeof Swal === 'undefined') return confirm(message);
+        const result = await Swal.fire({
+            title: '¿Confirmar acción?',
+            text: message,
+            icon: message.includes('⚠️') || message.includes('PELIGRO') || message.includes('eliminar') || message.includes('anular') || message.includes('ELIMINAR') ? 'warning' : 'question',
+            showCancelButton: true,
+            confirmButtonColor: message.includes('⚠️') || message.includes('PELIGRO') || message.includes('eliminar') || message.includes('anular') || message.includes('ELIMINAR') ? '#e74c3c' : '#3498db',
+            cancelButtonColor: '#7f8c8d',
+            confirmButtonText: 'Sí, confirmar',
+            cancelButtonText: 'Cancelar',
+            customClass: {
+                popup: 'premium-popup'
+            }
+        });
+        return result.isConfirmed;
+    },
 
     async init() {
         this.showLoading(true);
@@ -1311,7 +1344,7 @@ const RegistrosApp = {
     },
 
     async revertRegistryToPending(id) {
-        if (confirm('¿Devolver manualmente este producto al estado "Pendiente"? (Volverá a aparecer en la lista para facturar)')) {
+        if (await this.confirmDialog('¿Devolver manualmente este producto al estado "Pendiente"? (Volverá a aparecer en la lista para facturar)')) {
             try {
                 await this.registrosRef.doc(id).update({
                     estado: 'pendiente',
@@ -1328,7 +1361,7 @@ const RegistrosApp = {
     },
 
     async deleteRegistro(id) {
-        if (confirm('¿Estás seguro de eliminar este registro?')) {
+        if (await this.confirmDialog('¿Estás seguro de eliminar este registro?')) {
             try {
                 await this.registrosRef.doc(id).delete();
             } catch (error) {
@@ -1339,7 +1372,7 @@ const RegistrosApp = {
     },
 
     async deleteAllRegistros() {
-        if (confirm('⚠️ ¡PELIGRO! ¿Estás seguro de ELIMINAR TODOS los registros de salidas? Esta acción no se puede deshacer.')) {
+        if (await this.confirmDialog('⚠️ ¡PELIGRO! ¿Estás seguro de ELIMINAR TODOS los registros de salidas? Esta acción no se puede deshacer.')) {
             this.showLoading(true);
             try {
                 const snapshot = await this.registrosRef.get();
@@ -1823,13 +1856,21 @@ const RegistrosApp = {
             if (elGananciaProd) elGananciaProd.innerText = gananciaProductosMes.toFixed(2);
             if (elManoObra) elManoObra.innerText = manoObraMes.toFixed(2);
 
+            const hTotalFact = document.getElementById('historial-total-facturado');
+            const hGananciaProd = document.getElementById('historial-ganancia-productos');
+            const hManoObra = document.getElementById('historial-mano-obra');
+
+            if (hTotalFact) hTotalFact.innerText = totalFacturadoMes.toFixed(2);
+            if (hGananciaProd) hGananciaProd.innerText = gananciaProductosMes.toFixed(2);
+            if (hManoObra) hManoObra.innerText = manoObraMes.toFixed(2);
+
         } catch (err) {
             console.error("Error al cargar resumen de ganancias del mes:", err);
         }
     },
 
     async deleteInvoice(facturaId) {
-        if (!confirm('⚠️ ¿Estás seguro de ANULAR y ELIMINAR esta factura?\n\nEsto devolverá todos los productos facturados a la lista de "Pendientes" y restará la cantidad del reporte mensual.')) {
+        if (!await this.confirmDialog('⚠️ ¿Estás seguro de ANULAR y ELIMINAR esta factura?\n\nEsto devolverá todos los productos facturados a la lista de "Pendientes" y restará la cantidad del reporte mensual.')) {
             return;
         }
 
@@ -2086,7 +2127,7 @@ const RegistrosApp = {
 
         if (!product || !this.currentLinkRegistryId) return;
 
-        if (!confirm(`¿Vincular permanentemente "${this.currentLinkRegistryName}" con el producto "${product.descripcion}"?\n\nEl sistema aprenderá este alias y actualizará todos los registros pendientes con este nombre.`)) return;
+        if (!await this.confirmDialog(`¿Vincular permanentemente "${this.currentLinkRegistryName}" con el producto "${product.descripcion}"?\n\nEl sistema aprenderá este alias y actualizará todos los registros pendientes con este nombre.`)) return;
 
         try {
             // Guardar alias en Firestore para el producto (aprender el alias)
@@ -2165,7 +2206,7 @@ const RegistrosApp = {
         const targetName = this.currentLinkRegistryName;
         let isService = false;
 
-        if (confirm(`¿Este ítem "${targetName}" es un SERVICIO (Mano de Obra)?\n\n[ACEPTAR] = SI, es Servicio (No descuenta stock)\n[CANCELAR] = NO, es Omitido (Se ignorará)`)) {
+        if (await this.confirmDialog(`¿Este ítem "${targetName}" es un SERVICIO (Mano de Obra)?\n\n[SÍ] = Servicio (No descuenta stock)\n[NO] = Omitido (Se ignorará)`)) {
             isService = true;
         }
 
@@ -2316,7 +2357,7 @@ const RegistrosApp = {
             return;
         }
 
-        if (confirm(`⚠️ ¿Estás seguro de eliminar TODOS los ${pendientes.length} registros pendientes en pantalla?\n\nEsta acción eliminará tanto los ingresados manualmente como los de Excel que aún no se hayan facturado.`)) {
+        if (await this.confirmDialog(`⚠️ ¿Estás seguro de eliminar TODOS los ${pendientes.length} registros pendientes en pantalla?\n\nEsta acción eliminará tanto los ingresados manualmente como los de Excel que aún no se hayan facturado.`)) {
             this.showLoading(true);
             try {
                 let batch = this.db.batch();
@@ -2404,6 +2445,7 @@ const RegistrosApp = {
     },
 
     async loadInvoicesHistory() {
+        this.loadMonthlyProfitsSummary();
         const tbody = document.getElementById('historial-invoices-tbody');
         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px;"><div class="spinner" style="margin:auto; border-top-color:#3498db;"></div><p style="margin-top:10px; color:#718096;">Cargando historial...</p></td></tr>';
 
