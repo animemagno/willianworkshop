@@ -2839,6 +2839,74 @@ const RegistrosApp = {
 
     currentViewedInvoiceId: null,
 
+    async editInvoiceDate() {
+        const id = this.currentViewedInvoiceId;
+        if (!id) return;
+        const inv = this.allHistoricalInvoices.find(i => i.id === id);
+        if (!inv) return;
+
+        let currentDate = inv.fecha;
+        
+        if (typeof Swal !== 'undefined') {
+            const { value: newDate } = await Swal.fire({
+                title: 'Editar Fecha de Factura',
+                input: 'date',
+                inputValue: currentDate,
+                showCancelButton: true,
+                confirmButtonColor: '#3498db',
+                cancelButtonColor: '#7f8c8d',
+                confirmButtonText: 'Guardar',
+                cancelButtonText: 'Cancelar',
+                customClass: { popup: 'premium-popup' }
+            });
+
+            if (newDate && newDate !== currentDate) {
+                await this.updateInvoiceDate(id, newDate);
+            }
+        } else {
+            const newDate = prompt("Ingrese la nueva fecha (YYYY-MM-DD):", currentDate);
+            if (newDate && newDate !== currentDate) {
+                await this.updateInvoiceDate(id, newDate);
+            }
+        }
+    },
+
+    async updateInvoiceDate(id, newDate) {
+        this.showLoading(true);
+        try {
+            const batch = this.db.batch();
+            
+            // Actualizar la factura
+            batch.update(this.db.collection('INVENTARIO_SALIDAS').doc(id), {
+                fecha: newDate
+            });
+
+            // Actualizar también los registros en REGISTROS_SALIDA si existen
+            const registrosSnap = await this.registrosRef.where('facturaId', '==', id).get();
+            if (!registrosSnap.empty) {
+                registrosSnap.forEach(doc => {
+                    batch.update(this.registrosRef.doc(doc.id), {
+                        fecha: newDate
+                    });
+                });
+            }
+
+            await batch.commit();
+
+            alert("✅ Fecha actualizada correctamente.");
+            
+            // Recargar el detalle y la lista
+            await this.loadInvoicesHistory();
+            this.viewInvoiceDetail(id);
+            
+        } catch (e) {
+            console.error("Error al actualizar la fecha:", e);
+            alert("Error al actualizar la fecha: " + e.message);
+        } finally {
+            this.showLoading(false);
+        }
+    },
+
     viewInvoiceDetail(id) {
         const inv = this.allHistoricalInvoices.find(i => i.id === id);
         if (!inv) return;

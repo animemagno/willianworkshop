@@ -1,0 +1,21 @@
+{
+  "name": "Taller Willian",
+  "short_name": "TallerWillian",
+  "start_url": "./inventario.html",
+  "display": "standalone",
+  "background_color": "#f4f6f9",
+  "theme_color": "#2c3e50",
+  "description": "Sistema de Gestión e Inventario para Taller Willian",
+  "icons": [
+    {
+      "src": "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/wrench.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/wrench.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

@@ -279,6 +279,9 @@
         }
 
         /* Estilos Premium para SweetAlert2 */
+        .swal2-container {
+            z-index: 9999 !important;
+        }
         .premium-popup {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
             border-radius: 16px !important;
@@ -753,7 +756,12 @@
                 </div>
                 <div>
                     <span style="font-size: 0.85rem; color: #718096; display: block;">Fecha:</span>
-                    <span id="detail-invoice-date" style="font-weight: 500;">-</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span id="detail-invoice-date" style="font-weight: 500;">-</span>
+                        <button class="btn" style="background: none; border: none; color: #3498db; cursor: pointer; padding: 0 5px;" onclick="RegistrosApp.editInvoiceDate()" title="Editar Fecha">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
                 </div>
                 <div>
                     <span style="font-size: 0.85rem; color: #718096; display: block;">Tipo:</span>
