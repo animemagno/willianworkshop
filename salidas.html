@@ -67,7 +67,7 @@
             gap: 20px;
             align-items: stretch;
             transition: grid-template-columns 0.4s ease;
-            height: calc(100vh - 120px); /* Alto de pantalla para tablet y PC */
+            height: calc(100vh - 150px); /* Ajustado para prevenir scroll vertical en tablet */
             box-sizing: border-box;
         }
 
@@ -631,7 +631,7 @@
     </div><!-- /facturacion-section -->
 
     <!-- SECCIÓN HISTORIAL -->
-    <div id="historial-section" style="display:none; padding:20px; height:calc(100vh - 115px); box-sizing:border-box; overflow-y:auto;">
+    <div id="historial-section" style="display:none; padding:20px; height:calc(100vh - 105px); box-sizing:border-box; overflow-y:auto;">
       <div style="background:white; border-radius:10px; box-shadow:0 4px 15px rgba(0,0,0,0.05); padding:25px; height:100%; display:flex; flex-direction:column; box-sizing:border-box;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
             <h2 style="margin:0; font-size:1.3rem; display:flex; align-items:center; gap:10px; color:#2c3e50;">
@@ -828,20 +828,52 @@
         window.db = firebase.firestore();
 
         function toggleFullScreen() {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().then(() => {
-                    document.getElementById('fs-btn-text').innerText = "Salir Pantalla Completa";
-                }).catch(err => {
-                    alert("No se pudo iniciar pantalla completa: " + err.message);
-                });
+            const doc = window.document;
+            const docEl = doc.documentElement;
+
+            const requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+            const cancelFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+
+            if (!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
+                if (requestFullScreen) {
+                    // Try to use a promise if supported, otherwise just call it
+                    try {
+                        const promise = requestFullScreen.call(docEl);
+                        if (promise) {
+                            promise.catch(err => {
+                                console.error("Error al iniciar pantalla completa:", err);
+                            });
+                        }
+                    } catch (e) {
+                        console.error("Error fallback al iniciar pantalla completa:", e);
+                    }
+                } else {
+                    alert("La opción de pantalla completa no es soportada por este navegador/dispositivo.");
+                }
             } else {
-                if (document.exitFullscreen) {
-                    document.exitFullscreen().then(() => {
-                        document.getElementById('fs-btn-text').innerText = "Pantalla Completa";
-                    });
+                if (cancelFullScreen) {
+                    try {
+                        cancelFullScreen.call(doc);
+                    } catch (e) {
+                        console.error("Error al salir de pantalla completa:", e);
+                    }
                 }
             }
         }
+
+        // Actualizar el texto del botón cuando cambie el estado de la pantalla completa, incluso si se usa ESC
+        const handleFullscreenChange = () => {
+            const isFullscreen = document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+            const btnText = document.getElementById('fs-btn-text');
+            if (btnText) {
+                btnText.innerText = isFullscreen ? "Salir Pantalla Completa" : "Pantalla Completa";
+            }
+        };
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+        document.addEventListener('MSFullscreenChange', handleFullscreenChange);
 
         // Carga en segundo plano de la base de datos de productos para el escáner
         window.app = { cache: [] };

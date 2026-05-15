@@ -258,8 +258,13 @@
                 <i class="fas fa-barcode"></i> Módulo de Registro (Pantalla Completa)
             </h1>
         </div>
-        <div style="font-weight: 500; font-size: 0.95rem; color: #bdc3c7;">
-            Taller Willian - Escaneo de Salidas
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <button onclick="toggleFullScreen()" class="btn-back" style="cursor: pointer; background: rgba(52, 152, 219, 0.2); border-color: rgba(52, 152, 219, 0.5);">
+                <i class="fas fa-expand"></i> <span id="fs-btn-text">Pantalla Completa</span>
+            </button>
+            <div style="font-weight: 500; font-size: 0.95rem; color: #bdc3c7;">
+                Taller Willian - Escaneo de Salidas
+            </div>
         </div>
     </header>
 
@@ -478,6 +483,50 @@
         };
         firebase.initializeApp(firebaseConfig);
         window.db = firebase.firestore();
+
+        function toggleFullScreen() {
+            const doc = window.document;
+            const docEl = doc.documentElement;
+
+            const requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+            const cancelFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+
+            if (!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
+                if (requestFullScreen) {
+                    try {
+                        const promise = requestFullScreen.call(docEl);
+                        if (promise) {
+                            promise.catch(err => console.error("Error al iniciar pantalla completa:", err));
+                        }
+                    } catch (e) {
+                        console.error("Error fallback al iniciar pantalla completa:", e);
+                    }
+                } else {
+                    alert("La opción de pantalla completa no es soportada por este navegador/dispositivo.");
+                }
+            } else {
+                if (cancelFullScreen) {
+                    try {
+                        cancelFullScreen.call(doc);
+                    } catch (e) {
+                        console.error("Error al salir de pantalla completa:", e);
+                    }
+                }
+            }
+        }
+
+        const handleFullscreenChange = () => {
+            const isFullscreen = document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+            const btnText = document.getElementById('fs-btn-text');
+            if (btnText) {
+                btnText.innerText = isFullscreen ? "Salir Pantalla Completa" : "Pantalla Completa";
+            }
+        };
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+        document.addEventListener('MSFullscreenChange', handleFullscreenChange);
 
         // Carga en segundo plano de la base de datos de productos para el escáner
         window.app = { cache: [] };
