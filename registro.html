@@ -338,6 +338,9 @@
                         <button id="tab-btn-resumen" class="tab-btn-inner" onclick="switchInnerTab('resumen')">
                             <i class="fas fa-chart-pie"></i> Resumen Dinámico
                         </button>
+                        <button id="tab-btn-tabla" class="tab-btn-inner" onclick="switchInnerTab('tabla')">
+                            <i class="fas fa-table"></i> Tabla Excel
+                        </button>
                     </div>
                     <!-- Botón Borrar Todo -->
                     <button class="btn" style="background-color: #e74c3c; color: white; padding: 10px 16px; font-size: 0.9rem; font-weight: bold; border-radius: 6px; display: flex; align-items: center; gap: 8px; border: none; cursor: pointer; transition: background 0.2s;" onclick="RegistrosApp.deleteOnlyPendingRegistros()">
@@ -389,6 +392,28 @@
                                         <p style="margin: 0; font-weight: bold; font-size: 1.1rem;">El resumen dinámico está vacío.</p>
                                         <p style="font-size: 0.9rem; margin-top: 5px; color: #a0aec0;">Se calcularán los totales conforme agregues productos.</p>
                                     </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Contenedor 3: Tabla Excel -->
+                <div id="inner-tab-tabla" style="display: none; flex-grow: 1;">
+                    <div class="table-container-large" style="background: #fff;">
+                        <table style="width: 100%; border-collapse: collapse; font-family: Calibri, Arial, sans-serif; font-size: 14px;">
+                            <thead>
+                                <tr style="background: #f8f9fa;">
+                                    <th style="width: 100px; border: 1px solid #d4d4d4; padding: 8px; text-align: center; color: #333;">Fecha</th>
+                                    <th style="width: 80px; text-align: center; border: 1px solid #d4d4d4; padding: 8px; color: #333;">Cantidad</th>
+                                    <th style="border: 1px solid #d4d4d4; padding: 8px; color: #333; text-align: left;">Descripción</th>
+                                    <th style="width: 150px; border: 1px solid #d4d4d4; padding: 8px; color: #333; text-align: left;">Cuenta</th>
+                                    <th style="width: 200px; border: 1px solid #d4d4d4; padding: 8px; color: #333; text-align: left;">Comentario</th>
+                                </tr>
+                            </thead>
+                            <tbody id="excel-table-tbody">
+                                <tr>
+                                    <td colspan="5" style="text-align: center; padding: 40px; color: #aaa;">No hay datos para mostrar</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -467,19 +492,27 @@
         function switchInnerTab(tabName) {
             const tabLista = document.getElementById('inner-tab-lista');
             const tabResumen = document.getElementById('inner-tab-resumen');
+            const tabTabla = document.getElementById('inner-tab-tabla');
             const btnLista = document.getElementById('tab-btn-lista');
             const btnResumen = document.getElementById('tab-btn-resumen');
+            const btnTabla = document.getElementById('tab-btn-tabla');
+
+            tabLista.style.display = 'none';
+            tabResumen.style.display = 'none';
+            tabTabla.style.display = 'none';
+            btnLista.classList.remove('active');
+            btnResumen.classList.remove('active');
+            btnTabla.classList.remove('active');
 
             if (tabName === 'lista') {
                 tabLista.style.display = 'block';
-                tabResumen.style.display = 'none';
                 btnLista.classList.add('active');
-                btnResumen.classList.remove('active');
-            } else {
-                tabLista.style.display = 'none';
+            } else if (tabName === 'resumen') {
                 tabResumen.style.display = 'block';
-                btnLista.classList.remove('active');
                 btnResumen.classList.add('active');
+            } else if (tabName === 'tabla') {
+                tabTabla.style.display = 'block';
+                btnTabla.classList.add('active');
             }
         }
     </script>

@@ -340,6 +340,7 @@ const RegistrosApp = {
 
     renderFastEntryTable() {
         const tbody = document.getElementById('fast-entry-tbody');
+        const excelTbody = document.getElementById('excel-table-tbody');
         if (!tbody) return;
 
         const registrosAMostrar = this.allRegistros;
@@ -348,6 +349,9 @@ const RegistrosApp = {
         let resumenMap = {};
 
         tbody.innerHTML = '';
+        if (excelTbody) {
+            excelTbody.innerHTML = '';
+        }
 
         if (registrosAMostrar.length === 0) {
             tbody.innerHTML = `
@@ -359,6 +363,13 @@ const RegistrosApp = {
                     </td>
                 </tr>
             `;
+            if (excelTbody) {
+                excelTbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 40px; color: #aaa;">No hay datos para mostrar</td>
+                    </tr>
+                `;
+            }
         } else {
             // Ordenar por fecha ascendente (más antiguas arriba) y desempatar por timestamp ascendente (orden de ingreso)
             registrosAMostrar.sort((a, b) => {
@@ -383,6 +394,8 @@ const RegistrosApp = {
                 }
                 return tA - tB; // Ascendente (orden de ingreso)
             });
+
+            let lastDateStr = null;
 
             registrosAMostrar.forEach(reg => {
                 totalItems += reg.cantidad;
@@ -421,6 +434,22 @@ const RegistrosApp = {
                     <td style="text-align: center;">${actionCell}</td>
                 `;
                 tbody.appendChild(tr);
+
+                if (excelTbody) {
+                    const currentDateStr = this.formatDate(reg.fecha);
+                    const showDate = currentDateStr !== lastDateStr;
+                    lastDateStr = currentDateStr;
+
+                    const trExcel = document.createElement('tr');
+                    trExcel.innerHTML = `
+                        <td style="border: 1px solid #d4d4d4; padding: 8px; text-align: center; vertical-align: top; color: #333;">${showDate ? currentDateStr : ''}</td>
+                        <td style="border: 1px solid #d4d4d4; padding: 8px; text-align: center; color: #333;">${reg.cantidad}</td>
+                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: #333;">${reg.producto}</td>
+                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: #333;">${reg.cuenta || ''}</td>
+                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: #333;">${reg.observacion || ''}</td>
+                    `;
+                    excelTbody.appendChild(trExcel);
+                }
             });
         }
 
