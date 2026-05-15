@@ -555,6 +555,9 @@ const RegistrosApp = {
         input.focus();
 
         const saveChanges = async () => {
+            if (input.dataset.saving) return;
+            input.dataset.saving = 'true';
+
             let newValue = input.value;
             if (field === 'cantidad') {
                 newValue = parseInt(newValue) || 1;
@@ -563,21 +566,41 @@ const RegistrosApp = {
                 newValue = currentValue; 
             }
 
-            tdElement.innerHTML = '<span style="color:#aaa;">Guardando...</span>';
+            if (newValue.toString() === currentValue.toString()) {
+                tdElement.innerHTML = currentValue;
+                setTimeout(() => {
+                    if (!document.querySelector('#excel-table-tbody input')) {
+                        this.renderFastEntryTable();
+                    }
+                }, 150);
+                return;
+            }
 
-            if (newValue.toString() !== currentValue.toString()) {
-                try {
-                    await this.registrosRef.doc(docId).update({
-                        [field]: newValue
-                    });
-                } catch (e) {
-                    console.error("Error actualizando celda:", e);
-                    alert("Error guardando el cambio.");
+            tdElement.innerHTML = newValue;
+
+            // Background update sin await para no bloquear la interfaz
+            this.registrosRef.doc(docId).update({
+                [field]: newValue
+            }).catch(e => {
+                console.error("Error actualizando celda:", e);
+                const regError = this.allRegistros.find(r => r.id === docId);
+                if (regError) regError[field] = currentValue;
+                tdElement.innerHTML = currentValue;
+                if (!document.querySelector('#excel-table-tbody input')) {
                     this.renderFastEntryTable();
                 }
-            } else {
-                this.renderFastEntryTable();
+            });
+
+            const reg = this.allRegistros.find(r => r.id === docId);
+            if (reg) {
+                reg[field] = newValue;
             }
+
+            setTimeout(() => {
+                if (!document.querySelector('#excel-table-tbody input')) {
+                    this.renderFastEntryTable();
+                }
+            }, 150);
         };
 
         input.addEventListener('blur', saveChanges);
@@ -586,7 +609,12 @@ const RegistrosApp = {
                 input.blur();
             } else if (e.key === 'Escape') {
                 input.removeEventListener('blur', saveChanges);
-                this.renderFastEntryTable();
+                tdElement.innerHTML = currentValue;
+                setTimeout(() => {
+                    if (!document.querySelector('#excel-table-tbody input')) {
+                        this.renderFastEntryTable();
+                    }
+                }, 150);
             }
         });
     },
@@ -957,7 +985,11 @@ const RegistrosApp = {
                 });
                 this.renderDatesList();
                 this.renderFacturacionData();
-                this.renderFastEntryTable();
+                
+                const isEditingExcel = document.querySelector('#excel-table-tbody input');
+                if (!isEditingExcel) {
+                    this.renderFastEntryTable();
+                }
             }, error => {
                 console.error("Error al escuchar registros:", error);
             });
