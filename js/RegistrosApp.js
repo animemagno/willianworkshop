@@ -341,19 +341,42 @@ const RegistrosApp = {
     renderFastEntryTable() {
         const tbody = document.getElementById('fast-entry-tbody');
         const excelTbody = document.getElementById('excel-table-tbody');
+        const historialTbody = document.getElementById('historial-archivo-tbody');
         if (!tbody) return;
-
-        const registrosAMostrar = this.allRegistros;
 
         let totalItems = 0;
         let resumenMap = {};
 
         tbody.innerHTML = '';
-        if (excelTbody) {
-            excelTbody.innerHTML = '';
+        if (excelTbody) excelTbody.innerHTML = '';
+        if (historialTbody) historialTbody.innerHTML = '';
+
+        const registrosArchivados = this.allRegistros.filter(r => r.archivado);
+        const registrosActivos = this.allRegistros.filter(r => !r.archivado);
+
+        if (historialTbody) {
+            if (registrosArchivados.length === 0) {
+                historialTbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 40px; color: #aaa;">No hay registros archivados</td></tr>`;
+            } else {
+                registrosArchivados.sort((a, b) => {
+                    const diff = this.parseDateToMillis(b.fecha) - this.parseDateToMillis(a.fecha);
+                    return diff !== 0 ? diff : (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0);
+                });
+                registrosArchivados.forEach(reg => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="border: 1px solid #cbd5e0; text-align: center;">${reg.cantidad}</td>
+                        <td style="border: 1px solid #cbd5e0; text-align: center;">${this.formatDate(reg.fecha)}</td>
+                        <td style="border: 1px solid #cbd5e0; color: #555;">${reg.producto}</td>
+                        <td style="border: 1px solid #cbd5e0; color: #555;">${reg.cuenta || '-'}</td>
+                        <td style="border: 1px solid #cbd5e0; color: #555;">Facturado</td>
+                    `;
+                    historialTbody.appendChild(tr);
+                });
+            }
         }
 
-        if (registrosAMostrar.length === 0) {
+        if (registrosActivos.length === 0) {
             tbody.innerHTML = `
                 <tr id="empty-state-row">
                     <td colspan="6" style="text-align: center; padding: 40px 20px; color: #aaa;">
@@ -371,6 +394,30 @@ const RegistrosApp = {
                 `;
             }
         } else {
+            const groupedMap = new Map();
+            registrosActivos.forEach(reg => {
+                const key = `${reg.fecha}_${reg.producto}_${reg.cuenta || ''}_${reg.observacion || ''}`;
+                if (!groupedMap.has(key)) {
+                    groupedMap.set(key, {
+                        ...reg,
+                        originalIds: [reg.id],
+                        cantidadTotal: reg.cantidad,
+                        cantidadFacturada: reg.estado === 'facturado' ? reg.cantidad : 0,
+                        facturasUnicas: new Set(reg.facturaId ? [reg.facturaId] : [])
+                    });
+                } else {
+                    const g = groupedMap.get(key);
+                    g.originalIds.push(reg.id);
+                    g.cantidadTotal += reg.cantidad;
+                    if (reg.estado === 'facturado') {
+                        g.cantidadFacturada += reg.cantidad;
+                        if (reg.facturaId) g.facturasUnicas.add(reg.facturaId);
+                    }
+                    if (reg.estado === 'pendiente') g.estado = 'pendiente';
+                }
+            });
+
+            const registrosAMostrar = Array.from(groupedMap.values());
             // Ordenar por fecha ascendente (más antiguas arriba) y desempatar por timestamp ascendente (orden de ingreso)
             registrosAMostrar.sort((a, b) => {
                 const millisA = this.parseDateToMillis(a.fecha);
@@ -411,23 +458,33 @@ const RegistrosApp = {
                     resumenMap[key].countFacturado += reg.cantidad;
                 }
 
-                const isFacturado = reg.estado === 'facturado';
-                const rowStyle = isFacturado ? 'background-color: #e6fffa; color: #27ae60;' : '';
-                const displayProductStyle = isFacturado ? 'color: #27ae60; font-weight: bold;' : '';
+                const isFullyFacturado = reg.cantidadFacturada === reg.cantidadTotal && reg.cantidadTotal > 0;
+                const hasFacturados = reg.cantidadFacturada > 0;
+                
+                const rowStyle = isFullyFacturado ? 'background-color: #e6fffa; color: #27ae60;' : (hasFacturados ? 'background-color: #f0fff4;' : '');
+                const displayProductStyle = hasFacturados ? 'color: #27ae60; font-weight: bold;' : '';
+                
+                let extraFacturadoText = '';
+                if (hasFacturados && !isFullyFacturado) {
+                    const fText = reg.facturasUnicas.size === 1 ? '1 factura' : `${reg.facturasUnicas.size} facturas`;
+                    extraFacturadoText = `<br><span style="font-size:11px; color:#16a085; font-weight:normal;">(Usados: ${reg.cantidadFacturada} en ${fText})</span>`;
+                }
+
+                const docIdsStr = reg.originalIds.join(',');
 
                 const isLinked = reg.productId ? true : false;
                 const displayProduct = isLinked 
-                    ? `<span style="${displayProductStyle}">${officialName}</span> <span style="font-size:11px; color:#3498db; cursor:pointer; margin-left:6px;" onclick="RegistrosApp.openLinkRegistryModal('${reg.id}', '${reg.producto.replace(/'/g, "\\'")}')" title="Editar vínculo con Inventario"><i class="fas fa-edit"></i></span>`
-                    : `<span style="${displayProductStyle}">${reg.producto}</span> <button class="btn" style="padding: 2px 6px; font-size: 11px; margin-left: 8px; border-radius: 4px; border: 1px solid #d35400; color: #d35400; background: #fffcf8; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;" onclick="RegistrosApp.openLinkRegistryModal('${reg.id}', '${reg.producto.replace(/'/g, "\\'")}')"><i class="fas fa-link"></i> Vincular</button>`;
+                    ? `<span style="${displayProductStyle}">${officialName}</span>${extraFacturadoText} <span style="font-size:11px; color:#3498db; cursor:pointer; margin-left:6px;" onclick="RegistrosApp.openLinkRegistryModal('${reg.originalIds[0]}', '${reg.producto.replace(/'/g, "\\'")}')" title="Editar vínculo con Inventario"><i class="fas fa-edit"></i></span>`
+                    : `<span style="${displayProductStyle}">${reg.producto}</span>${extraFacturadoText} <button class="btn" style="padding: 2px 6px; font-size: 11px; margin-left: 8px; border-radius: 4px; border: 1px solid #d35400; color: #d35400; background: #fffcf8; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;" onclick="RegistrosApp.openLinkRegistryModal('${reg.originalIds[0]}', '${reg.producto.replace(/'/g, "\\'")}')"><i class="fas fa-link"></i> Vincular</button>`;
 
-                const actionCell = isFacturado
+                const actionCell = isFullyFacturado
                     ? `<i class="fas fa-check-circle" style="color: #27ae60; font-size: 1.2rem;" title="Facturado"></i>`
-                    : `<button type="button" class="btn btn-danger" style="padding: 5px; width: 30px; height: 30px; border-radius: 50%;" onclick="RegistrosApp.deleteRegistro('${reg.id}')" title="Eliminar fila"><i class="fas fa-times"></i></button>`;
+                    : `<button type="button" class="btn btn-danger" style="padding: 5px; width: 30px; height: 30px; border-radius: 50%;" onclick="RegistrosApp.deleteGroup('${docIdsStr}')" title="Eliminar pendiente"><i class="fas fa-times"></i></button>`;
 
                 const tr = document.createElement('tr');
-                if (isFacturado) tr.style.cssText = rowStyle;
+                if (hasFacturados) tr.style.cssText = rowStyle;
                 tr.innerHTML = `
-                    <td><strong>${reg.cantidad}</strong></td>
+                    <td><strong>${reg.cantidadTotal}</strong></td>
                     <td><span style="font-size: 13px; color: #7f8c8d;">${this.formatDate(reg.fecha)}</span></td>
                     <td>${displayProduct}</td>
                     <td>${reg.cuenta || '-'}</td>
@@ -460,11 +517,11 @@ const RegistrosApp = {
 
                     const trExcel = document.createElement('tr');
                     trExcel.innerHTML = `
-                        <td style="border: 1px solid #d4d4d4; padding: 8px; text-align: center; vertical-align: top; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'fecha', '${reg.fecha}')" title="Doble clic para editar">${showDate ? currentFormattedDate : ''}</td>
-                        <td style="border: 1px solid #d4d4d4; padding: 8px; text-align: center; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'cantidad', '${reg.cantidad}')" title="Doble clic para editar">${reg.cantidad}</td>
-                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'producto', '${safeProducto}')" title="Doble clic para editar">${reg.producto}</td>
-                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'cuenta', '${safeCuenta}')" title="Doble clic para editar">${reg.cuenta || ''}</td>
-                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'observacion', '${safeObservacion}')" title="Doble clic para editar">${reg.observacion || ''}</td>
+                        <td style="border: 1px solid #d4d4d4; padding: 8px; text-align: center; vertical-align: top; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${docIdsStr}', 'fecha', '${reg.fecha}', ${reg.cantidadFacturada})" title="Doble clic para editar">${showDate ? currentFormattedDate : ''}</td>
+                        <td style="border: 1px solid #d4d4d4; padding: 8px; text-align: center; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${docIdsStr}', 'cantidad', '${reg.cantidadTotal}', ${reg.cantidadFacturada})" title="Doble clic para editar">${reg.cantidadTotal}</td>
+                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${docIdsStr}', 'producto', '${safeProducto}', ${reg.cantidadFacturada})" title="Doble clic para editar">${reg.producto} ${extraFacturadoText}</td>
+                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${docIdsStr}', 'cuenta', '${safeCuenta}', ${reg.cantidadFacturada})" title="Doble clic para editar">${reg.cuenta || ''}</td>
+                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${docIdsStr}', 'observacion', '${safeObservacion}', ${reg.cantidadFacturada})" title="Doble clic para editar">${reg.observacion || ''}</td>
                     `;
                     excelTbody.appendChild(trExcel);
 
@@ -532,7 +589,7 @@ const RegistrosApp = {
         }
     },
 
-    editExcelCell(tdElement, docId, field, currentValue) {
+    editExcelCell(tdElement, docIdsStr, field, currentValue, cantidadFacturada = 0) {
         if (tdElement.querySelector('input')) return; // Ya está editando
 
         let inputType = 'text';
@@ -576,24 +633,49 @@ const RegistrosApp = {
                 return;
             }
 
+            if (field === 'cantidad') {
+                if (newValue < cantidadFacturada) {
+                    alert(`Hay ${cantidadFacturada} en facturas. El mínimo es ${cantidadFacturada}.`);
+                    tdElement.innerHTML = currentValue;
+                    setTimeout(() => {
+                        if (!document.querySelector('#excel-table-tbody input')) this.renderFastEntryTable();
+                    }, 150);
+                    return;
+                }
+            }
+
             tdElement.innerHTML = newValue;
 
-            // Background update sin await para no bloquear la interfaz
-            this.registrosRef.doc(docId).update({
-                [field]: newValue
-            }).catch(e => {
-                console.error("Error actualizando celda:", e);
-                const regError = this.allRegistros.find(r => r.id === docId);
-                if (regError) regError[field] = currentValue;
+            // Update grouped docs
+            this.updateGroupedCell(docIdsStr, field, newValue, currentValue, cantidadFacturada).catch(e => {
+                console.error("Error actualizando celda agrupada:", e);
+                alert("Error guardando el cambio.");
                 tdElement.innerHTML = currentValue;
                 if (!document.querySelector('#excel-table-tbody input')) {
                     this.renderFastEntryTable();
                 }
             });
 
-            const reg = this.allRegistros.find(r => r.id === docId);
-            if (reg) {
-                reg[field] = newValue;
+            // Optimistic local update
+            const docIds = docIdsStr.split(',');
+            if (field === 'cantidad') {
+                const diff = newValue - cantidadFacturada;
+                let foundPendiente = false;
+                for (let id of docIds) {
+                    const reg = this.allRegistros.find(r => r.id === id);
+                    if (reg && reg.estado === 'pendiente') {
+                        reg.cantidad = diff;
+                        foundPendiente = true;
+                    }
+                }
+                if (!foundPendiente && diff > 0) {
+                    // It will be added from firebase snapshot
+                }
+            } else {
+                for (let id of docIds) {
+                    const reg = this.allRegistros.find(r => r.id === id);
+                    if (reg) reg[field] = newValue;
+                }
             }
 
             setTimeout(() => {
@@ -617,6 +699,106 @@ const RegistrosApp = {
                 }, 150);
             }
         });
+    },
+
+    async updateGroupedCell(docIdsStr, field, newValue, currentValue, cantidadFacturada) {
+        const docIds = docIdsStr.split(',');
+        
+        if (field === 'cantidad') {
+            const newPendienteAmount = newValue - cantidadFacturada;
+            let pendingDocId = null;
+            let otherPendingIds = [];
+
+            for (let id of docIds) {
+                const r = this.allRegistros.find(x => x.id === id);
+                if (r && r.estado === 'pendiente') {
+                    if (!pendingDocId) pendingDocId = id;
+                    else otherPendingIds.push(id);
+                }
+            }
+
+            if (newPendienteAmount <= 0) {
+                const batch = this.db.batch();
+                if (pendingDocId) batch.delete(this.registrosRef.doc(pendingDocId));
+                otherPendingIds.forEach(id => batch.delete(this.registrosRef.doc(id)));
+                await batch.commit();
+            } else {
+                if (pendingDocId) {
+                    const batch = this.db.batch();
+                    batch.update(this.registrosRef.doc(pendingDocId), { cantidad: newPendienteAmount });
+                    otherPendingIds.forEach(id => batch.delete(this.registrosRef.doc(id)));
+                    await batch.commit();
+                } else {
+                    const baseDoc = this.allRegistros.find(x => x.id === docIds[0]);
+                    await this.registrosRef.add({
+                        fecha: baseDoc.fecha,
+                        producto: baseDoc.producto,
+                        cuenta: baseDoc.cuenta || '',
+                        observacion: baseDoc.observacion || '',
+                        cantidad: newPendienteAmount,
+                        estado: 'pendiente',
+                        timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+            }
+        } else {
+            const batch = this.db.batch();
+            docIds.forEach(id => {
+                batch.update(this.registrosRef.doc(id), { [field]: newValue });
+            });
+            await batch.commit();
+        }
+    },
+
+    async deleteGroup(docIdsStr) {
+        if (!confirm("¿Eliminar los registros pendientes de esta fila? Los registros facturados no se borrarán.")) return;
+        const docIds = docIdsStr.split(',');
+        const batch = this.db.batch();
+        let deletedSomething = false;
+        docIds.forEach(id => {
+            const r = this.allRegistros.find(x => x.id === id);
+            if (r && r.estado === 'pendiente') {
+                batch.delete(this.registrosRef.doc(id));
+                deletedSomething = true;
+            }
+        });
+        if (deletedSomething) {
+            await batch.commit();
+        } else {
+            alert("No hay elementos pendientes para eliminar.");
+        }
+    },
+
+    async cerrarMes() {
+        const facturados = this.allRegistros.filter(r => r.estado === 'facturado' && !r.archivado);
+        if (facturados.length === 0) {
+            alert("No hay registros facturados pendientes por archivar.");
+            return;
+        }
+        
+        if (!confirm(`¿Estás seguro de cerrar el mes? Se archivarán ${facturados.length} registros facturados para limpiar la vista. Seguirán disponibles en el Historial Archivado.`)) return;
+
+        RegistrosApp.showLoading(true);
+        try {
+            let batch = this.db.batch();
+            let count = 0;
+            for (let reg of facturados) {
+                batch.update(this.registrosRef.doc(reg.id), { archivado: true });
+                count++;
+                if (count >= 450) {
+                    await batch.commit();
+                    batch = this.db.batch();
+                    count = 0;
+                }
+            }
+            if (count > 0) await batch.commit();
+            alert("Cierre de mes exitoso.");
+        } catch(e) {
+            console.error(e);
+            alert("Error al archivar registros.");
+        } finally {
+            RegistrosApp.showLoading(false);
+        }
     },
 
     async addFastEntryRow() {
