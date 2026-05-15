@@ -394,13 +394,13 @@ const RegistrosApp = {
                 `;
             }
         } else {
-            // Ordenar por fecha ascendente (más antiguas arriba) y desempatar por timestamp ascendente (orden de ingreso)
+            // Ordenar por fecha descendente (más recientes arriba) y desempatar por timestamp descendente (orden de ingreso inverso)
             registrosAMostrar.sort((a, b) => {
                 const millisA = this.parseDateToMillis(a.fecha);
                 const millisB = this.parseDateToMillis(b.fecha);
                 
                 if (millisA !== millisB) {
-                    return millisA - millisB; // Ascendente (más antiguas arriba)
+                    return millisB - millisA; // Descendente (más recientes arriba)
                 }
                 
                 let tA = 0;
@@ -415,7 +415,7 @@ const RegistrosApp = {
                     else if (b.timestamp instanceof Date) tB = b.timestamp.getTime();
                     else if (typeof b.timestamp === 'number') tB = b.timestamp;
                 }
-                return tA - tB; // Ascendente (orden de ingreso)
+                return tB - tA; // Descendente (orden de ingreso inverso)
             });
 
             let lastFormattedDate = null;
