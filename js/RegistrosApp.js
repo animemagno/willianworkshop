@@ -69,6 +69,7 @@ const RegistrosApp = {
             this.setupEventListeners();
             await this.loadActiveInvoices();
             await this.loadMapeoNombres();
+            await this.initFacturaDate();
             this.listenToRegistros();
             this.loadInvoicesHistory();
 
@@ -103,6 +104,48 @@ const RegistrosApp = {
                     }
                 });
         });
+    },
+
+    async initFacturaDate() {
+        const inputFecha = document.getElementById('factura-fecha');
+        if (!inputFecha) return;
+
+        try {
+            const snap = await this.db.collection('INVENTARIO_SALIDAS')
+                .orderBy('timestamp', 'desc')
+                .limit(1)
+                .get();
+
+            let targetDateStr = this.getLocalISODate();
+            if (!snap.empty) {
+                const data = snap.docs[0].data();
+                if (data.fecha) {
+                    targetDateStr = data.fecha;
+                }
+            }
+
+            inputFecha.value = targetDateStr;
+            this.mesFacturable = targetDateStr.substring(0, 7); 
+        } catch (e) {
+            console.error("Error obteniendo fecha de última factura:", e);
+            inputFecha.value = this.getLocalISODate();
+            this.mesFacturable = this.getLocalISODate().substring(0, 7);
+        }
+    },
+
+    avanzarDiaFactura() {
+        const inputFecha = document.getElementById('factura-fecha');
+        if (!inputFecha || !inputFecha.value) return;
+
+        let dateObj = new Date(inputFecha.value + 'T12:00:00');
+        dateObj.setDate(dateObj.getDate() + 1);
+
+        if (dateObj.getDay() === 0) {
+            dateObj.setDate(dateObj.getDate() + 1);
+        }
+
+        const newDateStr = dateObj.toISOString().split('T')[0];
+        inputFecha.value = newDateStr;
     },
 
     getLocalISODate(dateObj = new Date()) {
@@ -1655,6 +1698,22 @@ const RegistrosApp = {
     async finalizeInvoice() {
         try {
             this.showLoading(true);
+
+            const inputFecha = document.getElementById('factura-fecha');
+            const fechaFactura = inputFecha && inputFecha.value ? inputFecha.value : this.getLocalISODate();
+
+            const dObj = new Date(fechaFactura + 'T12:00:00');
+            if (dObj.getDay() === 0) {
+                alert('⚠️ No se puede guardar una factura con fecha de Domingo. Por favor, cambia la fecha.');
+                this.showLoading(false);
+                return;
+            }
+            if (this.mesFacturable && fechaFactura.substring(0, 7) !== this.mesFacturable) {
+                alert(`⚠️ Error: La fecha (${fechaFactura}) está fuera del mes de facturación actual (${this.mesFacturable}). No se puede guardar.`);
+                this.showLoading(false);
+                return;
+            }
+
             const batch = this.db.batch();
 
             // Generar ID de factura por adelantado para vincular los registros
@@ -1691,7 +1750,7 @@ const RegistrosApp = {
                         productId: item.vinculoId,
                         producto: item.producto,
                         cantidadFacturada: window.firebase.firestore.FieldValue.increment(item.cantidadFacturar),
-                        mes: this.getLocalISODate().substring(0, 7)
+                        mes: fechaFactura.substring(0, 7)
                     }, { merge: true });
                 }
             });
@@ -1761,7 +1820,7 @@ const RegistrosApp = {
                 gananciaProductos: gananciaProductos,
                 gananciaNeta: gananciaNeta,
                 tieneItemsSinVincular: this.facturaItems.some(i => !i.isManoDeObra && !i.vinculoId),
-                fecha: this.getLocalISODate(), // formato YYYY-MM-DD (Local)
+                fecha: fechaFactura, // formato YYYY-MM-DD (Local)
                 timestamp: window.firebase.firestore.FieldValue.serverTimestamp(),
                 items: this.facturaItems.map(item => ({
                     descripcionPapel: item.producto, // mapping para compatibilidad

@@ -401,9 +401,15 @@
                     <i class="fas fa-file-invoice-dollar"></i> 3. Factura en Construcción
                 </h2>
 
-                <div style="display: flex; gap: 12px; margin-bottom: 15px;">
-                    <input type="text" id="factura-cliente" class="large-input" placeholder="Cliente o Cuenta..." style="flex: 1;">
-                    <input type="text" id="factura-numero" class="large-input" placeholder="N° Factura..." style="max-width: 140px; text-align: center;">
+                <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                    <input type="text" id="factura-cliente" class="large-input" placeholder="Cliente o Cuenta..." style="flex: 1; min-width: 180px;">
+                    <input type="text" id="factura-numero" class="large-input" placeholder="N° Factura..." style="width: 110px; text-align: center;">
+                    <div style="display: flex; gap: 5px; align-items: center;">
+                        <input type="date" id="factura-fecha" class="large-input" style="width: 150px; padding: 10px 15px;">
+                        <button type="button" class="btn" onclick="RegistrosApp.avanzarDiaFactura()" style="background: #e2e8f0; border: 1px solid #cbd5e0; border-radius: 6px; padding: 11px 12px; cursor: pointer; color: #4a5568; font-weight: bold;" title="Avanzar 1 día">
+                            +1D
+                        </button>
+                    </div>
                 </div>
 
                 <div class="table-responsive-scroll">
