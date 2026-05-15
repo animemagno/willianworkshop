@@ -395,9 +395,10 @@ const RegistrosApp = {
                 return tA - tB; // Ascendente (orden de ingreso)
             });
 
-            let lastDateStr = null;
+            let lastFormattedDate = null;
+            let lastRawDate = null;
 
-            registrosAMostrar.forEach(reg => {
+            registrosAMostrar.forEach((reg, index) => {
                 totalItems += reg.cantidad;
                 const key = this.getGroupingKey(reg);
                 const officialName = this.getOfficialProductName(reg);
@@ -436,19 +437,46 @@ const RegistrosApp = {
                 tbody.appendChild(tr);
 
                 if (excelTbody) {
-                    const currentDateStr = this.formatDate(reg.fecha);
-                    const showDate = currentDateStr !== lastDateStr;
-                    lastDateStr = currentDateStr;
+                    const currentFormattedDate = this.formatDate(reg.fecha);
+                    const currentRawDate = reg.fecha;
+
+                    if (lastFormattedDate !== null && currentFormattedDate !== lastFormattedDate) {
+                        const trBtn = document.createElement('tr');
+                        trBtn.innerHTML = `
+                            <td colspan="5" style="border: 1px solid #d4d4d4; padding: 4px; text-align: center; background-color: #fcfcfc;">
+                                <button type="button" class="btn" style="background: none; border: 1px dashed #bbb; color: #666; font-size: 12px; padding: 4px 10px; border-radius: 4px; cursor: pointer;" onclick="RegistrosApp.addEmptyRowForDate('${lastRawDate}')">+ Agregar espacio en ${lastFormattedDate}</button>
+                            </td>
+                        `;
+                        excelTbody.appendChild(trBtn);
+                    }
+
+                    const showDate = currentFormattedDate !== lastFormattedDate;
+                    lastFormattedDate = currentFormattedDate;
+                    lastRawDate = currentRawDate;
+
+                    const safeProducto = (reg.producto || '').replace(/'/g, "\\'").replace(/"/g, "&quot;");
+                    const safeCuenta = (reg.cuenta || '').replace(/'/g, "\\'").replace(/"/g, "&quot;");
+                    const safeObservacion = (reg.observacion || '').replace(/'/g, "\\'").replace(/"/g, "&quot;");
 
                     const trExcel = document.createElement('tr');
                     trExcel.innerHTML = `
-                        <td style="border: 1px solid #d4d4d4; padding: 8px; text-align: center; vertical-align: top; color: #333;">${showDate ? currentDateStr : ''}</td>
-                        <td style="border: 1px solid #d4d4d4; padding: 8px; text-align: center; color: #333;">${reg.cantidad}</td>
-                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: #333;">${reg.producto}</td>
-                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: #333;">${reg.cuenta || ''}</td>
-                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: #333;">${reg.observacion || ''}</td>
+                        <td style="border: 1px solid #d4d4d4; padding: 8px; text-align: center; vertical-align: top; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'fecha', '${reg.fecha}')" title="Doble clic para editar">${showDate ? currentFormattedDate : ''}</td>
+                        <td style="border: 1px solid #d4d4d4; padding: 8px; text-align: center; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'cantidad', '${reg.cantidad}')" title="Doble clic para editar">${reg.cantidad}</td>
+                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'producto', '${safeProducto}')" title="Doble clic para editar">${reg.producto}</td>
+                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'cuenta', '${safeCuenta}')" title="Doble clic para editar">${reg.cuenta || ''}</td>
+                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'observacion', '${safeObservacion}')" title="Doble clic para editar">${reg.observacion || ''}</td>
                     `;
                     excelTbody.appendChild(trExcel);
+
+                    if (index === registrosAMostrar.length - 1) {
+                        const trBtnFinal = document.createElement('tr');
+                        trBtnFinal.innerHTML = `
+                            <td colspan="5" style="border: 1px solid #d4d4d4; padding: 4px; text-align: center; background-color: #fcfcfc;">
+                                <button type="button" class="btn" style="background: none; border: 1px dashed #bbb; color: #666; font-size: 12px; padding: 4px 10px; border-radius: 4px; cursor: pointer;" onclick="RegistrosApp.addEmptyRowForDate('${lastRawDate}')">+ Agregar espacio en ${lastFormattedDate}</button>
+                            </td>
+                        `;
+                        excelTbody.appendChild(trBtnFinal);
+                    }
                 }
             });
         }
@@ -484,6 +512,83 @@ const RegistrosApp = {
                 resumenTbody.appendChild(tr);
             });
         }
+    },
+
+    async addEmptyRowForDate(rawDateStr) {
+        if (!rawDateStr) return;
+        try {
+            await this.registrosRef.add({
+                fecha: rawDateStr,
+                cantidad: 1,
+                producto: 'Nuevo Registro (Doble clic para editar)',
+                cuenta: '',
+                observacion: '',
+                estado: 'pendiente',
+                timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
+            });
+        } catch (e) {
+            console.error("Error agregando fila:", e);
+            alert("Error al agregar la fila.");
+        }
+    },
+
+    editExcelCell(tdElement, docId, field, currentValue) {
+        if (tdElement.querySelector('input')) return; // Ya está editando
+
+        let inputType = 'text';
+        if (field === 'cantidad') inputType = 'number';
+        if (field === 'fecha') inputType = 'date';
+
+        const input = document.createElement('input');
+        input.type = inputType;
+        input.value = currentValue;
+        input.style.width = '100%';
+        input.style.boxSizing = 'border-box';
+        input.style.padding = '4px';
+        input.style.border = '2px solid #3498db';
+        input.style.outline = 'none';
+        input.style.fontFamily = 'inherit';
+        input.style.fontSize = 'inherit';
+
+        tdElement.innerHTML = '';
+        tdElement.appendChild(input);
+        input.focus();
+
+        const saveChanges = async () => {
+            let newValue = input.value;
+            if (field === 'cantidad') {
+                newValue = parseInt(newValue) || 1;
+            }
+            if (field === 'fecha' && !newValue) {
+                newValue = currentValue; 
+            }
+
+            tdElement.innerHTML = '<span style="color:#aaa;">Guardando...</span>';
+
+            if (newValue.toString() !== currentValue.toString()) {
+                try {
+                    await this.registrosRef.doc(docId).update({
+                        [field]: newValue
+                    });
+                } catch (e) {
+                    console.error("Error actualizando celda:", e);
+                    alert("Error guardando el cambio.");
+                    this.renderFastEntryTable();
+                }
+            } else {
+                this.renderFastEntryTable();
+            }
+        };
+
+        input.addEventListener('blur', saveChanges);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                input.blur();
+            } else if (e.key === 'Escape') {
+                input.removeEventListener('blur', saveChanges);
+                this.renderFastEntryTable();
+            }
+        });
     },
 
     async addFastEntryRow() {
