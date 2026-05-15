@@ -341,16 +341,39 @@ const RegistrosApp = {
     renderFastEntryTable() {
         const tbody = document.getElementById('fast-entry-tbody');
         const excelTbody = document.getElementById('excel-table-tbody');
+        const historialTbody = document.getElementById('historial-archivo-tbody');
         if (!tbody) return;
-
-        const registrosAMostrar = this.allRegistros;
 
         let totalItems = 0;
         let resumenMap = {};
 
         tbody.innerHTML = '';
-        if (excelTbody) {
-            excelTbody.innerHTML = '';
+        if (excelTbody) excelTbody.innerHTML = '';
+        if (historialTbody) historialTbody.innerHTML = '';
+
+        const registrosArchivados = this.allRegistros.filter(r => r.archivado);
+        const registrosAMostrar = this.allRegistros.filter(r => !r.archivado);
+
+        if (historialTbody) {
+            if (registrosArchivados.length === 0) {
+                historialTbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 40px; color: #aaa;">No hay registros archivados</td></tr>`;
+            } else {
+                registrosArchivados.sort((a, b) => {
+                    const diff = this.parseDateToMillis(b.fecha) - this.parseDateToMillis(a.fecha);
+                    return diff !== 0 ? diff : (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0);
+                });
+                registrosArchivados.forEach(reg => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="border: 1px solid #cbd5e0; text-align: center;">${reg.cantidad}</td>
+                        <td style="border: 1px solid #cbd5e0; text-align: center;">${this.formatDate(reg.fecha)}</td>
+                        <td style="border: 1px solid #cbd5e0; color: #555;">${reg.producto}</td>
+                        <td style="border: 1px solid #cbd5e0; color: #555;">${reg.cuenta || '-'}</td>
+                        <td style="border: 1px solid #cbd5e0; color: #555;">Facturado</td>
+                    `;
+                    historialTbody.appendChild(tr);
+                });
+            }
         }
 
         if (registrosAMostrar.length === 0) {
@@ -617,6 +640,38 @@ const RegistrosApp = {
                 }, 150);
             }
         });
+    },
+
+    async cerrarMes() {
+        const facturados = this.allRegistros.filter(r => r.estado === 'facturado' && !r.archivado);
+        if (facturados.length === 0) {
+            alert("No hay registros facturados listos para archivar.");
+            return;
+        }
+        
+        if (!confirm(`¿Estás seguro de cerrar el mes? Se archivarán ${facturados.length} registros facturados para limpiar la vista. Seguirán disponibles en el Historial Archivado.`)) return;
+
+        this.showLoading(true);
+        try {
+            let batch = this.db.batch();
+            let count = 0;
+            for (let reg of facturados) {
+                batch.update(this.registrosRef.doc(reg.id), { archivado: true });
+                count++;
+                if (count >= 450) {
+                    await batch.commit();
+                    batch = this.db.batch();
+                    count = 0;
+                }
+            }
+            if (count > 0) await batch.commit();
+            alert("Cierre de mes exitoso. Los registros facturados han sido archivados.");
+        } catch(e) {
+            console.error(e);
+            alert("Error al archivar.");
+        } finally {
+            this.showLoading(false);
+        }
     },
 
     async addFastEntryRow() {

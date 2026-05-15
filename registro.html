@@ -341,11 +341,19 @@
                         <button id="tab-btn-tabla" class="tab-btn-inner" onclick="switchInnerTab('tabla')">
                             <i class="fas fa-table"></i> Tabla Excel
                         </button>
+                        <button id="tab-btn-historial" class="tab-btn-inner" onclick="switchInnerTab('historial')">
+                            <i class="fas fa-archive"></i> Historial Archivado
+                        </button>
                     </div>
-                    <!-- Botón Borrar Todo -->
-                    <button class="btn" style="background-color: #e74c3c; color: white; padding: 10px 16px; font-size: 0.9rem; font-weight: bold; border-radius: 6px; display: flex; align-items: center; gap: 8px; border: none; cursor: pointer; transition: background 0.2s;" onclick="RegistrosApp.deleteOnlyPendingRegistros()">
-                        <i class="fas fa-trash-alt"></i> Borrar Todo el Volumen
-                    </button>
+                    <!-- Botones de Acción -->
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn" style="background-color: #27ae60; color: white; padding: 10px 16px; font-size: 0.9rem; font-weight: bold; border-radius: 6px; display: flex; align-items: center; gap: 8px; border: none; cursor: pointer; transition: background 0.2s;" onclick="RegistrosApp.cerrarMes()">
+                            <i class="fas fa-box-archive"></i> Cerrar Mes
+                        </button>
+                        <button class="btn" style="background-color: #e74c3c; color: white; padding: 10px 16px; font-size: 0.9rem; font-weight: bold; border-radius: 6px; display: flex; align-items: center; gap: 8px; border: none; cursor: pointer; transition: background 0.2s;" onclick="RegistrosApp.deleteOnlyPendingRegistros()">
+                            <i class="fas fa-trash-alt"></i> Borrar Todo
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Contenedor 1: Lista de Registros Pendientes -->
@@ -414,6 +422,28 @@
                             <tbody id="excel-table-tbody">
                                 <tr>
                                     <td colspan="5" style="text-align: center; padding: 40px; color: #aaa;">No hay datos para mostrar</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Contenedor 4: Historial Archivado -->
+                <div id="inner-tab-historial" style="display: none; flex-grow: 1;">
+                    <div class="table-container-large">
+                        <table class="inventario-table" style="margin: 0; width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: #e2e8f0;">
+                                    <th style="width: 80px; text-align: center; border: 1px solid #cbd5e0;">Cant.</th>
+                                    <th style="width: 100px; text-align: center; border: 1px solid #cbd5e0;">Fecha</th>
+                                    <th style="border: 1px solid #cbd5e0;">Descripción</th>
+                                    <th style="width: 150px; border: 1px solid #cbd5e0;">Cuenta</th>
+                                    <th style="width: 150px; border: 1px solid #cbd5e0;">Nº Factura</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historial-archivo-tbody">
+                                <tr>
+                                    <td colspan="5" style="text-align: center; padding: 40px; color: #aaa;">No hay registros archivados</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -493,16 +523,22 @@
             const tabLista = document.getElementById('inner-tab-lista');
             const tabResumen = document.getElementById('inner-tab-resumen');
             const tabTabla = document.getElementById('inner-tab-tabla');
+            const tabHistorial = document.getElementById('inner-tab-historial');
+            
             const btnLista = document.getElementById('tab-btn-lista');
             const btnResumen = document.getElementById('tab-btn-resumen');
             const btnTabla = document.getElementById('tab-btn-tabla');
+            const btnHistorial = document.getElementById('tab-btn-historial');
 
             tabLista.style.display = 'none';
             tabResumen.style.display = 'none';
             tabTabla.style.display = 'none';
+            tabHistorial.style.display = 'none';
+            
             btnLista.classList.remove('active');
             btnResumen.classList.remove('active');
             btnTabla.classList.remove('active');
+            btnHistorial.classList.remove('active');
 
             if (tabName === 'lista') {
                 tabLista.style.display = 'block';
@@ -513,6 +549,9 @@
             } else if (tabName === 'tabla') {
                 tabTabla.style.display = 'block';
                 btnTabla.classList.add('active');
+            } else if (tabName === 'historial') {
+                tabHistorial.style.display = 'block';
+                btnHistorial.classList.add('active');
             }
         }
     </script>
