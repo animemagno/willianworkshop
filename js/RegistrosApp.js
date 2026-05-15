@@ -342,26 +342,26 @@ const RegistrosApp = {
         const tbody = document.getElementById('fast-entry-tbody');
         if (!tbody) return;
 
-        const pendientes = this.allRegistros.filter(r => r.estado === 'pendiente');
+        const registrosAMostrar = this.allRegistros;
 
         let totalItems = 0;
         let resumenMap = {};
 
         tbody.innerHTML = '';
 
-        if (pendientes.length === 0) {
+        if (registrosAMostrar.length === 0) {
             tbody.innerHTML = `
                 <tr id="empty-state-row">
                     <td colspan="6" style="text-align: center; padding: 40px 20px; color: #aaa;">
                         <i class="fas fa-box-open" style="font-size: 40px; margin-bottom: 10px;"></i>
-                        <p>No hay productos pendientes.</p>
+                        <p>No hay productos registrados.</p>
                         <p style="font-size: 13px;">Agrega productos desde el formulario para comenzar.</p>
                     </td>
                 </tr>
             `;
         } else {
             // Ordenar por fecha ascendente (más antiguas arriba) y desempatar por timestamp ascendente (orden de ingreso)
-            pendientes.sort((a, b) => {
+            registrosAMostrar.sort((a, b) => {
                 const millisA = this.parseDateToMillis(a.fecha);
                 const millisB = this.parseDateToMillis(b.fecha);
                 
@@ -384,33 +384,41 @@ const RegistrosApp = {
                 return tA - tB; // Ascendente (orden de ingreso)
             });
 
-            pendientes.forEach(reg => {
+            registrosAMostrar.forEach(reg => {
                 totalItems += reg.cantidad;
                 const key = this.getGroupingKey(reg);
                 const officialName = this.getOfficialProductName(reg);
 
                 if (!resumenMap[key]) {
-                    resumenMap[key] = { name: officialName, count: 0 };
+                    resumenMap[key] = { name: officialName, count: 0, countFacturado: 0 };
                 }
                 resumenMap[key].count += reg.cantidad;
+                if (reg.estado === 'facturado') {
+                    resumenMap[key].countFacturado += reg.cantidad;
+                }
+
+                const isFacturado = reg.estado === 'facturado';
+                const rowStyle = isFacturado ? 'background-color: #e6fffa; color: #27ae60;' : '';
+                const displayProductStyle = isFacturado ? 'color: #27ae60; font-weight: bold;' : '';
 
                 const isLinked = reg.productId ? true : false;
                 const displayProduct = isLinked 
-                    ? `${officialName} <span style="font-size:11px; color:#3498db; cursor:pointer; margin-left:6px;" onclick="RegistrosApp.openLinkRegistryModal('${reg.id}', '${reg.producto.replace(/'/g, "\\'")}')" title="Editar vínculo con Inventario"><i class="fas fa-edit"></i></span>`
-                    : `${reg.producto} <button class="btn" style="padding: 2px 6px; font-size: 11px; margin-left: 8px; border-radius: 4px; border: 1px solid #d35400; color: #d35400; background: #fffcf8; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;" onclick="RegistrosApp.openLinkRegistryModal('${reg.id}', '${reg.producto.replace(/'/g, "\\'")}')"><i class="fas fa-link"></i> Vincular</button>`;
+                    ? `<span style="${displayProductStyle}">${officialName}</span> <span style="font-size:11px; color:#3498db; cursor:pointer; margin-left:6px;" onclick="RegistrosApp.openLinkRegistryModal('${reg.id}', '${reg.producto.replace(/'/g, "\\'")}')" title="Editar vínculo con Inventario"><i class="fas fa-edit"></i></span>`
+                    : `<span style="${displayProductStyle}">${reg.producto}</span> <button class="btn" style="padding: 2px 6px; font-size: 11px; margin-left: 8px; border-radius: 4px; border: 1px solid #d35400; color: #d35400; background: #fffcf8; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;" onclick="RegistrosApp.openLinkRegistryModal('${reg.id}', '${reg.producto.replace(/'/g, "\\'")}')"><i class="fas fa-link"></i> Vincular</button>`;
+
+                const actionCell = isFacturado
+                    ? `<i class="fas fa-check-circle" style="color: #27ae60; font-size: 1.2rem;" title="Facturado"></i>`
+                    : `<button type="button" class="btn btn-danger" style="padding: 5px; width: 30px; height: 30px; border-radius: 50%;" onclick="RegistrosApp.deleteRegistro('${reg.id}')" title="Eliminar fila"><i class="fas fa-times"></i></button>`;
 
                 const tr = document.createElement('tr');
+                if (isFacturado) tr.style.cssText = rowStyle;
                 tr.innerHTML = `
                     <td><strong>${reg.cantidad}</strong></td>
                     <td><span style="font-size: 13px; color: #7f8c8d;">${this.formatDate(reg.fecha)}</span></td>
                     <td>${displayProduct}</td>
                     <td>${reg.cuenta || '-'}</td>
                     <td><span style="font-size:13px; color:#666;">${reg.observacion || '-'}</span></td>
-                    <td style="text-align: center;">
-                        <button type="button" class="btn btn-danger" style="padding: 5px; width: 30px; height: 30px; border-radius: 50%;" onclick="RegistrosApp.deleteRegistro('${reg.id}')" title="Eliminar fila">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </td>
+                    <td style="text-align: center;">${actionCell}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -438,9 +446,10 @@ const RegistrosApp = {
             const sortedKeys = Object.keys(resumenMap).sort((a, b) => resumenMap[a].name.localeCompare(resumenMap[b].name));
             
             sortedKeys.forEach(key => {
+                const facturadoHtml = resumenMap[key].countFacturado > 0 ? ` <span style="font-size:11px; color:#27ae60; background:#e6fffa; padding:2px 6px; border-radius:10px;"><i class="fas fa-check"></i> ${resumenMap[key].countFacturado} fact.</span>` : '';
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td>${resumenMap[key].name}</td>
+                    <td>${resumenMap[key].name}${facturadoHtml}</td>
                     <td><strong>${resumenMap[key].count}</strong></td>
                 `;
                 resumenTbody.appendChild(tr);
