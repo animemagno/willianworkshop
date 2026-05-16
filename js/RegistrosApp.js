@@ -73,6 +73,7 @@ const RegistrosApp = {
             this.loadFacturaDraft();
             this.listenToRegistros();
             this.loadInvoicesHistory();
+            this.loadCustomServices();
 
         } catch (error) {
             console.error("Error al iniciar RegistrosApp:", error);
@@ -1368,8 +1369,44 @@ const RegistrosApp = {
             alert('Por favor ingrese el nombre del servicio.');
             return;
         }
-        this.addServiceToFactura(serviceName, true);
+
+        // Guardar servicio personalizado en localStorage
+        let customServices = JSON.parse(localStorage.getItem('custom_workshop_services') || '[]');
+        if (!customServices.includes(serviceName)) {
+            customServices.push(serviceName);
+            localStorage.setItem('custom_workshop_services', JSON.stringify(customServices));
+            // Agregarlo visualmente a la tabla antes de Mano de Obra
+            this.renderSingleCustomService(serviceName);
+        }
+
         if (input) input.value = '';
+    },
+
+    loadCustomServices() {
+        let customServices = JSON.parse(localStorage.getItem('custom_workshop_services') || '[]');
+        customServices.forEach(serviceName => {
+            this.renderSingleCustomService(serviceName);
+        });
+    },
+
+    renderSingleCustomService(serviceName) {
+        const tbody = document.getElementById('servicios-list-tbody');
+        const rowManoObra = document.getElementById('row-mano-obra');
+        if (!tbody || !rowManoObra) return;
+
+        const tr = document.createElement('tr');
+        tr.onclick = () => RegistrosApp.addServiceToFactura(serviceName, true);
+        
+        tr.innerHTML = `
+            <td style="font-weight: 500; padding: 12px 10px;"><i class="fas fa-tools" style="color: #3498db; margin-right: 8px;"></i> ${serviceName}</td>
+            <td style="text-align: center; padding: 12px 10px;">
+                <button class="btn" style="padding: 4px 10px; font-size: 13px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    <i class="fas fa-plus"></i> Agregar
+                </button>
+            </td>
+        `;
+        
+        tbody.insertBefore(tr, rowManoObra);
     },
 
     dropToFactura(e) {

@@ -467,7 +467,7 @@
                                 <th style="width: 140px; text-align: center; border: 1px solid #ddd; padding: 12px;">Acción</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="servicios-list-tbody">
                             <tr onclick="RegistrosApp.addServiceToFactura('Cambio de aceite')">
                                 <td style="font-weight: 500; padding: 12px 10px;"><i class="fas fa-oil-can" style="color: #3498db; margin-right: 8px;"></i> Cambio de aceite</td>
                                 <td style="text-align: center; padding: 12px 10px;">
@@ -516,7 +516,7 @@
                                     </button>
                                 </td>
                             </tr>
-                            <tr onclick="RegistrosApp.addServiceToFactura('Mano de Obra', true)" style="background-color: #e6fffa; border-top: 2px solid #b2f5ea;">
+                            <tr id="row-mano-obra" onclick="RegistrosApp.addServiceToFactura('Mano de Obra', true)" style="background-color: #e6fffa; border-top: 2px solid #b2f5ea;">
                                 <td style="font-weight: bold; color: #004d40; padding: 12px 10px;"><i class="fas fa-hand-holding-usd" style="color: #2e7d32; margin-right: 8px;"></i> Mano de Obra (Solicita precio)</td>
                                 <td style="text-align: center; padding: 12px 10px;">
                                     <button class="btn" style="padding: 4px 10px; font-size: 13px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
