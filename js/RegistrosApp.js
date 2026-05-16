@@ -70,6 +70,7 @@ const RegistrosApp = {
             await this.loadActiveInvoices();
             await this.loadMapeoNombres();
             await this.initFacturaDate();
+            this.loadFacturaDraft();
             this.listenToRegistros();
             this.loadInvoicesHistory();
 
@@ -130,6 +131,43 @@ const RegistrosApp = {
             console.error("Error obteniendo fecha de última factura:", e);
             inputFecha.value = this.getLocalISODate();
             this.mesFacturable = this.getLocalISODate().substring(0, 7);
+        }
+    },
+
+    saveFacturaDraft() {
+        try {
+            const draft = {
+                items: this.facturaItems,
+                cliente: document.getElementById('factura-cliente') ? document.getElementById('factura-cliente').value : '',
+                numero: document.getElementById('factura-numero') ? document.getElementById('factura-numero').value : ''
+            };
+            localStorage.setItem('facturaDraft_v1', JSON.stringify(draft));
+        } catch(e) {
+            console.error("Error saving draft", e);
+        }
+    },
+
+    loadFacturaDraft() {
+        try {
+            const draftStr = localStorage.getItem('facturaDraft_v1');
+            if (draftStr) {
+                const draft = JSON.parse(draftStr);
+                if (draft.items && draft.items.length > 0) {
+                    this.facturaItems = draft.items;
+                    setTimeout(() => {
+                        if (draft.cliente && document.getElementById('factura-cliente')) {
+                            document.getElementById('factura-cliente').value = draft.cliente;
+                        }
+                        if (draft.numero && document.getElementById('factura-numero')) {
+                            document.getElementById('factura-numero').value = draft.numero;
+                        }
+                        this.renderFactura();
+                        this.renderFacturacionData();
+                    }, 100);
+                }
+            }
+        } catch(e) {
+            console.error("Error loading draft", e);
         }
     },
 
@@ -336,6 +374,12 @@ const RegistrosApp = {
         if (searchInput) {
             searchInput.addEventListener('input', () => this.renderTable());
         }
+
+        const clienteInput = document.getElementById('factura-cliente');
+        if (clienteInput) clienteInput.addEventListener('input', () => this.saveFacturaDraft());
+        
+        const numeroInput = document.getElementById('factura-numero');
+        if (numeroInput) numeroInput.addEventListener('input', () => this.saveFacturaDraft());
     },
 
     renderFastEntryTable() {
@@ -1317,6 +1361,17 @@ const RegistrosApp = {
         }
     },
 
+    addCustomService() {
+        const input = document.getElementById('custom-service-input');
+        const serviceName = input ? input.value.trim() : '';
+        if (!serviceName) {
+            alert('Por favor ingrese el nombre del servicio.');
+            return;
+        }
+        this.addServiceToFactura(serviceName, true);
+        if (input) input.value = '';
+    },
+
     dropToFactura(e) {
         e.preventDefault();
         document.getElementById('factura-dropzone').style.backgroundColor = '#fafbfc';
@@ -1407,6 +1462,13 @@ const RegistrosApp = {
             `;
             const cardTotalEl = document.getElementById('card-factura-total');
             if (cardTotalEl) cardTotalEl.innerText = "0.00";
+            
+            const counterEl = document.getElementById('factura-line-counter');
+            if (counterEl) {
+                counterEl.innerText = `(0/${this.MAX_FACTURA_ITEMS} líneas)`;
+            }
+
+            this.saveFacturaDraft();
             return;
         }
 
@@ -1451,6 +1513,13 @@ const RegistrosApp = {
 
         const cardTotalEl = document.getElementById('card-factura-total');
         if (cardTotalEl) cardTotalEl.innerText = grandTotal.toFixed(2);
+
+        const counterEl = document.getElementById('factura-line-counter');
+        if (counterEl) {
+            counterEl.innerText = `(${this.facturaItems.length}/${this.MAX_FACTURA_ITEMS} líneas)`;
+        }
+
+        this.saveFacturaDraft();
     },
 
     updateFacturaItemQty(id, newQty, max) {
@@ -2070,6 +2139,7 @@ const RegistrosApp = {
 
             // Limpiar factura
             this.facturaItems = [];
+            this.saveFacturaDraft();
             this.renderFactura();
             document.getElementById('factura-cliente').value = '';
             document.getElementById('factura-numero').value = '';
@@ -2799,11 +2869,11 @@ const RegistrosApp = {
             const typeClass = inv.tipo === 'repuestos' ? 'status-pending' : 'status-invoiced';
             const sinVincular = !!inv.tieneItemsSinVincular;
             const alertaBadge = sinVincular
-                ? `<span style="display:inline-flex;align-items:center;gap:3px;background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:bold;margin-left:6px;"><i class='fas fa-exclamation-triangle'></i> Sin vincular</span>`
+                ? `<span style="display:inline-flex;align-items:center;gap:3px;background:#fed7d7;color:#c53030;border:1px solid #fc8181;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:bold;margin-left:6px;"><i class='fas fa-exclamation-triangle'></i> Sin vincular</span>`
                 : '';
 
             const tr = document.createElement('tr');
-            if (sinVincular) tr.style.cssText = 'background:#fffbeb; border-left:4px solid #f59e0b;';
+            if (sinVincular) tr.style.cssText = 'background:#fff5f5; border-left:4px solid #e53e3e;';
             tr.innerHTML = `
                 <td style="padding: 12px; border: 1px solid #edf2f7; font-weight: 500;">${dateFormatted}</td>
                 <td style="padding: 12px; border: 1px solid #edf2f7; font-weight: 600; color: #2d3748;">${inv.CLIENTE || 'Cliente General'}${alertaBadge}</td>
@@ -2940,10 +3010,10 @@ const RegistrosApp = {
             } else if (estaVinculado) {
                 estadoHTML = `<span style="font-size:10px;color:#276749;background:#f0fff4;padding:1px 6px;border-radius:3px;margin-left:5px;font-weight:bold;"><i class='fas fa-check'></i> Vinculado</span>`;
             } else {
-                estadoHTML = `<button class="btn" style="font-size:11px;padding:2px 8px;margin-left:6px;background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:4px;cursor:pointer;" onclick="RegistrosApp.openLinkInvoiceItemModal('${id}',${itemIdx})"><i class='fas fa-link'></i> Vincular</button>`;
+                estadoHTML = `<button class="btn" style="font-size:11px;padding:2px 8px;margin-left:6px;background:#fed7d7;color:#c53030;border:1px solid #fc8181;border-radius:4px;cursor:pointer;" onclick="RegistrosApp.openLinkInvoiceItemModal('${id}',${itemIdx})"><i class='fas fa-link'></i> Vincular</button>`;
             }
             const tr = document.createElement('tr');
-            if (!esServicio && !estaVinculado) tr.style.backgroundColor = '#fffbeb';
+            if (!esServicio && !estaVinculado) tr.style.backgroundColor = '#fff5f5';
             tr.innerHTML = `
                 <td style="text-align: center; border: 1px solid #edf2f7; padding: 8px; font-weight: bold;">${cant}</td>
                 <td style="border: 1px solid #edf2f7; padding: 8px; font-size:13px;">${desc}${estadoHTML}</td>

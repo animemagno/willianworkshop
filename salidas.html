@@ -401,7 +401,7 @@
                 ondragleave="RegistrosApp.dragLeave(event)" ondrop="RegistrosApp.dropToFactura(event)">
                 
                 <h2 style="font-size: 1.2rem; color: #27ae60; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; margin-top: 0; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
-                    <i class="fas fa-file-invoice-dollar"></i> 3. Factura en Construcción
+                    <i class="fas fa-file-invoice-dollar"></i> 3. Factura en Construcción <span id="factura-line-counter" style="font-size: 0.9rem; color: #718096; margin-left: auto;">(0/14 líneas)</span>
                 </h2>
 
                 <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
@@ -526,6 +526,13 @@
                             </tr>
                         </tbody>
                     </table>
+                </div>
+
+                <div style="margin-bottom: 20px; display: flex; gap: 10px; padding: 15px; background: #f8f9fa; border: 1px solid #e2e8f0; border-radius: 8px; align-items: center; flex-wrap: wrap;">
+                    <input type="text" id="custom-service-input" class="large-input" placeholder="Nombre de servicio manual u otro..." style="flex: 1; min-width: 200px;">
+                    <button class="btn" style="padding: 12px 20px; font-weight: bold; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;" onclick="RegistrosApp.addCustomService()">
+                        <i class="fas fa-plus"></i> Agregar Otro Servicio
+                    </button>
                 </div>
 
                 <div style="display: flex; justify-content: space-between; border-top: 1px solid #f1f1f1; padding-top: 15px; margin-top: auto;">
