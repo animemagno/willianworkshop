@@ -14,11 +14,18 @@
     
     <style>
         /* Estilos optimizados para pantalla completa y tablet de Salidas */
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+
         body {
             background-color: #f4f6f9;
             margin: 0;
             padding: 0;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
         }
 
         header {
@@ -56,18 +63,23 @@
             max-width: 100%;
             width: 100%;
             margin: 0 auto;
-            padding: 20px;
+            padding: 15px 20px;
             box-sizing: border-box;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
         }
 
         /* Rejilla de Salidas adaptada a Pantalla Completa */
         .salidas-grid {
             display: grid;
             grid-template-columns: 1fr 1fr 1.3fr;
-            gap: 20px;
+            gap: 15px; /* Reducido un poco para tablet */
             align-items: stretch;
             transition: grid-template-columns 0.4s ease;
-            height: calc(100vh - 150px); /* Ajustado para prevenir scroll vertical en tablet */
+            flex: 1;
+            min-height: 0; /* EVITA QUE EL GRID EMPUJE HACIA ABAJO Y ROMPA EL LAYOUT */
             box-sizing: border-box;
         }
 
@@ -93,7 +105,7 @@
         .salidas-card {
             display: flex;
             flex-direction: column;
-            padding: 20px;
+            padding: 15px; /* Reducido para pantallas pequeñas */
             background: white;
             border-radius: 10px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
@@ -101,6 +113,7 @@
             overflow: hidden;
             position: relative;
             border: 1px solid rgba(0,0,0,0.03);
+            min-height: 0; /* EVITA EL DESBORDAMIENTO VERTICAL */
         }
 
         .salidas-card.collapsed {
@@ -334,7 +347,7 @@
     </div>
 
     <!-- SECCIÓN FACTURACIÓN -->
-    <div id="facturacion-section">
+    <div id="facturacion-section" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
     <div class="container-full">
         <div id="salidas-grid" class="salidas-grid">
 
@@ -396,7 +409,7 @@
             </div>
 
             <!-- Tarjeta 3: La Factura (Dropzone) -->
-            <div style="display: flex; flex-direction: column; padding: 20px; border: 2px dashed #3498db; background-color: #f7fafc; transition: all 0.3s; border-radius: 10px;"
+            <div style="display: flex; flex-direction: column; padding: 15px; border: 2px dashed #3498db; background-color: #f7fafc; transition: all 0.3s; border-radius: 10px; min-height: 0; overflow: hidden;"
                 id="factura-dropzone" ondragover="RegistrosApp.allowDrop(event)"
                 ondragleave="RegistrosApp.dragLeave(event)" ondrop="RegistrosApp.dropToFactura(event)">
                 
@@ -638,7 +651,7 @@
     </div><!-- /facturacion-section -->
 
     <!-- SECCIÓN HISTORIAL -->
-    <div id="historial-section" style="display:none; padding:20px; height:calc(100vh - 105px); box-sizing:border-box; overflow-y:auto;">
+    <div id="historial-section" style="display:none; padding:20px; flex: 1; min-height: 0; box-sizing:border-box; overflow-y:auto;">
       <div style="background:white; border-radius:10px; box-shadow:0 4px 15px rgba(0,0,0,0.05); padding:25px; height:100%; display:flex; flex-direction:column; box-sizing:border-box;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
             <h2 style="margin:0; font-size:1.3rem; display:flex; align-items:center; gap:10px; color:#2c3e50;">
