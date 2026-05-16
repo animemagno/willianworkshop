@@ -413,16 +413,16 @@
                 id="factura-dropzone" ondragover="RegistrosApp.allowDrop(event)"
                 ondragleave="RegistrosApp.dragLeave(event)" ondrop="RegistrosApp.dropToFactura(event)">
                 
-                <h2 style="font-size: 1.2rem; color: #27ae60; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; margin-top: 0; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
-                    <i class="fas fa-file-invoice-dollar"></i> 3. Factura en Construcción <span id="factura-line-counter" style="font-size: 0.9rem; color: #718096; margin-left: auto;">(0/14 líneas)</span>
+                <h2 style="font-size: 1.1rem; color: #27ae60; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-top: 0; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-file-invoice-dollar"></i> 3. Factura en Construcción <span id="factura-line-counter" style="font-size: 0.85rem; color: #718096; margin-left: auto;">(0/14 líneas)</span>
                 </h2>
 
-                <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
-                    <input type="text" id="factura-cliente" class="large-input" placeholder="Cliente o Cuenta..." style="flex: 1; min-width: 180px;">
-                    <input type="text" id="factura-numero" class="large-input" placeholder="N° Factura..." style="width: 110px; text-align: center;">
+                <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+                    <input type="text" id="factura-cliente" class="large-input" placeholder="Cliente o Cuenta..." style="flex: 1; min-width: 140px; padding: 8px 10px; font-size: 0.9rem;">
+                    <input type="text" id="factura-numero" class="large-input" placeholder="N° Fac..." style="width: 80px; text-align: center; padding: 8px 10px; font-size: 0.9rem;">
                     <div style="display: flex; gap: 5px; align-items: center;">
-                        <input type="date" id="factura-fecha" class="large-input" style="width: 150px; padding: 10px 15px;">
-                        <button type="button" class="btn" onclick="RegistrosApp.avanzarDiaFactura()" style="background: #e2e8f0; border: 1px solid #cbd5e0; border-radius: 6px; padding: 11px 12px; cursor: pointer; color: #4a5568; font-weight: bold;" title="Avanzar 1 día">
+                        <input type="date" id="factura-fecha" class="large-input" style="width: 130px; padding: 8px 10px; font-size: 0.9rem;">
+                        <button type="button" class="btn" onclick="RegistrosApp.avanzarDiaFactura()" style="background: #e2e8f0; border: 1px solid #cbd5e0; border-radius: 6px; padding: 8px 10px; cursor: pointer; color: #4a5568; font-weight: bold; font-size: 0.85rem;" title="Avanzar 1 día">
                             +1D
                         </button>
                     </div>
@@ -432,19 +432,19 @@
                     <table class="inventario-table" style="margin: 0; width: 100%; border-collapse: collapse;">
                         <thead>
                             <tr style="background: #f8f9fa;">
-                                <th style="width: 60px; text-align: center; border: 1px solid #ddd;">Cant.</th>
-                                <th style="border: 1px solid #ddd;">Producto Facturado</th>
-                                <th style="width: 90px; border: 1px solid #ddd;">P. Unit.</th>
-                                <th style="width: 90px; border: 1px solid #ddd;">Total</th>
-                                <th style="width: 50px; border: 1px solid #ddd;"></th>
+                                <th style="width: 45px; text-align: center; border: 1px solid #ddd; font-size: 0.85rem; padding: 8px 4px;">Cant.</th>
+                                <th style="border: 1px solid #ddd; font-size: 0.85rem; padding: 8px;">Producto</th>
+                                <th style="width: 75px; border: 1px solid #ddd; font-size: 0.85rem; padding: 8px 4px;">P. Unit.</th>
+                                <th style="width: 80px; border: 1px solid #ddd; font-size: 0.85rem; padding: 8px 4px;">Total</th>
+                                <th style="width: 35px; border: 1px solid #ddd; padding: 8px 4px;"></th>
                             </tr>
                         </thead>
                         <tbody id="factura-tbody">
                             <tr id="factura-empty-state">
-                                <td colspan="5" style="text-align: center; padding: 60px 20px; color: #a0aec0;">
-                                    <i class="fas fa-hand-holding-box" style="font-size: 40px; margin-bottom: 12px; color: #cbd5e0;"></i>
-                                    <br><strong style="font-size: 1rem;">La factura está vacía</strong>
-                                    <br><span style="font-size: 0.85rem; color: #a0aec0;">Toca o arrastra los productos de la izquierda</span>
+                                <td colspan="5" style="text-align: center; padding: 25px 10px; color: #a0aec0;">
+                                    <i class="fas fa-hand-holding-box" style="font-size: 30px; margin-bottom: 8px; color: #cbd5e0;"></i>
+                                    <br><strong style="font-size: 0.9rem;">La factura está vacía</strong>
+                                    <br><span style="font-size: 0.8rem; color: #a0aec0;">Toca o arrastra los productos</span>
                                     <br><small style="font-size: 0.8rem; color: #a0aec0;">(Límite de 14 productos)</small>
                                 </td>
                             </tr>
@@ -453,12 +453,12 @@
                 </div>
 
                 <!-- Bloque de Total General en la Tarjeta -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; font-weight: bold; font-size: 1.1rem; padding: 12px 15px; background: #e6fffa; border-radius: 6px; border: 1px solid #b2f5ea; color: #234e52;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-weight: bold; font-size: 1.05rem; padding: 10px 15px; background: #e6fffa; border-radius: 6px; border: 1px solid #b2f5ea; color: #234e52;">
                     <span>Total Factura:</span>
                     <span>$<span id="card-factura-total">0.00</span></span>
                 </div>
 
-                <button id="btn-siguiente-factura" class="btn btn-success" style="width: 100%; margin-top: 15px; padding: 15px; font-size: 1.1rem; font-weight: bold; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px rgba(39, 174, 96, 0.2);" onclick="RegistrosApp.nextStep()">
+                <button id="btn-siguiente-factura" class="btn btn-success" style="width: 100%; margin-top: 10px; padding: 12px; font-size: 1.05rem; font-weight: bold; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px rgba(39, 174, 96, 0.2);" onclick="RegistrosApp.nextStep()">
                     <i class="fas fa-arrow-circle-right"></i> <span id="btn-siguiente-factura-text">Siguiente: Servicios</span>
                 </button>
             </div>

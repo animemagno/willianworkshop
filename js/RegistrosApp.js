@@ -1490,10 +1490,11 @@ const RegistrosApp = {
         if (this.facturaItems.length === 0) {
             tbody.innerHTML = `
                 <tr id="factura-empty-state">
-                    <td colspan="5" style="text-align: center; padding: 40px 20px; color: #aaa;">
-                        <i class="fas fa-hand-holding-box" style="font-size: 30px; margin-bottom: 10px;"></i>
-                        <br>Arrastra los productos aquí para agregarlos a la factura<br>
-                        <small>(Límite de 14 productos)</small>
+                    <td colspan="5" style="text-align: center; padding: 25px 10px; color: #aaa;">
+                        <i class="fas fa-hand-holding-box" style="font-size: 30px; margin-bottom: 8px;"></i>
+                        <br><strong style="font-size: 0.9rem;">La factura está vacía</strong><br>
+                        <span style="font-size: 0.8rem;">Arrastra los productos aquí</span><br>
+                        <small style="font-size: 0.75rem;">(Límite de 14 productos)</small>
                     </td>
                 </tr>
             `;
