@@ -75,6 +75,7 @@
         .salidas-grid {
             display: grid;
             grid-template-columns: 1fr 1fr 1.3fr;
+            grid-template-rows: 1fr;
             gap: 15px; /* Reducido un poco para tablet */
             align-items: stretch;
             transition: grid-template-columns 0.4s ease;
@@ -564,7 +565,7 @@
                     <i class="fas fa-file-invoice" style="color: #27ae60;"></i> Paso 3: Confirmación de Precios y Ganancias
                 </h2>
 
-                <div id="invoice-prices-section" style="flex: 1; display: grid; grid-template-columns: 320px 1fr; gap: 25px; align-items: flex-start; min-height: 0;">
+                <div id="invoice-prices-section" style="flex: 1; display: grid; grid-template-columns: 320px 1fr; grid-template-rows: 1fr; gap: 25px; align-items: stretch; min-height: 0;">
                     <!-- COLUMNA IZQUIERDA: RESÚMENES Y GANANCIAS -->
                     <div style="display: flex; flex-direction: column; gap: 20px;">
                         <!-- Bloque 1: Ganancia Factura Actual -->
@@ -615,7 +616,7 @@
 
                     <!-- COLUMNA DERECHA: TABLA DE LA FACTURA Y BOTONES -->
                     <div style="display: flex; flex-direction: column; min-width: 0; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); padding: 20px;">
-                        <div class="table-responsive-scroll" style="margin-bottom: 25px; max-height: 400px; flex: 1;">
+                        <div class="table-responsive-scroll" style="margin-bottom: 25px; flex: 1; min-height: 0;">
                             <table class="inventario-table" style="width: 100%; border-collapse: collapse; margin: 0;">
                                 <thead>
                                     <tr style="background: #f8f9fa;">
@@ -900,10 +901,29 @@
 
         async function preloadProductCache() {
             try {
+                // 1. Obtener resumen de salidas (ventas)
+                const resumenSalidasSnapshot = await window.db.collection('RESUMEN_SALIDAS_MES').get();
+                const salidasMap = {};
+                resumenSalidasSnapshot.forEach(doc => {
+                    salidasMap[doc.id] = doc.data().cantidadFacturada || 0;
+                });
+
+                // 2. Obtener resumen de entradas (compras)
+                const resumenEntradasSnapshot = await window.db.collection('RESUMEN_ENTRADAS_MES').get();
+                const entradasMap = {};
+                resumenEntradasSnapshot.forEach(doc => {
+                    entradasMap[doc.id] = doc.data().cantidadEntrada || 0;
+                });
+
+                // 3. Obtener todo el inventario
                 const snapshot = await window.db.collection('INVENTARIO').get();
                 const products = [];
                 snapshot.forEach(doc => {
                     const data = doc.data();
+                    const soldQty = salidasMap[doc.id] || 0;
+                    const addedQty = entradasMap[doc.id] || 0;
+                    const stockSimulado = (data.existencia || 0) + addedQty - soldQty;
+
                     products.push({
                         id: doc.id,
                         codigo: data.codigo || "",
@@ -911,11 +931,12 @@
                         aliases: data.busqueda || [],
                         codigosProveedor: data.codigosProveedor || [],
                         costo: data.costo || 0,
-                        precio: data.precio || 0
+                        precio: data.precio || 0,
+                        existencia: stockSimulado
                     });
                 });
                 window.app.cache = products;
-                console.log("Caché de productos inicializada en salidas:", products.length, "ítems.");
+                console.log("Caché de productos inicializada en salidas con existencias simuladas:", products.length, "ítems.");
                 
                 // Ocultar pantalla de carga
                 document.getElementById('salidas-loading').style.display = 'none';
@@ -936,12 +957,12 @@
             const btnHist = document.getElementById('main-tab-btn-historial');
             if (tab === 'historial') {
                 secFact.style.display = 'none';
-                secHist.style.display = 'block';
+                secHist.style.display = 'flex';
                 btnFact.classList.remove('active');
                 btnHist.classList.add('active');
                 RegistrosApp.loadInvoicesHistory();
             } else {
-                secFact.style.display = 'block';
+                secFact.style.display = 'flex';
                 secHist.style.display = 'none';
                 btnFact.classList.add('active');
                 btnHist.classList.remove('active');

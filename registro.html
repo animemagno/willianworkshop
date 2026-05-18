@@ -533,10 +533,29 @@
 
         async function preloadProductCache() {
             try {
+                // 1. Obtener resumen de salidas (ventas) del mes
+                const resumenSalidasSnapshot = await window.db.collection('RESUMEN_SALIDAS_MES').get();
+                const salidasMap = {};
+                resumenSalidasSnapshot.forEach(doc => {
+                    salidasMap[doc.id] = doc.data().cantidadFacturada || 0;
+                });
+
+                // 2. Obtener resumen de entradas (compras) del mes
+                const resumenEntradasSnapshot = await window.db.collection('RESUMEN_ENTRADAS_MES').get();
+                const entradasMap = {};
+                resumenEntradasSnapshot.forEach(doc => {
+                    entradasMap[doc.id] = doc.data().cantidadEntrada || 0;
+                });
+
+                // 3. Obtener todo el inventario
                 const snapshot = await window.db.collection('INVENTARIO').get();
                 const products = [];
                 snapshot.forEach(doc => {
                     const data = doc.data();
+                    const soldQty = salidasMap[doc.id] || 0;
+                    const addedQty = entradasMap[doc.id] || 0;
+                    const stockSimulado = (data.existencia || 0) + addedQty - soldQty;
+
                     products.push({
                         id: doc.id,
                         codigo: data.codigo || "",
@@ -545,11 +564,11 @@
                         codigosProveedor: data.codigosProveedor || [],
                         costo: data.costo || 0,
                         precio: data.precio || 0,
-                        existencia: data.existencia || 0
+                        existencia: stockSimulado
                     });
                 });
                 window.app.cache = products;
-                console.log("Caché de productos inicializada con éxito:", products.length, "ítems.");
+                console.log("Caché de productos inicializada con existencias simuladas:", products.length, "ítems.");
                 
                 // Ocultar pantalla de carga
                 document.getElementById('registro-loading').style.display = 'none';
