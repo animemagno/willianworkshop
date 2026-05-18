@@ -351,6 +351,12 @@ const RegistrosApp = {
         // Enfocar en producto al inicio para usar el lector rápido
         const inputProd = document.getElementById('fast-producto');
         if (inputProd) inputProd.focus();
+
+        // Establecer la fecha de hoy por defecto en el selector de fecha
+        const fechaInput = document.getElementById('fast-fecha');
+        if (fechaInput) {
+            fechaInput.value = this.getLocalISODate();
+        }
     },
 
     setupEventListeners() {
@@ -724,6 +730,7 @@ const RegistrosApp = {
         const cantidadInput = document.getElementById('fast-cantidad');
         const cuentaInput = document.getElementById('fast-cuenta');
         const observacionInput = document.getElementById('fast-observacion');
+        const fechaInput = document.getElementById('fast-fecha');
 
         const rawInputValue = productoInput.value.trim().toLowerCase();
         
@@ -742,6 +749,7 @@ const RegistrosApp = {
         if (isNaN(cantidad) || cantidad < 1) cantidad = 1;
         const cuenta = cuentaInput.value.trim();
         const observacion = observacionInput.value.trim();
+        const fechaSeleccionada = (fechaInput && fechaInput.value) ? fechaInput.value : RegistrosApp.getLocalISODate();
 
         if (!inputValue) return;
 
@@ -782,7 +790,7 @@ const RegistrosApp = {
         try {
             const docRef = RegistrosApp.registrosRef.doc();
             await docRef.set({
-                fecha: RegistrosApp.getLocalISODate() || "",
+                fecha: fechaSeleccionada || "",
                 producto: productoDesc || "",
                 productId: productId || null,
                 cantidad: cantidad || 1,

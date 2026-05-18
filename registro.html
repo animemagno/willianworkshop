@@ -285,12 +285,16 @@
                             <input type="text" id="fast-producto" class="large-input" placeholder="Escanea el código de barras o escribe..." required autocomplete="off">
                         </div>
                         
-                        <div style="display: flex; gap: 15px;">
-                            <div style="flex: 1;">
+                        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                            <div style="flex: 1.2; min-width: 130px;">
+                                <label class="form-group-label" for="fast-fecha">Fecha *</label>
+                                <input type="date" id="fast-fecha" class="large-input" required>
+                            </div>
+                            <div style="flex: 0.8; min-width: 80px;">
                                 <label class="form-group-label" for="fast-cantidad">Cantidad *</label>
                                 <input type="number" id="fast-cantidad" class="large-input" value="1" min="1" required style="text-align: center;">
                             </div>
-                            <div style="flex: 2;">
+                            <div style="flex: 2; min-width: 150px;">
                                 <label class="form-group-label" for="fast-cuenta">Cuenta (Opcional)</label>
                                 <input type="text" id="fast-cuenta" class="large-input" placeholder="Ej: Mayorista, Cliente...">
                             </div>
