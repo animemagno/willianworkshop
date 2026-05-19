@@ -2140,6 +2140,15 @@ const RegistrosApp = {
                                 precioFacturado: window.firebase.firestore.FieldValue.delete(),
                                 costoFacturado: window.firebase.firestore.FieldValue.delete()
                             });
+
+                            // Sincronizar la memoria caché local para que el algoritmo FIFO los incluya en el cálculo actual
+                            const localReg = this.allRegistros.find(r => r.id === doc.id);
+                            if (localReg) {
+                                localReg.estado = 'pendiente';
+                                delete localReg.facturaId;
+                                delete localReg.precioFacturado;
+                                delete localReg.costoFacturado;
+                            }
                         });
                     }
                 }
