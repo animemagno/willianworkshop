@@ -1111,32 +1111,6 @@ const RegistrosApp = {
         const resumenTbody = document.getElementById('fact-resumen-tbody');
         if (!listadoTbody || !resumenTbody) return;
 
-        const pendientes = this.allRegistros.filter(r => r.estado === 'pendiente');
-
-        // Ordenar por fecha ascendente (más antiguas arriba) y desempatar por timestamp ascendente (orden de ingreso)
-        pendientes.sort((a, b) => {
-            const millisA = this.parseDateToMillis(a.fecha);
-            const millisB = this.parseDateToMillis(b.fecha);
-            
-            if (millisA !== millisB) {
-                return millisA - millisB; // Ascendente (más antiguas arriba)
-            }
-            
-            let tA = 0;
-            if (a.timestamp) {
-                if (typeof a.timestamp.toMillis === 'function') tA = a.timestamp.toMillis();
-                else if (a.timestamp instanceof Date) tA = a.timestamp.getTime();
-                else if (typeof a.timestamp === 'number') tA = a.timestamp;
-            }
-            let tB = 0;
-            if (b.timestamp) {
-                if (typeof b.timestamp.toMillis === 'function') tB = b.timestamp.toMillis();
-                else if (b.timestamp instanceof Date) tB = b.timestamp.getTime();
-                else if (typeof b.timestamp === 'number') tB = b.timestamp;
-            }
-            return tA - tB; // Ascendente (orden de ingreso)
-        });
-
         // 1. Obtener la fecha y el mes de la factura en construcción actual
         const dateInput = document.getElementById('factura-fecha');
         const dateInputVal = dateInput ? dateInput.value : '';
@@ -1180,9 +1154,37 @@ const RegistrosApp = {
             descAcumuladores[m] = { ...facturadoPorMesYProducto[m] };
         }
 
-        // Calcular los totales originales agrupando por clave de agrupación (código o nombre oficial)
+        // 3. Tomar TODOS los registros del mes (tanto pendientes como facturados) para aplicar la deducción FIFO
+        const todosLosRegistrosMes = [...this.allRegistros];
+
+        // Ordenar por fecha ascendente (más antiguas arriba) y desempatar por timestamp ascendente (orden de ingreso)
+        todosLosRegistrosMes.sort((a, b) => {
+            const millisA = this.parseDateToMillis(a.fecha);
+            const millisB = this.parseDateToMillis(b.fecha);
+            
+            if (millisA !== millisB) {
+                return millisA - millisB; // Ascendente (más antiguas arriba)
+            }
+            
+            let tA = 0;
+            if (a.timestamp) {
+                if (typeof a.timestamp.toMillis === 'function') tA = a.timestamp.toMillis();
+                else if (a.timestamp instanceof Date) tA = a.timestamp.getTime();
+                else if (typeof a.timestamp === 'number') tA = a.timestamp;
+            }
+            let tB = 0;
+            if (b.timestamp) {
+                if (typeof b.timestamp.toMillis === 'function') tB = b.timestamp.toMillis();
+                else if (b.timestamp instanceof Date) tB = b.timestamp.getTime();
+                else if (typeof b.timestamp === 'number') tB = b.timestamp;
+            }
+            return tA - tB; // Ascendente (orden de ingreso)
+        });
+
+        // Calcular los totales originales de los pendientes (para arrastre y límites)
         let resumenMap = {};
-        pendientes.forEach(reg => {
+        todosLosRegistrosMes.forEach(reg => {
+            if (reg.estado !== 'pendiente') return;
             if (!reg.producto) return;
             const key = this.getGroupingKey(reg);
             const officialName = this.getOfficialProductName(reg);
@@ -1196,8 +1198,8 @@ const RegistrosApp = {
         let hasVisible = false;
         const resumenRestanteMap = {};
 
-        // 3. Llenar Tarjeta 1 (Listado Completo) aplicando FIFO
-        pendientes.forEach(reg => {
+        // 4. Procesar todos los registros aplicando FIFO
+        todosLosRegistrosMes.forEach(reg => {
             let cantidadDisponible = reg.cantidad;
             if (!reg.producto) return;
             const key = this.getGroupingKey(reg);
@@ -1216,8 +1218,8 @@ const RegistrosApp = {
                 }
             }
 
-            // Si ya está completamente asignado o consumido en facturas, no mostrar en Tarjeta 1
-            if (cantidadDisponible <= 0) return;
+            // Solo mostramos y acumulamos si el registro original es 'pendiente' y le queda cantidad disponible
+            if (reg.estado !== 'pendiente' || cantidadDisponible <= 0) return;
 
             // Acumular la cantidad restante para el Resumen Agrupado
             resumenRestanteMap[key] = (resumenRestanteMap[key] || 0) + cantidadDisponible;
@@ -1251,7 +1253,7 @@ const RegistrosApp = {
             listadoTbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; color:#999;">Todos los registros fueron asignados a la factura.</td></tr>';
         }
 
-        // 4. Llenar Tarjeta 2 (Resumen Agrupado) con las cantidades reales restantes filtradas
+        // 5. Llenar Tarjeta 2 (Resumen Agrupado) con las cantidades reales restantes filtradas
         resumenTbody.innerHTML = '';
         let hasResumen = false;
 
