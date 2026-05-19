@@ -1127,13 +1127,48 @@ const RegistrosApp = {
             return tA - tB; // Ascendente (orden de ingreso)
         });
 
-        // Unificar todo el descuento por producto (sincronización entre tarjetas) - Claves unificadas por código de barra o nombre oficial
-        const facturadoPorProducto = {};
+        // 1. Obtener la fecha y el mes de la factura en construcción actual
+        const dateInput = document.getElementById('factura-fecha');
+        const dateInputVal = dateInput ? dateInput.value : '';
+        const mesFacturaActual = dateInputVal ? dateInputVal.substring(0, 7) : new Date().toISOString().substring(0, 7);
+
+        // 2. Consolidar acumulado facturado por mes y clave de producto
+        const facturadoPorMesYProducto = {};
+
+        // A. Agregar el acumulado de facturas históricas ya confirmadas
+        if (Array.isArray(this.allHistoricalInvoices)) {
+            this.allHistoricalInvoices.forEach(inv => {
+                const mes = inv.fecha ? inv.fecha.substring(0, 7) : '';
+                if (!mes) return;
+                
+                if (!facturadoPorMesYProducto[mes]) {
+                    facturadoPorMesYProducto[mes] = {};
+                }
+                
+                const items = inv.items || [];
+                items.forEach(item => {
+                    if (item.isManoDeObra || item.productId === 'SERVICIO') return;
+                    const key = this.getGroupingKey(item.descripcionPapel || item.producto, item.productId);
+                    facturadoPorMesYProducto[mes][key] = (facturadoPorMesYProducto[mes][key] || 0) + (item.cantidad || 0);
+                });
+            });
+        }
+
+        // B. Sumar lo que se está facturando en la pantalla en la factura actual (caliente)
+        if (!facturadoPorMesYProducto[mesFacturaActual]) {
+            facturadoPorMesYProducto[mesFacturaActual] = {};
+        }
         this.facturaItems.forEach(item => {
             if (!item.producto) return;
             const key = this.getGroupingKey(item.producto, item.vinculoId);
-            facturadoPorProducto[key] = (facturadoPorProducto[key] || 0) + item.cantidadFacturar;
+            facturadoPorMesYProducto[mesFacturaActual][key] = (facturadoPorMesYProducto[mesFacturaActual][key] || 0) + item.cantidadFacturar;
         });
+
+        // Copia de los acumuladores para ir descontando vía FIFO en caliente en la renderización
+        const descAcumuladores = {};
+        for (const m in facturadoPorMesYProducto) {
+            descAcumuladores[m] = { ...facturadoPorMesYProducto[m] };
+        }
 
         // Calcular los totales originales agrupando por clave de agrupación (código o nombre oficial)
         let resumenMap = {};
@@ -1147,37 +1182,40 @@ const RegistrosApp = {
             resumenMap[key].count += reg.cantidad;
         });
 
-        // Copia para ir descontando de la Tarjeta 1 (FIFO)
-        const aDescontarTarjeta1 = { ...facturadoPorProducto };
-
         listadoTbody.innerHTML = '';
         let hasVisible = false;
+        const resumenRestanteMap = {};
 
-        // 1. Llenar Tarjeta 1 (Listado Completo)
+        // 3. Llenar Tarjeta 1 (Listado Completo) aplicando FIFO
         pendientes.forEach(reg => {
             let cantidadDisponible = reg.cantidad;
             if (!reg.producto) return;
             const key = this.getGroupingKey(reg);
             const officialName = this.getOfficialProductName(reg);
+            const mesReg = reg.fecha ? reg.fecha.substring(0, 7) : '';
 
             // Descontar usando FIFO (lo más antiguo primero)
-            if (aDescontarTarjeta1[key] > 0) {
-                if (aDescontarTarjeta1[key] >= cantidadDisponible) {
-                    aDescontarTarjeta1[key] -= cantidadDisponible;
+            if (descAcumuladores[mesReg] && descAcumuladores[mesReg][key] > 0) {
+                const descontar = descAcumuladores[mesReg][key];
+                if (descontar >= cantidadDisponible) {
+                    descAcumuladores[mesReg][key] -= cantidadDisponible;
                     cantidadDisponible = 0;
                 } else {
-                    cantidadDisponible -= aDescontarTarjeta1[key];
-                    aDescontarTarjeta1[key] = 0;
+                    cantidadDisponible -= descontar;
+                    descAcumuladores[mesReg][key] = 0;
                 }
             }
 
-            // Si ya está completamente asignado, no mostrar en Tarjeta 1
+            // Si ya está completamente asignado o consumido en facturas, no mostrar en Tarjeta 1
             if (cantidadDisponible <= 0) return;
+
+            // Acumular la cantidad restante para el Resumen Agrupado
+            resumenRestanteMap[key] = (resumenRestanteMap[key] || 0) + cantidadDisponible;
 
             hasVisible = true;
             const tr = document.createElement('tr');
             tr.setAttribute('draggable', 'true');
-            tr.style.cursor = 'pointer'; // Indicador de clickabilidad premium
+            tr.style.cursor = 'pointer';
 
             const data = { type: 'summary', producto: officialName, max: resumenMap[key].count, productId: reg.productId || null };
 
@@ -1186,9 +1224,8 @@ const RegistrosApp = {
                 e.dataTransfer.effectAllowed = 'copy';
             };
 
-            // Evento táctil/clic para tablet y PC
             tr.onclick = (e) => {
-                e.stopPropagation(); // Detener propagación para evitar colapsar la tarjeta
+                e.stopPropagation();
                 this.addItemToFactura(data);
             };
 
@@ -1204,36 +1241,32 @@ const RegistrosApp = {
             listadoTbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; color:#999;">Todos los registros fueron asignados a la factura.</td></tr>';
         }
 
-        // 2. Llenar Tarjeta 2 (Resumen Agrupado)
+        // 4. Llenar Tarjeta 2 (Resumen Agrupado) con las cantidades reales restantes filtradas
         resumenTbody.innerHTML = '';
         let hasResumen = false;
 
-        // Obtener los productos y ordenarlos alfabéticamente por su nombre original
         const sortedKeys = Object.keys(resumenMap).sort((a, b) => resumenMap[a].name.localeCompare(resumenMap[b].name));
 
         for (const key of sortedKeys) {
             const prodName = resumenMap[key].name;
-            const totalOriginal = resumenMap[key].count;
-            const yaFacturado = facturadoPorProducto[key] || 0;
-            const restante = totalOriginal - yaFacturado;
+            const restante = resumenRestanteMap[key] || 0;
 
             if (restante <= 0) continue;
 
             hasResumen = true;
             const tr = document.createElement('tr');
             tr.setAttribute('draggable', 'true');
-            tr.style.cursor = 'pointer'; // Indicador táctil premium
+            tr.style.cursor = 'pointer';
 
-            const data = { type: 'summary', producto: prodName, max: totalOriginal, productId: resumenMap[key].productId || null };
+            const data = { type: 'summary', producto: prodName, max: resumenMap[key].count, productId: resumenMap[key].productId || null };
 
             tr.ondragstart = (e) => {
                 e.dataTransfer.setData('text/plain', JSON.stringify(data));
                 e.dataTransfer.effectAllowed = 'copy';
             };
 
-            // Evento táctil/clic para tablet y PC
             tr.onclick = (e) => {
-                e.stopPropagation(); // Detener propagación para evitar colapsar la tarjeta
+                e.stopPropagation();
                 this.addItemToFactura(data);
             };
 
