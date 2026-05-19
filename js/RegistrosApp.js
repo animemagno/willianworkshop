@@ -1585,10 +1585,14 @@ const RegistrosApp = {
                 <td>
                     <input type="number" class="form-control" value="${item.cantidadFacturar}" min="1" max="${item.max}" style="width:60px; padding:2px 5px;" onchange="RegistrosApp.updateFacturaItemQty('${item.id}', this.value, ${item.max})">
                 </td>
-                <td>
                     ${item.producto}
-                    ${item.isManoDeObra ? '<div style="font-size:11px; color:#27ae60; font-weight: bold;"><i class="fas fa-tools"></i> Servicio de Taller</div>' : `<div style="font-size:11px; color:#888;">Disponible: ${item.max}</div>`}
-                </td>
+                    ${item.isManoDeObra 
+                        ? '<div style="font-size:11px; color:#27ae60; font-weight: bold;"><i class="fas fa-tools"></i> Servicio de Taller</div>' 
+                        : (item.max === 999 
+                            ? '<div style="font-size:11px; color:#dd6b20; font-weight: bold;"><i class="fas fa-edit"></i> Edición Libre (Factura Guardada)</div>' 
+                            : `<div style="font-size:11px; color:#888;">Disponible: ${item.max}</div>`
+                          )
+                    }
                 <td>
                     ${precioHTML}
                 </td>
