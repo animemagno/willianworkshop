@@ -3212,10 +3212,11 @@ const RegistrosApp = {
                 const key = this.getGroupingKey(desc, item.productId);
                 const excesoInfo = excedidoEnFactura[id] && excedidoEnFactura[id][key];
                 if (excesoInfo) {
+                    const btnEliminarExceso = `<button class="btn btn-danger" style="padding: 2px 6px; font-size: 10px; margin-left: 8px; border-radius: 4px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; font-family: inherit; line-height: 1;" onclick="RegistrosApp.removeInvoiceItemExcess('${id}', ${itemIdx}, '${desc.replace(/'/g, "\\'")}', ${excesoInfo.exceso})" title="Eliminar exceso de este producto"><i class="fas fa-times"></i> Corregir Exceso</button>`;
                     if (excesoInfo.esOrigen) {
-                        estadoHTML = `<span style="font-size:10px;color:#e53e3e;background:#fed7d7;padding:2px 6px;border-radius:3px;margin-left:5px;font-weight:bold;"><i class="fas fa-exclamation-triangle"></i> Inicia Exceso (+${excesoInfo.exceso})</span>`;
+                        estadoHTML = `<span style="font-size:10px;color:#e53e3e;background:#fed7d7;padding:2px 6px;border-radius:3px;margin-left:5px;font-weight:bold;"><i class="fas fa-exclamation-triangle"></i> Inicia Exceso (+${excesoInfo.exceso})</span>${btnEliminarExceso}`;
                     } else {
-                        estadoHTML = `<span style="font-size:10px;color:#e53e3e;background:#fff5f5;border:1px solid #fc8181;padding:1px 5px;border-radius:3px;margin-left:5px;font-weight:bold;"><i class="fas fa-exclamation-circle"></i> Exceso (+${excesoInfo.exceso})</span>`;
+                        estadoHTML = `<span style="font-size:10px;color:#e53e3e;background:#fff5f5;border:1px solid #fc8181;padding:1px 5px;border-radius:3px;margin-left:5px;font-weight:bold;"><i class="fas fa-exclamation-circle"></i> Exceso (+${excesoInfo.exceso})</span>${btnEliminarExceso}`;
                     }
                 } else {
                     estadoHTML = `<span style="font-size:10px;color:#276749;background:#f0fff4;padding:1px 6px;border-radius:3px;margin-left:5px;font-weight:bold;"><i class='fas fa-check'></i> Vinculado</span>`;
@@ -3264,6 +3265,102 @@ const RegistrosApp = {
         };
 
         document.getElementById('modal-detalle-factura').style.display = 'flex';
+    },
+
+    async removeInvoiceItemExcess(facturaId, itemIndex, itemDesc, cantidadExceso) {
+        if (!await this.confirmDialog(`⚠️ ¿Deseas corregir el exceso de "${itemDesc}" en esta factura?\n\nEsto reducirá la cantidad facturada en -${cantidadExceso} unidades para eliminar el desfase y actualizará los reportes automáticamente.`)) {
+            return;
+        }
+
+        this.showLoading(true);
+        try {
+            const facturaDocRef = this.db.collection('INVENTARIO_SALIDAS').doc(facturaId);
+            const doc = await facturaDocRef.get();
+            if (!doc.exists) {
+                alert("La factura seleccionada no existe.");
+                this.showLoading(false);
+                return;
+            }
+
+            const data = doc.data();
+            const items = data.items || [];
+            if (itemIndex < 0 || itemIndex >= items.length) {
+                alert("Ítem de factura no encontrado.");
+                this.showLoading(false);
+                return;
+            }
+
+            const item = items[itemIndex];
+            const pId = item.productId || item.vinculoId;
+
+            // 1. Calcular nuevas cantidades del item
+            const oldCantidad = item.cantidad || 0;
+            const newCantidad = oldCantidad - cantidadExceso;
+
+            if (newCantidad <= 0) {
+                // Si la cantidad se reduce a 0, se remueve el ítem de la factura
+                items.splice(itemIndex, 1);
+            } else {
+                // Sino, se reduce la cantidad y se recalculan totales del item
+                item.cantidad = newCantidad;
+                item.total = newCantidad * (item.precioUnitario || 0);
+            }
+
+            // 2. Recalcular totales de la factura
+            const newGrandTotal = items.reduce((sum, it) => sum + ((it.cantidad || 0) * (it.precioUnitario || 0)), 0);
+            const newTotalCosto = items.reduce((sum, it) => sum + ((it.cantidad || 0) * (it.costoUnitario || 0)), 0);
+            const newTotalManoObra = items.reduce((sum, it) => sum + (it.isManoDeObra ? ((it.cantidad || 0) * (it.precioUnitario || 0)) : 0), 0);
+            const newTotalProductos = newGrandTotal - newTotalManoObra;
+            const newGananciaProductos = newTotalProductos - newTotalCosto;
+            const newGananciaNeta = newGrandTotal - newTotalCosto;
+
+            const batch = this.db.batch();
+
+            // 3. Si la factura tiene ítems restantes, la actualizamos. Si queda vacía, la eliminamos.
+            if (items.length === 0) {
+                batch.delete(facturaDocRef);
+                // Si eliminamos la factura completa, también limpiamos de activeInvoiceIds
+                if (this.activeInvoiceIds) this.activeInvoiceIds.delete(facturaId);
+            } else {
+                batch.update(facturaDocRef, {
+                    items: items,
+                    total: newGrandTotal,
+                    totalProductos: newTotalProductos,
+                    totalCosto: newTotalCosto,
+                    gananciaProductos: newGananciaProductos,
+                    gananciaNeta: newGananciaNeta
+                });
+            }
+
+            // 4. Actualizar el acumulador RESUMEN_SALIDAS_MES restando el exceso de forma atómica
+            if (pId && pId !== 'SERVICIO' && pId !== 'OMITIDO') {
+                const resumenRef = this.db.collection('RESUMEN_SALIDAS_MES').doc(pId);
+                batch.set(resumenRef, {
+                    cantidadFacturada: window.firebase.firestore.FieldValue.increment(-cantidadExceso)
+                }, { merge: true });
+            }
+
+            await batch.commit();
+
+            // 5. Mostrar confirmación y recargar datos
+            alert("✅ Exceso corregido exitosamente.");
+            
+            // Recargar datos locales del historial y del listener principal
+            await this.loadInvoicesHistory();
+            
+            if (items.length === 0) {
+                // Si la factura se eliminó por quedar vacía, cerramos el modal
+                document.getElementById('modal-detalle-factura').style.display = 'none';
+            } else {
+                // Sino, volvemos a abrir el detalle actualizado
+                this.viewInvoiceDetail(facturaId);
+            }
+        } catch (err) {
+            console.error("Error al corregir exceso de factura:", err);
+            alert("Error al corregir exceso: " + err.message);
+        } finally {
+            this.showLoading(false);
+        }
     },
 
     prevInvoiceDetail() {
