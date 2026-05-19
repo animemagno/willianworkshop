@@ -3106,6 +3106,92 @@ const RegistrosApp = {
         typeEl.innerText = typeText;
         typeEl.className = "status-badge " + typeClass;
 
+        // -------------------------------------------------------------
+        // CÁLCULO DINÁMICO DE EXCESO DE FACTURACIÓN PARA EL MES DE ESTA FACTURA
+        // -------------------------------------------------------------
+        const mesFactura = inv.fecha.substring(0, 7); // ej: "2026-05"
+        
+        // 1. Obtener registros de ese mes
+        const regsDelMes = this.allRegistros.filter(r => r.fecha.startsWith(mesFactura));
+        const totalRegistrado = {};
+        regsDelMes.forEach(r => {
+            const key = this.getGroupingKey(r);
+            totalRegistrado[key] = (totalRegistrado[key] || 0) + r.cantidad;
+        });
+
+        // 2. Obtener todas las facturas del mes y ordenarlas cronológicamente
+        const facturasDelMes = this.allHistoricalInvoices.filter(f => f.fecha.startsWith(mesFactura));
+        facturasDelMes.sort((a, b) => {
+            const tA = this.parseDateToMillis(a.fecha);
+            const tB = this.parseDateToMillis(b.fecha);
+            if (tA !== tB) return tA - tB;
+            const nA = parseInt(String(a.numeroFactura || '').replace(/\D/g, ''), 10) || 0;
+            const nB = parseInt(String(b.numeroFactura || '').replace(/\D/g, ''), 10) || 0;
+            return nA - nB;
+        });
+
+        // 3. Simular acumulación para identificar excesos
+        const acumuladoFacturado = {};
+        const excedidoEnFactura = {}; // { facturaId: { key: { esOrigen: boolean, exceso: number } } }
+        
+        facturasDelMes.forEach(f => {
+            excedidoEnFactura[f.id] = {};
+            const items = f.items || [];
+            items.forEach(item => {
+                if (item.isManoDeObra || item.productId === 'SERVICIO') return;
+                const key = this.getGroupingKey(item.descripcionPapel || item.producto, item.productId);
+                const cant = item.cantidad || 0;
+                
+                const maxRegistrado = totalRegistrado[key] || 0;
+                const previoAcumulado = acumuladoFacturado[key] || 0;
+                acumuladoFacturado[key] = previoAcumulado + cant;
+                
+                if (acumuladoFacturado[key] > maxRegistrado) {
+                    const esOrigen = previoAcumulado <= maxRegistrado;
+                    const exceso = Math.min(cant, acumuladoFacturado[key] - maxRegistrado);
+                    excedidoEnFactura[f.id][key] = {
+                        esOrigen: esOrigen,
+                        exceso: exceso
+                    };
+                }
+            });
+        });
+
+        // 4. Inyectar advertencia si esta factura tiene excesos
+        const alertContainer = document.getElementById('detail-invoice-alert-container');
+        if (alertContainer) {
+            alertContainer.innerHTML = '';
+            alertContainer.style.display = 'none';
+
+            const excesosDeEstaFactura = excedidoEnFactura[id] || {};
+            const keysExcesos = Object.keys(excesosDeEstaFactura);
+            if (keysExcesos.length > 0) {
+                alertContainer.style.display = 'block';
+                const itemsFact = inv.items || [];
+                const listaAlertas = keysExcesos.map(k => {
+                    const info = excesosDeEstaFactura[k];
+                    const itemMatch = itemsFact.find(it => this.getGroupingKey(it.descripcionPapel || it.producto, it.productId) === k);
+                    const name = itemMatch ? (itemMatch.descripcionPapel || itemMatch.producto) : 'Producto';
+                    const tipoAlerta = info.esOrigen 
+                        ? `<span style="background: #e53e3e; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-left: 5px;">⚠️ AQUÍ EMPEZÓ EXCESO</span>` 
+                        : `<span style="background: #e2e8f0; color: #4a5568; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-left: 5px;">Exceso Continuo</span>`;
+                    return `<li style="margin-bottom: 6px; line-height: 1.4;">
+                        <strong>${name}</strong>: Cantidad facturada supera los registros diarios por <strong>${info.exceso} ud.</strong> ${tipoAlerta}
+                    </li>`;
+                }).join('');
+
+                alertContainer.innerHTML = `
+                    <div style="background-color: #fff5f5; border: 1px solid #fc8181; color: #c53030; padding: 15px; border-radius: 8px; margin-bottom: 15px; font-size: 0.92rem;">
+                        <strong style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 1rem;"><i class="fas fa-exclamation-triangle" style="font-size: 1.2rem;"></i> Alerta de Exceso de Facturación</strong>
+                        <ul style="margin: 0; padding-left: 20px;">
+                            ${listaAlertas}
+                        </ul>
+                    </div>
+                `;
+            }
+        }
+        // -------------------------------------------------------------
+
         const tbody = document.getElementById('detail-invoice-tbody');
         tbody.innerHTML = '';
 
@@ -3118,10 +3204,22 @@ const RegistrosApp = {
             const esServicio = item.isManoDeObra || item.productId === 'SERVICIO' || item.productId === 'OMITIDO';
             const estaVinculado = !esServicio && !!item.productId;
             let estadoHTML = '';
+            
             if (esServicio) {
                 estadoHTML = `<span style="font-size:10px;color:#00796b;background:#e6fffa;padding:1px 6px;border-radius:3px;margin-left:5px;font-weight:bold;">Servicio</span>`;
             } else if (estaVinculado) {
-                estadoHTML = `<span style="font-size:10px;color:#276749;background:#f0fff4;padding:1px 6px;border-radius:3px;margin-left:5px;font-weight:bold;"><i class='fas fa-check'></i> Vinculado</span>`;
+                // Verificar si tiene alerta de exceso específica
+                const key = this.getGroupingKey(desc, item.productId);
+                const excesoInfo = excedidoEnFactura[id] && excedidoEnFactura[id][key];
+                if (excesoInfo) {
+                    if (excesoInfo.esOrigen) {
+                        estadoHTML = `<span style="font-size:10px;color:#e53e3e;background:#fed7d7;padding:2px 6px;border-radius:3px;margin-left:5px;font-weight:bold;"><i class="fas fa-exclamation-triangle"></i> Inicia Exceso (+${excesoInfo.exceso})</span>`;
+                    } else {
+                        estadoHTML = `<span style="font-size:10px;color:#e53e3e;background:#fff5f5;border:1px solid #fc8181;padding:1px 5px;border-radius:3px;margin-left:5px;font-weight:bold;"><i class="fas fa-exclamation-circle"></i> Exceso (+${excesoInfo.exceso})</span>`;
+                    }
+                } else {
+                    estadoHTML = `<span style="font-size:10px;color:#276749;background:#f0fff4;padding:1px 6px;border-radius:3px;margin-left:5px;font-weight:bold;"><i class='fas fa-check'></i> Vinculado</span>`;
+                }
             } else {
                 estadoHTML = `<button class="btn" style="font-size:11px;padding:2px 8px;margin-left:6px;background:#fed7d7;color:#c53030;border:1px solid #fc8181;border-radius:4px;cursor:pointer;" onclick="RegistrosApp.openLinkInvoiceItemModal('${id}',${itemIdx})"><i class='fas fa-link'></i> Vincular</button>`;
             }
