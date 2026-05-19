@@ -567,7 +567,7 @@
 
                 <div id="invoice-prices-section" style="flex: 1; display: grid; grid-template-columns: 320px 1fr; grid-template-rows: 1fr; gap: 25px; align-items: stretch; min-height: 0;">
                     <!-- COLUMNA IZQUIERDA: RESÚMENES Y GANANCIAS -->
-                    <div style="display: flex; flex-direction: column; gap: 20px;">
+                    <div style="display: flex; flex-direction: column; gap: 20px; min-height: 0; overflow-y: auto;">
                         <!-- Bloque 1: Ganancia Factura Actual -->
                         <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); overflow: hidden;">
                             <div style="background: #e6fffa; padding: 12px 15px; font-weight: bold; color: #234e52; border-bottom: 1px solid #b2f5ea; display: flex; align-items: center; gap: 8px;">
@@ -615,8 +615,8 @@
                     </div>
 
                     <!-- COLUMNA DERECHA: TABLA DE LA FACTURA Y BOTONES -->
-                    <div style="display: flex; flex-direction: column; min-width: 0; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); padding: 20px;">
-                        <div class="table-responsive-scroll" style="margin-bottom: 25px; flex: 1; min-height: 0;">
+                    <div style="display: flex; flex-direction: column; min-width: 0; min-height: 0; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); padding: 20px;">
+                        <div class="table-responsive-scroll" style="margin-bottom: 25px; flex: 1; min-height: 0; overflow-y: auto;">
                             <table class="inventario-table" style="width: 100%; border-collapse: collapse; margin: 0;">
                                 <thead>
                                     <tr style="background: #f8f9fa;">
