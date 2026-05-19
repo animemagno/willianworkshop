@@ -186,6 +186,8 @@ const RegistrosApp = {
 
         const newDateStr = dateObj.toISOString().split('T')[0];
         inputFecha.value = newDateStr;
+        this.saveFacturaDraft();
+        this.renderFacturacionData();
     },
 
     getLocalISODate(dateObj = new Date()) {
@@ -382,6 +384,14 @@ const RegistrosApp = {
         
         const numeroInput = document.getElementById('factura-numero');
         if (numeroInput) numeroInput.addEventListener('input', () => this.saveFacturaDraft());
+
+        const fechaInput = document.getElementById('factura-fecha');
+        if (fechaInput) {
+            fechaInput.addEventListener('change', () => {
+                this.saveFacturaDraft();
+                this.renderFacturacionData();
+            });
+        }
     },
 
     renderFastEntryTable() {
@@ -2982,6 +2992,7 @@ const RegistrosApp = {
             });
 
             this.renderInvoicesHistory(this.allHistoricalInvoices);
+            this.renderFacturacionData();
 
             if (this.allHistoricalInvoices.length > 0) {
                 const lastInvoice = this.allHistoricalInvoices[0];
