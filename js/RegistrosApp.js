@@ -23,6 +23,7 @@ const RegistrosApp = {
     registrosRef: null,
     unsubscribe: null,
     allRegistros: [],
+    historyLoaded: false,
     mapeoRef: null,
     mapeoNombres: {}, // { nombreExcel_clave → codigoInventario }
     currentLinkContext: 'registry', // 'registry' | 'invoice'
@@ -72,8 +73,8 @@ const RegistrosApp = {
             await this.loadMapeoNombres();
             await this.initFacturaDate();
             this.loadFacturaDraft();
+            await this.loadInvoicesHistory();
             this.listenToRegistros();
-            this.loadInvoicesHistory();
             this.loadCustomServices();
 
         } catch (error) {
@@ -1110,6 +1111,14 @@ const RegistrosApp = {
         const listadoTbody = document.getElementById('fact-listado-tbody');
         const resumenTbody = document.getElementById('fact-resumen-tbody');
         if (!listadoTbody || !resumenTbody) return;
+
+        // Si el historial de facturas aún no se ha cargado por primera vez,
+        // mostrar spinners de carga en las tarjetas de facturación en lugar de datos incorrectos
+        if (!this.historyLoaded) {
+            listadoTbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px;"><div class="spinner" style="margin:auto; border-top-color:#3498db; width:24px; height:24px;"></div></td></tr>';
+            resumenTbody.innerHTML = '<tr><td colspan="2" style="text-align:center; padding:20px;"><div class="spinner" style="margin:auto; border-top-color:#3498db; width:24px; height:24px;"></div></td></tr>';
+            return;
+        }
 
         // 1. Obtener la fecha y el mes de la factura en construcción actual
         const dateInput = document.getElementById('factura-fecha');
@@ -2994,6 +3003,7 @@ const RegistrosApp = {
             });
 
             this.renderInvoicesHistory(this.allHistoricalInvoices);
+            this.historyLoaded = true;
             this.renderFacturacionData();
 
             if (this.allHistoricalInvoices.length > 0) {
