@@ -28,6 +28,7 @@ const RegistrosApp = {
     currentLinkContext: 'registry', // 'registry' | 'invoice'
     currentLinkInvoiceId: null,
     currentLinkInvoiceItemIndex: null,
+    editingInvoiceId: null,
 
     async confirmDialog(message) {
         if (typeof Swal === 'undefined') return confirm(message);
@@ -351,12 +352,6 @@ const RegistrosApp = {
         // Enfocar en producto al inicio para usar el lector rápido
         const inputProd = document.getElementById('fast-producto');
         if (inputProd) inputProd.focus();
-
-        // Establecer la fecha de hoy por defecto en el selector de fecha
-        const fechaInput = document.getElementById('fast-fecha');
-        if (fechaInput) {
-            fechaInput.value = this.getLocalISODate();
-        }
     },
 
     setupEventListeners() {
@@ -730,7 +725,6 @@ const RegistrosApp = {
         const cantidadInput = document.getElementById('fast-cantidad');
         const cuentaInput = document.getElementById('fast-cuenta');
         const observacionInput = document.getElementById('fast-observacion');
-        const fechaInput = document.getElementById('fast-fecha');
 
         const rawInputValue = productoInput.value.trim().toLowerCase();
         
@@ -749,7 +743,6 @@ const RegistrosApp = {
         if (isNaN(cantidad) || cantidad < 1) cantidad = 1;
         const cuenta = cuentaInput.value.trim();
         const observacion = observacionInput.value.trim();
-        const fechaSeleccionada = (fechaInput && fechaInput.value) ? fechaInput.value : RegistrosApp.getLocalISODate();
 
         if (!inputValue) return;
 
@@ -790,7 +783,7 @@ const RegistrosApp = {
         try {
             const docRef = RegistrosApp.registrosRef.doc();
             await docRef.set({
-                fecha: fechaSeleccionada || "",
+                fecha: RegistrosApp.getLocalISODate() || "",
                 producto: productoDesc || "",
                 productId: productId || null,
                 cantidad: cantidad || 1,
@@ -2061,8 +2054,43 @@ const RegistrosApp = {
 
             const batch = this.db.batch();
 
+            // Si estamos editando, revertir primero los efectos de la factura anterior
+            if (this.editingInvoiceId) {
+                const oldFactDoc = await this.db.collection('INVENTARIO_SALIDAS').doc(this.editingInvoiceId).get();
+                if (oldFactDoc.exists) {
+                    const oldData = oldFactDoc.data();
+                    const oldItems = oldData.items || [];
+                    
+                    // Revertir de RESUMEN_SALIDAS_MES
+                    oldItems.forEach(item => {
+                        const pId = item.productId;
+                        if (pId && pId !== 'SERVICIO' && pId !== 'OMITIDO') {
+                            const resumenRef = this.db.collection('RESUMEN_SALIDAS_MES').doc(pId);
+                            batch.set(resumenRef, {
+                                cantidadFacturada: window.firebase.firestore.FieldValue.increment(-item.cantidad)
+                            }, { merge: true });
+                        }
+                    });
+
+                    // Revertir registros diarios a estado 'pendiente' y desvincularlos
+                    const registrosSnap = await this.registrosRef.where('facturaId', '==', this.editingInvoiceId).get();
+                    if (!registrosSnap.empty) {
+                        registrosSnap.forEach(doc => {
+                            batch.update(this.registrosRef.doc(doc.id), {
+                                estado: 'pendiente',
+                                facturaId: window.firebase.firestore.FieldValue.delete(),
+                                precioFacturado: window.firebase.firestore.FieldValue.delete(),
+                                costoFacturado: window.firebase.firestore.FieldValue.delete()
+                            });
+                        });
+                    }
+                }
+            }
+
             // Generar ID de factura por adelantado para vincular los registros
-            const facturaRef = this.db.collection('INVENTARIO_SALIDAS').doc();
+            const facturaRef = this.editingInvoiceId 
+                ? this.db.collection('INVENTARIO_SALIDAS').doc(this.editingInvoiceId)
+                : this.db.collection('INVENTARIO_SALIDAS').doc();
             const facturaId = facturaRef.id;
 
             // Asegurar que activeInvoiceIds reconozca esta factura antes de que se lance el snapshot y la auto-sanación la borre
@@ -2182,6 +2210,20 @@ const RegistrosApp = {
 
             this.showLoading(false);
             alert("¡Factura procesada con éxito! Las existencias actuales en pantalla reflejan el cambio y se guardó para la auditoría.");
+
+            // Si estábamos editando, restaurar la interfaz
+            if (this.editingInvoiceId) {
+                this.editingInvoiceId = null;
+                const btnCancel = document.getElementById('btn-cancel-edit-invoice');
+                if (btnCancel) btnCancel.remove();
+                
+                const btnFinalizar = document.querySelector('button[onclick="RegistrosApp.finalizeInvoice()"]');
+                if (btnFinalizar) {
+                    btnFinalizar.innerHTML = `<i class="fas fa-check-circle"></i> Finalizar y Guardar Factura`;
+                    btnFinalizar.style.backgroundColor = '#27ae60';
+                    btnFinalizar.style.boxShadow = '0 4px 6px rgba(39,174,96,0.2)';
+                }
+            }
 
             // Limpiar factura
             this.facturaItems = [];
@@ -2821,24 +2863,49 @@ const RegistrosApp = {
         this.currentHistorialTab = tabId;
         const listBtn = document.getElementById('tab-historial-list');
         const importBtn = document.getElementById('tab-historial-import');
+        const auditBtn = document.getElementById('tab-historial-audit');
         const listContent = document.getElementById('historial-tab-list-content');
         const importContent = document.getElementById('historial-tab-import-content');
+        const auditContent = document.getElementById('historial-tab-audit-content');
+
+        // Resetear estilos y ocultar contenidos
+        [listBtn, importBtn, auditBtn].forEach(btn => {
+            if (btn) {
+                btn.style.borderBottomColor = 'transparent';
+                btn.style.color = '#718096';
+            }
+        });
+        [listContent, importContent, auditContent].forEach(content => {
+            if (content) content.style.display = 'none';
+        });
 
         if (tabId === 'list') {
-            listBtn.style.borderBottomColor = '#3498db';
-            listBtn.style.color = '#3498db';
-            importBtn.style.borderBottomColor = 'transparent';
-            importBtn.style.color = '#718096';
-            listContent.style.display = 'block';
-            importContent.style.display = 'none';
+            if (listBtn) {
+                listBtn.style.borderBottomColor = '#3498db';
+                listBtn.style.color = '#3498db';
+            }
+            if (listContent) listContent.style.display = 'block';
             this.loadInvoicesHistory();
-        } else {
-            importBtn.style.borderBottomColor = '#3498db';
-            importBtn.style.color = '#3498db';
-            listBtn.style.borderBottomColor = 'transparent';
-            listBtn.style.color = '#718096';
-            listContent.style.display = 'none';
-            importContent.style.display = 'block';
+        } else if (tabId === 'import') {
+            if (importBtn) {
+                importBtn.style.borderBottomColor = '#3498db';
+                importBtn.style.color = '#3498db';
+            }
+            if (importContent) importContent.style.display = 'block';
+        } else if (tabId === 'audit') {
+            if (auditBtn) {
+                auditBtn.style.borderBottomColor = '#3498db';
+                auditBtn.style.color = '#3498db';
+            }
+            if (auditContent) auditContent.style.display = 'block';
+            // Poner por defecto el mes en curso en el selector si no tiene valor
+            const auditMonthInput = document.getElementById('audit-month-input');
+            if (auditMonthInput && !auditMonthInput.value) {
+                const now = new Date();
+                const y = now.getFullYear();
+                const m = String(now.getMonth() + 1).padStart(2, '0');
+                auditMonthInput.value = `${y}-${m}`;
+            }
         }
     },
 
@@ -3081,6 +3148,23 @@ const RegistrosApp = {
             };
         }
 
+        // Agregar y enlazar el botón de editar factura
+        let btnEditar = document.getElementById('btn-editar-factura');
+        if (!btnEditar) {
+            btnEditar = document.createElement('button');
+            btnEditar.id = 'btn-editar-factura';
+            btnEditar.className = 'btn';
+            btnEditar.style.cssText = 'background: #f39c12; color: white; padding: 10px 20px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px; margin-left: 10px;';
+            btnEditar.innerHTML = `<i class="fas fa-edit"></i> Editar Factura`;
+            if (btnAnular) {
+                btnAnular.after(btnEditar);
+            }
+        }
+        btnEditar.onclick = () => {
+            document.getElementById('modal-detalle-factura').style.display = 'none';
+            RegistrosApp.startEditingInvoice(id);
+        };
+
         document.getElementById('modal-detalle-factura').style.display = 'flex';
     },
 
@@ -3298,6 +3382,360 @@ const RegistrosApp = {
         } finally {
             this.showLoading(false);
         }
+    },
+
+    async runBillingAudit() {
+        const auditMonthInput = document.getElementById('audit-month-input');
+        if (!auditMonthInput || !auditMonthInput.value) {
+            alert("Por favor selecciona un mes válido.");
+            return;
+        }
+
+        const mes = auditMonthInput.value; // ej: "2026-05"
+        const resultsContainer = document.getElementById('audit-results-container');
+        if (!resultsContainer) return;
+
+        resultsContainer.innerHTML = `
+            <div style="text-align: center; padding: 40px;">
+                <div class="spinner" style="margin: auto; border-top-color: #3498db;"></div>
+                <p style="margin-top: 15px; color: #718096; font-weight: bold;">Analizando datos del mes ${mes}...</p>
+            </div>
+        `;
+
+        try {
+            // 1. Consultar facturas del mes
+            const invoicesSnap = await this.db.collection('INVENTARIO_SALIDAS')
+                .where('fecha', '>=', mes + '-01')
+                .where('fecha', '<=', mes + '-31')
+                .get();
+
+            const invoices = [];
+            invoicesSnap.forEach(doc => {
+                invoices.push({ id: doc.id, ...doc.data() });
+            });
+
+            // Ordenar facturas cronológicamente
+            invoices.sort((a, b) => {
+                const tA = this.parseDateToMillis(a.fecha);
+                const tB = this.parseDateToMillis(b.fecha);
+                if (tA !== tB) return tA - tB;
+                const nA = parseInt(String(a.numeroFactura || '').replace(/\D/g, ''), 10) || 0;
+                const nB = parseInt(String(b.numeroFactura || '').replace(/\D/g, ''), 10) || 0;
+                return nA - nB;
+            });
+
+            // 2. Consultar registros del mes
+            const regsSnap = await this.registrosRef
+                .where('fecha', '>=', mes + '-01')
+                .where('fecha', '<=', mes + '-31')
+                .get();
+
+            const regs = [];
+            regsSnap.forEach(doc => {
+                regs.push({ id: doc.id, ...doc.data() });
+            });
+
+            // 3. Agrupar registros diarios
+            const regsMap = {}; // key -> { officialName, totalQty, list: [] }
+            regs.forEach(r => {
+                if (r.archivado === undefined) r.archivado = false;
+                const key = this.getGroupingKey(r);
+                const officialName = this.getOfficialProductName(r);
+                if (!regsMap[key]) {
+                    regsMap[key] = { officialName, totalQty: 0, list: [] };
+                }
+                regsMap[key].totalQty += r.cantidad;
+                regsMap[key].list.push(r);
+            });
+
+            // 4. Agrupar ítems de facturas
+            const facturasMap = {}; // key -> { totalFacturado: 0, list: [] }
+            invoices.forEach(inv => {
+                const items = inv.items || [];
+                items.forEach(item => {
+                    if (item.isManoDeObra || item.productId === 'SERVICIO') return;
+                    const key = this.getGroupingKey(item.descripcionPapel || item.producto, item.productId);
+                    
+                    if (!facturasMap[key]) {
+                        facturasMap[key] = { totalFacturado: 0, list: [] };
+                    }
+                    facturasMap[key].totalFacturado += item.cantidad;
+                    facturasMap[key].list.push({
+                        invoiceId: inv.id,
+                        numeroFactura: inv.numeroFactura || 'S/N',
+                        fecha: inv.fecha,
+                        cliente: inv.CLIENTE || 'Cliente General',
+                        cantidad: item.cantidad
+                    });
+                });
+            });
+
+            // 5. Unificar todos los productos encontrados en el mes
+            const allKeys = new Set([...Object.keys(regsMap), ...Object.keys(facturasMap)]);
+            const auditReport = [];
+
+            allKeys.forEach(key => {
+                const regData = regsMap[key] || { officialName: facturasMap[key]?.list[0]?.producto || key, totalQty: 0, list: [] };
+                const factData = facturasMap[key] || { totalFacturado: 0, list: [] };
+
+                const R = regData.totalQty;
+                const F = factData.totalFacturado;
+                const diff = F - R;
+
+                let estado = 'ok'; // 'ok' | 'missing' | 'excess'
+                const facturasExcedentes = [];
+
+                if (diff > 0) {
+                    estado = 'excess';
+                    // Calcular en qué factura empezó el exceso
+                    let sumaAcumulada = 0;
+                    factData.list.forEach(item => {
+                        const anteriorSuma = sumaAcumulada;
+                        sumaAcumulada += item.cantidad;
+                        if (sumaAcumulada > R) {
+                            // Esta factura excede el stock registrado
+                            const unidadesExcedentesEnEsta = Math.min(item.cantidad, sumaAcumulada - R);
+                            facturasExcedentes.push({
+                                ...item,
+                                exceso: unidadesExcedentesEnEsta,
+                                esElOrigen: anteriorSuma <= R
+                            });
+                        }
+                    });
+                } else if (diff < 0) {
+                    estado = 'missing';
+                }
+
+                auditReport.push({
+                    key,
+                    officialName: regData.officialName,
+                    R,
+                    F,
+                    diff,
+                    estado,
+                    facturasExcedentes
+                });
+            });
+
+            // Ordenar reporte: primero los excesos (rojo), luego los faltantes (naranja), y al final los correctos (verde)
+            auditReport.sort((a, b) => {
+                const priority = { 'excess': 1, 'missing': 2, 'ok': 3 };
+                if (priority[a.estado] !== priority[b.estado]) {
+                    return priority[a.estado] - priority[b.estado];
+                }
+                return a.officialName.localeCompare(b.officialName);
+            });
+
+            // Renderizar la tabla de resultados
+            if (auditReport.length === 0) {
+                resultsContainer.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #718096; background: white; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        <i class="fas fa-check-circle" style="font-size: 40px; color: #27ae60; margin-bottom: 10px;"></i>
+                        <p>No se encontraron movimientos de repuestos en el mes seleccionado.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <div style="margin-top: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 0.95rem; color: #4a5568; font-weight: bold;">
+                        Auditoría completa para ${mes}: ${auditReport.length} productos analizados.
+                    </span>
+                </div>
+                <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow-x: auto; background: white;">
+                    <table class="inventario-table" style="width: 100%; border-collapse: collapse; margin: 0;">
+                        <thead>
+                            <tr style="background: #f8f9fa;">
+                                <th style="border: 1px solid #edf2f7; padding: 12px; text-align: left;">Producto / Repuesto</th>
+                                <th style="border: 1px solid #edf2f7; padding: 12px; text-align: center; width: 110px;">Registrado (Día)</th>
+                                <th style="border: 1px solid #edf2f7; padding: 12px; text-align: center; width: 110px;">Facturado (Total)</th>
+                                <th style="border: 1px solid #edf2f7; padding: 12px; text-align: center; width: 90px;">Desfase</th>
+                                <th style="border: 1px solid #edf2f7; padding: 12px; text-align: center; width: 140px;">Estado</th>
+                                <th style="border: 1px solid #edf2f7; padding: 12px; text-align: left;">Facturas con Exceso / Detalles</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            auditReport.forEach(row => {
+                let badgeClass = '';
+                let badgeText = '';
+                let rowStyle = '';
+                let desfaseHtml = '';
+                let detallesHtml = '';
+
+                if (row.estado === 'ok') {
+                    badgeClass = 'status-badge status-invoiced';
+                    badgeText = '✅ Correcto';
+                    desfaseHtml = '<span style="color: #27ae60; font-weight: bold;">0</span>';
+                    detallesHtml = '<span style="color: #a0aec0; font-size: 0.9rem;">Sin desfases</span>';
+                } else if (row.estado === 'missing') {
+                    badgeClass = 'status-badge status-pending';
+                    badgeText = '⚠️ Pendiente Facturar';
+                    rowStyle = 'background-color: #fffaf0;';
+                    desfaseHtml = `<span style="color: #dd6b20; font-weight: bold;">${row.diff}</span>`;
+                    detallesHtml = `<span style="color: #dd6b20; font-size: 0.9rem;"><i class="fas fa-info-circle"></i> Faltan facturar ${Math.abs(row.diff)} unidad(es) de los registros diarios.</span>`;
+                } else if (row.estado === 'excess') {
+                    badgeClass = 'status-badge btn-danger';
+                    badgeClass += ' audit-danger-badge';
+                    rowStyle = 'background-color: #fff5f5;';
+                    desfaseHtml = `<span style="color: #e53e3e; font-weight: bold;">+${row.diff}</span>`;
+                    badgeText = '🚨 EXCESO FACTURADO';
+                    
+                    const factLinks = row.facturasExcedentes.map(item => {
+                        const origenLabel = item.esElOrigen ? ' <span style="background: #fed7d7; color: #9b2c2c; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">⚠️ AQUÍ EMPEZÓ EXCESO</span>' : '';
+                        return `<div style="margin-bottom: 5px; line-height: 1.4;">
+                            Factura <strong style="cursor:pointer; color:#3182ce; text-decoration:underline;" onclick="document.getElementById('modal-detalle-factura').style.display='none'; RegistrosApp.viewInvoiceDetail('${item.invoiceId}')">N° ${item.numeroFactura}</strong> 
+                            (${item.cliente}) - Cantidad en factura: ${item.cantidad} (Exceso: ${item.exceso})${origenLabel}
+                        </div>`;
+                    }).join('');
+
+                    detallesHtml = `<div style="font-size: 0.85rem; color: #c53030;">
+                        ${factLinks}
+                    </div>`;
+                }
+
+                html += `
+                    <tr style="${rowStyle}">
+                        <td style="border: 1px solid #edf2f7; padding: 12px; font-weight: 500;">${row.officialName}</td>
+                        <td style="border: 1px solid #edf2f7; padding: 12px; text-align: center; font-weight: bold;">${row.R}</td>
+                        <td style="border: 1px solid #edf2f7; padding: 12px; text-align: center; font-weight: bold;">${row.F}</td>
+                        <td style="border: 1px solid #edf2f7; padding: 12px; text-align: center;">${desfaseHtml}</td>
+                        <td style="border: 1px solid #edf2f7; padding: 12px; text-align: center;">
+                            <span class="${badgeClass}" style="padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; color: ${row.estado === 'excess' ? 'white' : 'inherit'}; background-color: ${row.estado === 'excess' ? '#e53e3e' : ''}">${badgeText}</span>
+                        </td>
+                        <td style="border: 1px solid #edf2f7; padding: 12px; vertical-align: top;">${detallesHtml}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            resultsContainer.innerHTML = html;
+
+        } catch (e) {
+            console.error("Error al ejecutar auditoría:", e);
+            resultsContainer.innerHTML = `
+                <div style="text-align: center; padding: 20px; color: #e53e3e;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 40px; margin-bottom: 10px;"></i>
+                    <p>Error al ejecutar la auditoría: ${e.message}</p>
+                </div>
+            `;
+        }
+    },
+
+    startEditingInvoice(id) {
+        const inv = this.allHistoricalInvoices.find(i => i.id === id);
+        if (!inv) return;
+
+        Swal.fire({
+            title: '¿Editar factura?',
+            text: `Se cargará la Factura N° ${inv.numeroFactura || 'S/N'} en el panel de facturación. Podrás editar repuestos, servicios, cliente o precios y luego guardar los cambios.`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#f39c12',
+            confirmButtonText: 'Sí, editar',
+            cancelButtonText: 'Cancelar'
+        }).then(result => {
+            if (!result.isConfirmed) return;
+
+            this.editingInvoiceId = id;
+
+            // Mapear los ítems de la factura de vuelta a la estructura de la aplicación
+            this.facturaItems = (inv.items || []).map(item => ({
+                id: Math.random().toString(36).substr(2, 9) + Date.now().toString(),
+                producto: item.descripcionPapel || item.producto,
+                cantidadFacturar: item.cantidad,
+                max: 999, // Límite virtual alto para permitir ediciones libres
+                vinculoId: item.productId || null,
+                precioUnitario: item.precioUnitario || 0,
+                costoUnitario: item.costoUnitario || 0,
+                isManoDeObra: !!item.isManoDeObra
+            }));
+
+            // Rellenar campos del formulario
+            const inputCliente = document.getElementById('factura-cliente');
+            const inputNumero = document.getElementById('factura-numero');
+            const inputFecha = document.getElementById('factura-fecha');
+
+            if (inputCliente) inputCliente.value = inv.CLIENTE || '';
+            if (inputNumero) inputNumero.value = inv.numeroFactura || '';
+            if (inputFecha) {
+                inputFecha.value = inv.fecha || this.getLocalISODate();
+                this.mesFacturable = inputFecha.value.substring(0, 7);
+            }
+
+            // Cambiar textos visuales para que se note el estado de edición
+            const btnFinalizar = document.querySelector('button[onclick="RegistrosApp.finalizeInvoice()"]');
+            if (btnFinalizar) {
+                btnFinalizar.innerHTML = `<i class="fas fa-save"></i> Guardar Cambios de Factura`;
+                btnFinalizar.style.backgroundColor = '#f39c12';
+                btnFinalizar.style.boxShadow = '0 4px 6px rgba(243,156,18,0.2)';
+            }
+
+            // Agregar un botón visible de cancelar edición en la UI de facturación
+            this.addCancelEditButton();
+
+            // Cambiar a la pestaña de Facturación
+            if (typeof switchMainTab === 'function') {
+                switchMainTab('facturacion');
+            }
+
+            // Ir al Paso 1 de facturación para permitir cambios
+            this.goToStep(1);
+
+            // Guardar borrador en localStorage y refrescar
+            this.saveFacturaDraft();
+            this.renderFactura();
+            this.renderFacturacionData();
+        });
+    },
+
+    addCancelEditButton() {
+        const btnFinalizar = document.querySelector('button[onclick="RegistrosApp.finalizeInvoice()"]');
+        if (btnFinalizar) {
+            let btnCancel = document.getElementById('btn-cancel-edit-invoice');
+            if (!btnCancel) {
+                btnCancel = document.createElement('button');
+                btnCancel.id = 'btn-cancel-edit-invoice';
+                btnCancel.className = 'btn';
+                btnCancel.style.cssText = 'padding: 12px 20px; font-weight: bold; background: #718096; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px; margin-right: 10px;';
+                btnCancel.innerHTML = `<i class="fas fa-times"></i> Cancelar Edición`;
+                btnCancel.onclick = () => this.cancelEditingInvoice();
+                btnFinalizar.before(btnCancel);
+            }
+        }
+    },
+
+    cancelEditingInvoice() {
+        this.editingInvoiceId = null;
+        this.facturaItems = [];
+        this.saveFacturaDraft();
+        this.renderFactura();
+
+        const inputCliente = document.getElementById('factura-cliente');
+        const inputNumero = document.getElementById('factura-numero');
+        if (inputCliente) inputCliente.value = '';
+        if (inputNumero) inputNumero.value = '';
+
+        // Restaurar botón de finalizar
+        const btnFinalizar = document.querySelector('button[onclick="RegistrosApp.finalizeInvoice()"]');
+        if (btnFinalizar) {
+            btnFinalizar.innerHTML = `<i class="fas fa-check-circle"></i> Finalizar y Guardar Factura`;
+            btnFinalizar.style.backgroundColor = '#27ae60';
+            btnFinalizar.style.boxShadow = '0 4px 6px rgba(39,174,96,0.2)';
+        }
+
+        const btnCancel = document.getElementById('btn-cancel-edit-invoice');
+        if (btnCancel) btnCancel.remove();
+
+        this.goToStep(1);
+        alert("Edición cancelada. Se limpió el borrador.");
     }
 };
 

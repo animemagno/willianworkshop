@@ -677,6 +677,9 @@
                 <button id="tab-historial-import" class="btn" style="background: none; border: none; border-bottom: 3px solid transparent; border-radius: 0; color: #718096; padding: 10px 20px; font-weight: bold; font-size: 1rem; cursor: pointer;" onclick="RegistrosApp.switchHistorialTab('import')">
                     <i class="fas fa-file-upload"></i> Cargar Facturas de Excel
                 </button>
+                <button id="tab-historial-audit" class="btn" style="background: none; border: none; border-bottom: 3px solid transparent; border-radius: 0; color: #718096; padding: 10px 20px; font-weight: bold; font-size: 1rem; cursor: pointer;" onclick="RegistrosApp.switchHistorialTab('audit')">
+                    <i class="fas fa-shield-alt"></i> Auditoría de Desfases
+                </button>
             </div>
 
             <!-- TAB 1: LISTADO DE FACTURAS -->
@@ -743,6 +746,32 @@
                     <button class="btn" style="background: #2b6cb0; color: white; padding: 12px 25px; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 1rem;" onclick="RegistrosApp.finalizeHistoricalExcelImport()">
                         <i class="fas fa-cloud-upload"></i> Subir a Firebase
                     </button>
+                </div>
+            </div>
+
+            <!-- TAB 3: AUDITORÍA DE DESFASES -->
+            <div id="historial-tab-audit-content" style="display: none;">
+                <div style="background: #ebf8ff; color: #2b6cb0; padding: 15px; border-radius: 8px; border: 1px solid #bee3f8; margin-bottom: 20px; font-size: 0.9rem;">
+                    <p style="margin: 0 0 8px 0; font-weight: bold;"><i class="fas fa-info-circle"></i> Auditoría de Desfases de Ventas:</p>
+                    <p style="margin: 0; line-height: 1.4;">
+                        Esta herramienta compara las cantidades de repuestos en tus facturas reales contra los ingresos diarios registrados en ese mes.
+                        Si una factura excede la cantidad ingresada, se marcará indicando exactamente en qué factura comenzó el exceso.
+                    </p>
+                </div>
+
+                <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; flex-wrap: wrap;">
+                    <span style="font-weight: bold; color: #2d3748;"><i class="fas fa-calendar-alt"></i> Seleccionar Mes:</span>
+                    <input type="month" id="audit-month-input" style="padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.95rem; font-family: inherit;">
+                    <button class="btn" style="padding: 10px 20px; font-weight: bold; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;" onclick="RegistrosApp.runBillingAudit()">
+                        <i class="fas fa-search"></i> Analizar Mes
+                    </button>
+                </div>
+
+                <div id="audit-results-container">
+                    <div style="text-align: center; padding: 40px; color: #aaa; background: white; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        <i class="fas fa-shield-alt" style="font-size: 40px; margin-bottom: 10px;"></i>
+                        <p>Selecciona un mes y haz clic en "Analizar Mes" para comenzar la auditoría.</p>
+                    </div>
                 </div>
             </div>
         </div>
