@@ -802,7 +802,7 @@ const RegistrosApp = {
                 observacion: observacion || "",
                 estado: 'pendiente',
                 origen: 'manual',
-                timestamp: Date.now()
+                timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
             });
         } catch (error) {
             console.error("Error guardando registro:", error);
@@ -1034,7 +1034,7 @@ const RegistrosApp = {
                 observacion: observacion,
                 estado: 'pendiente',
                 origen: 'excel',
-                timestamp: Date.now()
+                timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
             });
 
             operationsCount++;
@@ -1061,10 +1061,13 @@ const RegistrosApp = {
     listenToRegistros() {
         if (this.unsubscribe) this.unsubscribe();
 
-        // Obtener los últimos 2000 registros para asegurar que todo el Excel se muestre
+        // Se ordena por 'fecha' en lugar de 'timestamp' porque algunos registros
+        // tienen timestamp como número (Date.now()) y otros como serverTimestamp() de Firestore.
+        // Firebase no puede mezclar estos dos tipos en el mismo orderBy y omite registros.
+        // Ordenar por 'fecha' (string YYYY-MM-DD) es consistente para todos los registros.
         this.unsubscribe = this.registrosRef
-            .orderBy('timestamp', 'desc')
-            .limit(2000)
+            .orderBy('fecha', 'desc')
+            .limit(3000)
             .onSnapshot(snapshot => {
                 this.allRegistros = [];
                 snapshot.forEach(doc => {
@@ -1129,6 +1132,9 @@ const RegistrosApp = {
         const facturadoPorMesYProducto = {};
 
         // A. Agregar el acumulado de facturas históricas ya confirmadas
+        // IMPORTANTE: El orden aquí NO debe afectar el cálculo de cantidades.
+        // Iteramos todas las facturas independientemente de cómo estén ordenadas para la vista,
+        // ya que solo estamos sumando totales por mes/producto, no aplicando FIFO aquí.
         if (Array.isArray(this.allHistoricalInvoices)) {
             this.allHistoricalInvoices.forEach(inv => {
                 const mes = inv.fecha ? inv.fecha.substring(0, 7) : '';
@@ -1142,6 +1148,7 @@ const RegistrosApp = {
                 items.forEach(item => {
                     if (item.isManoDeObra || item.productId === 'SERVICIO') return;
                     const key = this.getGroupingKey(item.descripcionPapel || item.producto, item.productId);
+                    // Usar cantidad absoluta del item — no depende del orden de las facturas
                     facturadoPorMesYProducto[mes][key] = (facturadoPorMesYProducto[mes][key] || 0) + (item.cantidad || 0);
                 });
             });
@@ -2478,7 +2485,7 @@ const RegistrosApp = {
                                 ...regData,
                                 cantidad: qtyToRestore - currentRestored,
                                 estado: 'pendiente',
-                                timestamp: Date.now()
+                                timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
                             });
                             // Limpiar campos de facturación en el nuevo
                             batch.update(newDocRef, {
@@ -2689,7 +2696,7 @@ const RegistrosApp = {
                         nombreExcel: this.currentLinkRegistryName,
                         codigoInventario: product.codigo.trim(),
                         descripcionInventario: product.descripcion || '',
-                        timestamp: Date.now()
+                        timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
                     }, { merge: true });
                     // Actualizar memoria local para que funcione de inmediato
                     this.mapeoNombres[mapeoKey] = product.codigo.trim();
@@ -2838,7 +2845,7 @@ const RegistrosApp = {
                         nombreExcel: this.currentLinkRegistryName,
                         codigoInventario: product.codigo.trim(),
                         descripcionInventario: product.descripcion || '',
-                        timestamp: Date.now()
+                        timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
                     }, { merge: true });
                     this.mapeoNombres[mk] = product.codigo.trim();
                 } catch (me) { console.error('MAPEO_NOMBRES error:', me); }
