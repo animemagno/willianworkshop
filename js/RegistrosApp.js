@@ -1859,24 +1859,33 @@ const RegistrosApp = {
         }
     },
 
-    addCustomService() {
-        const input = document.getElementById('custom-service-input');
-        const serviceName = input ? input.value.trim() : '';
-        if (!serviceName) {
-            alert('Por favor ingrese el nombre del servicio.');
-            return;
-        }
+    async promptCustomService() {
+        const { value: serviceName } = await Swal.fire({
+            title: 'Nuevo Servicio',
+            input: 'text',
+            inputLabel: 'Nombre del servicio manual u otro...',
+            inputPlaceholder: 'Ej. Reparación de motor...',
+            showCancelButton: true,
+            confirmButtonText: 'Agregar',
+            cancelButtonText: 'Cancelar',
+            inputValidator: (value) => {
+                if (!value || !value.trim()) {
+                    return 'El nombre no puede estar vacío';
+                }
+            }
+        });
 
-        // Guardar servicio personalizado en localStorage
-        let customServices = JSON.parse(localStorage.getItem('custom_workshop_services') || '[]');
-        if (!customServices.includes(serviceName)) {
-            customServices.push(serviceName);
-            localStorage.setItem('custom_workshop_services', JSON.stringify(customServices));
-            // Agregarlo visualmente a la tabla antes de Mano de Obra
-            this.renderSingleCustomService(serviceName);
+        if (serviceName) {
+            const nameTrimmed = serviceName.trim();
+            let customServices = JSON.parse(localStorage.getItem('custom_workshop_services') || '[]');
+            if (!customServices.includes(nameTrimmed)) {
+                customServices.push(nameTrimmed);
+                localStorage.setItem('custom_workshop_services', JSON.stringify(customServices));
+                this.renderSingleCustomService(nameTrimmed);
+            } else {
+                Swal.fire('Atención', 'Este servicio ya existe en la lista.', 'info');
+            }
         }
-
-        if (input) input.value = '';
     },
 
     loadCustomServices() {
@@ -2010,13 +2019,13 @@ const RegistrosApp = {
         let grandTotal = 0;
 
         this.facturaItems.forEach(item => {
-            const total = item.cantidadFacturar * (item.precioUnitario || 0);
+            const total = item.cantidadFacturar * (item.costoUnitario || 0);
             grandTotal += total;
 
             const isGeneralService = item.isManoDeObra && item.producto !== 'Mano de Obra';
             const precioHTML = isGeneralService 
                 ? `<span style="color: #cbd5e0; font-size: 14px; font-weight: bold; display: block; text-align: center;">-</span>`
-                : `<input type="number" class="form-control" step="0.01" min="0" value="${(item.precioUnitario || 0).toFixed(2)}" style="width:75px; padding:2px 5px;" onchange="RegistrosApp.updateFacturaItemPrice('${item.id}', this.value)">`;
+                : `<input type="number" class="form-control" step="0.01" min="0" value="${(item.costoUnitario || 0).toFixed(2)}" style="width:75px; padding:2px 5px;" onchange="RegistrosApp.updateFacturaItemPrice('${item.id}', this.value)">`;
 
             const totalHTML = isGeneralService
                 ? `<span style="color: #cbd5e0; font-size: 14px; font-weight: bold; display: block; text-align: center;">-</span>`

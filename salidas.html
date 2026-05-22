@@ -471,8 +471,11 @@
 
             <!-- Tarjeta para el Paso 2: Servicios y Mano de Obra (Oculta por defecto) -->
             <div id="card-servicios-mano-obra" class="salidas-card" style="display: none; grid-column: span 2;">
-                <h2 style="font-size: 1.15rem; color: #2c3e50; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">
-                    <i class="fas fa-tools" style="color: #3498db;"></i> 2. Servicios Realizados en el Taller
+                <h2 style="font-size: 1.15rem; color: #2c3e50; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+                    <div><i class="fas fa-tools" style="color: #3498db;"></i> 2. Servicios Realizados en el Taller</div>
+                    <button class="btn" style="padding: 4px 10px; font-size: 0.85rem; font-weight: bold; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 5px;" onclick="RegistrosApp.promptCustomService()">
+                        <i class="fas fa-plus"></i> Añadir Otro
+                    </button>
                 </h2>
 
                 <div class="table-responsive-scroll" style="margin-bottom: 20px;">
@@ -542,13 +545,6 @@
                             </tr>
                         </tbody>
                     </table>
-                </div>
-
-                <div style="margin-bottom: 20px; display: flex; gap: 10px; padding: 15px; background: #f8f9fa; border: 1px solid #e2e8f0; border-radius: 8px; align-items: center; flex-wrap: nowrap;">
-                    <input type="text" id="custom-service-input" class="large-input" placeholder="Nombre de servicio manual u otro..." style="flex: 1; min-width: 120px;">
-                    <button class="btn" style="padding: 12px 20px; font-weight: bold; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;" onclick="RegistrosApp.addCustomService()">
-                        <i class="fas fa-plus"></i> Agregar Otro Servicio
-                    </button>
                 </div>
 
                 <div style="display: flex; justify-content: space-between; border-top: 1px solid #f1f1f1; padding-top: 15px; margin-top: auto;">
