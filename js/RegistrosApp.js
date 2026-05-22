@@ -2019,13 +2019,18 @@ const RegistrosApp = {
         let grandTotal = 0;
 
         this.facturaItems.forEach(item => {
-            const total = item.cantidadFacturar * (item.costoUnitario || 0);
+            const total = item.cantidadFacturar * (item.precioUnitario || 0);
             grandTotal += total;
 
             const isGeneralService = item.isManoDeObra && item.producto !== 'Mano de Obra';
-            const precioHTML = isGeneralService 
+            
+            const costoHTML = isGeneralService 
                 ? `<span style="color: #cbd5e0; font-size: 14px; font-weight: bold; display: block; text-align: center;">-</span>`
-                : `<input type="number" class="form-control" step="0.01" min="0" value="${(item.costoUnitario || 0).toFixed(2)}" style="width:75px; padding:2px 5px;" onchange="RegistrosApp.updateFacturaItemPrice('${item.id}', this.value)">`;
+                : `<span style="display: block; text-align: center; color: #7f8c8d; font-size: 0.85rem;">$${(item.costoUnitario || 0).toFixed(2)}</span>`;
+
+            const ventaHTML = isGeneralService 
+                ? `<span style="color: #cbd5e0; font-size: 14px; font-weight: bold; display: block; text-align: center;">-</span>`
+                : `<input type="number" class="form-control" step="0.01" min="0" value="${(item.precioUnitario || 0).toFixed(2)}" style="width:65px; padding:2px 4px; font-size: 0.85rem;" onchange="RegistrosApp.updateFacturaItemPrice('${item.id}', this.value)">`;
 
             const totalHTML = isGeneralService
                 ? `<span style="color: #cbd5e0; font-size: 14px; font-weight: bold; display: block; text-align: center;">-</span>`
@@ -2033,25 +2038,26 @@ const RegistrosApp = {
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>
-                    <input type="number" class="form-control" value="${item.cantidadFacturar}" min="1" max="${item.max}" style="width:60px; padding:2px 5px;" onchange="RegistrosApp.updateFacturaItemQty('${item.id}', this.value, ${item.max})">
+                <td style="padding: 4px;">
+                    <input type="number" class="form-control" value="${item.cantidadFacturar}" min="1" max="${item.max}" style="width:50px; padding:2px 4px; text-align: center; font-size: 0.85rem;" onchange="RegistrosApp.updateFacturaItemQty('${item.id}', this.value, ${item.max})">
                 </td>
+                <td style="font-size: 0.85rem; line-height: 1.2; padding: 4px;">
                     ${item.producto}
                     ${item.isManoDeObra 
-                        ? '<div style="font-size:11px; color:#27ae60; font-weight: bold;"><i class="fas fa-tools"></i> Servicio de Taller</div>' 
+                        ? '<div style="font-size:10px; color:#27ae60; font-weight: bold;"><i class="fas fa-tools"></i> Servicio</div>' 
                         : (item.max === 999 
-                            ? '<div style="font-size:11px; color:#dd6b20; font-weight: bold;"><i class="fas fa-edit"></i> Edición Libre (Factura Guardada)</div>' 
-                            : `<div style="font-size:11px; color:#888;">Disponible: ${item.max}</div>`
+                            ? '<div style="font-size:10px; color:#dd6b20; font-weight: bold;"><i class="fas fa-edit"></i> Libre</div>' 
+                            : `<div style="font-size:10px; color:#888;">Disp: ${item.max}</div>`
                           )
                     }
-                <td>
-                    ${precioHTML}
                 </td>
-                <td style="font-weight: bold; font-size:13px; text-align: right; padding-right: 5px;">
+                <td style="padding: 4px;">${costoHTML}</td>
+                <td style="padding: 4px;">${ventaHTML}</td>
+                <td style="font-weight: bold; font-size:0.85rem; text-align: right; padding-right: 5px;">
                     ${totalHTML}
                 </td>
-                <td style="text-align: center;">
-                    <button class="btn btn-danger" style="padding: 2px 6px; font-size:12px;" onclick="RegistrosApp.removeFacturaItem('${item.id}')">
+                <td style="text-align: center; padding: 4px;">
+                    <button class="btn btn-danger" style="padding: 2px 6px; font-size:11px;" onclick="RegistrosApp.removeFacturaItem('${item.id}')">
                         <i class="fas fa-times"></i>
                     </button>
                 </td>
