@@ -1540,7 +1540,7 @@ const RegistrosApp = {
         // Si el historial de facturas aún no se ha cargado por primera vez,
         // mostrar spinners de carga en las tarjetas de facturación en lugar de datos incorrectos
         if (!this.historyLoaded) {
-            listadoTbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px;"><div class="spinner" style="margin:auto; border-top-color:#3498db; width:24px; height:24px;"></div></td></tr>';
+            listadoTbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;"><div class="spinner" style="margin:auto; border-top-color:#3498db; width:24px; height:24px;"></div></td></tr>';
             resumenTbody.innerHTML = '<tr><td colspan="2" style="text-align:center; padding:20px;"><div class="spinner" style="margin:auto; border-top-color:#3498db; width:24px; height:24px;"></div></td></tr>';
             return;
         }
@@ -1696,12 +1696,13 @@ const RegistrosApp = {
                 <td>${this.formatDate(reg.fecha)}</td>
                 <td><strong>${cantidadDisponible}</strong></td>
                 <td>${officialName}</td>
+                <td style="font-size: 0.8rem; color: #555;">${reg.cuenta || '-'}</td>
             `;
             listadoTbody.appendChild(tr);
         });
 
         if (!hasVisible) {
-            listadoTbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; color:#999;">Todos los registros fueron asignados a la factura.</td></tr>';
+            listadoTbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#999;">Todos los registros fueron asignados a la factura.</td></tr>';
         }
 
         // 5. Llenar Tarjeta 2 (Resumen Agrupado) con las cantidades reales restantes filtradas
