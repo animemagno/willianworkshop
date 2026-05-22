@@ -72,6 +72,8 @@ const RegistrosApp = {
 
             this.setupUI();
             this.setupEventListeners();
+            this.loadCustomServices(); // Mover aquí para que cargue instantáneamente
+            
             await this.loadActiveInvoices();
             await this.loadMapeoNombres();
             await this.initFacturaDate();
@@ -79,7 +81,6 @@ const RegistrosApp = {
             await this.loadInvoicesHistory();
             await this.autoMigrateRegistros();
             this.listenToRegistros();
-            this.loadCustomServices();
 
         } catch (error) {
             console.error("Error al iniciar RegistrosApp:", error);

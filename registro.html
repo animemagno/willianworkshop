@@ -19,6 +19,11 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
+        /* Ocultar cabecera en pantalla completa */
+        :fullscreen header { display: none !important; }
+        :-webkit-full-screen header { display: none !important; }
+        :-ms-fullscreen header { display: none !important; }
+
         header {
             display: flex;
             align-items: center;
