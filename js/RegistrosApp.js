@@ -22,6 +22,7 @@ const RegistrosApp = {
     db: null,
     registrosRef: null,
     unsubscribe: null,
+    unsubscribeClones: null,
     allRegistros: [],
     historyLoaded: false,
     mapeoRef: null,
@@ -59,12 +60,14 @@ const RegistrosApp = {
             }
             this.db = window.firebase.firestore();
             this.registrosRef = this.db.collection('REGISTROS_SALIDA');
+            this.respaldoRef = this.db.collection('REGISTROS_RESPALDO');
             this.preciosRef = this.db.collection('PRECIOS_REGISTROS');
             this.mapeoRef = this.db.collection('MAPEO_NOMBRES');
             this.MAX_FACTURA_ITEMS = 14;
             this.facturaTipo = null;
 
             this.allRegistros = []; // Todos los registros
+            this.allClonesMap = {}; // Clones agrupados por respaldoId
             this.facturaItems = []; // Items en la factura (drag & drop)
 
             this.setupUI();
@@ -74,6 +77,7 @@ const RegistrosApp = {
             await this.initFacturaDate();
             this.loadFacturaDraft();
             await this.loadInvoicesHistory();
+            await this.autoMigrateRegistros();
             this.listenToRegistros();
             this.loadCustomServices();
 
@@ -108,6 +112,58 @@ const RegistrosApp = {
                     }
                 });
         });
+    },
+
+    async autoMigrateRegistros() {
+        console.log("Iniciando auto-migración de registros...");
+        try {
+            const snap = await this.registrosRef.get();
+            const clonesSinRespaldo = snap.docs.filter(doc => !doc.data().respaldoId);
+            if (clonesSinRespaldo.length === 0) {
+                console.log("No se encontraron clones sin respaldoId.");
+                return;
+            }
+
+            console.log(`Se encontraron ${clonesSinRespaldo.length} clones legacy sin respaldoId. Migrando...`);
+            let batch = this.db.batch();
+            let ops = 0;
+
+            for (const doc of clonesSinRespaldo) {
+                const cloneData = doc.data();
+                const respaldoId = this.respaldoRef.doc().id;
+
+                const respaldoData = {
+                    fecha: cloneData.fecha || '',
+                    producto: cloneData.producto || '',
+                    productId: cloneData.productId || null,
+                    cantidad: cloneData.cantidad || 1,
+                    cuenta: cloneData.cuenta || '',
+                    observacion: cloneData.observacion || '',
+                    estado: cloneData.estado || 'pendiente',
+                    origen: cloneData.origen || 'manual',
+                    filaExcel: cloneData.filaExcel || null,
+                    archivado: cloneData.archivado !== undefined ? cloneData.archivado : false,
+                    timestamp: cloneData.timestamp || window.firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                batch.set(this.respaldoRef.doc(respaldoId), respaldoData);
+                batch.update(doc.ref, { respaldoId: respaldoId });
+
+                ops += 2;
+                if (ops >= 400) {
+                    await batch.commit();
+                    batch = this.db.batch();
+                    ops = 0;
+                }
+            }
+
+            if (ops > 0) {
+                await batch.commit();
+            }
+            console.log(`Auto-migración completada con éxito. Se migraron ${clonesSinRespaldo.length} registros.`);
+        } catch (error) {
+            console.error("Error durante la auto-migración:", error);
+        }
     },
 
     async initFacturaDate() {
@@ -451,13 +507,26 @@ const RegistrosApp = {
                 `;
             }
         } else {
-            // Ordenar por fecha descendente (más recientes arriba) y desempatar por timestamp descendente (orden de ingreso inverso)
+            // Ordenar por fecha descendente (más recientes arriba).
+            // Para el mismo día, priorizar filaExcel de forma ascendente (el orden del Excel).
+            // Si son manuales o no tienen filaExcel, colocarlos al final (desempatados por timestamp ascendente).
             registrosAMostrar.sort((a, b) => {
                 const millisA = this.parseDateToMillis(a.fecha);
                 const millisB = this.parseDateToMillis(b.fecha);
                 
                 if (millisA !== millisB) {
                     return millisB - millisA; // Descendente (más recientes arriba)
+                }
+                
+                const hasFilaA = a.filaExcel !== undefined && a.filaExcel !== null;
+                const hasFilaB = b.filaExcel !== undefined && b.filaExcel !== null;
+                
+                if (hasFilaA && hasFilaB) {
+                    return a.filaExcel - b.filaExcel; // Fila menor arriba (ascendente)
+                } else if (hasFilaA) {
+                    return -1; // a (Excel) va arriba de b (manual)
+                } else if (hasFilaB) {
+                    return 1; // b (Excel) va arriba de a (manual)
                 }
                 
                 let tA = 0;
@@ -472,7 +541,7 @@ const RegistrosApp = {
                     else if (b.timestamp instanceof Date) tB = b.timestamp.getTime();
                     else if (typeof b.timestamp === 'number') tB = b.timestamp;
                 }
-                return tB - tA; // Descendente (orden de ingreso inverso)
+                return tA - tB; // Ascendente para que modificaciones/nuevos registros vayan al final
             });
 
             let lastFormattedDate = null;
@@ -483,33 +552,71 @@ const RegistrosApp = {
                 const key = this.getGroupingKey(reg);
                 const officialName = this.getOfficialProductName(reg);
 
+                // Obtener clones y calcular estado de facturación y acumulados
+                const clones = this.allClonesMap[reg.id] || [];
+                const totalBilled = clones.reduce((sum, c) => c.estado === 'facturado' ? sum + c.cantidad : sum, 0);
+                const totalPending = clones.reduce((sum, c) => c.estado === 'pendiente' ? sum + c.cantidad : sum, 0);
+
                 if (!resumenMap[key]) {
                     resumenMap[key] = { name: officialName, count: 0, countFacturado: 0 };
                 }
                 resumenMap[key].count += reg.cantidad;
-                if (reg.estado === 'facturado') {
-                    resumenMap[key].countFacturado += reg.cantidad;
+                resumenMap[key].countFacturado += totalBilled;
+
+                let rowStyle = '';
+                let displayProductStyle = '';
+                let isFullyFacturado = false;
+                let isPartiallyFacturado = false;
+
+                if (totalBilled >= reg.cantidad) {
+                    isFullyFacturado = true;
+                    rowStyle = 'background-color: #e6fffa; color: #27ae60;';
+                    displayProductStyle = 'color: #27ae60; font-weight: bold;';
+                } else if (totalBilled > 0) {
+                    isPartiallyFacturado = true;
+                    rowStyle = 'background-color: #fffbeb; color: #b7791f;';
+                    displayProductStyle = 'color: #b7791f; font-weight: bold;';
                 }
 
-                const isFacturado = reg.estado === 'facturado';
-                const rowStyle = isFacturado ? 'background-color: #e6fffa; color: #27ae60;' : '';
-                const displayProductStyle = isFacturado ? 'color: #27ae60; font-weight: bold;' : '';
+                // Generar etiquetas de facturas
+                const billedClones = clones.filter(c => c.estado === 'facturado');
+                let pillsHtml = '';
+                billedClones.forEach(bc => {
+                    const numFact = bc.numeroFactura || bc.facturaId || 'N/A';
+                    const client = bc.clienteFactura || 'Cliente General';
+                    const qty = bc.cantidad;
+                    pillsHtml += `
+                        <span class="invoice-pill" title="Cliente: ${client}">
+                            <i class="fas fa-file-invoice" style="color: #4a5568;"></i> Fact. #${numFact} (${qty} ud${qty > 1 ? 's' : ''})
+                        </span>
+                    `;
+                });
 
                 const isLinked = reg.productId ? true : false;
                 const displayProduct = isLinked 
                     ? `<span style="${displayProductStyle}">${officialName}</span> <span style="font-size:11px; color:#3498db; cursor:pointer; margin-left:6px;" onclick="RegistrosApp.openLinkRegistryModal('${reg.id}', '${reg.producto.replace(/'/g, "\\'")}')" title="Editar vínculo con Inventario"><i class="fas fa-edit"></i></span>`
                     : `<span style="${displayProductStyle}">${reg.producto}</span> <button class="btn" style="padding: 2px 6px; font-size: 11px; margin-left: 8px; border-radius: 4px; border: 1px solid #d35400; color: #d35400; background: #fffcf8; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;" onclick="RegistrosApp.openLinkRegistryModal('${reg.id}', '${reg.producto.replace(/'/g, "\\'")}')"><i class="fas fa-link"></i> Vincular</button>`;
 
-                const actionCell = isFacturado
-                    ? `<i class="fas fa-check-circle" style="color: #27ae60; font-size: 1.2rem;" title="Facturado"></i>`
+                const productCellContent = `
+                    <div>
+                        ${displayProduct}
+                        ${pillsHtml ? `<div style="margin-top: 2px; display: flex; flex-wrap: wrap; gap: 4px;">${pillsHtml}</div>` : ''}
+                    </div>
+                `;
+
+                // Bloquear eliminación si tiene partes facturadas
+                const actionCell = (isFullyFacturado || isPartiallyFacturado)
+                    ? (isFullyFacturado 
+                        ? `<i class="fas fa-check-circle" style="color: #27ae60; font-size: 1.2rem;" title="Facturado"></i>`
+                        : `<i class="fas fa-adjust" style="color: #b7791f; font-size: 1.2rem;" title="Facturado Parcial (${totalBilled}/${reg.cantidad})"></i>`)
                     : `<button type="button" class="btn btn-danger" style="padding: 5px; width: 30px; height: 30px; border-radius: 50%;" onclick="RegistrosApp.deleteRegistro('${reg.id}')" title="Eliminar fila"><i class="fas fa-times"></i></button>`;
 
                 const tr = document.createElement('tr');
-                if (isFacturado) tr.style.cssText = rowStyle;
+                if (rowStyle) tr.style.cssText = rowStyle;
                 tr.innerHTML = `
                     <td><strong>${reg.cantidad}</strong></td>
                     <td><span style="font-size: 13px; color: #7f8c8d;">${this.formatDate(reg.fecha)}</span></td>
-                    <td>${displayProduct}</td>
+                    <td>${productCellContent}</td>
                     <td>${reg.cuenta || '-'}</td>
                     <td><span style="font-size:13px; color:#666;">${reg.observacion || '-'}</span></td>
                     <td style="text-align: center;">${actionCell}</td>
@@ -539,10 +646,16 @@ const RegistrosApp = {
                     const safeObservacion = (reg.observacion || '').replace(/'/g, "\\'").replace(/"/g, "&quot;");
 
                     const trExcel = document.createElement('tr');
+                    if (rowStyle) trExcel.style.cssText = rowStyle;
                     trExcel.innerHTML = `
                         <td style="border: 1px solid #d4d4d4; padding: 8px; text-align: center; vertical-align: top; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'fecha', '${reg.fecha}')" title="Doble clic para editar">${showDate ? currentFormattedDate : ''}</td>
                         <td style="border: 1px solid #d4d4d4; padding: 8px; text-align: center; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'cantidad', '${reg.cantidad}')" title="Doble clic para editar">${reg.cantidad}</td>
-                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'producto', '${safeProducto}')" title="Doble clic para editar">${reg.producto}</td>
+                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'producto', '${safeProducto}')" title="Doble clic para editar">
+                            <div>
+                                <span>${reg.producto}</span>
+                                ${pillsHtml ? `<div style="margin-top: 2px; display: flex; flex-wrap: wrap; gap: 4px;">${pillsHtml}</div>` : ''}
+                            </div>
+                        </td>
                         <td style="border: 1px solid #d4d4d4; padding: 8px; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'cuenta', '${safeCuenta}')" title="Doble clic para editar">${reg.cuenta || ''}</td>
                         <td style="border: 1px solid #d4d4d4; padding: 8px; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'observacion', '${safeObservacion}')" title="Doble clic para editar">${reg.observacion || ''}</td>
                     `;
@@ -579,7 +692,6 @@ const RegistrosApp = {
             `;
         } else {
             resumenTbody.innerHTML = '';
-            // Obtener productos y ordenarlos alfabéticamente por su nombre oficial
             const sortedKeys = Object.keys(resumenMap).sort((a, b) => resumenMap[a].name.localeCompare(resumenMap[b].name));
             
             sortedKeys.forEach(key => {
@@ -597,15 +709,29 @@ const RegistrosApp = {
     async addEmptyRowForDate(rawDateStr) {
         if (!rawDateStr) return;
         try {
-            await this.registrosRef.add({
+            const batch = this.db.batch();
+            const respaldoId = this.respaldoRef.doc().id;
+            const cloneId = this.registrosRef.doc().id;
+
+            const dataToSet = {
                 fecha: rawDateStr,
                 cantidad: 1,
                 producto: 'Nuevo Registro (Doble clic para editar)',
                 cuenta: '',
                 observacion: '',
                 estado: 'pendiente',
+                origen: 'excel',
+                archivado: false,
                 timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            batch.set(this.respaldoRef.doc(respaldoId), dataToSet);
+            batch.set(this.registrosRef.doc(cloneId), {
+                ...dataToSet,
+                respaldoId: respaldoId
             });
+
+            await batch.commit();
         } catch (e) {
             console.error("Error agregando fila:", e);
             alert("Error al agregar la fila.");
@@ -658,22 +784,85 @@ const RegistrosApp = {
 
             tdElement.innerHTML = newValue;
 
-            // Background update sin await para no bloquear la interfaz
-            this.registrosRef.doc(docId).update({
-                [field]: newValue
-            }).catch(e => {
+            try {
+                const clones = this.allClonesMap[docId] || [];
+                const totalBilled = clones.reduce((sum, c) => c.estado === 'facturado' ? sum + c.cantidad : sum, 0);
+
+                if (field === 'cantidad') {
+                    if (newValue < totalBilled) {
+                        alert(`⚠️ No puedes reducir la cantidad por debajo del total ya facturado (${totalBilled} uds).`);
+                        tdElement.innerHTML = currentValue;
+                        setTimeout(() => {
+                            if (!document.querySelector('#excel-table-tbody input')) {
+                                this.renderFastEntryTable();
+                            }
+                        }, 150);
+                        return;
+                    }
+
+                    const newPendingQty = newValue - totalBilled;
+                    const pendingClones = clones.filter(c => c.estado === 'pendiente');
+                    const batch = this.db.batch();
+
+                    // Actualizar respaldo
+                    batch.update(this.respaldoRef.doc(docId), { cantidad: newValue });
+
+                    if (newPendingQty > 0) {
+                        if (pendingClones.length > 0) {
+                            // Actualizar el primer clon pendiente, borrar los demás si existieran
+                            batch.update(this.registrosRef.doc(pendingClones[0].id), { cantidad: newPendingQty });
+                            for (let k = 1; k < pendingClones.length; k++) {
+                                batch.delete(this.registrosRef.doc(pendingClones[k].id));
+                            }
+                        } else {
+                            // No había clones pendientes, todo estaba facturado. Crear un clon pendiente nuevo.
+                            const respaldoDoc = await this.respaldoRef.doc(docId).get();
+                            const respData = respaldoDoc.data();
+                            const newCloneRef = this.registrosRef.doc();
+                            batch.set(newCloneRef, {
+                                respaldoId: docId,
+                                fecha: respData.fecha,
+                                producto: respData.producto,
+                                productId: respData.productId || null,
+                                cantidad: newPendingQty,
+                                cuenta: respData.cuenta || '',
+                                observacion: respData.observacion || '',
+                                estado: 'pendiente',
+                                origen: respData.origen || 'manual',
+                                filaExcel: respData.filaExcel || null,
+                                archivado: respData.archivado || false,
+                                timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
+                            });
+                        }
+                    } else {
+                        // El pendiente es 0, eliminar clones pendientes
+                        pendingClones.forEach(pc => {
+                            batch.delete(this.registrosRef.doc(pc.id));
+                        });
+                    }
+
+                    await batch.commit();
+
+                    const reg = this.allRegistros.find(r => r.id === docId);
+                    if (reg) reg.cantidad = newValue;
+
+                } else {
+                    // Propagar otros campos a respaldo y a todos sus clones
+                    const batch = this.db.batch();
+                    batch.update(this.respaldoRef.doc(docId), { [field]: newValue });
+                    clones.forEach(c => {
+                        batch.update(this.registrosRef.doc(c.id), { [field]: newValue });
+                    });
+                    await batch.commit();
+
+                    const reg = this.allRegistros.find(r => r.id === docId);
+                    if (reg) reg[field] = newValue;
+                }
+            } catch (e) {
                 console.error("Error actualizando celda:", e);
                 const regError = this.allRegistros.find(r => r.id === docId);
                 if (regError) regError[field] = currentValue;
                 tdElement.innerHTML = currentValue;
-                if (!document.querySelector('#excel-table-tbody input')) {
-                    this.renderFastEntryTable();
-                }
-            });
-
-            const reg = this.allRegistros.find(r => r.id === docId);
-            if (reg) {
-                reg[field] = newValue;
             }
 
             setTimeout(() => {
@@ -700,22 +889,49 @@ const RegistrosApp = {
     },
 
     async cerrarMes() {
-        const facturados = this.allRegistros.filter(r => r.estado === 'facturado' && !r.archivado);
-        if (facturados.length === 0) {
+        const isRegistroPage = !!document.getElementById('fast-entry-tbody');
+        
+        let registrosParaArchivar;
+        if (isRegistroPage) {
+            // En registro.html, allRegistros contiene los respaldos
+            // Filtrar los que tienen TODOS sus clones facturados
+            registrosParaArchivar = this.allRegistros.filter(r => {
+                if (r.archivado) return false;
+                const clones = this.allClonesMap[r.id] || [];
+                if (clones.length === 0) return false;
+                return clones.every(c => c.estado === 'facturado');
+            });
+        } else {
+            registrosParaArchivar = this.allRegistros.filter(r => r.estado === 'facturado' && !r.archivado);
+        }
+
+        if (registrosParaArchivar.length === 0) {
             alert("No hay registros facturados listos para archivar.");
             return;
         }
         
-        if (!confirm(`¿Estás seguro de cerrar el mes? Se archivarán ${facturados.length} registros facturados para limpiar la vista. Seguirán disponibles en el Historial Archivado.`)) return;
+        if (!confirm(`¿Estás seguro de cerrar el mes? Se archivarán ${registrosParaArchivar.length} registros facturados para limpiar la vista. Seguirán disponibles en el Historial Archivado.`)) return;
 
         this.showLoading(true);
         try {
             let batch = this.db.batch();
             let count = 0;
-            for (let reg of facturados) {
-                batch.update(this.registrosRef.doc(reg.id), { archivado: true });
-                count++;
-                if (count >= 450) {
+            for (let reg of registrosParaArchivar) {
+                if (isRegistroPage) {
+                    // Archivar el respaldo
+                    batch.update(this.respaldoRef.doc(reg.id), { archivado: true });
+                    count++;
+                    // Archivar todos sus clones
+                    const clones = this.allClonesMap[reg.id] || [];
+                    clones.forEach(c => {
+                        batch.update(this.registrosRef.doc(c.id), { archivado: true });
+                        count++;
+                    });
+                } else {
+                    batch.update(this.registrosRef.doc(reg.id), { archivado: true });
+                    count++;
+                }
+                if (count >= 400) {
                     await batch.commit();
                     batch = this.db.batch();
                     count = 0;
@@ -790,10 +1006,13 @@ const RegistrosApp = {
             }
         }
 
-        // Guardar instantáneamente en Firebase
+        // Guardar instantáneamente en Firebase en ambas colecciones
         try {
-            const docRef = RegistrosApp.registrosRef.doc();
-            await docRef.set({
+            const batch = RegistrosApp.db.batch();
+            const respaldoId = RegistrosApp.respaldoRef.doc().id;
+            const cloneId = RegistrosApp.registrosRef.doc().id;
+
+            const baseData = {
                 fecha: RegistrosApp.getLocalISODate() || "",
                 producto: productoDesc || "",
                 productId: productId || null,
@@ -803,7 +1022,16 @@ const RegistrosApp = {
                 estado: 'pendiente',
                 origen: 'manual',
                 timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            // Guardar en colecciones duales
+            batch.set(RegistrosApp.respaldoRef.doc(respaldoId), baseData);
+            batch.set(RegistrosApp.registrosRef.doc(cloneId), {
+                ...baseData,
+                respaldoId: respaldoId
             });
+
+            await batch.commit();
         } catch (error) {
             console.error("Error guardando registro:", error);
             alert("Error al guardar el producto: " + error.message);
@@ -910,6 +1138,18 @@ const RegistrosApp = {
         let batch = this.db.batch();
         let operationsCount = 0;
         let totalProcessed = 0;
+        let totalUpdated = 0;
+        let totalSkipped = 0;
+
+        // Cargar registros existentes en REGISTROS_RESPALDO que no estén archivados
+        const existingSnap = await this.respaldoRef.where('archivado', '==', false).get();
+        const existingMap = {};
+        existingSnap.forEach(doc => {
+            const data = doc.data();
+            if (data.filaExcel !== undefined && data.filaExcel !== null) {
+                existingMap[data.filaExcel] = { id: doc.id, ...data };
+            }
+        });
 
         // Saltar la primera fila si es el encabezado
         let startIndex = 0;
@@ -1006,7 +1246,6 @@ const RegistrosApp = {
                         productId = matchMapeado.id;
                         productoDesc = matchMapeado.descripcion;
                     }
-                    // Si el código ya no existe en inventario, no crear vínculo fantasma
                 }
 
                 // 2. Fallback: coincidencia exacta por descripción o alias
@@ -1023,25 +1262,124 @@ const RegistrosApp = {
                 }
             }
 
-            // Crear documento en Firestore
-            const docRef = this.registrosRef.doc();
-            batch.set(docRef, {
-                fecha: fechaAUsar,
-                producto: productoDesc,
-                productId: productId,
-                cantidad: cantidad,
-                cuenta: cuenta,
-                observacion: observacion,
-                estado: 'pendiente',
-                origen: 'excel',
-                timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
-            });
+            const filaExcelNum = i + 1;
+            const existingDoc = existingMap[filaExcelNum];
 
-            operationsCount++;
-            totalProcessed++;
+            if (existingDoc) {
+                // Fila ya importada previamente. Comparar datos.
+                const isSame = existingDoc.fecha === fechaAUsar &&
+                               existingDoc.producto === productoDesc &&
+                               existingDoc.cantidad === cantidad &&
+                               (existingDoc.cuenta || '') === cuenta &&
+                               (existingDoc.observacion || '') === observacion;
+                
+                if (isSame) {
+                    totalSkipped++;
+                    continue; // Duplicado idéntico, omitir.
+                }
 
-            // Firestore limits batches to 500 operations
-            if (operationsCount >= 450) {
+                // Si cambiaron los datos, verificar si tiene clones facturados en REGISTROS_SALIDA
+                const clonesSnap = await this.registrosRef.where('respaldoId', '==', existingDoc.id).get();
+                const clones = clonesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+                const totalBilled = clones.reduce((sum, c) => c.estado === 'facturado' ? sum + c.cantidad : sum, 0);
+
+                if (totalBilled > 0) {
+                    // Si ya está facturado, actualizar solo los campos descriptivos (producto, cuenta, observacion)
+                    // pero mantener fecha y cantidad inalteradas para no desajustar la facturación.
+                    batch.update(this.respaldoRef.doc(existingDoc.id), {
+                        producto: productoDesc,
+                        productId: productId,
+                        cuenta: cuenta,
+                        observacion: observacion
+                    });
+                    clones.forEach(c => {
+                        batch.update(this.registrosRef.doc(c.id), {
+                            producto: productoDesc,
+                            productId: productId,
+                            cuenta: cuenta,
+                            observacion: observacion
+                        });
+                    });
+                    operationsCount += (1 + clones.length);
+                } else {
+                    // Si no está facturado, actualizar libremente cantidad, fecha y demás campos
+                    batch.update(this.respaldoRef.doc(existingDoc.id), {
+                        fecha: fechaAUsar,
+                        producto: productoDesc,
+                        productId: productId,
+                        cantidad: cantidad,
+                        cuenta: cuenta,
+                        observacion: observacion
+                    });
+
+                    if (clones.length > 0) {
+                        batch.update(this.registrosRef.doc(clones[0].id), {
+                            fecha: fechaAUsar,
+                            producto: productoDesc,
+                            productId: productId,
+                            cantidad: cantidad,
+                            cuenta: cuenta,
+                            observacion: observacion
+                        });
+                        // Borrar cualquier otro clon duplicado huérfano
+                        for (let k = 1; k < clones.length; k++) {
+                            batch.delete(this.registrosRef.doc(clones[k].id));
+                            operationsCount++;
+                        }
+                        operationsCount += 2;
+                    } else {
+                        // Si no tenía clon por alguna razón, crearlo
+                        const cloneId = this.registrosRef.doc().id;
+                        batch.set(this.registrosRef.doc(cloneId), {
+                            respaldoId: existingDoc.id,
+                            fecha: fechaAUsar,
+                            producto: productoDesc,
+                            productId: productId,
+                            cantidad: cantidad,
+                            cuenta: cuenta,
+                            observacion: observacion,
+                            estado: 'pendiente',
+                            origen: 'excel',
+                            filaExcel: filaExcelNum,
+                            archivado: false,
+                            timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        operationsCount += 2;
+                    }
+                }
+                totalUpdated++;
+            } else {
+                // Nuevo registro
+                const respaldoId = this.respaldoRef.doc().id;
+                const cloneId = this.registrosRef.doc().id;
+
+                const baseData = {
+                    fecha: fechaAUsar,
+                    producto: productoDesc,
+                    productId: productId,
+                    cantidad: cantidad,
+                    cuenta: cuenta,
+                    observacion: observacion,
+                    estado: 'pendiente',
+                    origen: 'excel',
+                    filaExcel: filaExcelNum,
+                    archivado: false,
+                    timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                // Guardar en colecciones duales
+                batch.set(this.respaldoRef.doc(respaldoId), baseData);
+                batch.set(this.registrosRef.doc(cloneId), {
+                    ...baseData,
+                    respaldoId: respaldoId
+                });
+
+                operationsCount += 2;
+                totalProcessed++;
+            }
+
+            // Límite de operaciones en lote de Firestore
+            if (operationsCount >= 400) {
                 await batch.commit();
                 batch = this.db.batch();
                 operationsCount = 0;
@@ -1052,7 +1390,13 @@ const RegistrosApp = {
             await batch.commit();
         }
 
-        alert(`¡Carga exitosa! Se procesaron ${totalProcessed} registros.`);
+        let msg = `¡Carga de Excel finalizada!\n`;
+        if (totalProcessed > 0) msg += `- ${totalProcessed} registros nuevos agregados.\n`;
+        if (totalUpdated > 0) msg += `- ${totalUpdated} registros existentes actualizados.\n`;
+        if (totalSkipped > 0) msg += `- ${totalSkipped} registros duplicados omitidos.\n`;
+        if (totalProcessed === 0 && totalUpdated === 0) msg += `- No se agregaron nuevos registros (todos ya existían).`;
+        
+        alert(msg);
     },
 
     currentSelectedDate: null,
@@ -1060,55 +1404,132 @@ const RegistrosApp = {
 
     listenToRegistros() {
         if (this.unsubscribe) this.unsubscribe();
+        if (this.unsubscribeClones) this.unsubscribeClones();
 
-        // Se ordena por 'fecha' en lugar de 'timestamp' porque algunos registros
-        // tienen timestamp como número (Date.now()) y otros como serverTimestamp() de Firestore.
-        // Firebase no puede mezclar estos dos tipos en el mismo orderBy y omite registros.
-        // Ordenar por 'fecha' (string YYYY-MM-DD) es consistente para todos los registros.
-        this.unsubscribe = this.registrosRef
-            .orderBy('fecha', 'desc')
-            .limit(3000)
-            .onSnapshot(snapshot => {
-                this.allRegistros = [];
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    
-                    // Auto-corrección en caliente de fechas guardadas erróneamente con año 2006
-                    if (data.fecha && data.fecha.startsWith("2006-")) {
-                        const nuevaFecha = data.fecha.replace("2006-", "2026-");
-                        this.registrosRef.doc(doc.id).update({ fecha: nuevaFecha })
-                            .then(() => console.log(`Auto-corregida fecha de ${data.fecha} a ${nuevaFecha} en doc: ${doc.id}`))
-                            .catch(err => console.error("Error al auto-corregir fecha:", err));
-                        data.fecha = nuevaFecha; // Modificar en caliente localmente para visualización instantánea
-                    }
+        const isRegistroPage = !!document.getElementById('fast-entry-tbody');
 
-                    // Auto-sanación de registros huérfanos con estado "facturado" pero cuya factura ya no existe
-                    if (data.estado === 'facturado') {
-                        if (!data.facturaId || (this.activeInvoiceIds && !this.activeInvoiceIds.has(data.facturaId))) {
-                            console.warn(`Auto-sanando registro huérfano ${doc.id}: factura ausente o eliminada.`);
-                            this.registrosRef.doc(doc.id).update({
-                                estado: 'pendiente',
-                                facturaId: window.firebase.firestore.FieldValue.delete(),
-                                precioFacturado: window.firebase.firestore.FieldValue.delete(),
-                                costoFacturado: window.firebase.firestore.FieldValue.delete()
-                            }).catch(err => console.error("Error auto-sanando:", err));
-                            data.estado = 'pendiente'; // Modificar en caliente localmente
+        if (isRegistroPage) {
+            // ====== REGISTRO.HTML: Escucha dual ======
+            // Listener 1: REGISTROS_RESPALDO → llena this.allRegistros (datos a mostrar)
+            // Listener 2: REGISTROS_SALIDA → llena this.allClonesMap (clones agrupados por respaldoId)
+
+            let respaldoReady = false;
+            let clonesReady = false;
+
+            this.unsubscribe = this.respaldoRef
+                .orderBy('fecha', 'desc')
+                .limit(10000)
+                .onSnapshot(snapshot => {
+                    this.allRegistros = [];
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        
+                        // Client-side filter for archivado == false
+                        if (data.archivado === true) return;
+
+                        // Auto-corrección en caliente de fechas guardadas erróneamente con año 2006
+                        if (data.fecha && data.fecha.startsWith("2006-")) {
+                            const nuevaFecha = data.fecha.replace("2006-", "2026-");
+                            this.respaldoRef.doc(doc.id).update({ fecha: nuevaFecha })
+                                .then(() => console.log(`Auto-corregida fecha de ${data.fecha} a ${nuevaFecha} en respaldo: ${doc.id}`))
+                                .catch(err => console.error("Error al auto-corregir fecha:", err));
+                            data.fecha = nuevaFecha;
                         }
-                    }
-                    
-                    this.allRegistros.push({ id: doc.id, ...data });
+
+                        this.allRegistros.push({ id: doc.id, ...data });
+                    });
+
+                    respaldoReady = true;
+                    if (clonesReady) this._onDualDataReady();
+                }, error => {
+                    console.error("Error al escuchar REGISTROS_RESPALDO:", error);
                 });
-                this.renderDatesList();
-                this.renderFacturacionData();
-                
-                const isEditingExcel = document.querySelector('#excel-table-tbody input');
-                if (!isEditingExcel) {
-                    this.renderFastEntryTable();
-                }
-            }, error => {
-                console.error("Error al escuchar registros:", error);
-            });
+
+            this.unsubscribeClones = this.registrosRef
+                .limit(10000)
+                .onSnapshot(snapshot => {
+                    this.allClonesMap = {};
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        const rId = data.respaldoId;
+                        if (!rId) return; // Ignorar clones sin respaldoId (legacy no migrado)
+
+                        // Auto-corrección en caliente de fechas guardadas erróneamente con año 2006
+                        if (data.fecha && data.fecha.startsWith("2006-")) {
+                            const nuevaFecha = data.fecha.replace("2006-", "2026-");
+                            this.registrosRef.doc(doc.id).update({ fecha: nuevaFecha }).catch(() => {});
+                            data.fecha = nuevaFecha;
+                        }
+
+                        if (!this.allClonesMap[rId]) this.allClonesMap[rId] = [];
+                        this.allClonesMap[rId].push({ id: doc.id, ...data });
+                    });
+
+                    clonesReady = true;
+                    if (respaldoReady) this._onDualDataReady();
+                }, error => {
+                    console.error("Error al escuchar REGISTROS_SALIDA (clones):", error);
+                });
+
+        } else {
+            // ====== SALIDAS.HTML y otras pantallas: Escucha simple de REGISTROS_SALIDA ======
+            this.unsubscribe = this.registrosRef
+                .orderBy('fecha', 'desc')
+                .limit(10000)
+                .onSnapshot(snapshot => {
+                    this.allRegistros = [];
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+
+                        // Auto-corrección en caliente de fechas guardadas erróneamente con año 2006
+                        if (data.fecha && data.fecha.startsWith("2006-")) {
+                            const nuevaFecha = data.fecha.replace("2006-", "2026-");
+                            this.registrosRef.doc(doc.id).update({ fecha: nuevaFecha })
+                                .then(() => console.log(`Auto-corregida fecha de ${data.fecha} a ${nuevaFecha} en doc: ${doc.id}`))
+                                .catch(err => console.error("Error al auto-corregir fecha:", err));
+                            data.fecha = nuevaFecha;
+                        }
+
+                        // Auto-sanación de registros huérfanos con estado "facturado" pero cuya factura ya no existe
+                        if (data.estado === 'facturado') {
+                            if (!data.facturaId || (this.activeInvoiceIds && !this.activeInvoiceIds.has(data.facturaId))) {
+                                console.warn(`Auto-sanando registro huérfano ${doc.id}: factura ausente o eliminada.`);
+                                this.registrosRef.doc(doc.id).update({
+                                    estado: 'pendiente',
+                                    facturaId: window.firebase.firestore.FieldValue.delete(),
+                                    precioFacturado: window.firebase.firestore.FieldValue.delete(),
+                                    costoFacturado: window.firebase.firestore.FieldValue.delete()
+                                }).catch(err => console.error("Error auto-sanando:", err));
+                                data.estado = 'pendiente';
+                            }
+                        }
+
+                        this.allRegistros.push({ id: doc.id, ...data });
+                    });
+                    this.renderDatesList();
+                    this.renderFacturacionData();
+
+                    const isEditingExcel = document.querySelector('#excel-table-tbody input');
+                    if (!isEditingExcel) {
+                        this.renderFastEntryTable();
+                    }
+                }, error => {
+                    console.error("Error al escuchar registros:", error);
+                });
+        }
     },
+
+    // Método auxiliar invocado cuando ambos listeners de registro.html tienen datos
+    _onDualDataReady() {
+        this.renderDatesList();
+        this.renderFacturacionData();
+
+        const isEditingExcel = document.querySelector('#excel-table-tbody input');
+        if (!isEditingExcel) {
+            this.renderFastEntryTable();
+        }
+    },
+
 
     renderFacturacionData() {
         const listadoTbody = document.getElementById('fact-listado-tbody');
@@ -1173,13 +1594,26 @@ const RegistrosApp = {
         // 3. Tomar TODOS los registros del mes (tanto pendientes como facturados) para aplicar la deducción FIFO
         const todosLosRegistrosMes = [...this.allRegistros];
 
-        // Ordenar por fecha ascendente (más antiguas arriba) y desempatar por timestamp ascendente (orden de ingreso)
+        // Ordenar por fecha ascendente (más antiguas arriba).
+        // Para el mismo día, priorizar filaExcel de forma ascendente (el orden del Excel).
+        // Si son manuales o no tienen filaExcel, colocarlos al final (desempatados por timestamp ascendente).
         todosLosRegistrosMes.sort((a, b) => {
             const millisA = this.parseDateToMillis(a.fecha);
             const millisB = this.parseDateToMillis(b.fecha);
             
             if (millisA !== millisB) {
                 return millisA - millisB; // Ascendente (más antiguas arriba)
+            }
+            
+            const hasFilaA = a.filaExcel !== undefined && a.filaExcel !== null;
+            const hasFilaB = b.filaExcel !== undefined && b.filaExcel !== null;
+            
+            if (hasFilaA && hasFilaB) {
+                return a.filaExcel - b.filaExcel; // Fila menor arriba (ascendente)
+            } else if (hasFilaA) {
+                return -1; // a (Excel) va arriba de b (manual)
+            } else if (hasFilaB) {
+                return 1; // b (Excel) va arriba de a (manual)
             }
             
             let tA = 0;
@@ -1796,7 +2230,9 @@ const RegistrosApp = {
                     estado: 'pendiente',
                     precioFacturado: window.firebase.firestore.FieldValue.delete(),
                     costoFacturado: window.firebase.firestore.FieldValue.delete(),
-                    facturaId: window.firebase.firestore.FieldValue.delete()
+                    facturaId: window.firebase.firestore.FieldValue.delete(),
+                    numeroFactura: window.firebase.firestore.FieldValue.delete(),
+                    clienteFactura: window.firebase.firestore.FieldValue.delete()
                 });
                 alert("✅ Producto devuelto a Pendiente correctamente.");
             } catch (error) {
@@ -1809,7 +2245,24 @@ const RegistrosApp = {
     async deleteRegistro(id) {
         if (await this.confirmDialog('¿Estás seguro de eliminar este registro?')) {
             try {
-                await this.registrosRef.doc(id).delete();
+                const batch = this.db.batch();
+                
+                // Eliminar el respaldo
+                batch.delete(this.respaldoRef.doc(id));
+                
+                // Eliminar todos sus clones vinculados en REGISTROS_SALIDA
+                const clonesSnap = await this.registrosRef.where('respaldoId', '==', id).get();
+                clonesSnap.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+                
+                // También eliminar si el propio ID existe en REGISTROS_SALIDA (legacy o vista de salidas)
+                const selfDoc = await this.registrosRef.doc(id).get();
+                if (selfDoc.exists) {
+                    batch.delete(selfDoc.ref);
+                }
+                
+                await batch.commit();
             } catch (error) {
                 console.error("Error eliminando:", error);
                 alert("No se pudo eliminar.");
@@ -1821,11 +2274,25 @@ const RegistrosApp = {
         if (await this.confirmDialog('⚠️ ¡PELIGRO! ¿Estás seguro de ELIMINAR TODOS los registros de salidas? Esta acción no se puede deshacer.')) {
             this.showLoading(true);
             try {
+                // Borrar todos los clones en REGISTROS_SALIDA
                 const snapshot = await this.registrosRef.get();
-                const batch = this.db.batch();
+                let batch = this.db.batch();
+                let ops = 0;
                 snapshot.docs.forEach(doc => {
                     batch.delete(doc.ref);
+                    ops++;
+                    if (ops >= 400) {
+                        // Se necesitará ejecutar múltiples batches
+                    }
                 });
+
+                // Borrar todos los respaldos en REGISTROS_RESPALDO
+                const respaldoSnap = await this.respaldoRef.get();
+                respaldoSnap.docs.forEach(doc => {
+                    batch.delete(doc.ref);
+                    ops++;
+                });
+
                 await batch.commit();
                 alert('Todos los registros han sido eliminados.');
             } catch (error) {
@@ -2145,7 +2612,9 @@ const RegistrosApp = {
                                 estado: 'pendiente',
                                 facturaId: window.firebase.firestore.FieldValue.delete(),
                                 precioFacturado: window.firebase.firestore.FieldValue.delete(),
-                                costoFacturado: window.firebase.firestore.FieldValue.delete()
+                                costoFacturado: window.firebase.firestore.FieldValue.delete(),
+                                numeroFactura: window.firebase.firestore.FieldValue.delete(),
+                                clienteFactura: window.firebase.firestore.FieldValue.delete()
                             });
 
                             // Sincronizar la memoria caché local para que el algoritmo FIFO los incluya en el cálculo actual
@@ -2155,6 +2624,8 @@ const RegistrosApp = {
                                 delete localReg.facturaId;
                                 delete localReg.precioFacturado;
                                 delete localReg.costoFacturado;
+                                delete localReg.numeroFactura;
+                                delete localReg.clienteFactura;
                             }
                         });
                     }
@@ -2202,8 +2673,17 @@ const RegistrosApp = {
                 }
             });
 
-            // Pasar registros pendientes a facturado (FIFO)
-            let pendientesParaFacturar = this.allRegistros.filter(r => r.estado === 'pendiente');
+            // Extraer cliente y numero ANTES del FIFO para poder estamparlos en los clones facturados
+            const cliente = document.getElementById('factura-cliente').value || 'Cliente General';
+            const numero = document.getElementById('factura-numero').value || '';
+
+            // Pasar registros pendientes a facturado (FIFO) - Limitado al mes de la factura
+            const targetMonth = fechaFactura.substring(0, 7);
+            let pendientesParaFacturar = this.allRegistros.filter(r => 
+                r.estado === 'pendiente' && 
+                r.fecha && 
+                r.fecha.substring(0, 7) === targetMonth
+            );
             pendientesParaFacturar.sort((a, b) => this.parseDateToMillis(a.fecha) - this.parseDateToMillis(b.fecha)); // Ordenar por fecha cronológicamente de forma robusta (FIFO)
 
             this.facturaItems.forEach(item => {
@@ -2211,7 +2691,9 @@ const RegistrosApp = {
                 let cantidadFaltante = item.cantidadFacturar;
                 for (let i = 0; i < pendientesParaFacturar.length; i++) {
                     let reg = pendientesParaFacturar[i];
-                    if (reg.producto && item.producto && this.getGroupingKey(reg) === this.getGroupingKey(item.producto, item.vinculoId) && cantidadFaltante > 0) {
+                    const regKey = this.getGroupingKey(reg);
+                    const itemKey = this.getGroupingKey(item.producto, item.vinculoId);
+                    if (reg.producto && item.producto && regKey && regKey === itemKey && cantidadFaltante > 0) {
                         let regRef = this.registrosRef.doc(reg.id);
                         if (reg.cantidad <= cantidadFaltante) {
                             // Se consume todo el registro
@@ -2219,7 +2701,9 @@ const RegistrosApp = {
                                 estado: 'facturado',
                                 facturaId: facturaId,
                                 precioFacturado: item.precioUnitario,
-                                costoFacturado: item.costoUnitario || 0
+                                costoFacturado: item.costoUnitario || 0,
+                                numeroFactura: numero,
+                                clienteFactura: cliente
                             });
                             cantidadFaltante -= reg.cantidad;
                             reg.cantidad = 0; // Marcar como consumido en memoria para el loop
@@ -2237,6 +2721,8 @@ const RegistrosApp = {
                                 facturaId: facturaId,
                                 precioFacturado: item.precioUnitario,
                                 costoFacturado: item.costoUnitario || 0,
+                                numeroFactura: numero,
+                                clienteFactura: cliente,
                                 timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
                             });
 
@@ -2248,8 +2734,7 @@ const RegistrosApp = {
             });
 
             // Guardar factura en colección INVENTARIO_SALIDAS (Compatible con willianworkshop)
-            const cliente = document.getElementById('factura-cliente').value || 'Cliente General';
-            const numero = document.getElementById('factura-numero').value || '';
+            // NOTA: cliente y numero se extraen al inicio del FIFO más arriba.
             const grandTotal = this.facturaItems.reduce((sum, item) => sum + (item.cantidadFacturar * item.precioUnitario), 0);
             const totalCosto = this.facturaItems.reduce((sum, item) => sum + (item.cantidadFacturar * (item.costoUnitario || 0)), 0);
             const totalManoObra = this.facturaItems.reduce((sum, item) => sum + (item.isManoDeObra ? (item.cantidadFacturar * item.precioUnitario) : 0), 0);
@@ -2436,7 +2921,9 @@ const RegistrosApp = {
                         estado: 'pendiente',
                         facturaId: window.firebase.firestore.FieldValue.delete(),
                         precioFacturado: window.firebase.firestore.FieldValue.delete(),
-                        costoFacturado: window.firebase.firestore.FieldValue.delete()
+                        costoFacturado: window.firebase.firestore.FieldValue.delete(),
+                        numeroFactura: window.firebase.firestore.FieldValue.delete(),
+                        clienteFactura: window.firebase.firestore.FieldValue.delete()
                     });
                 });
             } else {
@@ -2663,27 +3150,48 @@ const RegistrosApp = {
             // Actualizar el registro actual y todos los pendientes iguales
             const batch = this.db.batch();
             
-            // 1. Actualizar el principal clickeado
-            const mainRef = this.db.collection('REGISTROS_SALIDA').doc(this.currentLinkRegistryId);
-            batch.update(mainRef, {
-                productId: product.id,
-                producto: product.descripcion
-            });
-
-            // 2. Actualizar todos los demás registros pendientes con el mismo nombre
+            const isRegistroPage = !!document.getElementById('fast-entry-tbody');
             const unlinkedDesc = this.currentLinkRegistryName;
-            const snapshot = await this.db.collection('REGISTROS_SALIDA')
+
+            // 1. Actualizar la referencia clickeada directamente (dependiendo de dónde estemos)
+            if (isRegistroPage) {
+                batch.update(this.respaldoRef.doc(this.currentLinkRegistryId), {
+                    productId: product.id,
+                    producto: product.descripcion
+                });
+            } else {
+                batch.update(this.registrosRef.doc(this.currentLinkRegistryId), {
+                    productId: product.id,
+                    producto: product.descripcion
+                });
+            }
+
+            // 2. Actualizar todos los demás clones (REGISTROS_SALIDA) pendientes
+            const clonesSnap = await this.registrosRef
                 .where('producto', '==', unlinkedDesc)
                 .where('estado', '==', 'pendiente')
                 .get();
 
-            snapshot.forEach(doc => {
-                if (doc.id !== this.currentLinkRegistryId) {
-                    batch.update(doc.ref, {
-                        productId: product.id,
-                        producto: product.descripcion
-                    });
-                }
+            clonesSnap.forEach(doc => {
+                if (!isRegistroPage && doc.id === this.currentLinkRegistryId) return;
+                batch.update(doc.ref, {
+                    productId: product.id,
+                    producto: product.descripcion
+                });
+            });
+
+            // 3. Actualizar todos los demás respaldos (REGISTROS_RESPALDO)
+            // No filtramos por estado aquí porque los respaldos suelen quedarse en "pendiente"
+            const respaldosSnap = await this.respaldoRef
+                .where('producto', '==', unlinkedDesc)
+                .get();
+
+            respaldosSnap.forEach(doc => {
+                if (isRegistroPage && doc.id === this.currentLinkRegistryId) return;
+                batch.update(doc.ref, {
+                    productId: product.id,
+                    producto: product.descripcion
+                });
             });
 
             await batch.commit();
@@ -2872,7 +3380,7 @@ const RegistrosApp = {
     },
 
     async deleteOnlyPendingRegistros() {
-        const pendientes = this.allRegistros.filter(r => r.estado === 'pendiente');
+        const pendientes = this.allRegistros.filter(r => r.estado === 'pendiente' || !r.estado);
         if (pendientes.length === 0) {
             alert("No hay registros pendientes para eliminar.");
             return;
@@ -2884,11 +3392,36 @@ const RegistrosApp = {
                 let batch = this.db.batch();
                 let operationsCount = 0;
 
-                for (let reg of pendientes) {
-                    batch.delete(this.registrosRef.doc(reg.id));
-                    operationsCount++;
+                const isRegistroPage = !!document.getElementById('fast-entry-tbody');
 
-                    if (operationsCount >= 450) {
+                for (let reg of pendientes) {
+                    if (isRegistroPage) {
+                        // En registro.html, reg.id es un respaldoId
+                        const clones = this.allClonesMap[reg.id] || [];
+                        const hasFacturados = clones.some(c => c.estado === 'facturado');
+                        
+                        if (!hasFacturados) {
+                            // No tiene clones facturados: eliminar respaldo y todos sus clones
+                            batch.delete(this.respaldoRef.doc(reg.id));
+                            operationsCount++;
+                            clones.forEach(c => {
+                                batch.delete(this.registrosRef.doc(c.id));
+                                operationsCount++;
+                            });
+                        } else {
+                            // Tiene clones facturados: solo eliminar los pendientes
+                            clones.filter(c => c.estado === 'pendiente').forEach(c => {
+                                batch.delete(this.registrosRef.doc(c.id));
+                                operationsCount++;
+                            });
+                        }
+                    } else {
+                        // En salidas.html, reg.id es un clon de REGISTROS_SALIDA
+                        batch.delete(this.registrosRef.doc(reg.id));
+                        operationsCount++;
+                    }
+
+                    if (operationsCount >= 400) {
                         await batch.commit();
                         batch = this.db.batch();
                         operationsCount = 0;
@@ -2993,7 +3526,9 @@ const RegistrosApp = {
     async loadInvoicesHistory() {
         this.loadMonthlyProfitsSummary();
         const tbody = document.getElementById('historial-invoices-tbody');
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px;"><div class="spinner" style="margin:auto; border-top-color:#3498db;"></div><p style="margin-top:10px; color:#718096;">Cargando historial...</p></td></tr>';
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px;"><div class="spinner" style="margin:auto; border-top-color:#3498db;"></div><p style="margin-top:10px; color:#718096;">Cargando historial...</p></td></tr>';
+        }
 
         try {
             const snapshot = await this.db.collection('INVENTARIO_SALIDAS')
@@ -3022,8 +3557,11 @@ const RegistrosApp = {
                 return tB - tA;
             });
 
-            this.renderInvoicesHistory(this.allHistoricalInvoices);
+            if (tbody) {
+                this.renderInvoicesHistory(this.allHistoricalInvoices);
+            }
             this.historyLoaded = true;
+
             this.renderFacturacionData();
 
             if (this.allHistoricalInvoices.length > 0) {
@@ -3663,6 +4201,18 @@ const RegistrosApp = {
         }
 
         const mes = auditMonthInput.value; // ej: "2026-05"
+        
+        // Calcular el mes anterior para abarcar facturas con desfases de fecha
+        const parts = mes.split('-');
+        let year = parseInt(parts[0], 10);
+        let month = parseInt(parts[1], 10);
+        month--;
+        if (month === 0) {
+            month = 12;
+            year--;
+        }
+        const prevMesStr = `${year}-${String(month).padStart(2, '0')}`;
+
         const resultsContainer = document.getElementById('audit-results-container');
         if (!resultsContainer) return;
 
@@ -3708,6 +4258,7 @@ const RegistrosApp = {
 
             // 3. Agrupar registros diarios
             const regsMap = {}; // key -> { officialName, totalQty, list: [] }
+
             regs.forEach(r => {
                 if (r.archivado === undefined) r.archivado = false;
                 const key = this.getGroupingKey(r);
@@ -3736,7 +4287,9 @@ const RegistrosApp = {
                         numeroFactura: inv.numeroFactura || 'S/N',
                         fecha: inv.fecha,
                         cliente: inv.CLIENTE || 'Cliente General',
-                        cantidad: item.cantidad
+                        cantidad: item.cantidad,
+                        producto: item.descripcionPapel || item.producto,
+                        productId: item.productId
                     });
                 });
             });
@@ -3746,7 +4299,15 @@ const RegistrosApp = {
             const auditReport = [];
 
             allKeys.forEach(key => {
-                const regData = regsMap[key] || { officialName: facturasMap[key]?.list[0]?.producto || key, totalQty: 0, list: [] };
+                let officialName = key;
+                if (regsMap[key]) {
+                    officialName = regsMap[key].officialName;
+                } else if (facturasMap[key] && facturasMap[key].list.length > 0) {
+                    const firstFactItem = facturasMap[key].list[0];
+                    officialName = this.getOfficialProductName(firstFactItem.producto, firstFactItem.productId);
+                }
+
+                const regData = regsMap[key] || { officialName, totalQty: 0, list: [] };
                 const factData = facturasMap[key] || { totalFacturado: 0, list: [] };
 
                 const R = regData.totalQty;
@@ -3813,6 +4374,9 @@ const RegistrosApp = {
                     <span style="font-size: 0.95rem; color: #4a5568; font-weight: bold;">
                         Auditoría completa para ${mes}: ${auditReport.length} productos analizados.
                     </span>
+                    <button class="btn btn-primary" onclick="RegistrosApp.syncDatabaseStatus('${mes}')" style="padding: 6px 12px; font-size: 13px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        <i class="fas fa-sync"></i> Corregir Estado en Firebase
+                    </button>
                 </div>
                 <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow-x: auto; background: white;">
                     <table class="inventario-table" style="width: 100%; border-collapse: collapse; margin: 0;">
@@ -4007,6 +4571,159 @@ const RegistrosApp = {
 
         this.goToStep(1);
         alert("Edición cancelada. Se limpió el borrador.");
+    },
+
+    async syncDatabaseStatus(mes) {
+        if (!mes) {
+            alert("No se ha especificado un mes válido para la sincronización.");
+            return;
+        }
+        this.showLoading(true);
+        try {
+            // 1. Obtener todas las facturas del mes seleccionado
+            const invoicesSnap = await this.db.collection('INVENTARIO_SALIDAS')
+                .where('fecha', '>=', mes + '-01')
+                .where('fecha', '<=', mes + '-31')
+                .get();
+
+            // 2. Agrupar cantidades facturadas
+            const facturadoMap = {};
+            invoicesSnap.forEach(doc => {
+                const inv = doc.data();
+                const items = inv.items || [];
+                items.forEach(item => {
+                    if (item.isManoDeObra || item.productId === 'SERVICIO') return;
+                    const key = this.getGroupingKey(item.descripcionPapel || item.producto, item.productId);
+                    if (key) {
+                        facturadoMap[key] = (facturadoMap[key] || 0) + item.cantidad;
+                    }
+                });
+            });
+
+            // 3. Consultar los registros del mes seleccionado
+            const regsSnap = await this.registrosRef
+                .where('fecha', '>=', mes + '-01')
+                .where('fecha', '<=', mes + '-31')
+                .get();
+                
+            let regs = [];
+            regsSnap.forEach(doc => regs.push({id: doc.id, ...doc.data()}));
+            
+            regs.sort((a, b) => this.parseDateToMillis(a.fecha) - this.parseDateToMillis(b.fecha));
+
+            let actualizados = 0;
+            const batch = this.db.batch();
+            
+            let debugLog = "";
+
+            // 4. Consumir de facturadoMap y auto-corregir fechas
+            regs.forEach(reg => {
+                const key = this.getGroupingKey(reg);
+                if (!key) return;
+
+                // Auto-corregir fecha si está en DD/MM/YYYY
+                if (reg.fecha && reg.fecha.includes('/')) {
+                    const parts = reg.fecha.split('/');
+                    if (parts.length === 3) {
+                        batch.update(this.registrosRef.doc(reg.id), { fecha: `${parts[2]}-${parts[1]}-${parts[0]}` });
+                        actualizados++;
+                    }
+                }
+
+                if (facturadoMap[key] && facturadoMap[key] > 0) {
+                    if (facturadoMap[key] >= reg.cantidad) {
+                        facturadoMap[key] -= reg.cantidad;
+                        if (reg.estado === 'pendiente') {
+                            batch.update(this.registrosRef.doc(reg.id), { estado: 'facturado' });
+                            actualizados++;
+                        }
+                    } else {
+                        // Consumo parcial
+                        const abonar = facturadoMap[key];
+                        facturadoMap[key] = 0;
+                        
+                        if (reg.estado === 'pendiente') {
+                            // El original lo dejamos pendiente con lo que sobra
+                            batch.update(this.registrosRef.doc(reg.id), { 
+                                cantidad: reg.cantidad - abonar 
+                            });
+                            
+                            // Creamos uno nuevo 'facturado' con lo que se pudo abonar
+                            const newDocRef = this.registrosRef.doc();
+                            batch.set(newDocRef, {
+                                ...reg,
+                                cantidad: abonar,
+                                estado: 'facturado'
+                            });
+                            actualizados++;
+                        }
+                    }
+                }
+            });
+
+            if (debugLog) alert("DEBUG:\n" + debugLog);
+
+            if (actualizados > 0) {
+                await batch.commit();
+                alert(`¡Éxito! Se han marcado ${actualizados} registros como 'facturado' en la base de datos.`);
+            } else {
+                alert('No se encontraron registros pendientes que necesiten corrección (todos los cubiertos ya están facturados).');
+            }
+        } catch (e) {
+            console.error("Error al sincronizar:", e);
+            alert("Error al sincronizar: " + e.message);
+        } finally {
+            this.showLoading(false);
+        }
+    },
+
+    async revertAllFacturadoToPendiente() {
+        const confirm = await this.confirmDialog("⚠️ ¿Seguro que deseas convertir todos los registros marcados como 'facturado' a 'pendiente' en la base de datos? Esto permitirá borrarlos o editarlos nuevamente.");
+        if (!confirm) return;
+
+        this.showLoading(true);
+        try {
+            const snap = await this.registrosRef.where('estado', '==', 'facturado').get();
+            if (snap.empty) {
+                alert("No se encontraron registros con estado 'facturado' en la base de datos.");
+                return;
+            }
+
+            let count = 0;
+            let batch = this.db.batch();
+            let ops = 0;
+            
+            for (const doc of snap.docs) {
+                batch.update(this.registrosRef.doc(doc.id), {
+                    estado: 'pendiente',
+                    numeroFactura: window.firebase.firestore.FieldValue.delete(),
+                    clienteFactura: window.firebase.firestore.FieldValue.delete()
+                });
+                count++;
+                ops++;
+                if (ops >= 400) {
+                    await batch.commit();
+                    batch = this.db.batch();
+                    ops = 0;
+                }
+            }
+            if (ops > 0) {
+                await batch.commit();
+            }
+
+            alert(`¡Éxito! Se han restablecido ${count} registros a estado 'pendiente'.`);
+            
+            if (typeof this.listenToRegistros === 'function') {
+                this.listenToRegistros();
+            } else {
+                location.reload();
+            }
+        } catch (e) {
+            console.error("Error al restablecer registros:", e);
+            alert("Error al restablecer registros: " + e.message);
+        } finally {
+            this.showLoading(false);
+        }
     }
 };
 
@@ -4016,3 +4733,6 @@ if (document.readyState === 'loading') {
 } else {
     RegistrosApp.init();
 }
+
+// Exponer globalmente para los botones HTML
+window.RegistrosApp = RegistrosApp;

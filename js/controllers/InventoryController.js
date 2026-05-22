@@ -2826,28 +2826,49 @@ class InventoryController {
             try {
                 const batch = db.batch();
                 
-                // 1. Actualizar el principal clickeado
-                const mainRef = db.collection('REGISTROS_SALIDA').doc(this.currentRegistryId);
-                batch.update(mainRef, {
+                // 1. Actualizar el principal clickeado en respaldos
+                const mainBackupRef = db.collection('REGISTROS_RESPALDO').doc(this.currentRegistryId);
+                batch.update(mainBackupRef, {
                     productId: product.id,
                     producto: product.descripcion
                 });
 
-                // 2. Actualizar todos los demás registros pendientes con el mismo nombre
+                // Actualizar sus clones correspondientes en REGISTROS_SALIDA
+                const clonesSnap = await db.collection('REGISTROS_SALIDA')
+                    .where('respaldoId', '==', this.currentRegistryId)
+                    .get();
+                clonesSnap.forEach(cloneDoc => {
+                    batch.update(cloneDoc.ref, {
+                        productId: product.id,
+                        producto: product.descripcion
+                    });
+                });
+
+                // 2. Actualizar todos los demás respaldos pendientes/no archivados con el mismo nombre y sus clones
                 const unlinkedDesc = this.currentRegistryName;
-                const snapshot = await db.collection('REGISTROS_SALIDA')
+                const respaldosSnapshot = await db.collection('REGISTROS_RESPALDO')
                     .where('producto', '==', unlinkedDesc)
-                    .where('estado', '==', 'pendiente')
+                    .where('archivado', '==', false)
                     .get();
 
-                snapshot.forEach(doc => {
-                    if (doc.id !== this.currentRegistryId) {
-                        batch.update(doc.ref, {
+                for (const respDoc of respaldosSnapshot.docs) {
+                    if (respDoc.id !== this.currentRegistryId) {
+                        batch.update(respDoc.ref, {
                             productId: product.id,
                             producto: product.descripcion
                         });
                     }
-                });
+                    
+                    const matchingClones = await db.collection('REGISTROS_SALIDA')
+                        .where('respaldoId', '==', respDoc.id)
+                        .get();
+                    matchingClones.forEach(cloneDoc => {
+                        batch.update(cloneDoc.ref, {
+                            productId: product.id,
+                            producto: product.descripcion
+                        });
+                    });
+                }
 
                 await batch.commit();
                 alert("✅ Vinculación completada correctamente.");

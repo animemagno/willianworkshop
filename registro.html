@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="css/inventario.css">
-    
+
     <style>
         /* Estilos optimizados para pantalla completa y tablet */
         body {
@@ -26,7 +26,7 @@
             padding: 12px 20px;
             background: linear-gradient(135deg, #2c3e50, #34495e);
             color: white;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
         }
 
         .btn-back {
@@ -74,11 +74,11 @@
         .registro-card {
             background: white;
             border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
             padding: 25px;
             display: flex;
             flex-direction: column;
-            border: 1px solid rgba(0,0,0,0.03);
+            border: 1px solid rgba(0, 0, 0, 0.03);
             transition: transform 0.2s ease;
         }
 
@@ -214,7 +214,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(255,255,255,0.85);
+            background: rgba(255, 255, 255, 0.85);
             z-index: 9999;
             display: flex;
             flex-direction: column;
@@ -233,8 +233,34 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Estilo para las píldoras de facturas vinculadas */
+        .invoice-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #edf2f7;
+            color: #2d3748;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-right: 5px;
+            margin-top: 4px;
+            border: 1px solid #cbd5e0;
+            cursor: help;
+            transition: all 0.2s ease;
+        }
+        .invoice-pill:hover {
+            background: #e2e8f0;
+            border-color: #a0aec0;
         }
     </style>
 </head>
@@ -259,7 +285,12 @@
             </h1>
         </div>
         <div style="display: flex; align-items: center; gap: 15px;">
-            <button onclick="toggleFullScreen()" class="btn-back" style="cursor: pointer; background: rgba(52, 152, 219, 0.2); border-color: rgba(52, 152, 219, 0.5);">
+            <button onclick="RegistrosApp.revertAllFacturadoToPendiente()" class="btn-back"
+                style="cursor: pointer; background: rgba(231, 76, 60, 0.2); border-color: rgba(231, 76, 60, 0.5); color: #e74c3c; font-weight: bold;">
+                <i class="fas fa-undo"></i> Convertir todo a Pendiente
+            </button>
+            <button onclick="toggleFullScreen()" class="btn-back"
+                style="cursor: pointer; background: rgba(52, 152, 219, 0.2); border-color: rgba(52, 152, 219, 0.5);">
                 <i class="fas fa-expand"></i> <span id="fs-btn-text">Pantalla Completa</span>
             </button>
             <div style="font-weight: 500; font-size: 0.95rem; color: #bdc3c7;">
@@ -274,17 +305,21 @@
 
             <!-- COLUMNA IZQUIERDA: Formulario + Importación -->
             <div style="display: flex; flex-direction: column; gap: 25px;">
-                
+
                 <!-- 1. Formulario de ingreso rápido -->
                 <div class="registro-card">
                     <h2><i class="fas fa-keyboard"></i> Ingreso de Producto</h2>
-                    
-                    <form id="fast-entry-form" onsubmit="event.preventDefault(); RegistrosApp.addFastEntryRow(); return false;" style="display: flex; flex-direction: column; gap: 15px;">
+
+                    <form id="fast-entry-form"
+                        onsubmit="event.preventDefault(); RegistrosApp.addFastEntryRow(); return false;"
+                        style="display: flex; flex-direction: column; gap: 15px;">
                         <div>
-                            <label class="form-group-label" for="fast-producto">Producto (Código, Descripción o Escáner) *</label>
-                            <input type="text" id="fast-producto" class="large-input" placeholder="Escanea el código de barras o escribe..." required autocomplete="off">
+                            <label class="form-group-label" for="fast-producto">Producto (Código, Descripción o Escáner)
+                                *</label>
+                            <input type="text" id="fast-producto" class="large-input"
+                                placeholder="Escanea el código de barras o escribe..." required autocomplete="off">
                         </div>
-                        
+
                         <div style="display: flex; gap: 15px; flex-wrap: wrap;">
                             <div style="flex: 1.2; min-width: 130px;">
                                 <label class="form-group-label" for="fast-fecha">Fecha *</label>
@@ -292,19 +327,22 @@
                             </div>
                             <div style="flex: 0.8; min-width: 80px;">
                                 <label class="form-group-label" for="fast-cantidad">Cantidad *</label>
-                                <input type="number" id="fast-cantidad" class="large-input" value="1" min="1" required style="text-align: center;">
+                                <input type="number" id="fast-cantidad" class="large-input" value="1" min="1" required
+                                    style="text-align: center;">
                             </div>
                             <div style="flex: 2; min-width: 150px;">
                                 <label class="form-group-label" for="fast-cuenta">Cuenta (Opcional)</label>
-                                <input type="text" id="fast-cuenta" class="large-input" placeholder="Ej: Mayorista, Cliente...">
+                                <input type="text" id="fast-cuenta" class="large-input"
+                                    placeholder="Ej: Mayorista, Cliente...">
                             </div>
                         </div>
-                        
+
                         <div>
                             <label class="form-group-label" for="fast-observacion">Observación (Opcional)</label>
-                            <input type="text" id="fast-observacion" class="large-input" placeholder="Detalles o comentarios extra...">
+                            <input type="text" id="fast-observacion" class="large-input"
+                                placeholder="Detalles o comentarios extra...">
                         </div>
-                        
+
                         <button type="submit" class="btn-submit-large">
                             <i class="fas fa-plus"></i> Agregar a la Tabla
                         </button>
@@ -317,18 +355,24 @@
                     <p style="font-size: 0.9rem; color: #4a5568; margin-top: 0; margin-bottom: 20px; line-height: 1.4;">
                         Carga masiva de registros del mes mediante un archivo Excel (.xlsx, .xls).
                     </p>
-                    
-                    <button type="button" class="btn-submit-large" style="background-color: #27ae60; box-shadow: 0 4px 6px rgba(39, 174, 96, 0.2); margin-top: 0;" onclick="document.getElementById('fast-excel-file').click()">
+
+                    <button type="button" class="btn-submit-large"
+                        style="background-color: #27ae60; box-shadow: 0 4px 6px rgba(39, 174, 96, 0.2); margin-top: 0;"
+                        onclick="document.getElementById('fast-excel-file').click()">
                         <i class="fas fa-file-excel"></i> Seleccionar Archivo Excel
                     </button>
                     <input type="file" id="fast-excel-file" accept=".xlsx, .xls" style="display: none;">
-                    <span id="fast-excel-filename-display" style="margin-top: 12px; font-size: 0.9rem; font-weight: bold; color: #4a5568; text-align: center; display: block;"></span>
+                    <span id="fast-excel-filename-display"
+                        style="margin-top: 12px; font-size: 0.9rem; font-weight: bold; color: #4a5568; text-align: center; display: block;"></span>
 
                     <!-- Selector de Hojas de Excel -->
-                    <div id="fast-excel-sheets-container" style="display: none; margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                    <div id="fast-excel-sheets-container"
+                        style="display: none; margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
                         <label class="form-group-label">Selecciona la Hoja de Excel:</label>
                         <select id="fast-excel-sheet-select" class="large-input" style="margin-bottom: 15px;"></select>
-                        <button type="button" class="btn-submit-large" style="background-color: #2196f3; box-shadow: 0 4px 6px rgba(33, 150, 243, 0.2); margin-top: 0;" onclick="RegistrosApp.processSelectedFastExcelSheet()">
+                        <button type="button" class="btn-submit-large"
+                            style="background-color: #2196f3; box-shadow: 0 4px 6px rgba(33, 150, 243, 0.2); margin-top: 0;"
+                            onclick="RegistrosApp.processSelectedFastExcelSheet()">
                             <i class="fas fa-check"></i> Cargar Hoja Seleccionada
                         </button>
                     </div>
@@ -338,7 +382,8 @@
 
             <!-- COLUMNA DERECHA: Listado y Resumen -->
             <div class="registro-card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 15px; border-bottom: 1px solid #f1f1f1; padding-bottom: 12px;">
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 15px; border-bottom: 1px solid #f1f1f1; padding-bottom: 12px;">
                     <!-- Selector de pestañas internas -->
                     <div class="tab-menu-inner">
                         <button id="tab-btn-lista" class="tab-btn-inner active" onclick="switchInnerTab('lista')">
@@ -356,10 +401,14 @@
                     </div>
                     <!-- Botones de Acción -->
                     <div style="display: flex; gap: 10px;">
-                        <button class="btn" style="background-color: #27ae60; color: white; padding: 10px 16px; font-size: 0.9rem; font-weight: bold; border-radius: 6px; display: flex; align-items: center; gap: 8px; border: none; cursor: pointer; transition: background 0.2s;" onclick="RegistrosApp.cerrarMes()">
+                        <button class="btn"
+                            style="background-color: #27ae60; color: white; padding: 10px 16px; font-size: 0.9rem; font-weight: bold; border-radius: 6px; display: flex; align-items: center; gap: 8px; border: none; cursor: pointer; transition: background 0.2s;"
+                            onclick="RegistrosApp.cerrarMes()">
                             <i class="fas fa-box-archive"></i> Cerrar Mes
                         </button>
-                        <button class="btn" style="background-color: #e74c3c; color: white; padding: 10px 16px; font-size: 0.9rem; font-weight: bold; border-radius: 6px; display: flex; align-items: center; gap: 8px; border: none; cursor: pointer; transition: background 0.2s;" onclick="RegistrosApp.deleteOnlyPendingRegistros()">
+                        <button class="btn"
+                            style="background-color: #e74c3c; color: white; padding: 10px 16px; font-size: 0.9rem; font-weight: bold; border-radius: 6px; display: flex; align-items: center; gap: 8px; border: none; cursor: pointer; transition: background 0.2s;"
+                            onclick="RegistrosApp.deleteAllRegistros()">
                             <i class="fas fa-trash-alt"></i> Borrar Todo
                         </button>
                     </div>
@@ -382,9 +431,12 @@
                             <tbody id="fast-entry-tbody">
                                 <tr id="empty-state-row">
                                     <td colspan="6" style="text-align: center; padding: 60px 20px; color: #a0aec0;">
-                                        <i class="fas fa-box-open" style="font-size: 45px; margin-bottom: 12px; color: #cbd5e0;"></i>
-                                        <p style="margin: 0; font-weight: bold; font-size: 1.1rem;">No hay productos en la lista.</p>
-                                        <p style="font-size: 0.9rem; margin-top: 5px; color: #a0aec0;">Agrega productos desde el formulario para comenzar.</p>
+                                        <i class="fas fa-box-open"
+                                            style="font-size: 45px; margin-bottom: 12px; color: #cbd5e0;"></i>
+                                        <p style="margin: 0; font-weight: bold; font-size: 1.1rem;">No hay productos en
+                                            la lista.</p>
+                                        <p style="font-size: 0.9rem; margin-top: 5px; color: #a0aec0;">Agrega productos
+                                            desde el formulario para comenzar.</p>
                                     </td>
                                 </tr>
                             </tbody>
@@ -399,15 +451,19 @@
                             <thead>
                                 <tr style="background: #f8f9fa;">
                                     <th style="border: 1px solid #ddd;">Descripción / Producto</th>
-                                    <th style="width: 150px; text-align: center; border: 1px solid #ddd;">Cantidad Total</th>
+                                    <th style="width: 150px; text-align: center; border: 1px solid #ddd;">Cantidad Total
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody id="resumen-tbody">
                                 <tr id="resumen-empty-state">
                                     <td colspan="2" style="text-align: center; padding: 60px 20px; color: #a0aec0;">
-                                        <i class="fas fa-chart-bar" style="font-size: 45px; margin-bottom: 12px; color: #cbd5e0;"></i>
-                                        <p style="margin: 0; font-weight: bold; font-size: 1.1rem;">El resumen dinámico está vacío.</p>
-                                        <p style="font-size: 0.9rem; margin-top: 5px; color: #a0aec0;">Se calcularán los totales conforme agregues productos.</p>
+                                        <i class="fas fa-chart-bar"
+                                            style="font-size: 45px; margin-bottom: 12px; color: #cbd5e0;"></i>
+                                        <p style="margin: 0; font-weight: bold; font-size: 1.1rem;">El resumen dinámico
+                                            está vacío.</p>
+                                        <p style="font-size: 0.9rem; margin-top: 5px; color: #a0aec0;">Se calcularán los
+                                            totales conforme agregues productos.</p>
                                     </td>
                                 </tr>
                             </tbody>
@@ -418,19 +474,30 @@
                 <!-- Contenedor 3: Tabla Excel -->
                 <div id="inner-tab-tabla" style="display: none; flex-grow: 1;">
                     <div class="table-container-large" style="background: #fff;">
-                        <table style="width: 100%; border-collapse: collapse; font-family: Calibri, Arial, sans-serif; font-size: 14px;">
+                        <table
+                            style="width: 100%; border-collapse: collapse; font-family: Calibri, Arial, sans-serif; font-size: 14px;">
                             <thead>
                                 <tr style="background: #f8f9fa;">
-                                    <th style="width: 100px; border: 1px solid #d4d4d4; padding: 8px; text-align: center; color: #333;">Fecha</th>
-                                    <th style="width: 80px; text-align: center; border: 1px solid #d4d4d4; padding: 8px; color: #333;">Cantidad</th>
-                                    <th style="border: 1px solid #d4d4d4; padding: 8px; color: #333; text-align: left;">Descripción</th>
-                                    <th style="width: 150px; border: 1px solid #d4d4d4; padding: 8px; color: #333; text-align: left;">Cuenta</th>
-                                    <th style="width: 200px; border: 1px solid #d4d4d4; padding: 8px; color: #333; text-align: left;">Comentario</th>
+                                    <th
+                                        style="width: 100px; border: 1px solid #d4d4d4; padding: 8px; text-align: center; color: #333;">
+                                        Fecha</th>
+                                    <th
+                                        style="width: 80px; text-align: center; border: 1px solid #d4d4d4; padding: 8px; color: #333;">
+                                        Cantidad</th>
+                                    <th style="border: 1px solid #d4d4d4; padding: 8px; color: #333; text-align: left;">
+                                        Descripción</th>
+                                    <th
+                                        style="width: 150px; border: 1px solid #d4d4d4; padding: 8px; color: #333; text-align: left;">
+                                        Cuenta</th>
+                                    <th
+                                        style="width: 200px; border: 1px solid #d4d4d4; padding: 8px; color: #333; text-align: left;">
+                                        Comentario</th>
                                 </tr>
                             </thead>
                             <tbody id="excel-table-tbody">
                                 <tr>
-                                    <td colspan="5" style="text-align: center; padding: 40px; color: #aaa;">No hay datos para mostrar</td>
+                                    <td colspan="5" style="text-align: center; padding: 40px; color: #aaa;">No hay datos
+                                        para mostrar</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -452,7 +519,8 @@
                             </thead>
                             <tbody id="historial-archivo-tbody">
                                 <tr>
-                                    <td colspan="5" style="text-align: center; padding: 40px; color: #aaa;">No hay registros archivados</td>
+                                    <td colspan="5" style="text-align: center; padding: 40px; color: #aaa;">No hay
+                                        registros archivados</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -460,8 +528,10 @@
                 </div>
 
                 <!-- Barra de totales -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 15px; border-top: 2px solid #edf2f7;">
-                    <div style="font-size: 1.2rem; font-weight: bold; color: #2b6cb0; display: flex; align-items: center; gap: 8px;">
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 15px; border-top: 2px solid #edf2f7;">
+                    <div
+                        style="font-size: 1.2rem; font-weight: bold; color: #2b6cb0; display: flex; align-items: center; gap: 8px;">
                         <i class="fas fa-cubes"></i> Total de Artículos: <span id="total-items">0</span>
                     </div>
                 </div>
@@ -573,14 +643,14 @@
                 });
                 window.app.cache = products;
                 console.log("Caché de productos inicializada con existencias simuladas:", products.length, "ítems.");
-                
+
                 // Ocultar pantalla de carga
                 document.getElementById('registro-loading').style.display = 'none';
-                
+
                 // Enfocar en el campo del producto para escaneo continuo inmediato
                 const prodInput = document.getElementById('fast-producto');
                 if (prodInput) prodInput.focus();
-                
+
             } catch (error) {
                 console.error("Error al cargar la caché de productos para el escáner:", error);
                 alert("Error crítico al cargar productos: " + error.message + "\nPor favor recarga la página.");
@@ -596,7 +666,7 @@
             const tabResumen = document.getElementById('inner-tab-resumen');
             const tabTabla = document.getElementById('inner-tab-tabla');
             const tabHistorial = document.getElementById('inner-tab-historial');
-            
+
             const btnLista = document.getElementById('tab-btn-lista');
             const btnResumen = document.getElementById('tab-btn-resumen');
             const btnTabla = document.getElementById('tab-btn-tabla');
@@ -606,7 +676,7 @@
             tabResumen.style.display = 'none';
             tabTabla.style.display = 'none';
             tabHistorial.style.display = 'none';
-            
+
             btnLista.classList.remove('active');
             btnResumen.classList.remove('active');
             btnTabla.classList.remove('active');
@@ -631,28 +701,38 @@
     <!-- Modal: Vincular Producto -->
     <div id="modalLinkProduct" class="modal-overlay" style="display: none; z-index: 2100;">
         <div class="modal-content" style="max-width: 800px; padding: 25px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 12px;">
-                <h2 style="margin: 0; border: none; padding: 0; font-size: 1.3rem; display: flex; align-items: center; gap: 8px;"><i class="fas fa-link"></i> Vincular Producto</h2>
-                <span style="font-size: 24px; cursor: pointer; color: #888;" onclick="document.getElementById('modalLinkProduct').style.display='none'">&times;</span>
+            <div
+                style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 12px;">
+                <h2
+                    style="margin: 0; border: none; padding: 0; font-size: 1.3rem; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-link"></i> Vincular Producto
+                </h2>
+                <span style="font-size: 24px; cursor: pointer; color: #888;"
+                    onclick="document.getElementById('modalLinkProduct').style.display='none'">&times;</span>
             </div>
             <div>
-                <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #217346;">
+                <div
+                    style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #217346;">
                     <p style="margin:0; font-weight:bold; color:#555; font-size: 0.9rem;">Item en Excel:</p>
                     <h3 id="link-excel-name" style="margin:5px 0 0 0; color:#333; font-size: 1.1rem;">...</h3>
                 </div>
 
                 <div class="search-bar" style="margin-bottom: 15px;">
-                    <input type="text" id="link-search-input" class="large-input" placeholder="Escribe para buscar en inventario...">
+                    <input type="text" id="link-search-input" class="large-input"
+                        placeholder="Escribe para buscar en inventario...">
                 </div>
 
-                <div style="height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 15px; background: white;">
+                <div
+                    style="height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 15px; background: white;">
                     <table class="inventario-table" style="width: 100%; border-collapse: collapse; margin: 0;">
                         <thead>
                             <tr style="background: #f8f9fa;">
                                 <th style="border: 1px solid #ddd; padding: 10px;">Código</th>
                                 <th style="border: 1px solid #ddd; padding: 10px;">Descripción</th>
-                                <th style="border: 1px solid #ddd; padding: 10px; width: 70px; text-align: center;">Stock</th>
-                                <th style="border: 1px solid #ddd; padding: 10px; width: 80px; text-align: right;">Precio</th>
+                                <th style="border: 1px solid #ddd; padding: 10px; width: 70px; text-align: center;">
+                                    Stock</th>
+                                <th style="border: 1px solid #ddd; padding: 10px; width: 80px; text-align: right;">
+                                    Precio</th>
                                 <th style="border: 1px solid #ddd; padding: 10px; width: 100px;"></th>
                             </tr>
                         </thead>
@@ -662,15 +742,20 @@
                     </table>
                 </div>
 
-                <div style="background: #fff3cd; color: #856404; padding: 12px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 20px; line-height: 1.4; border: 1px solid #ffeeba;">
-                    <i class="fas fa-info-circle"></i> Si este ítem es un servicio (Mano de Obra) o no afecta inventario, usa el botón "Omitir".
+                <div
+                    style="background: #fff3cd; color: #856404; padding: 12px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 20px; line-height: 1.4; border: 1px solid #ffeeba;">
+                    <i class="fas fa-info-circle"></i> Si este ítem es un servicio (Mano de Obra) o no afecta
+                    inventario, usa el botón "Omitir".
                 </div>
             </div>
             <div style="display:flex; justify-content:space-between; gap: 10px;">
-                <button class="btn" style="background-color: #7f8c8d; color: white; padding: 10px 18px; font-weight: bold; border-radius: 6px; border: none; cursor: pointer;" onclick="RegistrosApp.skipLinkItem()">
+                <button class="btn"
+                    style="background-color: #7f8c8d; color: white; padding: 10px 18px; font-weight: bold; border-radius: 6px; border: none; cursor: pointer;"
+                    onclick="RegistrosApp.skipLinkItem()">
                     <i class="fas fa-forward"></i> Omitir / Marcar Servicio
                 </button>
-                <button class="btn btn-danger" style="padding: 10px 18px; font-weight: bold; border-radius: 6px;" onclick="document.getElementById('modalLinkProduct').style.display='none'">
+                <button class="btn btn-danger" style="padding: 10px 18px; font-weight: bold; border-radius: 6px;"
+                    onclick="document.getElementById('modalLinkProduct').style.display='none'">
                     Cancelar
                 </button>
             </div>
@@ -678,7 +763,7 @@
     </div>
 
     <!-- CARGAR SCRIPT DE REGISTROS -->
-    <script src="js/RegistrosApp.js"></script>
+    <script src="js/RegistrosApp.js?v=2.0.3"></script>
 
 </body>
 
