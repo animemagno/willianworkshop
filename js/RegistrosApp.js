@@ -1696,7 +1696,7 @@ const RegistrosApp = {
                 <td>${this.formatDate(reg.fecha)}</td>
                 <td><strong>${cantidadDisponible}</strong></td>
                 <td>${officialName}</td>
-                <td style="font-size: 0.8rem; color: #555;">${reg.cuenta || '-'}</td>
+                <td style="font-size: 0.95rem; font-weight: bold; color: #2c3e50;">${reg.cuenta || '-'}</td>
             `;
             listadoTbody.appendChild(tr);
         });
