@@ -2026,7 +2026,7 @@ const RegistrosApp = {
             
             const costoHTML = isGeneralService 
                 ? `<span style="color: #cbd5e0; font-size: 14px; font-weight: bold; display: block; text-align: center;">-</span>`
-                : `<span style="display: block; text-align: center; color: #7f8c8d; font-size: 0.85rem;">$${(item.costoUnitario || 0).toFixed(2)}</span>`;
+                : `<span style="display: block; text-align: center; color: #2d3748; font-weight: bold; font-size: 0.9rem;">$${(item.costoUnitario || 0).toFixed(2)}</span>`;
 
             const ventaHTML = isGeneralService 
                 ? `<span style="color: #cbd5e0; font-size: 14px; font-weight: bold; display: block; text-align: center;">-</span>`
@@ -2047,7 +2047,7 @@ const RegistrosApp = {
                         ? '<div style="font-size:10px; color:#27ae60; font-weight: bold;"><i class="fas fa-tools"></i> Servicio</div>' 
                         : (item.max === 999 
                             ? '<div style="font-size:10px; color:#dd6b20; font-weight: bold;"><i class="fas fa-edit"></i> Libre</div>' 
-                            : `<div style="font-size:10px; color:#888;">Disp: ${item.max}</div>`
+                            : ''
                           )
                     }
                 </td>
