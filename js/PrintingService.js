@@ -801,5 +801,487 @@ const PrintingService = {
         if (printWindow.document.readyState === 'complete') {
             printWindow.onload();
         }
+    },
+
+    numeroALetras(num) {
+        const unidades = ['', 'UN', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE'];
+        const decenas = ['', 'DIEZ', 'VEINTE', 'TREINTA', 'CUARENTA', 'CINCUENTA', 'SESENTA', 'SETENTA', 'OCHENTA', 'NOVENTA'];
+        const especiales = {
+            11: 'ONCE', 12: 'DOCE', 13: 'TRECE', 14: 'CATORCE', 15: 'QUINCE',
+            16: 'DIECISEIS', 17: 'DIECISIETE', 18: 'DIECIOCHO', 19: 'DIECINUEVE',
+            21: 'VEINTIUNO', 22: 'VEINTIDOS', 23: 'VEINTITRES', 24: 'VEINTICUATRO',
+            25: 'VEINTICINCO', 26: 'VEINTISEIS', 27: 'VEINTISIETE', 28: 'VEINTIOCHO',
+            29: 'VEINTINUEVE'
+        };
+        const centenas = ['', 'CIENTO', 'DOSCIENTOS', 'TRESCIENTOS', 'CUATROCIENTOS', 'QUINIENTOS', 'SEISCIENTOS', 'SIETECIENTOS', 'OCHOCIENTOS', 'NOVECIENTOS'];
+
+        function convertirGrupo(n) {
+            let output = '';
+            if (n === 100) return 'CIEN';
+            const c = Math.floor(n / 100);
+            const d = Math.floor((n % 100) / 10);
+            const u = n % 10;
+
+            if (c > 0) output += centenas[c] + ' ';
+            
+            const resto = n % 100;
+            if (resto > 0) {
+                if (resto in especiales) {
+                    output += especiales[resto] + ' ';
+                } else {
+                    if (d > 0) {
+                        output += decenas[d];
+                        if (u > 0) output += ' Y ' + unidades[u];
+                        output += ' ';
+                    } else if (u > 0) {
+                        output += unidades[u] + ' ';
+                    }
+                }
+            }
+            return output.trim();
+        }
+
+        if (num === 0) return 'SON: CERO DÓLARES';
+
+        const parteEntera = Math.floor(num);
+        const centavos = Math.round((num - parteEntera) * 100);
+
+        let output = '';
+        const millones = Math.floor(parteEntera / 1000000);
+        const miles = Math.floor((parteEntera % 1000000) / 1000);
+        const unidadesCentenas = parteEntera % 1000;
+
+        if (millones > 0) {
+            if (millones === 1) output += 'UN MILLÓN ';
+            else output += convertirGrupo(millones) + ' MILLONES ';
+        }
+
+        if (miles > 0) {
+            if (miles === 1) output += 'MIL ';
+            else output += convertirGrupo(miles) + ' MIL ';
+        }
+
+        if (unidadesCentenas > 0) {
+            output += convertirGrupo(unidadesCentenas) + ' ';
+        }
+
+        output = output.trim();
+        if (output === 'UN') {
+            const centsText = String(centavos).padStart(2, '0');
+            return `SON: UN CON ${centsText}/100 DÓLARES`;
+        }
+        if (output === '') output = 'CERO';
+
+        const centsText = String(centavos).padStart(2, '0');
+        return `SON: ${output} CON ${centsText}/100 DÓLARES`;
+    },
+
+    printInvoiceRealForm(invData) {
+        // Diagnóstico rápido en consola
+        console.log("Printing service - invData:", invData);
+
+        // Procesamiento de Fecha extremadamente robusto (soporta Timestamp, Date, string YYYY-MM-DD, DD/MM/YYYY, etc.)
+        let dayStr = '';
+        let monthStr = '';
+        let yearStr = '';
+        
+        const fechaVal = invData.fecha;
+        if (fechaVal) {
+            let dateObj = null;
+            if (typeof fechaVal === 'object') {
+                if (typeof fechaVal.toDate === 'function') {
+                    dateObj = fechaVal.toDate();
+                } else if (fechaVal.seconds) {
+                    dateObj = new Date(fechaVal.seconds * 1000);
+                } else if (fechaVal instanceof Date) {
+                    dateObj = fechaVal;
+                }
+            } else if (typeof fechaVal === 'string') {
+                const cleanFecha = fechaVal.trim();
+                if (cleanFecha.includes('-')) {
+                    const parts = cleanFecha.split('-');
+                    if (parts[0].length === 4) { // YYYY-MM-DD
+                        dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+                    } else { // DD-MM-YYYY o similar
+                        dateObj = new Date(parts[2], parts[1] - 1, parts[0]);
+                    }
+                } else if (cleanFecha.includes('/')) {
+                    const parts = cleanFecha.split('/');
+                    if (parts[2] && parts[2].length === 4) { // DD/MM/YYYY
+                        dateObj = new Date(parts[2], parts[1] - 1, parts[0]);
+                    } else if (parts[0] && parts[0].length === 4) { // YYYY/MM/DD
+                        dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+                    }
+                } else {
+                    const parsed = new Date(cleanFecha);
+                    if (!isNaN(parsed.getTime())) {
+                        dateObj = parsed;
+                    }
+                }
+            }
+            
+            if (dateObj && !isNaN(dateObj.getTime())) {
+                dayStr = String(dateObj.getDate()).padStart(2, '0');
+                monthStr = String(dateObj.getMonth() + 1).padStart(2, '0');
+                yearStr = String(dateObj.getFullYear()).substring(2, 4);
+            }
+        }
+
+        // Datos del Cliente y Factura con fallbacks
+        const clientName = invData.CLIENTE || invData.cliente || 'Cliente General';
+        const invoiceNumber = invData.numeroFactura || invData.factura || 'S/N';
+        
+        // Mapeo e interpolación de items
+        let itemsHTML = '';
+        const items = invData.items || [];
+        for (let i = 0; i < 14; i++) {
+            const item = items[i];
+            // Posicionamiento vertical: empieza en 40.5% (alineado con la primera línea) y avanza 2.77% por renglón
+            const topPos = 40.5 + (i * 2.77);
+            if (item) {
+                const desc = item.descripcionPapel || item.producto || item.descripcion || 'Repuesto';
+                
+                const cantVal = parseFloat(item.cantidad !== undefined ? item.cantidad : item.cant);
+                const priceVal = parseFloat(item.precioUnitario !== undefined ? item.precioUnitario : item.precio);
+                const totalVal = item.total !== undefined ? parseFloat(item.total) : (isNaN(cantVal) || isNaN(priceVal) ? 0 : cantVal * priceVal);
+                
+                const cantStr = isNaN(cantVal) ? '' : String(cantVal);
+                const priceStr = isNaN(priceVal) ? '' : priceVal.toFixed(2);
+                const totalStr = isNaN(totalVal) ? '' : totalVal.toFixed(2);
+                
+                itemsHTML += `
+                    <div class="invoice-field text-center" style="top: ${topPos}%; left: 7.5%; width: 9%;">${cantStr}</div>
+                    <div class="invoice-field text-left" style="top: ${topPos}%; left: 18.5%; width: 44.0%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${PrintingService._escape(desc)}</div>
+                    <div class="invoice-field text-right" style="top: ${topPos}%; left: 67.0%; width: 7%;">${priceStr ? '$' + priceStr : ''}</div>
+                    <div class="invoice-field text-right" style="top: ${topPos}%; left: 87.5%; width: 8%;">${totalStr ? '$' + totalStr : ''}</div>
+                `;
+            }
+        }
+
+        // Calcular el monto total
+        let totalAmount = invData.total;
+        if (totalAmount === undefined || totalAmount === null) {
+            totalAmount = items.reduce((sum, it) => {
+                const c = parseFloat(it.cantidad !== undefined ? it.cantidad : it.cant) || 0;
+                const p = parseFloat(it.precioUnitario !== undefined ? it.precioUnitario : it.precio) || 0;
+                return sum + (c * p);
+            }, 0);
+        }
+        totalAmount = parseFloat(totalAmount) || 0;
+        const totalInWords = PrintingService.numeroALetras(totalAmount);
+
+        // Abrir la ventana de impresión
+        const printWindow = window.open('', '_blank', 'width=850,height=1100');
+        if (!printWindow) {
+            alert("Error: El navegador bloqueó la ventana emergente de impresión. Por favor habilite los popups en la barra de direcciones.");
+            return;
+        }
+
+        // Calibración mm guardada en el cliente
+        let offsetX = parseFloat(localStorage.getItem('workshop_invoice_offset_x') || '0');
+        if (isNaN(offsetX)) offsetX = 0;
+        let offsetY = parseFloat(localStorage.getItem('workshop_invoice_offset_y') || '0');
+        if (isNaN(offsetY)) offsetY = 0;
+        const showGuide = localStorage.getItem('workshop_invoice_show_guide') === 'true';
+
+        let html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Factura #${PrintingService._escape(invoiceNumber)} - Imprimir</title>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+            <style>
+                body {
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
+                    background: #f0f2f5;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                }
+                
+                /* Barra de herramientas flotante superior */
+                .no-print.toolbar {
+                    background: rgba(44, 62, 80, 0.95);
+                    color: white;
+                    padding: 10px 20px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+                    border-bottom: 2px solid #3498db;
+                    position: sticky;
+                    top: 0;
+                    z-index: 1000;
+                }
+                .toolbar-title {
+                    font-size: 1rem;
+                    font-weight: bold;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+                .toolbar-controls {
+                    display: flex;
+                    align-items: center;
+                    gap: 15px;
+                }
+                .btn {
+                    padding: 8px 16px;
+                    border: none;
+                    border-radius: 4px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    font-family: inherit;
+                    transition: background 0.2s;
+                }
+                .btn-primary {
+                    background: #3498db;
+                    color: white;
+                }
+                .btn-primary:hover {
+                    background: #2980b9;
+                }
+                .btn-success {
+                    background: #2ecc71;
+                    color: white;
+                }
+                .btn-success:hover {
+                    background: #27ae60;
+                }
+                .btn-secondary {
+                    background: #7f8c8d;
+                    color: white;
+                }
+                .btn-secondary:hover {
+                    background: #95a5a6;
+                }
+                .toggle-container {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    cursor: pointer;
+                    font-size: 0.9rem;
+                    user-select: none;
+                }
+                .toggle-container input {
+                    cursor: pointer;
+                }
+                .input-group {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    font-size: 0.9rem;
+                }
+                .input-group input {
+                    width: 50px;
+                    padding: 5px;
+                    border: 1px solid #ccc;
+                    border-radius: 4px;
+                    text-align: center;
+                    font-family: inherit;
+                }
+                
+                /* Estilos de visualización en pantalla */
+                @media screen {
+                    body {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        padding-bottom: 50px;
+                    }
+                    #page-container {
+                        box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+                        border: 1px solid #ccc;
+                        margin-top: 30px;
+                        background: white;
+                    }
+                }
+                
+                /* Hoja Media Carta (Statement) física */
+                #page-container {
+                    width: 139.7mm;
+                    height: 215.9mm;
+                    position: relative;
+                    box-sizing: border-box;
+                    overflow: hidden;
+                }
+                
+                #page-container.show-guide {
+                    background-image: url('scan0001.jpg');
+                    background-size: 100% 100%;
+                    background-repeat: no-repeat;
+                }
+                
+                #print-content {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 139.7mm;
+                    height: 215.9mm;
+                    box-sizing: border-box;
+                }
+                
+                /* Campos de factura posicionados absolutamente con alto contraste */
+                .invoice-field {
+                    position: absolute;
+                    font-family: 'Courier New', Courier, monospace;
+                    font-size: 13px;
+                    font-weight: 900;
+                    color: #000000;
+                    line-height: 1.1;
+                    box-sizing: border-box;
+                }
+                
+                .text-center {
+                    text-align: center;
+                }
+                .text-left {
+                    text-align: left;
+                }
+                .text-right {
+                    text-align: right;
+                }
+                
+                /* Ocultar barra al imprimir */
+                @media print {
+                    .no-print {
+                        display: none !important;
+                    }
+                    html, body {
+                        background: none !important;
+                        padding: 0 !important;
+                        margin: 0 !important;
+                        width: 139.7mm !important;
+                        height: 215.9mm !important;
+                        overflow: hidden !important;
+                        display: block !important;
+                    }
+                    #page-container {
+                        border: none !important;
+                        box-shadow: none !important;
+                        background-image: none !important; /* Jamás imprimir el fondo guía */
+                        width: 139.7mm !important;
+                        height: 215.9mm !important;
+                        position: absolute !important;
+                        top: 0 !important;
+                        left: 0 !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        overflow: hidden !important;
+                        box-sizing: border-box !important;
+                        page-break-inside: avoid !important;
+                        break-inside: avoid !important;
+                    }
+                    @page {
+                        size: 139.7mm 215.9mm;
+                        margin: 0 !important;
+                    }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="no-print toolbar">
+                <div class="toolbar-title">
+                    <i class="fas fa-cog"></i> Calibrar e Imprimir Factura (Media Carta)
+                </div>
+                <div class="toolbar-controls">
+                    <button class="btn btn-primary" onclick="window.print()"><i class="fas fa-print"></i> Imprimir</button>
+                    <label class="toggle-container">
+                        <input type="checkbox" id="toggle-guide" ${showGuide ? 'checked' : ''} onchange="toggleGuide(this.checked)">
+                        <span>Mostrar Guía Física</span>
+                    </label>
+                    <div class="input-group">
+                        <label>Despl. Vertical (Y):</label>
+                        <input type="number" id="offset-y" step="0.5" value="${offsetY}" oninput="updateOffsets()">
+                        <span>mm</span>
+                    </div>
+                    <div class="input-group">
+                        <label>Despl. Horizontal (X):</label>
+                        <input type="number" id="offset-x" step="0.5" value="${offsetX}" oninput="updateOffsets()">
+                        <span>mm</span>
+                    </div>
+                    <button class="btn btn-success" onclick="saveOffsets()"><i class="fas fa-save"></i> Guardar Ajustes</button>
+                    <button class="btn btn-secondary" onclick="resetOffsets()"><i class="fas fa-undo"></i> Restablecer</button>
+                    <button class="btn btn-secondary" onclick="window.close()"><i class="fas fa-times"></i> Cerrar</button>
+                </div>
+            </div>
+            
+            <div id="page-container" class="${showGuide ? 'show-guide' : ''}">
+                <div id="print-content" style="transform: translate(${offsetX}mm, ${offsetY}mm);">
+                    
+                    <!-- Fecha: DÍA, MES, AÑO -->
+                    <div class="invoice-field text-center" style="top: 22.8%; left: 64.6%; width: 6%;">${dayStr}</div>
+                    <div class="invoice-field text-center" style="top: 22.8%; left: 74.9%; width: 6%;">${monthStr}</div>
+                    <div class="invoice-field text-center" style="top: 22.8%; left: 85.6%; width: 6%;">${yearStr}</div>
+                    
+                    <!-- Datos de Cliente -->
+                    <div class="invoice-field text-left" style="top: 27.2%; left: 18.5%; width: 71%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${PrintingService._escape(clientName)}</div>
+                    
+                    <!-- Dirección (Si existiera, sino vacío para escritura manual) -->
+                    <div class="invoice-field text-left" style="top: 30.5%; left: 20.0%; width: 69%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${PrintingService._escape(invData.direccion || '')}</div>
+                    
+                    <!-- DUI o NIT -->
+                    <div class="invoice-field text-left" style="top: 34.0%; left: 20.0%; width: 31%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${PrintingService._escape(invData.dui || invData.nit || '')}</div>
+                    
+                    <!-- Venta a Cuenta de -->
+                    <div class="invoice-field text-left" style="top: 34.0%; left: 66.0%; width: 23%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${PrintingService._escape(invData.ventaACuentaDe || '')}</div>
+                    
+                    <!-- Items de la tabla -->
+                    ${itemsHTML}
+                    
+                    <!-- Sección de Totales inferior -->
+                    <div class="invoice-field text-left" style="top: 82.0%; left: 17.0%; width: 43%; font-size: 11px; line-height: 1.1;">${PrintingService._escape(totalInWords)}</div>
+                    <div class="invoice-field text-right" style="top: 82.0%; left: 87.5%; width: 8%;">$${totalAmount.toFixed(2)}</div>
+                    <div class="invoice-field text-right" style="top: 92.6%; left: 87.5%; width: 8%;">$${totalAmount.toFixed(2)}</div>
+                    
+                </div>
+            </div>
+
+            <script>
+                function updateOffsets() {
+                    const x = parseFloat(document.getElementById('offset-x').value) || 0;
+                    const y = parseFloat(document.getElementById('offset-y').value) || 0;
+                    document.getElementById('print-content').style.transform = 'translate(' + x + 'mm, ' + y + 'mm)';
+                }
+                function toggleGuide(checked) {
+                    const page = document.getElementById('page-container');
+                    if (checked) {
+                        page.classList.add('show-guide');
+                    } else {
+                        page.classList.remove('show-guide');
+                    }
+                }
+                function saveOffsets() {
+                    const x = parseFloat(document.getElementById('offset-x').value) || 0;
+                    const y = parseFloat(document.getElementById('offset-y').value) || 0;
+                    const checked = document.getElementById('toggle-guide').checked;
+                    localStorage.setItem('workshop_invoice_offset_x', x);
+                    localStorage.setItem('workshop_invoice_offset_y', y);
+                    localStorage.setItem('workshop_invoice_show_guide', checked);
+                    alert('Ajustes de calibración guardados exitosamente.');
+                }
+                function resetOffsets() {
+                    document.getElementById('offset-x').value = 0;
+                    document.getElementById('offset-y').value = 0;
+                    updateOffsets();
+                    localStorage.setItem('workshop_invoice_offset_x', 0);
+                    localStorage.setItem('workshop_invoice_offset_y', 0);
+                    alert('Desplazamiento restablecido a 0.');
+                }
+            </script>
+        </body>
+        </html>
+        `;
+
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
     }
 };

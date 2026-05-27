@@ -4014,8 +4014,65 @@ const RegistrosApp = {
         }
     },
 
-    printInvoiceDetail() {
-        window.print();
+    async printInvoiceDetail(id) {
+        const invoiceId = id || this.currentViewedInvoiceId;
+        if (!invoiceId) return;
+
+        const inv = this.allHistoricalInvoices.find(i => i.id === invoiceId);
+        if (!inv) return;
+
+        if (typeof Swal !== 'undefined') {
+            const result = await Swal.fire({
+                title: 'Imprimir Factura',
+                text: 'Seleccione el formato de impresión para esta factura:',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3498db',
+                cancelButtonColor: '#7f8c8d',
+                denyButtonColor: '#27ae60',
+                showDenyButton: true,
+                confirmButtonText: '<i class="fas fa-ticket-alt"></i> Ticket de Caja',
+                denyButtonText: '<i class="fas fa-file-invoice"></i> Factura Física',
+                cancelButtonText: 'Cancelar',
+                customClass: { popup: 'premium-popup' }
+            });
+
+            if (result.isConfirmed) {
+                this.printInvoiceAsTicket(inv);
+            } else if (result.isDenied) {
+                this.printInvoiceAsRealForm(inv);
+            }
+        } else {
+            const choice = prompt("Seleccione formato de impresión:\n1 - Ticket Térmico\n2 - Factura Física", "1");
+            if (choice === "1") {
+                this.printInvoiceAsTicket(inv);
+            } else if (choice === "2") {
+                this.printInvoiceAsRealForm(inv);
+            }
+        }
+    },
+
+    printInvoiceAsTicket(inv) {
+        const mappedData = {
+            invoiceNumber: inv.numeroFactura || 'S/N',
+            timestamp: inv.fecha,
+            saldoPendiente: inv.saldoPendiente || 0,
+            abonos: inv.abonos || [],
+            paymentType: inv.tipo === 'repuestos' ? 'repuestos' : 'normal',
+            clientName: inv.CLIENTE || 'Cliente General',
+            equipoNumber: inv.CLIENTE || '',
+            total: inv.total || 0,
+            products: (inv.items || []).map(item => ({
+                descripcion: item.descripcionPapel || item.producto || 'Repuesto',
+                cantidad: item.cantidad,
+                precio: item.precioUnitario
+            }))
+        };
+        PrintingService.printTicket(mappedData);
+    },
+
+    printInvoiceAsRealForm(inv) {
+        PrintingService.printInvoiceRealForm(inv);
     },
 
     parsedHistoricalInvoices: [],
