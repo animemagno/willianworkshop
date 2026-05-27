@@ -936,8 +936,8 @@ const PrintingService = {
         const items = invData.items || [];
         for (let i = 0; i < 14; i++) {
             const item = items[i];
-            // Posicionamiento vertical: empieza en 40.5% (alineado con la primera línea) y avanza 2.77% por renglón
-            const topPos = 40.5 + (i * 2.77);
+            // Posicionamiento vertical en milímetros (mm): empieza en 87.4mm y avanza 6.0mm por renglón
+            const topPos = 87.4 + (i * 6.0);
             if (item) {
                 const desc = item.descripcionPapel || item.producto || item.descripcion || 'Repuesto';
                 
@@ -950,10 +950,10 @@ const PrintingService = {
                 const totalStr = isNaN(totalVal) ? '' : totalVal.toFixed(2);
                 
                 itemsHTML += `
-                    <div class="invoice-field text-center" style="top: ${topPos}%; left: 7.5%; width: 9%;">${cantStr}</div>
-                    <div class="invoice-field text-left" style="top: ${topPos}%; left: 18.5%; width: 44.0%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${PrintingService._escape(desc)}</div>
-                    <div class="invoice-field text-right" style="top: ${topPos}%; left: 67.0%; width: 7%;">${priceStr ? '$' + priceStr : ''}</div>
-                    <div class="invoice-field text-right" style="top: ${topPos}%; left: 87.5%; width: 8%;">${totalStr ? '$' + totalStr : ''}</div>
+                    <div class="invoice-field text-center" style="top: ${topPos}mm; left: 0.0mm; width: 10.0mm;">${cantStr}</div>
+                    <div class="invoice-field text-left" style="top: ${topPos}mm; left: 12.0mm; width: 43.0mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${PrintingService._escape(desc)}</div>
+                    <div class="invoice-field text-right" style="top: ${topPos}mm; left: 56.0mm; width: 12.0mm;">${priceStr ? '$' + priceStr : ''}</div>
+                    <div class="invoice-field text-right" style="top: ${topPos}mm; left: 70.0mm; width: 15.0mm;">${totalStr ? '$' + totalStr : ''}</div>
                 `;
             }
         }
@@ -1132,7 +1132,8 @@ const PrintingService = {
                     position: absolute;
                     font-family: 'Courier New', Courier, monospace;
                     font-size: 13px;
-                    font-weight: 900;
+                    font-weight: normal;
+                    letter-spacing: 0.5px;
                     color: #000000;
                     line-height: 1.1;
                     box-sizing: border-box;
@@ -1216,29 +1217,29 @@ const PrintingService = {
                 <div id="print-content" style="transform: translate(${offsetX}mm, ${offsetY}mm);">
                     
                     <!-- Fecha: DÍA, MES, AÑO -->
-                    <div class="invoice-field text-center" style="top: 22.8%; left: 64.6%; width: 6%;">${dayStr}</div>
-                    <div class="invoice-field text-center" style="top: 22.8%; left: 74.9%; width: 6%;">${monthStr}</div>
-                    <div class="invoice-field text-center" style="top: 22.8%; left: 85.6%; width: 6%;">${yearStr}</div>
+                    <div class="invoice-field text-center" style="top: 49.2mm; left: 55.0mm; width: 8.4mm;">${dayStr}</div>
+                    <div class="invoice-field text-center" style="top: 49.2mm; left: 65.0mm; width: 8.4mm;">${monthStr}</div>
+                    <div class="invoice-field text-center" style="top: 49.2mm; left: 75.0mm; width: 8.4mm;">${yearStr}</div>
                     
                     <!-- Datos de Cliente -->
-                    <div class="invoice-field text-left" style="top: 27.2%; left: 18.5%; width: 71%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${PrintingService._escape(clientName)}</div>
+                    <div class="invoice-field text-left" style="top: 58.7mm; left: 10.0mm; width: 75.0mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${PrintingService._escape(clientName)}</div>
                     
                     <!-- Dirección (Si existiera, sino vacío para escritura manual) -->
-                    <div class="invoice-field text-left" style="top: 30.5%; left: 20.0%; width: 69%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${PrintingService._escape(invData.direccion || '')}</div>
+                    <div class="invoice-field text-left" style="top: 65.8mm; left: 10.0mm; width: 75.0mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${PrintingService._escape(invData.direccion || '')}</div>
                     
                     <!-- DUI o NIT -->
-                    <div class="invoice-field text-left" style="top: 34.0%; left: 20.0%; width: 31%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${PrintingService._escape(invData.dui || invData.nit || '')}</div>
+                    <div class="invoice-field text-left" style="top: 73.4mm; left: 10.0mm; width: 35.0mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${PrintingService._escape(invData.dui || invData.nit || '')}</div>
                     
                     <!-- Venta a Cuenta de -->
-                    <div class="invoice-field text-left" style="top: 34.0%; left: 66.0%; width: 23%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${PrintingService._escape(invData.ventaACuentaDe || '')}</div>
+                    <div class="invoice-field text-left" style="top: 73.4mm; left: 50.0mm; width: 35.0mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${PrintingService._escape(invData.ventaACuentaDe || '')}</div>
                     
                     <!-- Items de la tabla -->
                     ${itemsHTML}
                     
                     <!-- Sección de Totales inferior -->
-                    <div class="invoice-field text-left" style="top: 82.0%; left: 17.0%; width: 43%; font-size: 11px; line-height: 1.1;">${PrintingService._escape(totalInWords)}</div>
-                    <div class="invoice-field text-right" style="top: 82.0%; left: 87.5%; width: 8%;">$${totalAmount.toFixed(2)}</div>
-                    <div class="invoice-field text-right" style="top: 92.6%; left: 87.5%; width: 8%;">$${totalAmount.toFixed(2)}</div>
+                    <div class="invoice-field text-left" style="top: 177.0mm; left: 10.0mm; width: 55.0mm; font-size: 11px; line-height: 1.1;">${PrintingService._escape(totalInWords)}</div>
+                    <div class="invoice-field text-right" style="top: 177.0mm; left: 70.0mm; width: 15.0mm;">$${totalAmount.toFixed(2)}</div>
+                    <div class="invoice-field text-right" style="top: 200.0mm; left: 70.0mm; width: 15.0mm;">$${totalAmount.toFixed(2)}</div>
                     
                 </div>
             </div>

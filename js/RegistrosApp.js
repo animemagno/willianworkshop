@@ -409,13 +409,25 @@ const RegistrosApp = {
     },
 
     setupUI() {
-        // Enfocar en producto al inicio para usar el lector rápido
-        const inputProd = document.getElementById('fast-producto');
-        if (inputProd) inputProd.focus();
+        // Enfocar en cantidad al inicio
+        const inputCant = document.getElementById('fast-cantidad');
+        if (inputCant) inputCant.focus();
     },
 
     setupEventListeners() {
         // Formulario de ingreso rápido (El submit ahora se maneja directamente en el onsubmit del HTML para evitar recargas)
+        
+        // Manejar ENTER en cantidad para que pase a producto sin guardar
+        const inputCant = document.getElementById('fast-cantidad');
+        if (inputCant) {
+            inputCant.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const inputProd = document.getElementById('fast-producto');
+                    if (inputProd) inputProd.focus();
+                }
+            });
+        }
         // Archivo Excel
         const excelFile = document.getElementById('excel-file') || document.getElementById('import-excel-input');
         if (excelFile) {
@@ -450,6 +462,67 @@ const RegistrosApp = {
                 this.renderFacturacionData();
             });
         }
+        
+        this.setupAutocomplete();
+    },
+
+    setupAutocomplete() {
+        const input = document.getElementById('fast-producto');
+        const container = document.getElementById('fast-producto-suggestions');
+        if (!input || !container) return;
+
+        input.addEventListener('input', () => {
+            const val = input.value.trim().toLowerCase();
+            container.innerHTML = '';
+            
+            if (!val) {
+                container.style.display = 'none';
+                return;
+            }
+
+            if (!window.app || !window.app.cache) return;
+
+            // Filtrar productos (buscar en codigo, descripcion y aliases)
+            const results = window.app.cache.filter(p => {
+                const searchStr = `${p.codigo || ''} ${p.descripcion || ''} ${(p.aliases || []).join(' ')}`.toLowerCase();
+                return searchStr.includes(val);
+            }).slice(0, 15); // Mostrar máx 15 resultados
+
+            if (results.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+
+            results.forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'suggestion-item';
+                div.innerHTML = `
+                    <div>
+                        <strong>${p.codigo || ''}</strong> ${p.descripcion || ''}
+                    </div>
+                    <div class="suggestion-stock">Stock: ${p.existencia}</div>
+                `;
+                div.addEventListener('mousedown', (e) => {
+                    // Usar mousedown en lugar de click para evitar que el blur del input lo oculte antes de registrar el clic
+                    e.preventDefault();
+                    input.value = p.descripcion || p.codigo;
+                    container.style.display = 'none';
+                });
+                container.appendChild(div);
+            });
+
+            container.style.display = 'block';
+        });
+
+        input.addEventListener('blur', () => {
+            container.style.display = 'none';
+        });
+
+        input.addEventListener('focus', () => {
+            if (input.value.trim() && container.children.length > 0) {
+                container.style.display = 'block';
+            }
+        });
     },
 
     renderFastEntryTable() {
@@ -542,7 +615,7 @@ const RegistrosApp = {
                     else if (b.timestamp instanceof Date) tB = b.timestamp.getTime();
                     else if (typeof b.timestamp === 'number') tB = b.timestamp;
                 }
-                return tA - tB; // Ascendente para que modificaciones/nuevos registros vayan al final
+                return tB - tA; // Descendente para que los más recientes vayan arriba
             });
 
             let lastFormattedDate = null;
@@ -950,6 +1023,7 @@ const RegistrosApp = {
 
     async addFastEntryRow() {
         const productoInput = document.getElementById('fast-producto');
+        const fechaInput = document.getElementById('fast-fecha');
         const cantidadInput = document.getElementById('fast-cantidad');
         const cuentaInput = document.getElementById('fast-cuenta');
         const observacionInput = document.getElementById('fast-observacion');
@@ -1014,7 +1088,7 @@ const RegistrosApp = {
             const cloneId = RegistrosApp.registrosRef.doc().id;
 
             const baseData = {
-                fecha: RegistrosApp.getLocalISODate() || "",
+                fecha: (fechaInput && fechaInput.value) ? fechaInput.value : RegistrosApp.getLocalISODate() || "",
                 producto: productoDesc || "",
                 productId: productId || null,
                 cantidad: cantidad || 1,
@@ -1044,8 +1118,9 @@ const RegistrosApp = {
         cantidadInput.value = '1';
         observacionInput.value = '';
 
-        // Volver a enfocar el producto para escaneo continuo
-        productoInput.focus();
+        // Volver a enfocar en cantidad para el siguiente registro
+        cantidadInput.focus();
+        cantidadInput.select();
     },
 
     handleExcelUpload(e) {

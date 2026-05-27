@@ -267,6 +267,67 @@
             background: #e2e8f0;
             border-color: #a0aec0;
         }
+
+        .suggestions-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            background: white;
+            border: 1px solid #ccd1d9;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-height: 250px;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+
+        .suggestion-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #f1f1f1;
+            font-size: 0.95rem;
+            color: #2c3e50;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+
+        .suggestion-item:hover {
+            background-color: #f7fafc;
+        }
+
+        .suggestion-stock {
+            font-size: 0.85rem;
+            color: #7f8c8d;
+            background: #edf2f7;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+
+        .form-grid-layout {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 15px;
+            align-items: end;
+        }
+        .col-12 { grid-column: span 12; }
+        .col-6 { grid-column: span 6; }
+        .col-4 { grid-column: span 4; }
+        .col-8 { grid-column: span 8; }
+        .col-3 { grid-column: span 3; }
+        .col-9 { grid-column: span 9; }
+        
+        @media (max-width: 767px) {
+            .form-grid-layout > div {
+                grid-column: span 12 !important;
+            }
+        }
     </style>
 </head>
 
@@ -313,40 +374,46 @@
 
                     <form id="fast-entry-form"
                         onsubmit="event.preventDefault(); RegistrosApp.addFastEntryRow(); return false;"
-                        style="display: flex; flex-direction: column; gap: 15px;">
-                        <div>
-                            <label class="form-group-label" for="fast-producto">Producto (Código, Descripción o Escáner)
-                                *</label>
+                        class="form-grid-layout">
+                        
+                        <div class="col-6">
+                            <label class="form-group-label" for="fast-fecha">Fecha *</label>
+                            <input type="date" id="fast-fecha" class="large-input" required>
+                        </div>
+                        
+                        <!-- Spacer para obligar a que Cantidad baje a la siguiente fila -->
+                        <div class="col-6"></div>
+
+                        <div class="col-3">
+                            <label class="form-group-label" for="fast-cantidad">Cantidad *</label>
+                            <input type="number" id="fast-cantidad" class="large-input" value="1" min="1" required
+                                style="text-align: center;">
+                        </div>
+                        
+                        <div class="col-9" style="position: relative;">
+                            <label class="form-group-label" for="fast-producto">Producto (Código, Descripción o Escáner) *</label>
                             <input type="text" id="fast-producto" class="large-input"
-                                placeholder="Escanea el código de barras o escribe..." required autocomplete="off">
+                                placeholder="Escanea o escribe..." required autocomplete="off">
+                            <div id="fast-producto-suggestions" class="suggestions-dropdown" style="display: none;"></div>
                         </div>
 
-                        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                            <div style="flex: 1.2; min-width: 130px;">
-                                <label class="form-group-label" for="fast-fecha">Fecha *</label>
-                                <input type="date" id="fast-fecha" class="large-input" required>
-                            </div>
-                            <div style="flex: 0.8; min-width: 80px;">
-                                <label class="form-group-label" for="fast-cantidad">Cantidad *</label>
-                                <input type="number" id="fast-cantidad" class="large-input" value="1" min="1" required
-                                    style="text-align: center;">
-                            </div>
-                            <div style="flex: 2; min-width: 150px;">
-                                <label class="form-group-label" for="fast-cuenta">Cuenta (Opcional)</label>
-                                <input type="text" id="fast-cuenta" class="large-input"
-                                    placeholder="Ej: Mayorista, Cliente...">
-                            </div>
+                        <div class="col-6">
+                            <label class="form-group-label" for="fast-cuenta">Cuenta (Opcional)</label>
+                            <input type="text" id="fast-cuenta" class="large-input"
+                                placeholder="Ej: Mayorista, Cliente...">
                         </div>
-
-                        <div>
+                        
+                        <div class="col-6">
                             <label class="form-group-label" for="fast-observacion">Observación (Opcional)</label>
                             <input type="text" id="fast-observacion" class="large-input"
                                 placeholder="Detalles o comentarios extra...">
                         </div>
 
-                        <button type="submit" class="btn-submit-large">
-                            <i class="fas fa-plus"></i> Agregar a la Tabla
-                        </button>
+                        <div class="col-12">
+                            <button type="submit" class="btn-submit-large" style="margin-top: 5px;">
+                                <i class="fas fa-plus"></i> Agregar a la Tabla
+                            </button>
+                        </div>
                     </form>
                 </div>
 
