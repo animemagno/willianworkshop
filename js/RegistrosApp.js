@@ -471,9 +471,12 @@ const RegistrosApp = {
         const container = document.getElementById('fast-producto-suggestions');
         if (!input || !container) return;
 
+        let currentFocus = -1;
+
         input.addEventListener('input', () => {
             const val = input.value.trim().toLowerCase();
             container.innerHTML = '';
+            currentFocus = -1;
             
             if (!val) {
                 container.style.display = 'none';
@@ -493,9 +496,10 @@ const RegistrosApp = {
                 return;
             }
 
-            results.forEach(p => {
+            results.forEach((p, index) => {
                 const div = document.createElement('div');
                 div.className = 'suggestion-item';
+                div.dataset.index = index;
                 div.innerHTML = `
                     <div>
                         <strong>${p.codigo || ''}</strong> ${p.descripcion || ''}
@@ -513,6 +517,59 @@ const RegistrosApp = {
 
             container.style.display = 'block';
         });
+
+        input.addEventListener('keydown', (e) => {
+            let items = container.querySelectorAll('.suggestion-item');
+            if (!items || items.length === 0 || container.style.display === 'none') return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                currentFocus++;
+                addActive(items);
+                scrollToActive(items);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                currentFocus--;
+                addActive(items);
+                scrollToActive(items);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (currentFocus > -1) {
+                    if (items[currentFocus]) {
+                        items[currentFocus].dispatchEvent(new MouseEvent('mousedown'));
+                    }
+                }
+            }
+        });
+
+        function addActive(items) {
+            if (!items) return false;
+            removeActive(items);
+            if (currentFocus >= items.length) currentFocus = 0;
+            if (currentFocus < 0) currentFocus = items.length - 1;
+            items[currentFocus].style.backgroundColor = '#edf2f7'; // Resaltado
+        }
+
+        function removeActive(items) {
+            for (let i = 0; i < items.length; i++) {
+                items[i].style.backgroundColor = '';
+            }
+        }
+        
+        function scrollToActive(items) {
+            if (currentFocus > -1 && items[currentFocus]) {
+                const activeItem = items[currentFocus];
+                const containerHeight = container.clientHeight;
+                const itemTop = activeItem.offsetTop;
+                const itemHeight = activeItem.offsetHeight;
+
+                if (itemTop < container.scrollTop) {
+                    container.scrollTop = itemTop;
+                } else if (itemTop + itemHeight > container.scrollTop + containerHeight) {
+                    container.scrollTop = itemTop + itemHeight - containerHeight;
+                }
+            }
+        }
 
         input.addEventListener('blur', () => {
             container.style.display = 'none';
