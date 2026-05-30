@@ -155,17 +155,27 @@
         .prod-cant {
             font-weight: bold;
             color: #3498db;
-            width: 30px;
+            width: 40px;
         }
 
         .prod-desc {
             flex: 1;
             color: #2c3e50;
+            padding-right: 10px;
+        }
+
+        .prod-cuenta {
+            width: 120px;
+            color: #7f8c8d;
+            font-size: 0.85rem;
+            text-align: left;
         }
 
         .prod-price {
             font-weight: 600;
             color: #555;
+            width: 80px;
+            text-align: right;
         }
 
         /* Footer con Totales */
@@ -384,11 +394,13 @@
                     const cantidad = p.cantidad || p.qty || 1;
                     const descripcion = p.descripcion || p.nombre || p.name || p.description || 'Producto';
                     const precio = p.precio || p.price || p.total || 0;
+                    const cuenta = p.cuenta || p.account || '';
 
                     return `
                         <div class="producto-row">
                             <div class="prod-cant">${cantidad}</div>
                             <div class="prod-desc">${descripcion}</div>
+                            <div class="prod-cuenta">${cuenta}</div>
                             <div class="prod-price">${formatCurrency(precio)}</div>
                         </div>
                     `;
@@ -412,6 +424,12 @@
                     </div>
                     
                     <div class="factura-body">
+                        <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #eee; padding-bottom: 5px; margin-bottom: 10px; font-size: 0.85rem; color: #7f8c8d; font-weight: bold;">
+                            <div style="width: 40px;">CANT</div>
+                            <div style="flex: 1; padding-right: 10px;">DESCRIPCIÓN</div>
+                            <div style="width: 120px;">CUENTA</div>
+                            <div style="width: 80px; text-align: right;">PRECIO</div>
+                        </div>
                         ${productosHtml}
                     </div>
 
