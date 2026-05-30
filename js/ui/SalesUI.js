@@ -76,10 +76,7 @@
                    <div class="cant-col">
                        <input type="number" class="cart-cantidad quantity-input" data-index="${i}" value="${item.cantidad}" min="1">
                    </div>
-                   <div class="product-desc" style="font-weight: 500;">
-                       ${item.desc}
-                       ${item.cuenta ? `<div style="font-size: 0.8rem; color: #7f8c8d; font-weight: normal;"><i class="fas fa-tag"></i> Cuenta: ${item.cuenta}</div>` : ''}
-                   </div>
+                   <div class="product-desc" style="font-weight: 500;">${item.desc}</div>
                    <div class="price-col">
                        <input type="number" class="cart-precio price-input" data-index="${i}" value="${item.precio}" min="0" step="0.01">
                    </div>

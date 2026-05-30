@@ -33,8 +33,7 @@
                     descFactura: product.descripcionFactura || product.descripcionTaller,
                     precio: product.precioVenta,
                     cantidad: quantity,
-                    subtotal: product.precioVenta * quantity,
-                    cuenta: product.cuenta || ''
+                    subtotal: product.precioVenta * quantity
                 };
                 this.cart.push(item);
                 return this.cart.length - 1;
@@ -89,8 +88,7 @@
                 desc: item.desc || 'Sin descripción',
                 precio: Number(item.precio) || 0,
                 cantidad: Number(item.cantidad) || 1,
-                subtotal: Number(item.subtotal) || 0,
-                cuenta: item.cuenta || ''
+                subtotal: Number(item.subtotal) || 0
             }));
 
             const ventaData = {
