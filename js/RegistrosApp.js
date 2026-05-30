@@ -1811,8 +1811,7 @@ const RegistrosApp = {
             const tr = document.createElement('tr');
             tr.setAttribute('draggable', 'true');
             tr.style.cursor = 'pointer';
-
-            const data = { type: 'summary', producto: officialName, max: resumenMap[key].count, productId: reg.productId || null };
+            const data = { type: 'single', id: reg.id, producto: officialName, max: cantidadDisponible, productId: reg.productId || null, cuenta: reg.cuenta || '' };
 
             tr.ondragstart = (e) => {
                 e.dataTransfer.setData('text/plain', JSON.stringify(data));
@@ -1853,8 +1852,7 @@ const RegistrosApp = {
             const tr = document.createElement('tr');
             tr.setAttribute('draggable', 'true');
             tr.style.cursor = 'pointer';
-
-            const data = { type: 'summary', producto: prodName, max: resumenMap[key].count, productId: resumenMap[key].productId || null };
+            const data = { type: 'summary', producto: prodName, max: resumenMap[key].count, productId: resumenMap[key].productId || null, cuenta: '' };
 
             tr.ondragstart = (e) => {
                 e.dataTransfer.setData('text/plain', JSON.stringify(data));
@@ -1920,6 +1918,7 @@ const RegistrosApp = {
                     type: data.type,
                     originalId: data.id || null,
                     producto: data.producto,
+                    cuenta: data.cuenta || '',
                     cantidadFacturar: 1,
                     max: data.max,
                     vinculoId: data.productId || null,
@@ -2905,6 +2904,7 @@ const RegistrosApp = {
                 timestamp: window.firebase.firestore.FieldValue.serverTimestamp(),
                 items: this.facturaItems.map(item => ({
                     descripcionPapel: item.producto, // mapping para compatibilidad
+                    cuenta: item.cuenta || '',
                     cantidad: item.cantidadFacturar,
                     precioUnitario: item.precioUnitario,
                     costoUnitario: item.costoUnitario || 0,
@@ -3987,11 +3987,21 @@ const RegistrosApp = {
             } else {
                 estadoHTML = `<button class="btn" style="font-size:11px;padding:2px 8px;margin-left:6px;background:#fed7d7;color:#c53030;border:1px solid #fc8181;border-radius:4px;cursor:pointer;" onclick="RegistrosApp.openLinkInvoiceItemModal('${id}',${itemIdx})"><i class='fas fa-link'></i> Vincular</button>`;
             }
+            let displayCuenta = item.cuenta || '';
+            if (!displayCuenta && !esServicio) {
+                // Fallback para facturas antiguas: buscar el registro original en allRegistros
+                const regMatch = this.allRegistros.find(r => r.facturaId === id && this.getGroupingKey(r) === this.getGroupingKey(desc, item.productId));
+                if (regMatch && regMatch.cuenta) {
+                    displayCuenta = regMatch.cuenta;
+                }
+            }
+
             const tr = document.createElement('tr');
             if (!esServicio && !estaVinculado) tr.style.backgroundColor = '#fff5f5';
             tr.innerHTML = `
                 <td style="text-align: center; border: 1px solid #edf2f7; padding: 8px; font-weight: bold;">${cant}</td>
                 <td style="border: 1px solid #edf2f7; padding: 8px; font-size:13px;">${desc}${estadoHTML}</td>
+                <td style="border: 1px solid #edf2f7; padding: 8px; font-size:12px; color:#7f8c8d;">${displayCuenta || '-'}</td>
                 <td style="text-align: right; border: 1px solid #edf2f7; padding: 8px; color:#555;">$${unit.toFixed(2)}</td>
                 <td style="text-align: right; border: 1px solid #edf2f7; padding: 8px; font-weight: bold;">$${tot.toFixed(2)}</td>
             `;
