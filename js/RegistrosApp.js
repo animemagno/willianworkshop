@@ -4701,6 +4701,7 @@ const RegistrosApp = {
             this.facturaItems = (inv.items || []).map(item => ({
                 id: Math.random().toString(36).substr(2, 9) + Date.now().toString(),
                 producto: item.descripcionPapel || item.producto,
+                cuenta: item.cuenta || '',
                 cantidadFacturar: item.cantidad,
                 max: 999, // Límite virtual alto para permitir ediciones libres
                 vinculoId: item.productId || null,
