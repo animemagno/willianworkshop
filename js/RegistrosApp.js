@@ -660,21 +660,15 @@ const RegistrosApp = {
             const key = this.getGroupingKey(reg);
             let billedHere = 0;
             
-            const mesesBuscados = [mesReg];
-            Object.keys(descAcumuladores).forEach(m => {
-                if (m !== mesReg && descAcumuladores[m] && descAcumuladores[m][key] > 0) mesesBuscados.push(m);
-            });
-
+            // Solo descontar facturas del MISMO mes del registro.
+            // Facturas de otros meses NO deben consumir registros de un mes diferente.
             let remainingQty = reg.cantidad;
 
-            for (const m of mesesBuscados) {
-                if (remainingQty <= 0) break;
-                if (descAcumuladores[m] && descAcumuladores[m][key] > 0) {
-                    const descontar = Math.min(descAcumuladores[m][key], remainingQty);
-                    descAcumuladores[m][key] -= descontar;
-                    remainingQty -= descontar;
-                    billedHere += descontar;
-                }
+            if (descAcumuladores[mesReg] && descAcumuladores[mesReg][key] > 0) {
+                const descontar = Math.min(descAcumuladores[mesReg][key], remainingQty);
+                descAcumuladores[mesReg][key] -= descontar;
+                remainingQty -= descontar;
+                billedHere += descontar;
             }
             
             computedBilledMap[reg.id] = billedHere;
