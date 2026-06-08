@@ -439,6 +439,16 @@ const RegistrosApp = {
         // Enfocar en cantidad al inicio
         const inputCant = document.getElementById('fast-cantidad');
         if (inputCant) inputCant.focus();
+
+        // Poner la fecha de hoy por defecto en el campo de fecha
+        const fechaInput = document.getElementById('fast-fecha');
+        if (fechaInput && !fechaInput.value) {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            fechaInput.value = `${yyyy}-${mm}-${dd}`;
+        }
     },
 
     setupEventListeners() {
