@@ -445,10 +445,14 @@ class InventoryService {
                 const nuevoCostoSinIva = nuevoCosto / 1.13;
 
                 // Acumular en RESUMEN_ENTRADAS_MES en vez de sumarle directamente a INVENTARIO
-                const resumenRef = db.collection('RESUMEN_ENTRADAS_MES').doc(item.productId);
+                const stableKey = window.RegistrosApp ? window.RegistrosApp.getGroupingKey(pData.descripcion, item.productId) : (pData.codigo || pData.descripcion).replace(/\//g, '-').trim();
+                const resumenRef = db.collection('RESUMEN_ENTRADAS_MES').doc(stableKey);
                 transaction.set(resumenRef, {
                     productId: item.productId,
                     producto: pData.descripcion,
+                    codigoOficial: pData.codigo || '',
+                    precioVentaOficial: pData.precio || 0,
+                    costoUnitarioOficial: pData.costo || 0,
                     cantidadEntrada: firebase.firestore.FieldValue.increment(entryQty),
                     costoAcumulado: firebase.firestore.FieldValue.increment(entryQty * entryCosto),
                     mes: new Date().toISOString().substring(0, 7)
@@ -522,10 +526,14 @@ class InventoryService {
                 });
 
                 // Registrar el stock inicial en la colección de tránsito de compras
-                const resumenRef = db.collection('RESUMEN_ENTRADAS_MES').doc(newProdRef.id);
+                const stableKeyNew = window.RegistrosApp ? window.RegistrosApp.getGroupingKey(nombreTaller, newProdRef.id) : (codigo || nombreTaller).replace(/\//g, '-').trim();
+                const resumenRef = db.collection('RESUMEN_ENTRADAS_MES').doc(stableKeyNew);
                 transaction.set(resumenRef, {
                     productId: newProdRef.id,
                     producto: nombreTaller,
+                    codigoOficial: codigo || '',
+                    precioVentaOficial: precioVenta || 0,
+                    costoUnitarioOficial: entryCosto || 0,
                     cantidadEntrada: firebase.firestore.FieldValue.increment(entryQty),
                     costoAcumulado: firebase.firestore.FieldValue.increment(entryQty * entryCosto),
                     mes: new Date().toISOString().substring(0, 7)
@@ -626,7 +634,8 @@ class InventoryService {
                     const qtyToRemove = parseFloat(pr.item.cantidad);
                     const costToRemove = parseFloat(pr.item.costoUnitario);
 
-                    const resumenRef = db.collection('RESUMEN_ENTRADAS_MES').doc(pr.item.productId);
+                    const stableKeyDel = window.RegistrosApp ? window.RegistrosApp.getGroupingKey(pr.doc.data().descripcion, pr.item.productId) : (pr.doc.data().codigo || pr.doc.data().descripcion).replace(/\//g, '-').trim();
+                    const resumenRef = db.collection('RESUMEN_ENTRADAS_MES').doc(stableKeyDel);
                     transaction.set(resumenRef, {
                         cantidadEntrada: firebase.firestore.FieldValue.increment(-qtyToRemove),
                         costoAcumulado: firebase.firestore.FieldValue.increment(-qtyToRemove * costToRemove)

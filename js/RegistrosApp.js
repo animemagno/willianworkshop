@@ -120,50 +120,77 @@ const RegistrosApp = {
         try {
             const snap = await this.registrosRef.get();
             const clonesSinRespaldo = snap.docs.filter(doc => !doc.data().respaldoId);
-            if (clonesSinRespaldo.length === 0) {
-                console.log("No se encontraron clones sin respaldoId.");
-                return;
+            
+            if (clonesSinRespaldo.length > 0) {
+                console.log(`Se encontraron ${clonesSinRespaldo.length} clones legacy sin respaldoId. Migrando...`);
+                let batch = this.db.batch();
+                let ops = 0;
+
+                for (const doc of clonesSinRespaldo) {
+                    const cloneData = doc.data();
+                    const respaldoId = this.respaldoRef.doc().id;
+
+                    const respaldoData = {
+                        fecha: cloneData.fecha || '',
+                        producto: cloneData.producto || '',
+                        productId: cloneData.productId || null,
+                        cantidad: cloneData.cantidad || 1,
+                        cuenta: cloneData.cuenta || '',
+                        observacion: cloneData.observacion || '',
+                        estado: cloneData.estado || 'pendiente',
+                        origen: cloneData.origen || 'manual',
+                        filaExcel: cloneData.filaExcel || null,
+                        archivado: cloneData.archivado !== undefined ? cloneData.archivado : false,
+                        timestamp: cloneData.timestamp || window.firebase.firestore.FieldValue.serverTimestamp()
+                    };
+
+                    batch.set(this.respaldoRef.doc(respaldoId), respaldoData);
+                    batch.update(doc.ref, { respaldoId: respaldoId });
+
+                    ops += 2;
+                    if (ops >= 400) {
+                        await batch.commit();
+                        batch = this.db.batch();
+                        ops = 0;
+                    }
+                }
+
+                if (ops > 0) {
+                    await batch.commit();
+                }
+                console.log(`Auto-migración completada con éxito. Se migraron ${clonesSinRespaldo.length} registros.`);
             }
 
-            console.log(`Se encontraron ${clonesSinRespaldo.length} clones legacy sin respaldoId. Migrando...`);
-            let batch = this.db.batch();
-            let ops = 0;
+            // Sync archivado state: Si un clon no está archivado pero su respaldo sí lo está (o no existe), archivarlo.
+            const unarchivedClonesSnap = await this.registrosRef.where('archivado', '==', false).get();
+            const unarchivedRespaldosSnap = await this.respaldoRef.where('archivado', '==', false).get();
+            
+            const activeRespaldoIds = new Set();
+            unarchivedRespaldosSnap.forEach(doc => activeRespaldoIds.add(doc.id));
 
-            for (const doc of clonesSinRespaldo) {
-                const cloneData = doc.data();
-                const respaldoId = this.respaldoRef.doc().id;
-
-                const respaldoData = {
-                    fecha: cloneData.fecha || '',
-                    producto: cloneData.producto || '',
-                    productId: cloneData.productId || null,
-                    cantidad: cloneData.cantidad || 1,
-                    cuenta: cloneData.cuenta || '',
-                    observacion: cloneData.observacion || '',
-                    estado: cloneData.estado || 'pendiente',
-                    origen: cloneData.origen || 'manual',
-                    filaExcel: cloneData.filaExcel || null,
-                    archivado: cloneData.archivado !== undefined ? cloneData.archivado : false,
-                    timestamp: cloneData.timestamp || window.firebase.firestore.FieldValue.serverTimestamp()
-                };
-
-                batch.set(this.respaldoRef.doc(respaldoId), respaldoData);
-                batch.update(doc.ref, { respaldoId: respaldoId });
-
-                ops += 2;
-                if (ops >= 400) {
-                    await batch.commit();
-                    batch = this.db.batch();
-                    ops = 0;
+            let syncBatch = this.db.batch();
+            let syncOps = 0;
+            
+            for (const doc of unarchivedClonesSnap.docs) {
+                const rId = doc.data().respaldoId;
+                if (rId && !activeRespaldoIds.has(rId)) {
+                    syncBatch.update(doc.ref, { archivado: true });
+                    syncOps++;
+                    if (syncOps >= 400) {
+                        await syncBatch.commit();
+                        syncBatch = this.db.batch();
+                        syncOps = 0;
+                    }
                 }
             }
-
-            if (ops > 0) {
-                await batch.commit();
+            
+            if (syncOps > 0) {
+                await syncBatch.commit();
+                console.log(`Sincronización de archivado completada: ${syncOps} clones archivados para coincidir con respaldos.`);
             }
-            console.log(`Auto-migración completada con éxito. Se migraron ${clonesSinRespaldo.length} registros.`);
+
         } catch (error) {
-            console.error("Error durante la auto-migración:", error);
+            console.error("Error durante la auto-migración/sincronización:", error);
         }
     },
 
@@ -582,6 +609,70 @@ const RegistrosApp = {
         });
     },
 
+    calculateComputedBilledMap(registros) {
+        const facturadoPorMesYProducto = {};
+        if (Array.isArray(this.allHistoricalInvoices)) {
+            this.allHistoricalInvoices.forEach(inv => {
+                const mes = inv.fecha ? inv.fecha.substring(0, 7) : '';
+                if (!mes) return;
+                if (!facturadoPorMesYProducto[mes]) facturadoPorMesYProducto[mes] = {};
+                
+                const items = inv.items || [];
+                items.forEach(item => {
+                    if (item.isManoDeObra || item.productId === 'SERVICIO') return;
+                    const key = this.getGroupingKey(item.descripcionPapel || item.producto, item.productId);
+                    facturadoPorMesYProducto[mes][key] = (facturadoPorMesYProducto[mes][key] || 0) + (item.cantidad || 0);
+                });
+            });
+        }
+
+        const descAcumuladores = {};
+        for (const m in facturadoPorMesYProducto) {
+            descAcumuladores[m] = { ...facturadoPorMesYProducto[m] };
+        }
+
+        const computedBilledMap = {};
+        
+        const registrosParaFIFO = [...registros].sort((a, b) => {
+            const millisA = this.parseDateToMillis(a.fecha);
+            const millisB = this.parseDateToMillis(b.fecha);
+            if (millisA !== millisB) return millisA - millisB;
+            const hasFilaA = a.filaExcel !== undefined && a.filaExcel !== null;
+            const hasFilaB = b.filaExcel !== undefined && b.filaExcel !== null;
+            if (hasFilaA && hasFilaB) return a.filaExcel - b.filaExcel;
+            if (hasFilaA) return -1;
+            if (hasFilaB) return 1;
+            return 0;
+        });
+
+        registrosParaFIFO.forEach(reg => {
+            const mesReg = reg.fecha ? reg.fecha.substring(0, 7) : '';
+            const key = this.getGroupingKey(reg);
+            let billedHere = 0;
+            
+            const mesesBuscados = [mesReg];
+            Object.keys(descAcumuladores).forEach(m => {
+                if (m !== mesReg && descAcumuladores[m] && descAcumuladores[m][key] > 0) mesesBuscados.push(m);
+            });
+
+            let remainingQty = reg.cantidad;
+
+            for (const m of mesesBuscados) {
+                if (remainingQty <= 0) break;
+                if (descAcumuladores[m] && descAcumuladores[m][key] > 0) {
+                    const descontar = Math.min(descAcumuladores[m][key], remainingQty);
+                    descAcumuladores[m][key] -= descontar;
+                    remainingQty -= descontar;
+                    billedHere += descontar;
+                }
+            }
+            
+            computedBilledMap[reg.id] = billedHere;
+        });
+
+        return computedBilledMap;
+    },
+
     renderFastEntryTable() {
         const tbody = document.getElementById('fast-entry-tbody');
         const excelTbody = document.getElementById('excel-table-tbody');
@@ -600,20 +691,40 @@ const RegistrosApp = {
 
         if (historialTbody) {
             if (registrosArchivados.length === 0) {
-                historialTbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 40px; color: #aaa;">No hay registros archivados</td></tr>`;
+                historialTbody.innerHTML = `<tr><td colspan="3" style="text-align: center; padding: 40px; color: #aaa;">No hay registros archivados</td></tr>`;
             } else {
-                registrosArchivados.sort((a, b) => {
-                    const diff = this.parseDateToMillis(b.fecha) - this.parseDateToMillis(a.fecha);
-                    return diff !== 0 ? diff : (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0);
-                });
+                const mesesMap = {};
                 registrosArchivados.forEach(reg => {
+                    if (!reg.fecha) return;
+                    const mesKey = reg.fecha.substring(0, 7); // YYYY-MM
+                    if (!mesesMap[mesKey]) {
+                        mesesMap[mesKey] = { mesKey, count: 0 };
+                    }
+                    mesesMap[mesKey].count += 1;
+                });
+                
+                const mesesArray = Object.values(mesesMap).sort((a, b) => b.mesKey.localeCompare(a.mesKey));
+                
+                mesesArray.forEach(mes => {
+                    const [year, month] = mes.mesKey.split('-');
+                    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+                    const monthName = monthNames[parseInt(month, 10) - 1];
+                    const label = `${monthName} ${year}`;
+                    
                     const tr = document.createElement('tr');
+                    tr.style.background = '#fff';
                     tr.innerHTML = `
-                        <td style="border: 1px solid #cbd5e0; text-align: center;">${reg.cantidad}</td>
-                        <td style="border: 1px solid #cbd5e0; text-align: center;">${this.formatDate(reg.fecha)}</td>
-                        <td style="border: 1px solid #cbd5e0; color: #555;">${reg.producto}</td>
-                        <td style="border: 1px solid #cbd5e0; color: #555;">${reg.cuenta || '-'}</td>
-                        <td style="border: 1px solid #cbd5e0; color: #555;">Facturado</td>
+                        <td style="border: 1px solid #edf2f7; padding: 15px; font-weight: bold; font-size: 1.1rem; color: #2c3e50;">
+                            <i class="far fa-calendar-alt" style="margin-right: 8px; color: #3498db;"></i> ${label}
+                        </td>
+                        <td style="text-align: center; border: 1px solid #edf2f7; padding: 15px; font-weight: bold; color: #7f8c8d; font-size: 1.1rem;">
+                            ${mes.count} registros
+                        </td>
+                        <td style="text-align: center; border: 1px solid #edf2f7; padding: 15px;">
+                            <button class="btn btn-info" onclick="RegistrosApp.abrirHistorialMes('${mes.mesKey}', '${label}')" style="padding: 8px 15px; border-radius: 6px; border: none; background: #3498db; color: white; cursor: pointer; transition: background 0.2s;">
+                                <i class="fas fa-eye"></i> Ver Detalles
+                            </button>
+                        </td>
                     `;
                     historialTbody.appendChild(tr);
                 });
@@ -678,6 +789,10 @@ const RegistrosApp = {
             let lastFormattedDate = null;
             let lastRawDate = null;
 
+            // --- INICIO CALCULO FIFO FACTURACION PARA REGISTRO.HTML ---
+            const computedBilledMap = this.calculateComputedBilledMap(this.allRegistros);
+            // --- FIN CALCULO FIFO ---
+
             registrosAMostrar.forEach((reg, index) => {
                 totalItems += reg.cantidad;
                 const key = this.getGroupingKey(reg);
@@ -685,8 +800,10 @@ const RegistrosApp = {
 
                 // Obtener clones y calcular estado de facturación y acumulados
                 const clones = this.allClonesMap[reg.id] || [];
-                const totalBilled = clones.reduce((sum, c) => c.estado === 'facturado' ? sum + c.cantidad : sum, 0);
-                const totalPending = clones.reduce((sum, c) => c.estado === 'pendiente' ? sum + c.cantidad : sum, 0);
+                const fifoBilled = computedBilledMap[reg.id] || 0;
+                const totalBilled = fifoBilled;
+                const totalPending = Math.max(0, reg.cantidad - totalBilled);
+
 
                 if (!resumenMap[key]) {
                     resumenMap[key] = { name: officialName, count: 0, countFacturado: 0 };
@@ -701,11 +818,11 @@ const RegistrosApp = {
 
                 if (totalBilled >= reg.cantidad) {
                     isFullyFacturado = true;
-                    rowStyle = 'background-color: #e6fffa; color: #27ae60;';
+                    rowStyle = 'background-color: #e8f5e9 !important;';
                     displayProductStyle = 'color: #27ae60; font-weight: bold;';
                 } else if (totalBilled > 0) {
                     isPartiallyFacturado = true;
-                    rowStyle = 'background-color: #fffbeb; color: #b7791f;';
+                    rowStyle = 'background-color: #fffbeb !important;';
                     displayProductStyle = 'color: #b7791f; font-weight: bold;';
                 }
 
@@ -735,22 +852,31 @@ const RegistrosApp = {
                     </div>
                 `;
 
-                // Bloquear eliminación si tiene partes facturadas
+                // Bloquear eliminación si tiene partes facturadas, pero permitir archivar
                 const actionCell = (isFullyFacturado || isPartiallyFacturado)
                     ? (isFullyFacturado 
                         ? `<i class="fas fa-check-circle" style="color: #27ae60; font-size: 1.2rem;" title="Facturado"></i>`
-                        : `<i class="fas fa-adjust" style="color: #b7791f; font-size: 1.2rem;" title="Facturado Parcial (${totalBilled}/${reg.cantidad})"></i>`)
+                        : `<div style="display: flex; gap: 5px; align-items: center; justify-content: center;">
+                             <i class="fas fa-adjust" style="color: #b7791f; font-size: 1.2rem;" title="Facturado Parcial (${totalBilled}/${reg.cantidad})"></i>
+                             <button type="button" class="btn btn-warning" style="padding: 2px 6px; font-size: 10px; border-radius: 4px; background-color: #f39c12; color: white; border: none; cursor: pointer;" onclick="RegistrosApp.forzarArchivar('${reg.id}')" title="Archivar manualmente"><i class="fas fa-archive"></i></button>
+                           </div>`)
                     : `<button type="button" class="btn btn-danger" style="padding: 5px; width: 30px; height: 30px; border-radius: 50%;" onclick="RegistrosApp.deleteRegistro('${reg.id}')" title="Eliminar fila"><i class="fas fa-times"></i></button>`;
 
                 const tr = document.createElement('tr');
                 if (rowStyle) tr.style.cssText = rowStyle;
+                
+                // Add strikethrough for fully facturado qty
+                const qtyDisplay = isFullyFacturado 
+                    ? `<strong style="text-decoration: line-through; color: #7f8c8d;">${reg.cantidad}</strong>` 
+                    : `<strong>${reg.cantidad}</strong>`;
+                
                 tr.innerHTML = `
-                    <td><strong>${reg.cantidad}</strong></td>
-                    <td><span style="font-size: 13px; color: #7f8c8d;">${this.formatDate(reg.fecha)}</span></td>
-                    <td>${productCellContent}</td>
-                    <td>${reg.cuenta || '-'}</td>
-                    <td><span style="font-size:13px; color:#666;">${reg.observacion || '-'}</span></td>
-                    <td style="text-align: center;">${actionCell}</td>
+                    <td style="border-bottom: 1px solid #edf2f7; ${isFullyFacturado ? 'color: #27ae60;' : ''}">${qtyDisplay}</td>
+                    <td style="border-bottom: 1px solid #edf2f7;"><span style="font-size: 13px; color: ${isFullyFacturado ? '#27ae60' : '#7f8c8d'};">${this.formatDate(reg.fecha)}</span></td>
+                    <td style="border-bottom: 1px solid #edf2f7;">${productCellContent}</td>
+                    <td style="border-bottom: 1px solid #edf2f7; font-size: 0.95rem; font-weight: bold; color: ${isFullyFacturado ? '#27ae60' : '#2c3e50'};">${reg.cuenta || '-'}</td>
+                    <td style="border-bottom: 1px solid #edf2f7;"><span style="font-size:13px; color:${isFullyFacturado ? '#27ae60' : '#666'};">${reg.observacion || '-'}</span></td>
+                    <td style="border-bottom: 1px solid #edf2f7; text-align: center;">${actionCell}</td>
                 `;
                 tbody.appendChild(tr);
 
@@ -778,17 +904,22 @@ const RegistrosApp = {
 
                     const trExcel = document.createElement('tr');
                     if (rowStyle) trExcel.style.cssText = rowStyle;
+                    
+                    const excelQty = isFullyFacturado 
+                        ? `<span style="text-decoration: line-through; color: #7f8c8d;">${reg.cantidad}</span>` 
+                        : `${reg.cantidad}`;
+
                     trExcel.innerHTML = `
-                        <td style="border: 1px solid #d4d4d4; padding: 8px; text-align: center; vertical-align: top; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'fecha', '${reg.fecha}')" title="Doble clic para editar">${showDate ? currentFormattedDate : ''}</td>
-                        <td style="border: 1px solid #d4d4d4; padding: 8px; text-align: center; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'cantidad', '${reg.cantidad}')" title="Doble clic para editar">${reg.cantidad}</td>
-                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'producto', '${safeProducto}')" title="Doble clic para editar">
+                        <td style="border: 1px solid #d4d4d4; padding: 8px; text-align: center; vertical-align: top; color: ${isFullyFacturado ? '#27ae60' : '#333'}; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'fecha', '${reg.fecha}')" title="Doble clic para editar">${showDate ? currentFormattedDate : ''}</td>
+                        <td style="border: 1px solid #d4d4d4; padding: 8px; text-align: center; color: ${isFullyFacturado ? '#27ae60' : '#333'}; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'cantidad', '${reg.cantidad}')" title="Doble clic para editar">${excelQty}</td>
+                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: ${isFullyFacturado ? '#27ae60' : '#333'}; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'producto', '${safeProducto}')" title="Doble clic para editar">
                             <div>
                                 <span>${reg.producto}</span>
                                 ${pillsHtml ? `<div style="margin-top: 2px; display: flex; flex-wrap: wrap; gap: 4px;">${pillsHtml}</div>` : ''}
                             </div>
                         </td>
-                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'cuenta', '${safeCuenta}')" title="Doble clic para editar">${reg.cuenta || ''}</td>
-                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: #333; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'observacion', '${safeObservacion}')" title="Doble clic para editar">${reg.observacion || ''}</td>
+                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: ${isFullyFacturado ? '#27ae60' : '#333'}; font-weight: bold; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'cuenta', '${safeCuenta}')" title="Doble clic para editar">${reg.cuenta || ''}</td>
+                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: ${isFullyFacturado ? '#27ae60' : '#333'}; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'observacion', '${safeObservacion}')" title="Doble clic para editar">${reg.observacion || ''}</td>
                     `;
                     excelTbody.appendChild(trExcel);
 
@@ -815,7 +946,7 @@ const RegistrosApp = {
         if (Object.keys(resumenMap).length === 0) {
             resumenTbody.innerHTML = `
                 <tr id="resumen-empty-state">
-                    <td colspan="2" style="text-align: center; padding: 40px 20px; color: #aaa;">
+                    <td colspan="4" style="text-align: center; padding: 40px 20px; color: #aaa;">
                         <i class="fas fa-chart-bar" style="font-size: 40px; margin-bottom: 10px;"></i>
                         <p>El resumen aparecerá aquí.</p>
                     </td>
@@ -826,11 +957,19 @@ const RegistrosApp = {
             const sortedKeys = Object.keys(resumenMap).sort((a, b) => resumenMap[a].name.localeCompare(resumenMap[b].name));
             
             sortedKeys.forEach(key => {
-                const facturadoHtml = resumenMap[key].countFacturado > 0 ? ` <span style="font-size:11px; color:#27ae60; background:#e6fffa; padding:2px 6px; border-radius:10px;"><i class="fas fa-check"></i> ${resumenMap[key].countFacturado} fact.</span>` : '';
+                const total = resumenMap[key].count;
+                const facturados = resumenMap[key].countFacturado;
+                const disponibles = total - facturados;
+
+                const disponiblesHtml = disponibles > 0 ? `<strong>${disponibles}</strong>` : `<span style="color:#a0aec0;">0</span>`;
+                const facturadosHtml = facturados > 0 ? `<span style="color:#27ae60; font-weight:bold;">${facturados}</span>` : `<span style="color:#a0aec0;">0</span>`;
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td>${resumenMap[key].name}${facturadoHtml}</td>
-                    <td><strong>${resumenMap[key].count}</strong></td>
+                    <td>${resumenMap[key].name}</td>
+                    <td style="text-align: center;">${disponiblesHtml}</td>
+                    <td style="text-align: center; background-color: #f8fff9;">${facturadosHtml}</td>
+                    <td style="text-align: center;"><strong>${total}</strong></td>
                 `;
                 resumenTbody.appendChild(tr);
             });
@@ -1019,62 +1158,270 @@ const RegistrosApp = {
         });
     },
 
+    abrirHistorialMes(mesKey, label) {
+        document.getElementById('titulo-mes-historial').innerText = label;
+        const tbody = document.getElementById('detalle-mes-historial-tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        
+        const registrosDelMes = this.allRegistros.filter(r => r.archivado && r.fecha && r.fecha.startsWith(mesKey));
+        
+        registrosDelMes.sort((a, b) => {
+            const diff = this.parseDateToMillis(b.fecha) - this.parseDateToMillis(a.fecha);
+            return diff !== 0 ? diff : (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0);
+        });
+
+        if (registrosDelMes.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 40px; color: #aaa;">No hay registros para este mes</td></tr>`;
+        } else {
+            registrosDelMes.forEach(reg => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="border: 1px solid #cbd5e0; text-align: center;">${reg.cantidad}</td>
+                    <td style="border: 1px solid #cbd5e0; text-align: center;">${this.formatDate(reg.fecha)}</td>
+                    <td style="border: 1px solid #cbd5e0; color: #555;">${reg.producto}</td>
+                    <td style="border: 1px solid #cbd5e0; color: #555;">${reg.cuenta || '-'}</td>
+                    <td style="border: 1px solid #cbd5e0; color: #555;">Archivado</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        document.getElementById('modalHistorialMes').style.display = 'flex';
+    },
+
     async cerrarMes() {
         const isRegistroPage = !!document.getElementById('fast-entry-tbody');
         
         let registrosParaArchivar;
+        let computedBilledMap = {};
+        
         if (isRegistroPage) {
+            // Calcular estado de facturación real usando lógica FIFO
+            computedBilledMap = this.calculateComputedBilledMap(this.allRegistros);
+            
             // En registro.html, allRegistros contiene los respaldos
-            // Filtrar los que tienen TODOS sus clones facturados
+            // Filtrar los que ya fueron completamente facturados
             registrosParaArchivar = this.allRegistros.filter(r => {
                 if (r.archivado) return false;
+                const fifoBilled = computedBilledMap[r.id] || 0;
                 const clones = this.allClonesMap[r.id] || [];
-                if (clones.length === 0) return false;
-                return clones.every(c => c.estado === 'facturado');
+                const cloneBilled = clones.reduce((sum, c) => c.estado === 'facturado' ? sum + c.cantidad : sum, 0);
+                const totalBilled = Math.max(fifoBilled, cloneBilled);
+                return totalBilled >= r.cantidad;
             });
         } else {
             registrosParaArchivar = this.allRegistros.filter(r => r.estado === 'facturado' && !r.archivado);
         }
 
-        if (registrosParaArchivar.length === 0) {
-            alert("No hay registros facturados listos para archivar.");
+        const modal = document.getElementById('modalConsolidacionFlotantes');
+
+        if (!modal) {
+            // Comportamiento fallback si no existe el modal
+            if (registrosParaArchivar.length === 0) {
+                alert("No hay registros facturados listos para archivar.");
+                return;
+            }
+            if (!confirm(`¿Estás seguro de cerrar el mes? Se archivarán ${registrosParaArchivar.length} registros facturados.`)) return;
+            
+            this.showLoading(true);
+            try {
+                let batch = this.db.batch();
+                let count = 0;
+                for (let reg of registrosParaArchivar) {
+                    if (isRegistroPage) {
+                        batch.update(this.respaldoRef.doc(reg.id), { archivado: true });
+                        count++;
+                        const clones = this.allClonesMap[reg.id] || [];
+                        clones.forEach(c => {
+                            batch.update(this.registrosRef.doc(c.id), { archivado: true });
+                            count++;
+                        });
+                    } else {
+                        batch.update(this.registrosRef.doc(reg.id), { archivado: true });
+                        count++;
+                    }
+                    if (count >= 400) { await batch.commit(); batch = this.db.batch(); count = 0; }
+                }
+                if (count > 0) await batch.commit();
+                alert("Archivado exitoso.");
+            } catch(e) { console.error(e); } finally { this.showLoading(false); }
             return;
         }
-        
-        if (!confirm(`¿Estás seguro de cerrar el mes? Se archivarán ${registrosParaArchivar.length} registros facturados para limpiar la vista. Seguirán disponibles en el Historial Archivado.`)) return;
 
+        // --- LÓGICA DE CIERRE + CONSOLIDACIÓN DE FLOTANTES EN REGISTRO.HTML ---
         this.showLoading(true);
+        try {
+            this.flotantesParaCierre = {};
+            this.registrosParaArchivarCierre = registrosParaArchivar;
+
+            // Agrupar flotantes (aquellos con totalPending > 0)
+            for (let reg of this.allRegistros) {
+                if (reg.archivado) continue;
+                
+                let totalPending = 0;
+                
+                if (isRegistroPage) {
+                    const fifoBilled = computedBilledMap[reg.id] || 0;
+                    const totalBilled = fifoBilled;
+                    totalPending = Math.max(0, reg.cantidad - totalBilled);
+                } else {
+                    totalPending = reg.estado === 'pendiente' ? reg.cantidad : 0;
+                }
+                
+                if (totalPending > 0) {
+                    const clones = this.allClonesMap[reg.id] || [];
+                    const pendingClones = clones.filter(c => c.estado === 'pendiente');
+                    const dataToGroup = pendingClones.length > 0 ? pendingClones[0] : reg; // Usa el clon pendiente o el registro base
+                    
+                    if (dataToGroup.productId || dataToGroup.producto) {
+                        const stableKey = this.getGroupingKey(dataToGroup) || (dataToGroup.codigoOficial || dataToGroup.producto).replace(/\//g, '-').trim();
+                        
+                        if (!this.flotantesParaCierre[stableKey]) {
+                            this.flotantesParaCierre[stableKey] = {
+                                cantidad: 0,
+                                registrosCount: 0,
+                                producto: dataToGroup.producto || 'Producto',
+                                codigoOficial: dataToGroup.codigoOficial || '',
+                                respaldoIds: new Set(),
+                                clonIds: [],
+                                dataReference: dataToGroup
+                            };
+                        }
+                        this.flotantesParaCierre[stableKey].cantidad += totalPending;
+                        this.flotantesParaCierre[stableKey].registrosCount += 1;
+                        this.flotantesParaCierre[stableKey].respaldoIds.add(reg.id);
+                        
+                        pendingClones.forEach(c => {
+                           this.flotantesParaCierre[stableKey].clonIds.push(c.id);
+                        });
+                    }
+                }
+            }
+
+            // Renderizar la tabla UI
+            const tbody = document.getElementById('cierre-flotantes-body');
+            tbody.innerHTML = '';
+            const keys = Object.keys(this.flotantesParaCierre);
+            
+            if (keys.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#888; padding: 15px;">No hay registros flotantes (pendientes).</td></tr>`;
+            } else {
+                keys.forEach(k => {
+                    const flot = this.flotantesParaCierre[k];
+                    tbody.innerHTML += `
+                        <tr>
+                            <td style="padding:10px; border-bottom:1px solid #eee;">
+                                <strong>${flot.codigoOficial}</strong><br>
+                                <small>${flot.producto}</small>
+                            </td>
+                            <td style="padding:10px; border-bottom:1px solid #eee; text-align:center;">
+                                <span style="background: #eee; padding: 3px 8px; border-radius: 10px; font-size: 12px;">${flot.registrosCount} regs</span>
+                            </td>
+                            <td style="padding:10px; border-bottom:1px solid #eee; text-align:center; color:#d35400; font-weight:bold;">
+                                ${flot.cantidad}
+                            </td>
+                            <td style="padding:10px; border-bottom:1px solid #eee; text-align:center;">
+                                <input type="number" class="flotante-cierre-input" data-key="${k}" value="${flot.cantidad}" min="0" style="width: 80px; text-align:center; padding:5px;">
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+
+            modal.style.display = 'flex';
+        } catch(e) {
+            console.error(e);
+            alert("Error cargando flotantes");
+        } finally {
+            this.showLoading(false);
+        }
+    },
+
+    async confirmarCierreMes() {
+        if (!confirm("¿Confirmar el cierre mensual? Esto archivará los registros facturados y consolidará tus registros flotantes según lo indicado.")) return;
+
+        const btn = document.getElementById('btn-confirmar-cierre-mes');
+        btn.disabled = true;
+        btn.innerText = "Procesando...";
+
         try {
             let batch = this.db.batch();
             let count = 0;
-            for (let reg of registrosParaArchivar) {
-                if (isRegistroPage) {
-                    // Archivar el respaldo
-                    batch.update(this.respaldoRef.doc(reg.id), { archivado: true });
+
+            // 1. Archivar los facturados
+            for (let reg of this.registrosParaArchivarCierre) {
+                batch.update(this.respaldoRef.doc(reg.id), { archivado: true });
+                count++;
+                const clones = this.allClonesMap[reg.id] || [];
+                clones.forEach(c => {
+                    batch.update(this.registrosRef.doc(c.id), { archivado: true });
                     count++;
-                    // Archivar todos sus clones
-                    const clones = this.allClonesMap[reg.id] || [];
-                    clones.forEach(c => {
-                        batch.update(this.registrosRef.doc(c.id), { archivado: true });
-                        count++;
-                    });
-                } else {
-                    batch.update(this.registrosRef.doc(reg.id), { archivado: true });
+                });
+                if (count >= 400) { await batch.commit(); batch = this.db.batch(); count = 0; }
+            }
+
+            // 2. Consolidar Flotantes
+            const flotantesInputs = document.querySelectorAll('.flotante-cierre-input');
+            const flotantesAConservar = {};
+            flotantesInputs.forEach(input => {
+                flotantesAConservar[input.getAttribute('data-key')] = parseInt(input.value) || 0;
+            });
+
+            const now = new Date();
+            // Pone la fecha del primer día del mes actual
+            const nextMonth1stDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            const nextMonth1st = nextMonth1stDate.toISOString().split('T')[0];
+
+            for (const key of Object.keys(this.flotantesParaCierre)) {
+                const flot = this.flotantesParaCierre[key];
+                const aConservar = flotantesAConservar[key] || 0;
+
+                // Archivar clones dispersos
+                for (const clonId of flot.clonIds) {
+                    batch.update(this.registrosRef.doc(clonId), { archivado: true });
                     count++;
+                    if (count >= 400) { await batch.commit(); batch = this.db.batch(); count = 0; }
                 }
-                if (count >= 400) {
-                    await batch.commit();
-                    batch = this.db.batch();
-                    count = 0;
+
+                // Archivar respaldos sin importar si tienen facturados o no
+                for (const respaldoId of flot.respaldoIds) {
+                    batch.update(this.respaldoRef.doc(respaldoId), { archivado: true });
+                    count++;
+                    if (count >= 400) { await batch.commit(); batch = this.db.batch(); count = 0; }
+                }
+
+                // Crear consolidado nuevo
+                if (aConservar > 0) {
+                    const newRef = this.registrosRef.doc();
+                    const newResRef = this.respaldoRef.doc(newRef.id);
+                    const consolidatedData = {
+                        ...flot.dataReference,
+                        cantidad: aConservar,
+                        fecha: nextMonth1st,
+                        timestamp: nextMonth1stDate,
+                        observacion: `(CONSOLIDADO) Flotante del mes anterior.`,
+                        estado: 'pendiente',
+                        respaldoId: newResRef.id
+                    };
+
+                    batch.set(newResRef, consolidatedData);
+                    batch.set(newRef, consolidatedData);
+                    count += 2;
                 }
             }
+
             if (count > 0) await batch.commit();
-            alert("Cierre de mes exitoso. Los registros facturados han sido archivados.");
-        } catch(e) {
+
+            alert("Cierre de mes y Consolidación exitosos.");
+            document.getElementById('modalConsolidacionFlotantes').style.display = 'none';
+
+        } catch (e) {
             console.error(e);
-            alert("Error al archivar.");
+            alert("Error durante la consolidación.");
         } finally {
-            this.showLoading(false);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-check"></i> Confirmar Cierre de Mes';
         }
     },
 
@@ -1557,9 +1904,7 @@ const RegistrosApp = {
                     snapshot.forEach(doc => {
                         const data = doc.data();
                         
-                        // Client-side filter for archivado == false
-                        if (data.archivado === true) return;
-
+                        // Client-side filter for archivado removed so Historial works.
                         // Auto-corrección en caliente de fechas guardadas erróneamente con año 2006
                         if (data.fecha && data.fecha.startsWith("2006-")) {
                             const nuevaFecha = data.fecha.replace("2006-", "2026-");
@@ -1768,11 +2113,19 @@ const RegistrosApp = {
         let resumenMap = {};
         todosLosRegistrosMes.forEach(reg => {
             if (reg.estado !== 'pendiente') return;
+            if (reg.archivado) return; // Ignorar archivados en el total visual
             if (!reg.producto) return;
             const key = this.getGroupingKey(reg);
             const officialName = this.getOfficialProductName(reg);
             if (!resumenMap[key]) {
-                resumenMap[key] = { name: officialName, count: 0, productId: reg.productId || null };
+                resumenMap[key] = { 
+                    name: officialName, 
+                    count: 0, 
+                    productId: reg.productId || null,
+                    codigoOficial: reg.codigoOficial || '',
+                    precioVentaOficial: reg.precioVentaOficial || 0,
+                    costoUnitarioOficial: reg.costoUnitarioOficial || 0
+                };
             }
             resumenMap[key].count += reg.cantidad;
         });
@@ -1801,17 +2154,23 @@ const RegistrosApp = {
                 }
             }
 
-            // Solo mostramos y acumulamos si el registro original es 'pendiente' y le queda cantidad disponible
-            if (reg.estado !== 'pendiente' || cantidadDisponible <= 0) return;
+            // Acumular la cantidad restante para el Resumen Agrupado (solo si es pendiente original y queda cantidad)
+            if (reg.estado === 'pendiente' && cantidadDisponible > 0 && !reg.archivado) {
+                resumenRestanteMap[key] = (resumenRestanteMap[key] || 0) + cantidadDisponible;
+            }
 
-            // Acumular la cantidad restante para el Resumen Agrupado
-            resumenRestanteMap[key] = (resumenRestanteMap[key] || 0) + cantidadDisponible;
+            const isFullyUsed = (reg.estado === 'facturado' || cantidadDisponible <= 0);
+
+            if (isFullyUsed || reg.archivado) {
+                return; // Ocultar completamente los registros usados o archivados en la pantalla de Salidas
+            }
 
             hasVisible = true;
             const tr = document.createElement('tr');
+            
             tr.setAttribute('draggable', 'true');
             tr.style.cursor = 'pointer';
-            const data = { type: 'single', id: reg.id, producto: officialName, max: cantidadDisponible, productId: reg.productId || null, cuenta: reg.cuenta || '' };
+            const data = { type: 'single', id: reg.id, producto: officialName, max: cantidadDisponible, productId: reg.productId || null, cuenta: reg.cuenta || '', codigoOficial: reg.codigoOficial || '', precioVentaOficial: reg.precioVentaOficial || 0, costoUnitarioOficial: reg.costoUnitarioOficial || 0 };
 
             tr.ondragstart = (e) => {
                 e.dataTransfer.setData('text/plain', JSON.stringify(data));
@@ -1823,17 +2182,20 @@ const RegistrosApp = {
                 this.addItemToFactura(data);
             };
 
+            const quantityDisplay = cantidadDisponible < reg.cantidad ? `<strong>${cantidadDisponible}</strong> <small>de ${reg.cantidad}</small>` : `<strong>${cantidadDisponible}</strong>`;
+
             tr.innerHTML = `
                 <td>${this.formatDate(reg.fecha)}</td>
-                <td><strong>${cantidadDisponible}</strong></td>
+                <td>${quantityDisplay}</td>
                 <td>${officialName}</td>
                 <td style="font-size: 0.95rem; font-weight: bold; color: #2c3e50;">${reg.cuenta || '-'}</td>
             `;
+
             listadoTbody.appendChild(tr);
         });
 
         if (!hasVisible) {
-            listadoTbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#999;">Todos los registros fueron asignados a la factura.</td></tr>';
+            listadoTbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#999;">No hay registros en este mes.</td></tr>';
         }
 
         // 5. Llenar Tarjeta 2 (Resumen Agrupado) con las cantidades reales restantes filtradas
@@ -1845,14 +2207,16 @@ const RegistrosApp = {
         for (const key of sortedKeys) {
             const prodName = resumenMap[key].name;
             const restante = resumenRestanteMap[key] || 0;
+            const total = resumenMap[key].count;
 
-            if (restante <= 0) continue;
+            if (total <= 0 || restante <= 0) continue;
 
             hasResumen = true;
             const tr = document.createElement('tr');
+            
             tr.setAttribute('draggable', 'true');
             tr.style.cursor = 'pointer';
-            const data = { type: 'summary', producto: prodName, max: resumenMap[key].count, productId: resumenMap[key].productId || null, cuenta: '' };
+            const data = { type: 'summary', producto: prodName, max: restante, productId: resumenMap[key].productId || null, cuenta: '', codigoOficial: resumenMap[key].codigoOficial || '', precioVentaOficial: resumenMap[key].precioVentaOficial || 0, costoUnitarioOficial: resumenMap[key].costoUnitarioOficial || 0 };
 
             tr.ondragstart = (e) => {
                 e.dataTransfer.setData('text/plain', JSON.stringify(data));
@@ -1868,6 +2232,7 @@ const RegistrosApp = {
                 <td>${prodName}</td>
                 <td><strong>${restante}</strong></td>
             `;
+            
             resumenTbody.appendChild(tr);
         }
 
@@ -1922,8 +2287,9 @@ const RegistrosApp = {
                     cantidadFacturar: 1,
                     max: data.max,
                     vinculoId: data.productId || null,
-                    precioUnitario: 0,
-                    costoUnitario: 0
+                    codigoOficial: data.codigoOficial || '',
+                    precioUnitario: data.precioVentaOficial || 0,
+                    costoUnitario: data.costoUnitarioOficial || 0
                 };
                 this.facturaItems.push(newItem);
                 this.loadItemPrices(newItem);
@@ -2343,6 +2709,12 @@ const RegistrosApp = {
                    </button>`
                 : '';
 
+            const editButtonHTML = reg.estado === 'pendiente'
+                ? `<button class="btn btn-warning" style="padding:5px 10px; font-size:12px; margin-right:5px; color:white;" onclick="RegistrosApp.editRegistroQuantity('${reg.id}', ${reg.cantidad})" title="Editar Cantidad">
+                       <i class="fas fa-edit"></i>
+                   </button>`
+                : '';
+
             const obsColor = reg.estado === 'facturado' ? '#2e7d32' : '#666';
 
             const officialName = this.getOfficialProductName(reg);
@@ -2362,6 +2734,7 @@ const RegistrosApp = {
                 <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                 <td style="text-align: center;">
                     ${revertButtonHTML}
+                    ${editButtonHTML}
                     <button class="btn btn-danger" style="padding:5px 10px; font-size:12px;" onclick="RegistrosApp.deleteRegistro('${reg.id}')" title="Eliminar este registro">
                         <i class="fas fa-trash"></i>
                     </button>
@@ -2390,6 +2763,28 @@ const RegistrosApp = {
         }
     },
 
+    async editRegistroQuantity(id, currentQty) {
+        const newQtyStr = prompt("Ingrese la nueva cantidad para este registro flotante:", currentQty);
+        if (newQtyStr === null) return;
+        const newQty = parseInt(newQtyStr, 10);
+        if (isNaN(newQty) || newQty <= 0) {
+            alert("Cantidad inválida. Debe ser un número mayor a 0.");
+            return;
+        }
+
+        try {
+            const batch = this.db.batch();
+            batch.update(this.registrosRef.doc(id), { cantidad: newQty });
+            batch.update(this.respaldoRef.doc(id), { cantidad: newQty });
+            await batch.commit();
+            alert("Cantidad actualizada exitosamente.");
+            this.loadRegistros(this.currentSelectedDate);
+        } catch (error) {
+            console.error("Error al editar cantidad:", error);
+            alert("Error al actualizar la cantidad.");
+        }
+    },
+
     async deleteRegistro(id) {
         if (await this.confirmDialog('¿Estás seguro de eliminar este registro?')) {
             try {
@@ -2414,6 +2809,34 @@ const RegistrosApp = {
             } catch (error) {
                 console.error("Error eliminando:", error);
                 alert("No se pudo eliminar.");
+            }
+        }
+    },
+
+    async forzarArchivar(id) {
+        if (await this.confirmDialog('¿Estás seguro de archivar manualmente este registro parcialmente facturado? Esto lo enviará directamente al Historial Archivado.')) {
+            try {
+                this.showLoading(true);
+                const batch = this.db.batch();
+                
+                // Archivar el respaldo
+                batch.update(this.respaldoRef.doc(id), { archivado: true });
+                
+                // Archivar también clones vinculados (sólo los que no están facturados)
+                const clonesSnap = await this.registrosRef.where('respaldoId', '==', id).get();
+                clonesSnap.forEach(doc => {
+                    if (doc.data().estado !== 'facturado') {
+                        batch.update(doc.ref, { archivado: true });
+                    }
+                });
+                
+                await batch.commit();
+                alert('Registro archivado exitosamente.');
+            } catch (e) {
+                console.error("Error al archivar registro:", e);
+                alert("Error al archivar: " + e.message);
+            } finally {
+                this.showLoading(false);
             }
         }
     },
@@ -2745,7 +3168,8 @@ const RegistrosApp = {
                     oldItems.forEach(item => {
                         const pId = item.productId;
                         if (pId && pId !== 'SERVICIO' && pId !== 'OMITIDO') {
-                            const resumenRef = this.db.collection('RESUMEN_SALIDAS_MES').doc(pId);
+                            const stableKey = this.getGroupingKey(item.descripcionPapel || item.producto, pId);
+                            const resumenRef = this.db.collection('RESUMEN_SALIDAS_MES').doc(stableKey);
                             batch.set(resumenRef, {
                                 cantidadFacturada: window.firebase.firestore.FieldValue.increment(-item.cantidad)
                             }, { merge: true });
@@ -2811,7 +3235,8 @@ const RegistrosApp = {
 
                 // Acumular en RESUMEN_SALIDAS_MES en vez de descontar directamente de INVENTARIO (Inmovilizado)
                 if (item.vinculoId) {
-                    const resumenRef = this.db.collection('RESUMEN_SALIDAS_MES').doc(item.vinculoId);
+                    const stableKey = this.getGroupingKey(item.descripcionPapel || item.producto, item.vinculoId);
+                    const resumenRef = this.db.collection('RESUMEN_SALIDAS_MES').doc(stableKey);
                     batch.set(resumenRef, {
                         productId: item.vinculoId,
                         producto: item.producto,
@@ -2909,6 +3334,7 @@ const RegistrosApp = {
                     precioUnitario: item.precioUnitario,
                     costoUnitario: item.costoUnitario || 0,
                     productId: item.vinculoId || null,
+                    codigoOficial: item.codigoOficial || '',
                     isManoDeObra: !!item.isManoDeObra,
                     total: item.cantidadFacturar * item.precioUnitario
                 }))
@@ -3053,7 +3479,8 @@ const RegistrosApp = {
             items.forEach(item => {
                 const pId = item.productId || item.vinculoId;
                 if (pId && pId !== 'SERVICIO' && pId !== 'OMITIDO') {
-                    const resumenRef = this.db.collection('RESUMEN_SALIDAS_MES').doc(pId);
+                    const stableKey = this.getGroupingKey(item.descripcionPapel || item.producto, pId);
+                    const resumenRef = this.db.collection('RESUMEN_SALIDAS_MES').doc(stableKey);
                     batch.set(resumenRef, {
                         cantidadFacturada: window.firebase.firestore.FieldValue.increment(-item.cantidad)
                     }, { merge: true });
@@ -3302,20 +3729,24 @@ const RegistrosApp = {
             const isRegistroPage = !!document.getElementById('fast-entry-tbody');
             const unlinkedDesc = this.currentLinkRegistryName;
 
-            // 1. Actualizar la referencia clickeada directamente (dependiendo de dónde estemos)
+            // 1. Crear el objeto con la data estática a copiar (Rich Data)
+            const updateData = {
+                productId: product.id,
+                producto: product.descripcion,
+                codigoOficial: product.codigo || '',
+                precioVentaOficial: product.precio || 0,
+                costoUnitarioOficial: product.costo || 0,
+                costoSinIvaOficial: product.costoSinIva || 0
+            };
+
+            // 2. Actualizar la referencia clickeada directamente (dependiendo de dónde estemos)
             if (isRegistroPage) {
-                batch.update(this.respaldoRef.doc(this.currentLinkRegistryId), {
-                    productId: product.id,
-                    producto: product.descripcion
-                });
+                batch.update(this.respaldoRef.doc(this.currentLinkRegistryId), updateData);
             } else {
-                batch.update(this.registrosRef.doc(this.currentLinkRegistryId), {
-                    productId: product.id,
-                    producto: product.descripcion
-                });
+                batch.update(this.registrosRef.doc(this.currentLinkRegistryId), updateData);
             }
 
-            // 2. Actualizar todos los demás clones (REGISTROS_SALIDA) pendientes
+            // 3. Actualizar todos los demás clones (REGISTROS_SALIDA) pendientes
             const clonesSnap = await this.registrosRef
                 .where('producto', '==', unlinkedDesc)
                 .where('estado', '==', 'pendiente')
@@ -3323,13 +3754,10 @@ const RegistrosApp = {
 
             clonesSnap.forEach(doc => {
                 if (!isRegistroPage && doc.id === this.currentLinkRegistryId) return;
-                batch.update(doc.ref, {
-                    productId: product.id,
-                    producto: product.descripcion
-                });
+                batch.update(doc.ref, updateData);
             });
 
-            // 3. Actualizar todos los demás respaldos (REGISTROS_RESPALDO)
+            // 4. Actualizar todos los demás respaldos (REGISTROS_RESPALDO)
             // No filtramos por estado aquí porque los respaldos suelen quedarse en "pendiente"
             const respaldosSnap = await this.respaldoRef
                 .where('producto', '==', unlinkedDesc)
@@ -3337,10 +3765,7 @@ const RegistrosApp = {
 
             respaldosSnap.forEach(doc => {
                 if (isRegistroPage && doc.id === this.currentLinkRegistryId) return;
-                batch.update(doc.ref, {
-                    productId: product.id,
-                    producto: product.descripcion
-                });
+                batch.update(doc.ref, updateData);
             });
 
             await batch.commit();
@@ -3483,7 +3908,8 @@ const RegistrosApp = {
             });
 
             if (cantidad > 0 && isCurrentMonth) {
-                const resRef = this.db.collection('RESUMEN_SALIDAS_MES').doc(product.id);
+                const stableKey = this.getGroupingKey(product.descripcion, product.id);
+                const resRef = this.db.collection('RESUMEN_SALIDAS_MES').doc(stableKey);
                 batch.set(resRef, {
                     productId: product.id,
                     producto: product.descripcion,
@@ -4107,7 +4533,8 @@ const RegistrosApp = {
 
             // 4. Actualizar el acumulador RESUMEN_SALIDAS_MES restando el exceso de forma atómica
             if (pId && pId !== 'SERVICIO' && pId !== 'OMITIDO') {
-                const resumenRef = this.db.collection('RESUMEN_SALIDAS_MES').doc(pId);
+                const stableKey = this.getGroupingKey(item.descripcionPapel || item.producto, pId);
+                const resumenRef = this.db.collection('RESUMEN_SALIDAS_MES').doc(stableKey);
                 batch.set(resumenRef, {
                     cantidadFacturada: window.firebase.firestore.FieldValue.increment(-cantidadExceso)
                 }, { merge: true });

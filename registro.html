@@ -519,8 +519,9 @@
                             <thead>
                                 <tr style="background: #f8f9fa;">
                                     <th style="border: 1px solid #ddd;">Descripción / Producto</th>
-                                    <th style="width: 150px; text-align: center; border: 1px solid #ddd;">Cantidad Total
-                                    </th>
+                                    <th style="width: 100px; text-align: center; border: 1px solid #ddd;">Disponibles</th>
+                                    <th style="width: 100px; text-align: center; border: 1px solid #ddd;">Facturados</th>
+                                    <th style="width: 100px; text-align: center; border: 1px solid #ddd;">Total</th>
                                 </tr>
                             </thead>
                             <tbody id="resumen-tbody">
@@ -578,11 +579,9 @@
                         <table class="inventario-table" style="margin: 0; width: 100%; border-collapse: collapse;">
                             <thead>
                                 <tr style="background: #e2e8f0;">
-                                    <th style="width: 80px; text-align: center; border: 1px solid #cbd5e0;">Cant.</th>
-                                    <th style="width: 100px; text-align: center; border: 1px solid #cbd5e0;">Fecha</th>
-                                    <th style="border: 1px solid #cbd5e0;">Descripción</th>
-                                    <th style="width: 150px; border: 1px solid #cbd5e0;">Cuenta</th>
-                                    <th style="width: 150px; border: 1px solid #cbd5e0;">Nº Factura</th>
+                                    <th style="border: 1px solid #cbd5e0; font-size: 1.1rem; padding: 15px;">Mes de Cierre</th>
+                                    <th style="width: 200px; text-align: center; border: 1px solid #cbd5e0; padding: 15px;">Artículos Archivados</th>
+                                    <th style="width: 150px; text-align: center; border: 1px solid #cbd5e0; padding: 15px;">Acción</th>
                                 </tr>
                             </thead>
                             <tbody id="historial-archivo-tbody">
@@ -825,6 +824,85 @@
                 <button class="btn btn-danger" style="padding: 10px 18px; font-weight: bold; border-radius: 6px;"
                     onclick="document.getElementById('modalLinkProduct').style.display='none'">
                     Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE CONSOLIDACIÓN DE FLOTANTES Y CIERRE DE MES -->
+    <div id="modalConsolidacionFlotantes"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 800px; box-shadow: 0 10px 25px rgba(0,0,0,0.3);">
+            <h2 style="margin-top: 0; color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+                <i class="fas fa-box-archive"></i> Cierre de Mes: Consolidación de Flotantes
+            </h2>
+            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+                Agrupamos todos tus registros <strong>pendientes</strong> dispersos (flotantes). Define cuántas unidades de cada producto quieres que "sobrevivan" y pasen al nuevo mes. Al confirmar, eliminaremos los registros regados y crearemos <strong>un único registro consolidado</strong> con fecha del primer día del nuevo mes. Escribe "0" para no pasar ninguna unidad.
+            </p>
+            
+            <div id="cierre-mes-loading" style="text-align: center; padding: 20px; display: none;">
+                <i class="fas fa-spinner fa-spin fa-2x" style="color: #3498db;"></i>
+                <p>Cargando registros pendientes...</p>
+            </div>
+
+            <div class="table-responsive" style="border: 1px solid #ddd; border-radius: 4px; margin-bottom: 20px; max-height: 350px; overflow-y: auto;">
+                <table class="inventario-table" style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #f8f9fa;">
+                            <th style="padding: 10px; border-bottom: 1px solid #ddd;">Producto</th>
+                            <th style="padding: 10px; border-bottom: 1px solid #ddd; text-align: center; width: 150px;">Registros Dispersos</th>
+                            <th style="padding: 10px; border-bottom: 1px solid #ddd; text-align: center; width: 150px;">Unidades Actuales</th>
+                            <th style="padding: 10px; border-bottom: 1px solid #ddd; text-align: center; width: 150px;">Dejar para Nuevo Mes</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cierre-flotantes-body">
+                        <!-- JS llenará esto -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="font-size: 13px; color: #7f8c8d;">
+                    * Además, los registros facturados se archivarán.
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-danger" style="padding: 10px 20px; border-radius: 6px;" onclick="document.getElementById('modalConsolidacionFlotantes').style.display='none'">Cancelar</button>
+                    <button class="btn btn-success" id="btn-confirmar-cierre-mes" style="padding: 10px 20px; border-radius: 6px;" onclick="RegistrosApp.confirmarCierreMes()"><i class="fas fa-check"></i> Confirmar Cierre de Mes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL HISTORIAL DE MES -->
+    <div id="modalHistorialMes" class="modal-overlay" style="display: none; z-index: 10000; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center;">
+        <div class="modal-content" style="background: white; padding: 25px; border-radius: 12px; width: 95%; max-width: 1000px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); display: flex; flex-direction: column; max-height: 90vh;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 15px;">
+                <h2 style="margin: 0; color: #2c3e50; font-size: 1.5rem; display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-archive" style="color: #7f8c8d;"></i> Registros Archivados: <span id="titulo-mes-historial" style="color: #3498db;"></span>
+                </h2>
+                <span style="font-size: 28px; cursor: pointer; color: #888; transition: color 0.2s;" onmouseover="this.style.color='#e74c3c'" onmouseout="this.style.color='#888'" onclick="document.getElementById('modalHistorialMes').style.display='none'">&times;</span>
+            </div>
+            
+            <div class="table-container-large" style="flex-grow: 1; border: 1px solid #ddd; border-radius: 6px; overflow-y: auto; margin-bottom: 20px; min-height: 300px;">
+                <table class="inventario-table" style="width: 100%; border-collapse: collapse; margin: 0;">
+                    <thead style="position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                        <tr style="background: #f8f9fa;">
+                            <th style="width: 80px; text-align: center; border: 1px solid #ddd; padding: 12px;">Cant.</th>
+                            <th style="width: 100px; text-align: center; border: 1px solid #ddd; padding: 12px;">Fecha</th>
+                            <th style="border: 1px solid #ddd; padding: 12px;">Descripción / Producto</th>
+                            <th style="width: 150px; border: 1px solid #ddd; padding: 12px;">Cuenta</th>
+                            <th style="width: 150px; border: 1px solid #ddd; padding: 12px;">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detalle-mes-historial-tbody">
+                        <!-- JS llenará esto -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end;">
+                <button class="btn" style="background-color: #34495e; color: white; padding: 12px 25px; border-radius: 6px; font-weight: bold; border: none; cursor: pointer;" onclick="document.getElementById('modalHistorialMes').style.display='none'">
+                    Cerrar
                 </button>
             </div>
         </div>

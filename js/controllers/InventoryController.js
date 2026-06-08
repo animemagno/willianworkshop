@@ -423,16 +423,29 @@ class InventoryController {
                 entradasMap[doc.id] = doc.data().cantidadEntrada || 0;
             });
 
+            // 2.5 Obtener registros pendientes (flotantes)
+            const pendientesSnapshot = await db.collection('REGISTROS_SALIDA').where('estado', '==', 'pendiente').get();
+            const flotantesMap = {};
+            pendientesSnapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.productId || data.producto) {
+                    const stableKey = window.RegistrosApp ? window.RegistrosApp.getGroupingKey(data.producto, data.productId) : (data.codigoOficial || data.producto).replace(/\//g, '-').trim();
+                    flotantesMap[stableKey] = (flotantesMap[stableKey] || 0) + (data.cantidad || 0);
+                }
+            });
+
             const rawProducts = await this.svc.obtenerTodos();
             
             // 3. Combinar para obtener el stock simulado/actual
             this.cache = rawProducts.map(p => {
-                const soldQty = salidasMap[p.id] || 0;
-                const addedQty = entradasMap[p.id] || 0;
+                const stableKey = window.RegistrosApp ? window.RegistrosApp.getGroupingKey(p.descripcion, p.id) : (p.codigo || p.descripcion).replace(/\//g, '-').trim();
+                const soldQty = salidasMap[stableKey] || 0;
+                const addedQty = entradasMap[stableKey] || 0;
+                const floatingQty = flotantesMap[stableKey] || 0;
                 return {
                     ...p,
                     existenciaOriginal: p.existencia || 0, // Conservar el original para la auditoría
-                    existencia: (p.existencia || 0) + addedQty - soldQty // Stock simulado (permite valores negativos)
+                    existencia: (p.existencia || 0) + addedQty - soldQty - floatingQty // Stock simulado incluye flotantes
                 };
             });
 
