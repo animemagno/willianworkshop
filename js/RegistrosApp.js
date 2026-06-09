@@ -138,11 +138,27 @@ const RegistrosApp = {
                 .limit(1)
                 .get();
 
-            let targetDateStr = this.getLocalISODate();
+            const currentISODate = this.getLocalISODate();
+            const currentMonthStr = currentISODate.substring(0, 7);
+            
+            // Determinar el primer día laborable del mes actual (Lunes a Sábado)
+            const firstDayOfMonth = new Date(currentMonthStr + '-01T12:00:00Z');
+            let firstWorkingDayStr = currentMonthStr + '-01';
+            if (firstDayOfMonth.getUTCDay() === 0) { // Si es Domingo
+                firstWorkingDayStr = currentMonthStr + '-02';
+            }
+
+            let targetDateStr = firstWorkingDayStr;
+
             if (!snap.empty) {
                 const data = snap.docs[0].data();
                 if (data.fecha) {
-                    targetDateStr = data.fecha;
+                    const lastInvoiceMonthStr = data.fecha.substring(0, 7);
+                    if (lastInvoiceMonthStr === currentMonthStr) {
+                        // Es del mes actual, continuamos la secuencia
+                        targetDateStr = data.fecha;
+                    }
+                    // Si es de un mes anterior, se mantiene targetDateStr = firstWorkingDayStr
                 }
             }
 
