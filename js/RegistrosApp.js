@@ -1970,6 +1970,18 @@ const RegistrosApp = {
             if (!reg.producto) return;
             const key = this.getGroupingKey(reg);
             const officialName = this.getOfficialProductName(reg);
+            
+            let currentCosto = reg.costoUnitarioOficial || 0;
+            if (currentCosto === 0 && window.app && window.app.cache) {
+                const cachedProduct = window.app.cache.find(p => 
+                    (reg.productId && p.id === reg.productId) || 
+                    (p.descripcion && p.descripcion.toLowerCase().trim() === officialName.toLowerCase().trim())
+                );
+                if (cachedProduct) {
+                    currentCosto = cachedProduct.costo || 0;
+                }
+            }
+            
             if (!resumenMap[key]) {
                 resumenMap[key] = { 
                     name: officialName, 
@@ -1977,7 +1989,7 @@ const RegistrosApp = {
                     productId: reg.productId || null,
                     codigoOficial: reg.codigoOficial || '',
                     precioVentaOficial: reg.precioVentaOficial || 0,
-                    costoUnitarioOficial: reg.costoUnitarioOficial || 0
+                    costoUnitarioOficial: currentCosto
                 };
             }
             resumenMap[key].count += reg.cantidad;
