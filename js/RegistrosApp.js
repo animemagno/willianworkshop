@@ -2028,9 +2028,7 @@ const RegistrosApp = {
             const isFullyUsed = (reg.estado === 'facturado' || cantidadDisponible <= 0);
 
             if (isFullyUsed || reg.archivado) {
-                if (cantidadEnFacturaActual === 0) {
-                    return; // Ocultar completamente los registros usados o archivados en la pantalla de Salidas
-                }
+                return; // Ocultar completamente los registros usados o archivados en la pantalla de Salidas
             }
 
             hasVisible = true;
