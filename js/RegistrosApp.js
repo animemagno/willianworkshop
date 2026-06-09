@@ -31,6 +31,7 @@ const RegistrosApp = {
     currentLinkInvoiceId: null,
     currentLinkInvoiceItemIndex: null,
     editingInvoiceId: null,
+    expandedAccounts: new Set(),
 
     async confirmDialog(message) {
         if (typeof Swal === 'undefined') return confirm(message);
@@ -59,8 +60,8 @@ const RegistrosApp = {
                 return;
             }
             this.db = window.firebase.firestore();
-            this.registrosRef = this.db.collection('REGISTROS_SALIDA');
-            this.respaldoRef = this.db.collection('REGISTROS_RESPALDO');
+            this.registrosRef = this.db.collection('REGISTROS');
+            this.respaldoRef = this.db.collection('REGISTROS_RESPALDO'); // Only used for auto-migration logic now
             this.preciosRef = this.db.collection('PRECIOS_REGISTROS');
             this.mapeoRef = this.db.collection('MAPEO_NOMBRES');
             this.MAX_FACTURA_ITEMS = 14;
@@ -78,8 +79,18 @@ const RegistrosApp = {
             await this.loadMapeoNombres();
             await this.initFacturaDate();
             this.loadFacturaDraft();
+            
+            // Autocompletar la fecha de registro rápido con la fecha de hoy
+            const fastFechaInput = document.getElementById('fast-fecha');
+            if (fastFechaInput) {
+                const today = new Date();
+                const yyyy = today.getFullYear();
+                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                const dd = String(today.getDate()).padStart(2, '0');
+                fastFechaInput.value = `${yyyy}-${mm}-${dd}`;
+            }
+
             await this.loadInvoicesHistory();
-            await this.autoMigrateRegistros();
             this.listenToRegistros();
 
         } catch (error) {
@@ -115,84 +126,7 @@ const RegistrosApp = {
         });
     },
 
-    async autoMigrateRegistros() {
-        console.log("Iniciando auto-migración de registros...");
-        try {
-            const snap = await this.registrosRef.get();
-            const clonesSinRespaldo = snap.docs.filter(doc => !doc.data().respaldoId);
-            
-            if (clonesSinRespaldo.length > 0) {
-                console.log(`Se encontraron ${clonesSinRespaldo.length} clones legacy sin respaldoId. Migrando...`);
-                let batch = this.db.batch();
-                let ops = 0;
-
-                for (const doc of clonesSinRespaldo) {
-                    const cloneData = doc.data();
-                    const respaldoId = this.respaldoRef.doc().id;
-
-                    const respaldoData = {
-                        fecha: cloneData.fecha || '',
-                        producto: cloneData.producto || '',
-                        productId: cloneData.productId || null,
-                        cantidad: cloneData.cantidad || 1,
-                        cuenta: cloneData.cuenta || '',
-                        observacion: cloneData.observacion || '',
-                        estado: cloneData.estado || 'pendiente',
-                        origen: cloneData.origen || 'manual',
-                        filaExcel: cloneData.filaExcel || null,
-                        archivado: cloneData.archivado !== undefined ? cloneData.archivado : false,
-                        timestamp: cloneData.timestamp || window.firebase.firestore.FieldValue.serverTimestamp()
-                    };
-
-                    batch.set(this.respaldoRef.doc(respaldoId), respaldoData);
-                    batch.update(doc.ref, { respaldoId: respaldoId });
-
-                    ops += 2;
-                    if (ops >= 400) {
-                        await batch.commit();
-                        batch = this.db.batch();
-                        ops = 0;
-                    }
-                }
-
-                if (ops > 0) {
-                    await batch.commit();
-                }
-                console.log(`Auto-migración completada con éxito. Se migraron ${clonesSinRespaldo.length} registros.`);
-            }
-
-            // Sync archivado state: Si un clon no está archivado pero su respaldo sí lo está (o no existe), archivarlo.
-            const unarchivedClonesSnap = await this.registrosRef.where('archivado', '==', false).get();
-            const unarchivedRespaldosSnap = await this.respaldoRef.where('archivado', '==', false).get();
-            
-            const activeRespaldoIds = new Set();
-            unarchivedRespaldosSnap.forEach(doc => activeRespaldoIds.add(doc.id));
-
-            let syncBatch = this.db.batch();
-            let syncOps = 0;
-            
-            for (const doc of unarchivedClonesSnap.docs) {
-                const rId = doc.data().respaldoId;
-                if (rId && !activeRespaldoIds.has(rId)) {
-                    syncBatch.update(doc.ref, { archivado: true });
-                    syncOps++;
-                    if (syncOps >= 400) {
-                        await syncBatch.commit();
-                        syncBatch = this.db.batch();
-                        syncOps = 0;
-                    }
-                }
-            }
-            
-            if (syncOps > 0) {
-                await syncBatch.commit();
-                console.log(`Sincronización de archivado completada: ${syncOps} clones archivados para coincidir con respaldos.`);
-            }
-
-        } catch (error) {
-            console.error("Error durante la auto-migración/sincronización:", error);
-        }
-    },
+    // autoMigrateRegistros removed.,
 
     async initFacturaDate() {
         const inputFecha = document.getElementById('factura-fecha');
@@ -879,6 +813,7 @@ const RegistrosApp = {
                     <td style="border-bottom: 1px solid #edf2f7;"><span style="font-size: 13px; color: ${isFullyFacturado ? '#27ae60' : '#7f8c8d'};">${this.formatDate(reg.fecha)}</span></td>
                     <td style="border-bottom: 1px solid #edf2f7;">${productCellContent}</td>
                     <td style="border-bottom: 1px solid #edf2f7; font-size: 0.95rem; font-weight: bold; color: ${isFullyFacturado ? '#27ae60' : '#2c3e50'};">${reg.cuenta || '-'}</td>
+                    <td style="border-bottom: 1px solid #edf2f7; font-size: 0.95rem; font-weight: bold; color: ${isFullyFacturado ? '#27ae60' : '#e67e22'};">${reg.precioEspecial ? '$' + parseFloat(reg.precioEspecial).toFixed(2) : '-'}</td>
                     <td style="border-bottom: 1px solid #edf2f7;"><span style="font-size:13px; color:${isFullyFacturado ? '#27ae60' : '#666'};">${reg.observacion || '-'}</span></td>
                     <td style="border-bottom: 1px solid #edf2f7; text-align: center;">${actionCell}</td>
                 `;
@@ -891,7 +826,7 @@ const RegistrosApp = {
                     if (lastFormattedDate !== null && currentFormattedDate !== lastFormattedDate) {
                         const trBtn = document.createElement('tr');
                         trBtn.innerHTML = `
-                            <td colspan="5" style="border: 1px solid #d4d4d4; padding: 4px; text-align: center; background-color: #fcfcfc;">
+                            <td colspan="6" style="border: 1px solid #d4d4d4; padding: 4px; text-align: center; background-color: #fcfcfc;">
                                 <button type="button" class="btn" style="background: none; border: 1px dashed #bbb; color: #666; font-size: 12px; padding: 4px 10px; border-radius: 4px; cursor: pointer;" onclick="RegistrosApp.addEmptyRowForDate('${lastRawDate}')">+ Agregar espacio en ${lastFormattedDate}</button>
                             </td>
                         `;
@@ -905,6 +840,8 @@ const RegistrosApp = {
                     const safeProducto = (reg.producto || '').replace(/'/g, "\\'").replace(/"/g, "&quot;");
                     const safeCuenta = (reg.cuenta || '').replace(/'/g, "\\'").replace(/"/g, "&quot;");
                     const safeObservacion = (reg.observacion || '').replace(/'/g, "\\'").replace(/"/g, "&quot;");
+
+                    const safePrecioEspecial = (reg.precioEspecial || '').toString();
 
                     const trExcel = document.createElement('tr');
                     if (rowStyle) trExcel.style.cssText = rowStyle;
@@ -923,6 +860,7 @@ const RegistrosApp = {
                             </div>
                         </td>
                         <td style="border: 1px solid #d4d4d4; padding: 8px; color: ${isFullyFacturado ? '#27ae60' : '#333'}; font-weight: bold; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'cuenta', '${safeCuenta}')" title="Doble clic para editar">${reg.cuenta || ''}</td>
+                        <td style="border: 1px solid #d4d4d4; padding: 8px; color: ${isFullyFacturado ? '#27ae60' : '#333'}; font-weight: bold; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'precioEspecial', '${safePrecioEspecial}')" title="Doble clic para editar">${reg.precioEspecial ? '$' + parseFloat(reg.precioEspecial).toFixed(2) : ''}</td>
                         <td style="border: 1px solid #d4d4d4; padding: 8px; color: ${isFullyFacturado ? '#27ae60' : '#333'}; cursor: pointer;" ondblclick="RegistrosApp.editExcelCell(this, '${reg.id}', 'observacion', '${safeObservacion}')" title="Doble clic para editar">${reg.observacion || ''}</td>
                     `;
                     excelTbody.appendChild(trExcel);
@@ -930,7 +868,7 @@ const RegistrosApp = {
                     if (index === registrosAMostrar.length - 1) {
                         const trBtnFinal = document.createElement('tr');
                         trBtnFinal.innerHTML = `
-                            <td colspan="5" style="border: 1px solid #d4d4d4; padding: 4px; text-align: center; background-color: #fcfcfc;">
+                            <td colspan="6" style="border: 1px solid #d4d4d4; padding: 4px; text-align: center; background-color: #fcfcfc;">
                                 <button type="button" class="btn" style="background: none; border: 1px dashed #bbb; color: #666; font-size: 12px; padding: 4px 10px; border-radius: 4px; cursor: pointer;" onclick="RegistrosApp.addEmptyRowForDate('${lastRawDate}')">+ Agregar espacio en ${lastFormattedDate}</button>
                             </td>
                         `;
@@ -983,29 +921,22 @@ const RegistrosApp = {
     async addEmptyRowForDate(rawDateStr) {
         if (!rawDateStr) return;
         try {
-            const batch = this.db.batch();
-            const respaldoId = this.respaldoRef.doc().id;
-            const cloneId = this.registrosRef.doc().id;
+            const newDocId = this.registrosRef.doc().id;
 
             const dataToSet = {
                 fecha: rawDateStr,
                 cantidad: 1,
+                cantidadUsada: 0,
+                facturas: [],
                 producto: 'Nuevo Registro (Doble clic para editar)',
                 cuenta: '',
                 observacion: '',
-                estado: 'pendiente',
                 origen: 'excel',
                 archivado: false,
                 timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
             };
 
-            batch.set(this.respaldoRef.doc(respaldoId), dataToSet);
-            batch.set(this.registrosRef.doc(cloneId), {
-                ...dataToSet,
-                respaldoId: respaldoId
-            });
-
-            await batch.commit();
+            await this.registrosRef.doc(newDocId).set(dataToSet);
         } catch (e) {
             console.error("Error agregando fila:", e);
             alert("Error al agregar la fila.");
@@ -1059,8 +990,8 @@ const RegistrosApp = {
             tdElement.innerHTML = newValue;
 
             try {
-                const clones = this.allClonesMap[docId] || [];
-                const totalBilled = clones.reduce((sum, c) => c.estado === 'facturado' ? sum + c.cantidad : sum, 0);
+                const reg = this.allRegistros.find(r => r.id === docId);
+                const totalBilled = reg ? (reg.cantidadUsada || 0) : 0;
 
                 if (field === 'cantidad') {
                     if (newValue < totalBilled) {
@@ -1074,62 +1005,13 @@ const RegistrosApp = {
                         return;
                     }
 
-                    const newPendingQty = newValue - totalBilled;
-                    const pendingClones = clones.filter(c => c.estado === 'pendiente');
-                    const batch = this.db.batch();
+                    await this.registrosRef.doc(docId).update({ cantidad: newValue });
 
-                    // Actualizar respaldo
-                    batch.update(this.respaldoRef.doc(docId), { cantidad: newValue });
-
-                    if (newPendingQty > 0) {
-                        if (pendingClones.length > 0) {
-                            // Actualizar el primer clon pendiente, borrar los demás si existieran
-                            batch.update(this.registrosRef.doc(pendingClones[0].id), { cantidad: newPendingQty });
-                            for (let k = 1; k < pendingClones.length; k++) {
-                                batch.delete(this.registrosRef.doc(pendingClones[k].id));
-                            }
-                        } else {
-                            // No había clones pendientes, todo estaba facturado. Crear un clon pendiente nuevo.
-                            const respaldoDoc = await this.respaldoRef.doc(docId).get();
-                            const respData = respaldoDoc.data();
-                            const newCloneRef = this.registrosRef.doc();
-                            batch.set(newCloneRef, {
-                                respaldoId: docId,
-                                fecha: respData.fecha,
-                                producto: respData.producto,
-                                productId: respData.productId || null,
-                                cantidad: newPendingQty,
-                                cuenta: respData.cuenta || '',
-                                observacion: respData.observacion || '',
-                                estado: 'pendiente',
-                                origen: respData.origen || 'manual',
-                                filaExcel: respData.filaExcel || null,
-                                archivado: respData.archivado || false,
-                                timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
-                            });
-                        }
-                    } else {
-                        // El pendiente es 0, eliminar clones pendientes
-                        pendingClones.forEach(pc => {
-                            batch.delete(this.registrosRef.doc(pc.id));
-                        });
-                    }
-
-                    await batch.commit();
-
-                    const reg = this.allRegistros.find(r => r.id === docId);
                     if (reg) reg.cantidad = newValue;
 
                 } else {
-                    // Propagar otros campos a respaldo y a todos sus clones
-                    const batch = this.db.batch();
-                    batch.update(this.respaldoRef.doc(docId), { [field]: newValue });
-                    clones.forEach(c => {
-                        batch.update(this.registrosRef.doc(c.id), { [field]: newValue });
-                    });
-                    await batch.commit();
+                    await this.registrosRef.doc(docId).update({ [field]: newValue });
 
-                    const reg = this.allRegistros.find(r => r.id === docId);
                     if (reg) reg[field] = newValue;
                 }
             } catch (e) {
@@ -1176,7 +1058,7 @@ const RegistrosApp = {
         });
 
         if (registrosDelMes.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 40px; color: #aaa;">No hay registros para este mes</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 40px; color: #aaa;">No hay registros para este mes</td></tr>`;
         } else {
             registrosDelMes.forEach(reg => {
                 const tr = document.createElement('tr');
@@ -1185,6 +1067,7 @@ const RegistrosApp = {
                     <td style="border: 1px solid #cbd5e0; text-align: center;">${this.formatDate(reg.fecha)}</td>
                     <td style="border: 1px solid #cbd5e0; color: #555;">${reg.producto}</td>
                     <td style="border: 1px solid #cbd5e0; color: #555;">${reg.cuenta || '-'}</td>
+                    <td style="border: 1px solid #cbd5e0; color: #555;">${reg.precioEspecial ? '$' + parseFloat(reg.precioEspecial).toFixed(2) : '-'}</td>
                     <td style="border: 1px solid #cbd5e0; color: #555;">Archivado</td>
                 `;
                 tbody.appendChild(tr);
@@ -1233,18 +1116,8 @@ const RegistrosApp = {
                 let batch = this.db.batch();
                 let count = 0;
                 for (let reg of registrosParaArchivar) {
-                    if (isRegistroPage) {
-                        batch.update(this.respaldoRef.doc(reg.id), { archivado: true });
-                        count++;
-                        const clones = this.allClonesMap[reg.id] || [];
-                        clones.forEach(c => {
-                            batch.update(this.registrosRef.doc(c.id), { archivado: true });
-                            count++;
-                        });
-                    } else {
-                        batch.update(this.registrosRef.doc(reg.id), { archivado: true });
-                        count++;
-                    }
+                    batch.update(this.registrosRef.doc(reg.id), { archivado: true });
+                    count++;
                     if (count >= 400) { await batch.commit(); batch = this.db.batch(); count = 0; }
                 }
                 if (count > 0) await batch.commit();
@@ -1355,13 +1228,8 @@ const RegistrosApp = {
 
             // 1. Archivar los facturados
             for (let reg of this.registrosParaArchivarCierre) {
-                batch.update(this.respaldoRef.doc(reg.id), { archivado: true });
+                batch.update(this.registrosRef.doc(reg.id), { archivado: true });
                 count++;
-                const clones = this.allClonesMap[reg.id] || [];
-                clones.forEach(c => {
-                    batch.update(this.registrosRef.doc(c.id), { archivado: true });
-                    count++;
-                });
                 if (count >= 400) { await batch.commit(); batch = this.db.batch(); count = 0; }
             }
 
@@ -1381,16 +1249,9 @@ const RegistrosApp = {
                 const flot = this.flotantesParaCierre[key];
                 const aConservar = flotantesAConservar[key] || 0;
 
-                // Archivar clones dispersos
-                for (const clonId of flot.clonIds) {
-                    batch.update(this.registrosRef.doc(clonId), { archivado: true });
-                    count++;
-                    if (count >= 400) { await batch.commit(); batch = this.db.batch(); count = 0; }
-                }
-
-                // Archivar respaldos sin importar si tienen facturados o no
+                // Archivar registros base sin importar si tienen facturados o no
                 for (const respaldoId of flot.respaldoIds) {
-                    batch.update(this.respaldoRef.doc(respaldoId), { archivado: true });
+                    batch.update(this.registrosRef.doc(respaldoId), { archivado: true });
                     count++;
                     if (count >= 400) { await batch.commit(); batch = this.db.batch(); count = 0; }
                 }
@@ -1398,20 +1259,23 @@ const RegistrosApp = {
                 // Crear consolidado nuevo
                 if (aConservar > 0) {
                     const newRef = this.registrosRef.doc();
-                    const newResRef = this.respaldoRef.doc(newRef.id);
                     const consolidatedData = {
                         ...flot.dataReference,
                         cantidad: aConservar,
+                        cantidadUsada: 0,
+                        facturas: [],
                         fecha: nextMonth1st,
                         timestamp: nextMonth1stDate,
                         observacion: `(CONSOLIDADO) Flotante del mes anterior.`,
-                        estado: 'pendiente',
-                        respaldoId: newResRef.id
+                        archivado: false
                     };
 
-                    batch.set(newResRef, consolidatedData);
+                    delete consolidatedData.id;
+                    delete consolidatedData.respaldoId;
+                    delete consolidatedData.estado;
+
                     batch.set(newRef, consolidatedData);
-                    count += 2;
+                    count++;
                 }
             }
 
@@ -1434,6 +1298,7 @@ const RegistrosApp = {
         const fechaInput = document.getElementById('fast-fecha');
         const cantidadInput = document.getElementById('fast-cantidad');
         const cuentaInput = document.getElementById('fast-cuenta');
+        const precioEspecialInput = document.getElementById('fast-precio-especial');
         const observacionInput = document.getElementById('fast-observacion');
 
         const rawInputValue = productoInput.value.trim().toLowerCase();
@@ -1452,6 +1317,7 @@ const RegistrosApp = {
         let cantidad = parseInt(cantidadInput.value);
         if (isNaN(cantidad) || cantidad < 1) cantidad = 1;
         const cuenta = cuentaInput.value.trim();
+        const precioEspecial = precioEspecialInput ? parseFloat(precioEspecialInput.value) : null;
         const observacion = observacionInput.value.trim();
 
         if (!inputValue) return;
@@ -1489,32 +1355,27 @@ const RegistrosApp = {
             }
         }
 
-        // Guardar instantáneamente en Firebase en ambas colecciones
+        // Guardar instantáneamente en Firebase en colección unificada REGISTROS
         try {
-            const batch = RegistrosApp.db.batch();
-            const respaldoId = RegistrosApp.respaldoRef.doc().id;
-            const cloneId = RegistrosApp.registrosRef.doc().id;
+            const unifiedRef = RegistrosApp.db.collection('REGISTROS');
+            const newDocId = unifiedRef.doc().id;
 
             const baseData = {
                 fecha: (fechaInput && fechaInput.value) ? fechaInput.value : RegistrosApp.getLocalISODate() || "",
                 producto: productoDesc || "",
                 productId: productId || null,
                 cantidad: cantidad || 1,
+                cantidadUsada: 0,
+                facturas: [],
                 cuenta: cuenta || "",
+                precioEspecial: isNaN(precioEspecial) ? null : precioEspecial,
                 observacion: observacion || "",
-                estado: 'pendiente',
+                archivado: false,
                 origen: 'manual',
                 timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
             };
 
-            // Guardar en colecciones duales
-            batch.set(RegistrosApp.respaldoRef.doc(respaldoId), baseData);
-            batch.set(RegistrosApp.registrosRef.doc(cloneId), {
-                ...baseData,
-                respaldoId: respaldoId
-            });
-
-            await batch.commit();
+            await unifiedRef.doc(newDocId).set(baseData);
         } catch (error) {
             console.error("Error guardando registro:", error);
             alert("Error al guardar el producto: " + error.message);
@@ -1625,8 +1486,8 @@ const RegistrosApp = {
         let totalUpdated = 0;
         let totalSkipped = 0;
 
-        // Cargar registros existentes en REGISTROS_RESPALDO que no estén archivados
-        const existingSnap = await this.respaldoRef.where('archivado', '==', false).get();
+        // Cargar registros existentes en REGISTROS que no estén archivados
+        const existingSnap = await this.registrosRef.where('archivado', '==', false).get();
         const existingMap = {};
         existingSnap.forEach(doc => {
             const data = doc.data();
@@ -1762,32 +1623,22 @@ const RegistrosApp = {
                     continue; // Duplicado idéntico, omitir.
                 }
 
-                // Si cambiaron los datos, verificar si tiene clones facturados en REGISTROS_SALIDA
-                const clonesSnap = await this.registrosRef.where('respaldoId', '==', existingDoc.id).get();
-                const clones = clonesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-                const totalBilled = clones.reduce((sum, c) => c.estado === 'facturado' ? sum + c.cantidad : sum, 0);
+                // Si cambiaron los datos, verificar cantidadUsada en REGISTROS
+                const totalBilled = existingDoc.cantidadUsada || 0;
 
                 if (totalBilled > 0) {
                     // Si ya está facturado, actualizar solo los campos descriptivos (producto, cuenta, observacion)
                     // pero mantener fecha y cantidad inalteradas para no desajustar la facturación.
-                    batch.update(this.respaldoRef.doc(existingDoc.id), {
+                    batch.update(this.registrosRef.doc(existingDoc.id), {
                         producto: productoDesc,
                         productId: productId,
                         cuenta: cuenta,
                         observacion: observacion
                     });
-                    clones.forEach(c => {
-                        batch.update(this.registrosRef.doc(c.id), {
-                            producto: productoDesc,
-                            productId: productId,
-                            cuenta: cuenta,
-                            observacion: observacion
-                        });
-                    });
-                    operationsCount += (1 + clones.length);
+                    operationsCount++;
                 } else {
                     // Si no está facturado, actualizar libremente cantidad, fecha y demás campos
-                    batch.update(this.respaldoRef.doc(existingDoc.id), {
+                    batch.update(this.registrosRef.doc(existingDoc.id), {
                         fecha: fechaAUsar,
                         producto: productoDesc,
                         productId: productId,
@@ -1795,70 +1646,31 @@ const RegistrosApp = {
                         cuenta: cuenta,
                         observacion: observacion
                     });
-
-                    if (clones.length > 0) {
-                        batch.update(this.registrosRef.doc(clones[0].id), {
-                            fecha: fechaAUsar,
-                            producto: productoDesc,
-                            productId: productId,
-                            cantidad: cantidad,
-                            cuenta: cuenta,
-                            observacion: observacion
-                        });
-                        // Borrar cualquier otro clon duplicado huérfano
-                        for (let k = 1; k < clones.length; k++) {
-                            batch.delete(this.registrosRef.doc(clones[k].id));
-                            operationsCount++;
-                        }
-                        operationsCount += 2;
-                    } else {
-                        // Si no tenía clon por alguna razón, crearlo
-                        const cloneId = this.registrosRef.doc().id;
-                        batch.set(this.registrosRef.doc(cloneId), {
-                            respaldoId: existingDoc.id,
-                            fecha: fechaAUsar,
-                            producto: productoDesc,
-                            productId: productId,
-                            cantidad: cantidad,
-                            cuenta: cuenta,
-                            observacion: observacion,
-                            estado: 'pendiente',
-                            origen: 'excel',
-                            filaExcel: filaExcelNum,
-                            archivado: false,
-                            timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                        operationsCount += 2;
-                    }
+                    operationsCount++;
                 }
                 totalUpdated++;
             } else {
-                // Nuevo registro
-                const respaldoId = this.respaldoRef.doc().id;
-                const cloneId = this.registrosRef.doc().id;
+                // Nuevo registro unificado
+                const newDocId = this.registrosRef.doc().id;
 
                 const baseData = {
                     fecha: fechaAUsar,
                     producto: productoDesc,
                     productId: productId,
                     cantidad: cantidad,
+                    cantidadUsada: 0,
+                    facturas: [],
                     cuenta: cuenta,
                     observacion: observacion,
-                    estado: 'pendiente',
                     origen: 'excel',
                     filaExcel: filaExcelNum,
                     archivado: false,
                     timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
                 };
 
-                // Guardar en colecciones duales
-                batch.set(this.respaldoRef.doc(respaldoId), baseData);
-                batch.set(this.registrosRef.doc(cloneId), {
-                    ...baseData,
-                    respaldoId: respaldoId
-                });
+                batch.set(this.registrosRef.doc(newDocId), baseData);
 
-                operationsCount += 2;
+                operationsCount++;
                 totalProcessed++;
             }
 
@@ -1900,42 +1712,16 @@ const RegistrosApp = {
             let respaldoReady = false;
             let clonesReady = false;
 
-            this.unsubscribe = this.respaldoRef
+            this.unsubscribe = this.registrosRef
                 .orderBy('fecha', 'desc')
                 .limit(10000)
                 .onSnapshot(snapshot => {
                     this.allRegistros = [];
+                    this.allClonesMap = {};
+
                     snapshot.forEach(doc => {
                         const data = doc.data();
                         
-                        // Client-side filter for archivado removed so Historial works.
-                        // Auto-corrección en caliente de fechas guardadas erróneamente con año 2006
-                        if (data.fecha && data.fecha.startsWith("2006-")) {
-                            const nuevaFecha = data.fecha.replace("2006-", "2026-");
-                            this.respaldoRef.doc(doc.id).update({ fecha: nuevaFecha })
-                                .then(() => console.log(`Auto-corregida fecha de ${data.fecha} a ${nuevaFecha} en respaldo: ${doc.id}`))
-                                .catch(err => console.error("Error al auto-corregir fecha:", err));
-                            data.fecha = nuevaFecha;
-                        }
-
-                        this.allRegistros.push({ id: doc.id, ...data });
-                    });
-
-                    respaldoReady = true;
-                    if (clonesReady) this._onDualDataReady();
-                }, error => {
-                    console.error("Error al escuchar REGISTROS_RESPALDO:", error);
-                });
-
-            this.unsubscribeClones = this.registrosRef
-                .limit(10000)
-                .onSnapshot(snapshot => {
-                    this.allClonesMap = {};
-                    snapshot.forEach(doc => {
-                        const data = doc.data();
-                        const rId = data.respaldoId;
-                        if (!rId) return; // Ignorar clones sin respaldoId (legacy no migrado)
-
                         // Auto-corrección en caliente de fechas guardadas erróneamente con año 2006
                         if (data.fecha && data.fecha.startsWith("2006-")) {
                             const nuevaFecha = data.fecha.replace("2006-", "2026-");
@@ -1943,18 +1729,45 @@ const RegistrosApp = {
                             data.fecha = nuevaFecha;
                         }
 
-                        if (!this.allClonesMap[rId]) this.allClonesMap[rId] = [];
-                        this.allClonesMap[rId].push({ id: doc.id, ...data });
+                        this.allRegistros.push({ id: doc.id, ...data });
+
+                        // Build allClonesMap simulation for backwards compatibility with UI
+                        const clonesSimulados = [];
+                        
+                        // Simulamos clones facturados basados en el array data.facturas
+                        (data.facturas || []).forEach(f => {
+                            clonesSimulados.push({
+                                id: 'simul_' + doc.id + '_' + f.facturaId,
+                                estado: 'facturado',
+                                cantidad: f.cantidad,
+                                numeroFactura: f.numeroFactura,
+                                facturaId: f.facturaId,
+                                clienteFactura: f.clienteFactura,
+                                respaldoId: doc.id
+                            });
+                        });
+                        
+                        // Simulamos un clon pendiente con la cantidad libre restante
+                        const cantidadUsada = data.cantidadUsada || 0;
+                        if (cantidadUsada < data.cantidad) {
+                            clonesSimulados.push({
+                                id: 'simul_pend_' + doc.id,
+                                estado: 'pendiente',
+                                cantidad: data.cantidad - cantidadUsada,
+                                respaldoId: doc.id
+                            });
+                        }
+                        
+                        this.allClonesMap[doc.id] = clonesSimulados;
                     });
 
-                    clonesReady = true;
-                    if (respaldoReady) this._onDualDataReady();
+                    this._onDualDataReady();
                 }, error => {
-                    console.error("Error al escuchar REGISTROS_SALIDA (clones):", error);
+                    console.error("Error al escuchar REGISTROS:", error);
                 });
 
         } else {
-            // ====== SALIDAS.HTML y otras pantallas: Escucha simple de REGISTROS_SALIDA ======
+            // ====== SALIDAS.HTML y otras pantallas: Escucha simple de REGISTROS ======
             this.unsubscribe = this.registrosRef
                 .orderBy('fecha', 'desc')
                 .limit(10000)
@@ -1966,27 +1779,47 @@ const RegistrosApp = {
                         // Auto-corrección en caliente de fechas guardadas erróneamente con año 2006
                         if (data.fecha && data.fecha.startsWith("2006-")) {
                             const nuevaFecha = data.fecha.replace("2006-", "2026-");
-                            this.registrosRef.doc(doc.id).update({ fecha: nuevaFecha })
-                                .then(() => console.log(`Auto-corregida fecha de ${data.fecha} a ${nuevaFecha} en doc: ${doc.id}`))
-                                .catch(err => console.error("Error al auto-corregir fecha:", err));
+                            this.registrosRef.doc(doc.id).update({ fecha: nuevaFecha }).catch(() => {});
                             data.fecha = nuevaFecha;
                         }
 
-                        // Auto-sanación de registros huérfanos con estado "facturado" pero cuya factura ya no existe
-                        if (data.estado === 'facturado') {
-                            if (!data.facturaId || (this.activeInvoiceIds && !this.activeInvoiceIds.has(data.facturaId))) {
-                                console.warn(`Auto-sanando registro huérfano ${doc.id}: factura ausente o eliminada.`);
-                                this.registrosRef.doc(doc.id).update({
-                                    estado: 'pendiente',
-                                    facturaId: window.firebase.firestore.FieldValue.delete(),
-                                    precioFacturado: window.firebase.firestore.FieldValue.delete(),
-                                    costoFacturado: window.firebase.firestore.FieldValue.delete()
-                                }).catch(err => console.error("Error auto-sanando:", err));
-                                data.estado = 'pendiente';
-                            }
-                        }
+                        // Simulamos el comportamiento antiguo construyendo clones virtuales
+                        // Para salidas.html, necesitamos tanto pendientes como facturados (para historial)
+                        // Pero la auto-sanación original operaba sobre el doc directo, ahora ya no existe el huérfano.
 
-                        this.allRegistros.push({ id: doc.id, ...data });
+                        (data.facturas || []).forEach(f => {
+                            // Auto-sanación simulada (si la factura no existe, lo tratamos como pendiente más adelante en una corrección manual)
+                            this.allRegistros.push({
+                                id: 'simul_' + doc.id + '_' + f.facturaId,
+                                estado: 'facturado',
+                                cantidad: f.cantidad,
+                                numeroFactura: f.numeroFactura,
+                                facturaId: f.facturaId,
+                                clienteFactura: f.clienteFactura,
+                                respaldoId: doc.id,
+                                producto: data.producto,
+                                cuenta: data.cuenta,
+                                fecha: data.fecha,
+                                precioEspecial: data.precioEspecial,
+                                observacion: data.observacion
+                            });
+                        });
+
+                        const cantidadUsada = data.cantidadUsada || 0;
+                        if (cantidadUsada < data.cantidad) {
+                            this.allRegistros.push({
+                                id: 'simul_pend_' + doc.id,
+                                estado: 'pendiente',
+                                cantidad: data.cantidad - cantidadUsada,
+                                respaldoId: doc.id,
+                                producto: data.producto,
+                                cuenta: data.cuenta,
+                                fecha: data.fecha,
+                                precioEspecial: data.precioEspecial,
+                                observacion: data.observacion,
+                                archivado: data.archivado
+                            });
+                        }
                     });
                     this.renderDatesList();
                     this.renderFacturacionData();
@@ -2137,6 +1970,7 @@ const RegistrosApp = {
         listadoTbody.innerHTML = '';
         let hasVisible = false;
         const resumenRestanteMap = {};
+        const cuentasMap = {};
 
         // 4. Procesar todos los registros aplicando FIFO
         todosLosRegistrosMes.forEach(reg => {
@@ -2173,8 +2007,18 @@ const RegistrosApp = {
             const tr = document.createElement('tr');
             
             tr.setAttribute('draggable', 'true');
-            tr.style.cursor = 'pointer';
-            const data = { type: 'single', id: reg.id, producto: officialName, max: cantidadDisponible, productId: reg.productId || null, cuenta: reg.cuenta || '', codigoOficial: reg.codigoOficial || '', precioVentaOficial: reg.precioVentaOficial || 0, costoUnitarioOficial: reg.costoUnitarioOficial || 0 };
+            let currentCosto = reg.costoUnitarioOficial || 0;
+            if (currentCosto === 0 && window.app && window.app.cache) {
+                const cachedProduct = window.app.cache.find(p => 
+                    (reg.productId && p.id === reg.productId) || 
+                    (p.descripcion && p.descripcion.toLowerCase().trim() === officialName.toLowerCase().trim())
+                );
+                if (cachedProduct) {
+                    currentCosto = cachedProduct.costo || 0;
+                }
+            }
+
+            const data = { type: 'single', id: reg.id, producto: officialName, max: cantidadDisponible, productId: reg.productId || null, cuenta: reg.cuenta || '', codigoOficial: reg.codigoOficial || '', precioVentaOficial: reg.precioVentaOficial || 0, costoUnitarioOficial: currentCosto, precioEspecial: reg.precioEspecial !== undefined ? reg.precioEspecial : null };
 
             tr.ondragstart = (e) => {
                 e.dataTransfer.setData('text/plain', JSON.stringify(data));
@@ -2192,14 +2036,135 @@ const RegistrosApp = {
                 <td>${this.formatDate(reg.fecha)}</td>
                 <td>${quantityDisplay}</td>
                 <td>${officialName}</td>
-                <td style="font-size: 0.95rem; font-weight: bold; color: #2c3e50;">${reg.cuenta || '-'}</td>
             `;
 
             listadoTbody.appendChild(tr);
+
+            // Acumular por cuenta usando la data procesada
+            if (reg.estado === 'pendiente' && cantidadDisponible > 0 && !reg.archivado) {
+                if (reg.cuenta) {
+                    const c = reg.cuenta.trim();
+                    if (c !== '') {
+                        if (!cuentasMap[c]) cuentasMap[c] = { items: [], count: 0 };
+                        cuentasMap[c].items.push(data);
+                        cuentasMap[c].count += cantidadDisponible;
+                    }
+                }
+            }
         });
 
         if (!hasVisible) {
-            listadoTbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#999;">No hay registros en este mes.</td></tr>';
+            listadoTbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; color:#999;">No hay registros en este mes.</td></tr>';
+        }
+
+        // 4.5. Llenar Tarjeta 1 (Por Cuenta)
+        const cuentasTbody = document.getElementById('fact-cuentas-tbody');
+        if (cuentasTbody) {
+            cuentasTbody.innerHTML = '';
+            const sortedCuentas = Object.keys(cuentasMap).sort();
+            
+            if (sortedCuentas.length === 0) {
+                cuentasTbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; color:#999;">No hay cuentas con registros pendientes.</td></tr>';
+            } else {
+                sortedCuentas.forEach((c, index) => {
+                    const cuentaData = cuentasMap[c];
+                    const accountRowId = `account-row-${index}`;
+                    const isOriginallyExpanded = this.expandedAccounts.has(c);
+                    
+                    const tr = document.createElement('tr');
+                    tr.style.cursor = 'pointer';
+                    tr.style.background = '#f8f9fa';
+                    tr.setAttribute('data-expanded', isOriginallyExpanded ? 'true' : 'false');
+                    
+                    tr.onclick = (e) => {
+                        e.stopPropagation();
+                        // Toggle visibilidad de los detalles
+                        const isExpanded = tr.getAttribute('data-expanded') === 'true';
+                        
+                        if (isExpanded) {
+                            this.expandedAccounts.delete(c);
+                        } else {
+                            this.expandedAccounts.add(c);
+                        }
+
+                        const detailsRows = document.querySelectorAll(`.${accountRowId}-detail`);
+                        detailsRows.forEach(row => row.style.display = isExpanded ? 'none' : 'table-row');
+                        tr.setAttribute('data-expanded', isExpanded ? 'false' : 'true');
+                        tr.querySelector('.expand-icon').className = isExpanded ? 'fas fa-chevron-right expand-icon' : 'fas fa-chevron-down expand-icon';
+                    };
+
+                    tr.innerHTML = `
+                        <td style="font-weight: bold; color: #2c3e50; font-size: 1.05rem;">
+                            <i class="fas ${isOriginallyExpanded ? 'fa-chevron-down' : 'fa-chevron-right'} expand-icon" style="color: #a0aec0; margin-right: 8px; width: 15px;"></i>
+                            <i class="fas fa-folder-open" style="color: #3498db; margin-right: 5px;"></i> ${c}
+                        </td>
+                        <td style="text-align: center; vertical-align: middle;"><strong>${cuentaData.count}</strong></td>
+                        <td style="text-align: center; vertical-align: middle;">
+                            <button class="btn btn-primary btn-add-all" style="padding: 4px 8px; font-size: 12px; background: #3498db; color: white; border: none; border-radius: 4px;">
+                                <i class="fas fa-plus"></i> Todos
+                            </button>
+                        </td>
+                    `;
+
+                    const btnAddAll = tr.querySelector('.btn-add-all');
+                    btnAddAll.onclick = (e) => {
+                        e.stopPropagation();
+                        cuentaData.items.forEach(item => this.addItemToFactura(item));
+                        const dropzone = document.getElementById('factura-dropzone');
+                        if (dropzone) {
+                            dropzone.scrollIntoView({ behavior: 'smooth' });
+                            dropzone.classList.add('drag-over');
+                            setTimeout(() => dropzone.classList.remove('drag-over'), 300);
+                        }
+                    };
+
+                    cuentasTbody.appendChild(tr);
+
+                    // Filas de Detalles
+                    cuentaData.items.forEach(item => {
+                        const trDetail = document.createElement('tr');
+                        trDetail.className = `${accountRowId}-detail`;
+                        trDetail.style.display = isOriginallyExpanded ? 'table-row' : 'none';
+                        trDetail.style.background = '#ffffff';
+                        trDetail.style.borderLeft = '4px solid #3498db';
+                        
+                        let priceText = '';
+                        let badgeHtml = '';
+                        if (item.precioEspecial !== null && item.precioEspecial !== undefined && item.precioEspecial !== "") {
+                            priceText = `$${parseFloat(item.precioEspecial).toFixed(2)}`;
+                            badgeHtml = `<span style="font-size: 0.7rem; background: #c6f6d5; color: #22543d; padding: 2px 4px; border-radius: 4px; margin-left: 6px; font-weight: bold;">PRECIO ASIGNADO</span>`;
+                        } else {
+                            const costo = parseFloat(item.costoUnitarioOficial || 0);
+                            priceText = `$${costo.toFixed(2)}`;
+                            badgeHtml = `<span style="font-size: 0.7rem; background: #fed7d7; color: #822727; padding: 2px 4px; border-radius: 4px; margin-left: 6px; font-weight: bold;">PRECIO DE COSTO (+IVA)</span>`;
+                        }
+
+                        trDetail.innerHTML = `
+                            <td colspan="2" style="padding-left: 35px; padding-top: 10px; padding-bottom: 10px; border-bottom: 1px solid #f1f1f1; cursor: pointer;">
+                                <div style="font-size: 0.95rem; color: #2d3748; margin-bottom: 4px;">${item.producto}</div>
+                                <div style="display: flex; align-items: center;">
+                                    <span style="font-weight: bold; color: #2c3e50; font-size: 0.95rem;">${priceText}</span>
+                                    ${badgeHtml}
+                                </div>
+                            </td>
+                            <td style="text-align: center; vertical-align: middle; border-bottom: 1px solid #f1f1f1; cursor: pointer;">
+                                <span style="font-weight: bold; background: #edf2f7; color: #4a5568; padding: 4px 8px; border-radius: 4px; border: 1px solid #cbd5e0;">x${item.max}</span>
+                            </td>
+                        `;
+                        
+                        trDetail.onclick = (e) => {
+                            e.stopPropagation();
+                            this.addItemToFactura(item);
+                            // Flash effect para feedback visual
+                            const originalBg = trDetail.style.background;
+                            trDetail.style.background = '#e6fffa';
+                            setTimeout(() => trDetail.style.background = originalBg, 200);
+                        };
+
+                        cuentasTbody.appendChild(trDetail);
+                    });
+                });
+            }
         }
 
         // 5. Llenar Tarjeta 2 (Resumen Agrupado) con las cantidades reales restantes filtradas
@@ -2276,12 +2241,25 @@ const RegistrosApp = {
             }
 
             if (existingItem) {
-                if (existingItem.cantidadFacturar < data.max) {
+                if (data.max > 0) {
                     existingItem.cantidadFacturar += 1;
                 } else {
                     alert('No puedes agregar más. Límite pendiente alcanzado.');
                 }
             } else {
+                if (data.max <= 0) {
+                    alert('No puedes agregar más. Límite pendiente alcanzado.');
+                    return;
+                }
+                let initialPrice = data.precioVentaOficial || 0;
+                let isPrecioAsignado = false;
+                
+                if (data.precioEspecial !== null && data.precioEspecial !== undefined && data.precioEspecial !== "") {
+                    initialPrice = parseFloat(data.precioEspecial);
+                    if (isNaN(initialPrice)) initialPrice = 0;
+                    isPrecioAsignado = true;
+                }
+
                 const newItem = {
                     id: Date.now().toString(),
                     type: data.type,
@@ -2292,11 +2270,16 @@ const RegistrosApp = {
                     max: data.max,
                     vinculoId: data.productId || null,
                     codigoOficial: data.codigoOficial || '',
-                    precioUnitario: data.precioVentaOficial || 0,
-                    costoUnitario: data.costoUnitarioOficial || 0
+                    precioUnitario: initialPrice,
+                    costoUnitario: data.costoUnitarioOficial || 0,
+                    precioAsignado: isPrecioAsignado
                 };
                 this.facturaItems.push(newItem);
-                this.loadItemPrices(newItem);
+                
+                // Solo cargar precios del inventario si NO tiene un precio asignado especial
+                if (!isPrecioAsignado) {
+                    this.loadItemPrices(newItem);
+                }
             }
 
             this.renderFactura();
@@ -2777,10 +2760,7 @@ const RegistrosApp = {
         }
 
         try {
-            const batch = this.db.batch();
-            batch.update(this.registrosRef.doc(id), { cantidad: newQty });
-            batch.update(this.respaldoRef.doc(id), { cantidad: newQty });
-            await batch.commit();
+            await this.registrosRef.doc(id).update({ cantidad: newQty });
             alert("Cantidad actualizada exitosamente.");
             this.loadRegistros(this.currentSelectedDate);
         } catch (error) {
@@ -2792,24 +2772,7 @@ const RegistrosApp = {
     async deleteRegistro(id) {
         if (await this.confirmDialog('¿Estás seguro de eliminar este registro?')) {
             try {
-                const batch = this.db.batch();
-                
-                // Eliminar el respaldo
-                batch.delete(this.respaldoRef.doc(id));
-                
-                // Eliminar todos sus clones vinculados en REGISTROS_SALIDA
-                const clonesSnap = await this.registrosRef.where('respaldoId', '==', id).get();
-                clonesSnap.forEach(doc => {
-                    batch.delete(doc.ref);
-                });
-                
-                // También eliminar si el propio ID existe en REGISTROS_SALIDA (legacy o vista de salidas)
-                const selfDoc = await this.registrosRef.doc(id).get();
-                if (selfDoc.exists) {
-                    batch.delete(selfDoc.ref);
-                }
-                
-                await batch.commit();
+                await this.registrosRef.doc(id).delete();
             } catch (error) {
                 console.error("Error eliminando:", error);
                 alert("No se pudo eliminar.");
@@ -2821,20 +2784,7 @@ const RegistrosApp = {
         if (await this.confirmDialog('¿Estás seguro de archivar manualmente este registro parcialmente facturado? Esto lo enviará directamente al Historial Archivado.')) {
             try {
                 this.showLoading(true);
-                const batch = this.db.batch();
-                
-                // Archivar el respaldo
-                batch.update(this.respaldoRef.doc(id), { archivado: true });
-                
-                // Archivar también clones vinculados (sólo los que no están facturados)
-                const clonesSnap = await this.registrosRef.where('respaldoId', '==', id).get();
-                clonesSnap.forEach(doc => {
-                    if (doc.data().estado !== 'facturado') {
-                        batch.update(doc.ref, { archivado: true });
-                    }
-                });
-                
-                await batch.commit();
+                await this.registrosRef.doc(id).update({ archivado: true });
                 alert('Registro archivado exitosamente.');
             } catch (e) {
                 console.error("Error al archivar registro:", e);
@@ -2849,7 +2799,7 @@ const RegistrosApp = {
         if (await this.confirmDialog('⚠️ ¡PELIGRO! ¿Estás seguro de ELIMINAR TODOS los registros de salidas? Esta acción no se puede deshacer.')) {
             this.showLoading(true);
             try {
-                // Borrar todos los clones en REGISTROS_SALIDA
+                // Borrar todos los registros en la colección unificada
                 const snapshot = await this.registrosRef.get();
                 let batch = this.db.batch();
                 let ops = 0;
@@ -2857,15 +2807,8 @@ const RegistrosApp = {
                     batch.delete(doc.ref);
                     ops++;
                     if (ops >= 400) {
-                        // Se necesitará ejecutar múltiples batches
+                        // Idealmente se deberían manejar lotes separados aquí
                     }
-                });
-
-                // Borrar todos los respaldos en REGISTROS_RESPALDO
-                const respaldoSnap = await this.respaldoRef.get();
-                respaldoSnap.docs.forEach(doc => {
-                    batch.delete(doc.ref);
-                    ops++;
                 });
 
                 await batch.commit();
@@ -3180,30 +3123,28 @@ const RegistrosApp = {
                         }
                     });
 
-                    // Revertir registros diarios a estado 'pendiente' y desvincularlos
-                    const registrosSnap = await this.registrosRef.where('facturaId', '==', this.editingInvoiceId).get();
-                    if (!registrosSnap.empty) {
-                        registrosSnap.forEach(doc => {
-                            batch.update(this.registrosRef.doc(doc.id), {
-                                estado: 'pendiente',
-                                facturaId: window.firebase.firestore.FieldValue.delete(),
-                                precioFacturado: window.firebase.firestore.FieldValue.delete(),
-                                costoFacturado: window.firebase.firestore.FieldValue.delete(),
-                                numeroFactura: window.firebase.firestore.FieldValue.delete(),
-                                clienteFactura: window.firebase.firestore.FieldValue.delete()
+                    // Revertir registros diarios a estado 'pendiente' y desvincularlos (Unified DB)
+                    const registrosLocales = this.allRegistros.filter(r => r.facturas && r.facturas.some(f => f.facturaId === this.editingInvoiceId));
+                    const uniqueRegIds = [...new Set(registrosLocales.map(r => r.respaldoId || r.id))];
+                    
+                    for (let id of uniqueRegIds) {
+                        const originalReg = this.allRegistros.find(r => (r.respaldoId || r.id) === id && !(r.id || '').startsWith('simul_'));
+                        if (!originalReg) continue;
+                        
+                        const facturasToKeep = (originalReg.facturas || []).filter(f => f.facturaId !== this.editingInvoiceId);
+                        const removedFacturas = (originalReg.facturas || []).filter(f => f.facturaId === this.editingInvoiceId);
+                        const cantidadRestaurar = removedFacturas.reduce((sum, f) => sum + f.cantidad, 0);
+                        
+                        if (cantidadRestaurar > 0) {
+                            batch.update(this.registrosRef.doc(id), {
+                                facturas: facturasToKeep,
+                                cantidadUsada: window.firebase.firestore.FieldValue.increment(-cantidadRestaurar)
                             });
-
-                            // Sincronizar la memoria caché local para que el algoritmo FIFO los incluya en el cálculo actual
-                            const localReg = this.allRegistros.find(r => r.id === doc.id);
-                            if (localReg) {
-                                localReg.estado = 'pendiente';
-                                delete localReg.facturaId;
-                                delete localReg.precioFacturado;
-                                delete localReg.costoFacturado;
-                                delete localReg.numeroFactura;
-                                delete localReg.clienteFactura;
-                            }
-                        });
+                            
+                            // Sincronizar memoria caché
+                            originalReg.facturas = facturasToKeep;
+                            originalReg.cantidadUsada = Math.max(0, (originalReg.cantidadUsada || 0) - cantidadRestaurar);
+                        }
                     }
                 }
             }
@@ -3271,41 +3212,23 @@ const RegistrosApp = {
                     const regKey = this.getGroupingKey(reg);
                     const itemKey = this.getGroupingKey(item.producto, item.vinculoId);
                     if (reg.producto && item.producto && regKey && regKey === itemKey && cantidadFaltante > 0) {
-                        let regRef = this.registrosRef.doc(reg.id);
-                        if (reg.cantidad <= cantidadFaltante) {
-                            // Se consume todo el registro
-                            batch.update(regRef, {
-                                estado: 'facturado',
+                        let regRef = this.registrosRef.doc(reg.respaldoId);
+                        let qtyToConsume = Math.min(reg.cantidad, cantidadFaltante);
+                        
+                        batch.update(regRef, {
+                            cantidadUsada: window.firebase.firestore.FieldValue.increment(qtyToConsume),
+                            facturas: window.firebase.firestore.FieldValue.arrayUnion({
                                 facturaId: facturaId,
-                                precioFacturado: item.precioUnitario,
-                                costoFacturado: item.costoUnitario || 0,
-                                numeroFactura: numero,
-                                clienteFactura: cliente
-                            });
-                            cantidadFaltante -= reg.cantidad;
-                            reg.cantidad = 0; // Marcar como consumido en memoria para el loop
-                        } else {
-                            // Se consume parcialmente: Actualizamos el registro actual restando la cantidad, y creamos uno nuevo facturado
-                            batch.update(regRef, {
-                                cantidad: reg.cantidad - cantidadFaltante
-                            });
-
-                            const newDocRef = this.registrosRef.doc();
-                            batch.set(newDocRef, {
-                                ...reg,
-                                cantidad: cantidadFaltante,
-                                estado: 'facturado',
-                                facturaId: facturaId,
-                                precioFacturado: item.precioUnitario,
-                                costoFacturado: item.costoUnitario || 0,
                                 numeroFactura: numero,
                                 clienteFactura: cliente,
-                                timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
-                            });
-
-                            reg.cantidad -= cantidadFaltante;
-                            cantidadFaltante = 0;
-                        }
+                                precioFacturado: item.precioUnitario,
+                                costoFacturado: item.costoUnitario || 0,
+                                cantidad: qtyToConsume
+                            })
+                        });
+                        
+                        cantidadFaltante -= qtyToConsume;
+                        reg.cantidad -= qtyToConsume; // En memoria para el siguiente loop
                     }
                 }
             });
@@ -3491,79 +3414,39 @@ const RegistrosApp = {
                 }
             });
 
-            // 3. Buscar todos los registros de REGISTROS_SALIDA que tengan este facturaId para restaurarlos
-            const registrosSnap = await this.registrosRef.where('facturaId', '==', facturaId).get();
-            if (!registrosSnap.empty) {
-                // Caso Nuevo/Preciso: Si tiene facturaId, los restauramos de inmediato
-                registrosSnap.forEach(doc => {
-                    const regRef = this.registrosRef.doc(doc.id);
-                    batch.update(regRef, {
-                        estado: 'pendiente',
-                        facturaId: window.firebase.firestore.FieldValue.delete(),
-                        precioFacturado: window.firebase.firestore.FieldValue.delete(),
-                        costoFacturado: window.firebase.firestore.FieldValue.delete(),
-                        numeroFactura: window.firebase.firestore.FieldValue.delete(),
-                        clienteFactura: window.firebase.firestore.FieldValue.delete()
-                    });
-                });
-            } else {
-                // Caso Fallback (Facturas antiguas o sin facturaId):
-                // Para cada producto de la factura, buscamos registros ya facturados con ese mismo nombre
-                // y devolvemos la cantidad correspondiente a "pendiente"
-                for (let item of items) {
-                    const prodName = item.descripcionPapel || item.producto;
-                    const qtyToRestore = item.cantidad || 0;
-                    if (qtyToRestore <= 0) continue;
-
-                    const querySnap = await this.registrosRef
-                        .where('producto', '==', prodName)
-                        .where('estado', '==', 'facturado')
-                        .get();
-
-                    let currentRestored = 0;
-                    querySnap.forEach(doc => {
-                        if (currentRestored >= qtyToRestore) return;
-
-                        const regData = doc.data();
-                        const regQty = regData.cantidad || 1;
-
-                        if (currentRestored + regQty <= qtyToRestore) {
-                            // Se puede restaurar el registro completo
-                            const regRef = this.registrosRef.doc(doc.id);
-                            batch.update(regRef, {
-                                estado: 'pendiente',
-                                precioFacturado: window.firebase.firestore.FieldValue.delete(),
-                                costoFacturado: window.firebase.firestore.FieldValue.delete()
+            // 3. Buscar todos los registros unificados que tengan este facturaId para restaurarlos
+            const registrosLocales = this.allRegistros.filter(r => r.facturas && r.facturas.some(f => f.facturaId === facturaId));
+            const uniqueRegIds = [...new Set(registrosLocales.map(r => r.respaldoId || r.id))];
+            
+            for (let id of uniqueRegIds) {
+                // Find original in memory to get current arrays
+                const originalReg = this.allRegistros.find(r => (r.respaldoId || r.id) === id && !(r.id || '').startsWith('simul_'));
+                if (originalReg) {
+                    const facturasToKeep = (originalReg.facturas || []).filter(f => f.facturaId !== facturaId);
+                    const removedFacturas = (originalReg.facturas || []).filter(f => f.facturaId === facturaId);
+                    const cantidadRestaurar = removedFacturas.reduce((sum, f) => sum + f.cantidad, 0);
+                    
+                    if (cantidadRestaurar > 0) {
+                        batch.update(this.registrosRef.doc(id), {
+                            facturas: facturasToKeep,
+                            cantidadUsada: window.firebase.firestore.FieldValue.increment(-cantidadRestaurar)
+                        });
+                    }
+                } else {
+                    // Fallback to fetch from DB if not in memory (shouldn't happen with allRegistros loaded)
+                    const docSnap = await this.registrosRef.doc(id).get();
+                    if (docSnap.exists) {
+                        const data = docSnap.data();
+                        const facturasToKeep = (data.facturas || []).filter(f => f.facturaId !== facturaId);
+                        const removedFacturas = (data.facturas || []).filter(f => f.facturaId === facturaId);
+                        const cantidadRestaurar = removedFacturas.reduce((sum, f) => sum + f.cantidad, 0);
+                        if (cantidadRestaurar > 0) {
+                            batch.update(this.registrosRef.doc(id), {
+                                facturas: facturasToKeep,
+                                cantidadUsada: window.firebase.firestore.FieldValue.increment(-cantidadRestaurar)
                             });
-                            currentRestored += regQty;
-                        } else {
-                            // Restauración parcial: dividimos para ajustar la cantidad exacta
-                            const leftOver = regQty - (qtyToRestore - currentRestored);
-                            const regRef = this.registrosRef.doc(doc.id);
-                            
-                            // El original lo dejamos como facturado con la diferencia sobrante
-                            batch.update(regRef, {
-                                cantidad: leftOver
-                            });
-
-                            // Creamos uno nuevo pendiente con la cantidad restaurada
-                            const newDocRef = this.registrosRef.doc();
-                            batch.set(newDocRef, {
-                                ...regData,
-                                cantidad: qtyToRestore - currentRestored,
-                                estado: 'pendiente',
-                                timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
-                            });
-                            // Limpiar campos de facturación en el nuevo
-                            batch.update(newDocRef, {
-                                precioFacturado: window.firebase.firestore.FieldValue.delete(),
-                                costoFacturado: window.firebase.firestore.FieldValue.delete(),
-                                facturaId: window.firebase.firestore.FieldValue.delete()
-                            });
-
-                            currentRestored = qtyToRestore;
                         }
-                    });
+                    }
                 }
             }
 
@@ -3743,32 +3626,16 @@ const RegistrosApp = {
                 costoSinIvaOficial: product.costoSinIva || 0
             };
 
-            // 2. Actualizar la referencia clickeada directamente (dependiendo de dónde estemos)
-            if (isRegistroPage) {
-                batch.update(this.respaldoRef.doc(this.currentLinkRegistryId), updateData);
-            } else {
-                batch.update(this.registrosRef.doc(this.currentLinkRegistryId), updateData);
-            }
+            // 2. Actualizar la referencia clickeada directamente (ahora solo unificada)
+            batch.update(this.registrosRef.doc(this.currentLinkRegistryId), updateData);
 
-            // 3. Actualizar todos los demás clones (REGISTROS_SALIDA) pendientes
-            const clonesSnap = await this.registrosRef
-                .where('producto', '==', unlinkedDesc)
-                .where('estado', '==', 'pendiente')
-                .get();
-
-            clonesSnap.forEach(doc => {
-                if (!isRegistroPage && doc.id === this.currentLinkRegistryId) return;
-                batch.update(doc.ref, updateData);
-            });
-
-            // 4. Actualizar todos los demás respaldos (REGISTROS_RESPALDO)
-            // No filtramos por estado aquí porque los respaldos suelen quedarse en "pendiente"
-            const respaldosSnap = await this.respaldoRef
+            // 3. Actualizar todos los demás registros con la misma descripción
+            const recordsSnap = await this.registrosRef
                 .where('producto', '==', unlinkedDesc)
                 .get();
 
-            respaldosSnap.forEach(doc => {
-                if (isRegistroPage && doc.id === this.currentLinkRegistryId) return;
+            recordsSnap.forEach(doc => {
+                if (doc.id === this.currentLinkRegistryId) return;
                 batch.update(doc.ref, updateData);
             });
 
@@ -3821,16 +3688,15 @@ const RegistrosApp = {
             const batch = this.db.batch();
             
             // 1. Actualizar el principal clickeado
-            const mainRef = this.db.collection('REGISTROS_SALIDA').doc(this.currentLinkRegistryId);
+            const mainRef = this.registrosRef.doc(this.currentLinkRegistryId);
             batch.update(mainRef, {
                 productId: isService ? 'SERVICIO' : 'OMITIDO',
                 producto: isService ? 'Mano de Obra / Servicio' : 'Item Omitido'
             });
 
             // 2. Actualizar todos los demás registros pendientes con el mismo nombre
-            const snapshot = await this.db.collection('REGISTROS_SALIDA')
+            const snapshot = await this.registrosRef
                 .where('producto', '==', targetName)
-                .where('estado', '==', 'pendiente')
                 .get();
 
             snapshot.forEach(doc => {
@@ -3971,32 +3837,25 @@ const RegistrosApp = {
                 let batch = this.db.batch();
                 let operationsCount = 0;
 
-                const isRegistroPage = !!document.getElementById('fast-entry-tbody');
-
                 for (let reg of pendientes) {
-                    if (isRegistroPage) {
-                        // En registro.html, reg.id es un respaldoId
-                        const clones = this.allClonesMap[reg.id] || [];
-                        const hasFacturados = clones.some(c => c.estado === 'facturado');
+                    // Si reg.id es de un clon simulado, obtenemos el respaldoId real
+                    const realId = reg.respaldoId || reg.id;
+                    const docSnap = await this.registrosRef.doc(realId).get();
+                    if (docSnap.exists) {
+                        const data = docSnap.data();
+                        const facturasCount = (data.facturas && data.facturas.length > 0) ? data.facturas.length : 0;
                         
-                        if (!hasFacturados) {
-                            // No tiene clones facturados: eliminar respaldo y todos sus clones
-                            batch.delete(this.respaldoRef.doc(reg.id));
-                            operationsCount++;
-                            clones.forEach(c => {
-                                batch.delete(this.registrosRef.doc(c.id));
-                                operationsCount++;
-                            });
+                        if (facturasCount === 0) {
+                            // Nunca facturado: Eliminar completamente
+                            batch.delete(this.registrosRef.doc(realId));
                         } else {
-                            // Tiene clones facturados: solo eliminar los pendientes
-                            clones.filter(c => c.estado === 'pendiente').forEach(c => {
-                                batch.delete(this.registrosRef.doc(c.id));
-                                operationsCount++;
-                            });
+                            // Parcialmente facturado: Ajustar cantidad a la cantidadUsada para eliminar la parte pendiente
+                            if (data.cantidad > data.cantidadUsada) {
+                                batch.update(this.registrosRef.doc(realId), {
+                                    cantidad: data.cantidadUsada
+                                });
+                            }
                         }
-                    } else {
-                        // En salidas.html, reg.id es un clon de REGISTROS_SALIDA
-                        batch.delete(this.registrosRef.doc(reg.id));
                         operationsCount++;
                     }
 
@@ -4042,6 +3901,37 @@ const RegistrosApp = {
 
     backToRepuestosStep() {
         this.goToStep(1);
+    },
+
+    switchListadoTab(tabId) {
+        const btnGeneral = document.getElementById('tab-listado-general');
+        const btnCuentas = document.getElementById('tab-listado-cuentas');
+        const contentGeneral = document.getElementById('content-listado-general');
+        const contentCuentas = document.getElementById('content-listado-cuentas');
+
+        if (tabId === 'general') {
+            btnGeneral.style.background = '#3498db';
+            btnGeneral.style.color = 'white';
+            btnGeneral.style.border = 'none';
+            
+            btnCuentas.style.background = '#e2e8f0';
+            btnCuentas.style.color = '#4a5568';
+            btnCuentas.style.border = '1px solid #cbd5e0';
+            
+            contentGeneral.style.display = 'flex';
+            contentCuentas.style.display = 'none';
+        } else {
+            btnCuentas.style.background = '#3498db';
+            btnCuentas.style.color = 'white';
+            btnCuentas.style.border = 'none';
+            
+            btnGeneral.style.background = '#e2e8f0';
+            btnGeneral.style.color = '#4a5568';
+            btnGeneral.style.border = '1px solid #cbd5e0';
+            
+            contentGeneral.style.display = 'none';
+            contentCuentas.style.display = 'flex';
+        }
     },
 
     currentHistorialTab: 'list',

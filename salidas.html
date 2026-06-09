@@ -366,24 +366,59 @@
                     <span style="font-size: 0.85rem; color: #3498db; margin-top: 10px; font-weight: bold;"><i class="fas fa-expand-alt"></i> Expandir</span>
                 </div>
 
-                <h2 style="font-size: 1.15rem; border-bottom: 1px solid #f1f1f1; padding-bottom: 12px; margin-bottom: 12px; color: #2c3e50; display: flex; align-items: center; gap: 8px;"><i class="fas fa-list-ol"></i> 1. Todos los Registros</h2>
-                <p style="font-size: 0.85rem; color: #718096; margin-top: 0; margin-bottom: 15px;">
-                    Orden de ingreso. <strong>Toca una fila</strong> para agregarla o arrástrala.
-                </p>
-                <div class="table-responsive-scroll">
-                    <table class="inventario-table" style="margin: 0; width: 100%; border-collapse: collapse;">
-                        <thead>
-                            <tr style="background: #f8f9fa;">
-                                <th style="width: 100px; border: 1px solid #ddd;">Fecha</th>
-                                <th style="width: 60px; text-align: center; border: 1px solid #ddd;">Cant.</th>
-                                <th style="border: 1px solid #ddd;">Producto</th>
-                                <th style="width: 80px; border: 1px solid #ddd;">Cuenta</th>
-                            </tr>
-                        </thead>
-                        <tbody id="fact-listado-tbody">
-                            <!-- JS inserts rows -->
-                        </tbody>
-                    </table>
+                <h2 style="font-size: 1.15rem; border-bottom: 1px solid #f1f1f1; padding-bottom: 12px; margin-bottom: 12px; color: #2c3e50; display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-list-ol"></i> 1. Todos los Registros
+                    </div>
+                </h2>
+                
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <button id="tab-listado-general" class="btn" style="flex: 1; padding: 8px; font-weight: bold; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer;" onclick="RegistrosApp.switchListadoTab('general')">
+                        <i class="fas fa-list"></i> General
+                    </button>
+                    <button id="tab-listado-cuentas" class="btn" style="flex: 1; padding: 8px; font-weight: bold; background: #e2e8f0; color: #4a5568; border: 1px solid #cbd5e0; border-radius: 6px; cursor: pointer;" onclick="RegistrosApp.switchListadoTab('cuentas')">
+                        <i class="fas fa-users"></i> Por Cuenta
+                    </button>
+                </div>
+
+                <div id="content-listado-general" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
+                    <p style="font-size: 0.85rem; color: #718096; margin-top: 0; margin-bottom: 10px;">
+                        Orden de ingreso. <strong>Toca una fila</strong> para agregarla o arrástrala.
+                    </p>
+                    <div class="table-responsive-scroll">
+                        <table class="inventario-table" style="margin: 0; width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: #f8f9fa;">
+                                    <th style="width: 90px; border: 1px solid #ddd;">Fecha</th>
+                                    <th style="width: 50px; text-align: center; border: 1px solid #ddd;">Cant.</th>
+                                    <th style="border: 1px solid #ddd;">Producto</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fact-listado-tbody">
+                                <!-- JS inserts rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="content-listado-cuentas" style="display: none; flex-direction: column; flex: 1; min-height: 0;">
+                    <p style="font-size: 0.85rem; color: #718096; margin-top: 0; margin-bottom: 10px;">
+                        Toca una <strong>Cuenta</strong> para cargar todos sus repuestos a la vez.
+                    </p>
+                    <div class="table-responsive-scroll">
+                        <table class="inventario-table" style="margin: 0; width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: #f8f9fa;">
+                                    <th style="border: 1px solid #ddd;">Cuenta</th>
+                                    <th style="width: 80px; text-align: center; border: 1px solid #ddd;">Items</th>
+                                    <th style="width: 60px; text-align: center; border: 1px solid #ddd;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="fact-cuentas-tbody">
+                                <!-- JS inserts accounts -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
