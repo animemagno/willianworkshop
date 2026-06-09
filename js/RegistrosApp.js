@@ -1972,12 +1972,38 @@ const RegistrosApp = {
         const resumenRestanteMap = {};
         const cuentasMap = {};
 
+        // Calcular cantidades de summary en la factura actual para distribuirlas por FIFO
+        let summaryInvoicedMap = {};
+        this.facturaItems.forEach(fi => {
+            if (fi.type === 'summary') {
+                const prodName = fi.producto.toLowerCase().trim();
+                summaryInvoicedMap[prodName] = (summaryInvoicedMap[prodName] || 0) + fi.cantidadFacturar;
+            }
+        });
+
         // 4. Procesar todos los registros aplicando FIFO
         todosLosRegistrosMes.forEach(reg => {
-            let cantidadDisponible = reg.cantidad;
             if (!reg.producto) return;
             const key = this.getGroupingKey(reg);
             const officialName = this.getOfficialProductName(reg);
+            
+            // Determinar cantidad ya cargada explicitamente (type single)
+            const factItem = this.facturaItems.find(fi => fi.type === 'single' && fi.originalId === reg.id);
+            let cantidadFacturadaExplicit = factItem ? factItem.cantidadFacturar : 0;
+            
+            // Determinar cantidad a descontar por resumen (distribucion FIFO)
+            let cantidadDesdeSummary = 0;
+            if (summaryInvoicedMap[key] > 0) {
+                const availableForSummary = reg.cantidad - cantidadFacturadaExplicit;
+                if (availableForSummary > 0) {
+                    const toTake = Math.min(availableForSummary, summaryInvoicedMap[key]);
+                    cantidadDesdeSummary = toTake;
+                    summaryInvoicedMap[key] -= toTake;
+                }
+            }
+
+            let cantidadDisponible = reg.cantidad - cantidadFacturadaExplicit - cantidadDesdeSummary;
+            const cantidadEnFacturaActual = cantidadFacturadaExplicit + cantidadDesdeSummary;
             const mesReg = reg.fecha ? reg.fecha.substring(0, 7) : '';
 
             // Descontar usando FIFO (lo más antiguo primero)
@@ -1992,15 +2018,19 @@ const RegistrosApp = {
                 }
             }
 
-            // Acumular la cantidad restante para el Resumen Agrupado (solo si es pendiente original y queda cantidad)
-            if (reg.estado === 'pendiente' && cantidadDisponible > 0 && !reg.archivado) {
-                resumenRestanteMap[key] = (resumenRestanteMap[key] || 0) + cantidadDisponible;
+            // Acumular la cantidad restante para el Resumen Agrupado
+            if (reg.estado === 'pendiente' && !reg.archivado) {
+                if (cantidadDisponible > 0 || cantidadEnFacturaActual > 0) {
+                    resumenRestanteMap[key] = (resumenRestanteMap[key] || 0) + cantidadDisponible;
+                }
             }
 
             const isFullyUsed = (reg.estado === 'facturado' || cantidadDisponible <= 0);
 
             if (isFullyUsed || reg.archivado) {
-                return; // Ocultar completamente los registros usados o archivados en la pantalla de Salidas
+                if (cantidadEnFacturaActual === 0) {
+                    return; // Ocultar completamente los registros usados o archivados en la pantalla de Salidas
+                }
             }
 
             hasVisible = true;
