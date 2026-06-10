@@ -2032,6 +2032,7 @@ const RegistrosApp = {
         let hasVisible = false;
         const resumenRestanteMap = {};
         const cuentasMap = {};
+        const listadoFragment = document.createDocumentFragment();
 
         // Calcular cantidades de summary en la factura actual para distribuirlas por FIFO
         let summaryInvoicedMap = {};
@@ -2125,7 +2126,7 @@ const RegistrosApp = {
                 <td>${officialName}</td>
             `;
 
-            listadoTbody.appendChild(tr);
+            listadoFragment.appendChild(tr);
 
             // Acumular por cuenta usando la data procesada
             if (reg.estado === 'pendiente' && cantidadDisponible > 0 && !reg.archivado) {
@@ -2139,6 +2140,7 @@ const RegistrosApp = {
                 }
             }
         });
+        listadoTbody.appendChild(listadoFragment);
 
         if (!hasVisible) {
             listadoTbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; color:#999;">No hay registros en este mes.</td></tr>';
@@ -2148,6 +2150,7 @@ const RegistrosApp = {
         const cuentasTbody = document.getElementById('fact-cuentas-tbody');
         if (cuentasTbody) {
             cuentasTbody.innerHTML = '';
+            const cuentasFragment = document.createDocumentFragment();
             const sortedCuentas = Object.keys(cuentasMap).sort();
             
             if (sortedCuentas.length === 0) {
@@ -2205,7 +2208,7 @@ const RegistrosApp = {
                         }
                     };
 
-                    cuentasTbody.appendChild(tr);
+                    cuentasFragment.appendChild(tr);
 
                     // Filas de Detalles
                     cuentaData.items.forEach(item => {
@@ -2248,15 +2251,17 @@ const RegistrosApp = {
                             setTimeout(() => trDetail.style.background = originalBg, 200);
                         };
 
-                        cuentasTbody.appendChild(trDetail);
+                        cuentasFragment.appendChild(trDetail);
                     });
                 });
+                cuentasTbody.appendChild(cuentasFragment);
             }
         }
 
         // 5. Llenar Tarjeta 2 (Resumen Agrupado) con las cantidades reales restantes filtradas
         resumenTbody.innerHTML = '';
         let hasResumen = false;
+        const resumenFragment = document.createDocumentFragment();
 
         const sortedKeys = Object.keys(resumenMap).sort((a, b) => resumenMap[a].name.localeCompare(resumenMap[b].name));
 
@@ -2289,8 +2294,9 @@ const RegistrosApp = {
                 <td><strong>${restante}</strong></td>
             `;
             
-            resumenTbody.appendChild(tr);
+            resumenFragment.appendChild(tr);
         }
+        resumenTbody.appendChild(resumenFragment);
 
         if (!hasResumen) {
             resumenTbody.innerHTML = '<tr><td colspan="2" style="text-align:center; padding:20px; color:#999;">Todo fue asignado a la factura.</td></tr>';
