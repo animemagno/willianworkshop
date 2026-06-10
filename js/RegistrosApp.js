@@ -1931,16 +1931,6 @@ const RegistrosApp = {
             facturadoPorMesYProducto[m] = { ...this._cachedFacturadoHistorico[m] };
         }
 
-        // B. Sumar lo que se está facturando en la pantalla en la factura actual (caliente)
-        if (!facturadoPorMesYProducto[mesFacturaActual]) {
-            facturadoPorMesYProducto[mesFacturaActual] = {};
-        }
-        this.facturaItems.forEach(item => {
-            if (!item.producto) return;
-            const key = this.getGroupingKey(item.producto, item.vinculoId);
-            facturadoPorMesYProducto[mesFacturaActual][key] = (facturadoPorMesYProducto[mesFacturaActual][key] || 0) + item.cantidadFacturar;
-        });
-
         // Copia de los acumuladores para ir descontando vía FIFO en caliente en la renderización
         const descAcumuladores = {};
         for (const m in facturadoPorMesYProducto) {
@@ -2036,8 +2026,8 @@ const RegistrosApp = {
         let summaryInvoicedMap = {};
         this.facturaItems.forEach(fi => {
             if (fi.type === 'summary') {
-                const prodName = fi.producto.toLowerCase().trim();
-                summaryInvoicedMap[prodName] = (summaryInvoicedMap[prodName] || 0) + fi.cantidadFacturar;
+                const key = this.getGroupingKey(fi.producto, fi.vinculoId);
+                summaryInvoicedMap[key] = (summaryInvoicedMap[key] || 0) + fi.cantidadFacturar;
             }
         });
 
