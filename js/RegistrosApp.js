@@ -2319,12 +2319,9 @@ const RegistrosApp = {
     addItemToFactura(data) {
         try {
             // Check if already in factura
-            let existingItem = null;
-            if (data.type === 'single') {
-                existingItem = this.facturaItems.find(item => item.type === 'single' && item.originalId === data.id);
-            } else {
-                existingItem = this.facturaItems.find(item => item.type === 'summary' && item.producto.toLowerCase().trim() === data.producto.toLowerCase().trim());
-            }
+            let existingItem = this.facturaItems.find(item => 
+                item.producto.toLowerCase().trim() === data.producto.toLowerCase().trim()
+            );
 
             if (!existingItem && this.facturaItems.length >= this.MAX_FACTURA_ITEMS) {
                 alert("La factura ha alcanzado el límite de 14 productos.");
@@ -2335,6 +2332,12 @@ const RegistrosApp = {
             if (existingItem) {
                 if (data.max > 0) {
                     existingItem.cantidadFacturar += 1;
+                    // Si viene un item diferente al que originó la fila, lo convertimos en 'summary'
+                    // para que el sistema FIFO distribuya el descuento entre todas las filas coincidentes.
+                    if (existingItem.type === 'single' && existingItem.originalId !== data.id) {
+                        existingItem.type = 'summary';
+                        existingItem.originalId = null;
+                    }
                 } else {
                     alert('No puedes agregar más. Límite pendiente alcanzado.');
                 }
