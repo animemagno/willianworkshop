@@ -64,7 +64,6 @@ const RegistrosApp = {
             this.respaldoRef = this.db.collection('REGISTROS_RESPALDO'); // Only used for auto-migration logic now
             this.preciosRef = this.db.collection('PRECIOS_REGISTROS');
             this.mapeoRef = this.db.collection('MAPEO_NOMBRES');
-            this.MAX_FACTURA_ITEMS = 14;
             this.facturaTipo = null;
 
             this.allRegistros = []; // Todos los registros
@@ -2303,10 +2302,6 @@ const RegistrosApp = {
     },
 
     allowDrop(e) {
-        if (this.facturaItems.length >= this.MAX_FACTURA_ITEMS) {
-            e.dataTransfer.dropEffect = 'none';
-            return;
-        }
         e.preventDefault();
         document.getElementById('factura-dropzone').style.backgroundColor = '#ecf0f1';
     },
@@ -2322,12 +2317,6 @@ const RegistrosApp = {
             let existingItem = this.facturaItems.find(item => 
                 item.producto.toLowerCase().trim() === data.producto.toLowerCase().trim()
             );
-
-            if (!existingItem && this.facturaItems.length >= this.MAX_FACTURA_ITEMS) {
-                alert("La factura ha alcanzado el límite de 14 productos.");
-                this.renderFactura(); // Restablecer colores
-                return;
-            }
 
             if (existingItem) {
                 if (data.max > 0) {
@@ -2412,11 +2401,6 @@ const RegistrosApp = {
                     if (!isNaN(parsedPrice) && parsedPrice >= 0) {
                         price = parsedPrice;
                     }
-                }
-
-                if (!existingItem && this.facturaItems.length >= this.MAX_FACTURA_ITEMS) {
-                    alert("La factura ha alcanzado el límite de 14 ítems.");
-                    return;
                 }
 
                 const newItem = {
@@ -2564,12 +2548,8 @@ const RegistrosApp = {
         const dropzone = document.getElementById('factura-dropzone');
         if (!tbody) return;
 
-        if (this.facturaItems.length >= this.MAX_FACTURA_ITEMS) {
-            dropzone.classList.add('factura-full');
-        } else {
-            dropzone.classList.remove('factura-full');
-            dropzone.style.backgroundColor = '#fafbfc'; // Restaurar default
-        }
+        dropzone.classList.remove('factura-full');
+        dropzone.style.backgroundColor = '#fafbfc'; // Restaurar default
 
         tbody.innerHTML = '';
 
@@ -2580,7 +2560,7 @@ const RegistrosApp = {
                         <i class="fas fa-hand-holding-box" style="font-size: 30px; margin-bottom: 8px;"></i>
                         <br><strong style="font-size: 0.9rem;">La factura está vacía</strong><br>
                         <span style="font-size: 0.8rem;">Arrastra los productos aquí</span><br>
-                        <small style="font-size: 0.75rem;">(Límite de 14 productos)</small>
+                        <small style="font-size: 0.75rem;">(Sin límite de productos)</small>
                     </td>
                 </tr>
             `;
@@ -2589,7 +2569,7 @@ const RegistrosApp = {
             
             const counterEl = document.getElementById('factura-line-counter');
             if (counterEl) {
-                counterEl.innerText = `(0/${this.MAX_FACTURA_ITEMS} líneas)`;
+                counterEl.innerText = `(0 líneas)`;
             }
 
             this.saveFacturaDraft();
@@ -2650,7 +2630,7 @@ const RegistrosApp = {
 
         const counterEl = document.getElementById('factura-line-counter');
         if (counterEl) {
-            counterEl.innerText = `(${this.facturaItems.length}/${this.MAX_FACTURA_ITEMS} líneas)`;
+            counterEl.innerText = `(${this.facturaItems.length} líneas)`;
         }
 
         this.saveFacturaDraft();
