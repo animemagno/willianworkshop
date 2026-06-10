@@ -279,30 +279,47 @@ const RegistrosApp = {
         return `${day}/${month}/${year}`;
     },
 
+    _findProductInCache(rawName, pId) {
+        if (!window.app || !window.app.cache) return null;
+        
+        const cacheKey = pId ? `${pId}_${rawName}` : rawName;
+        if (!this._productSearchMemo) this._productSearchMemo = {};
+        if (this._productSearchMemo[cacheKey] !== undefined) {
+            return this._productSearchMemo[cacheKey];
+        }
+
+        let cachedProduct = null;
+        if (pId) {
+            cachedProduct = window.app.cache.find(p => p.id === pId);
+        }
+
+        if (!cachedProduct && rawName) {
+            const normRaw = this.normalizeVolumeInString(rawName);
+            cachedProduct = window.app.cache.find(p => {
+                if (p._normDesc === undefined) p._normDesc = this.normalizeVolumeInString(p.descripcion);
+                if (p._normDesc === normRaw) return true;
+                if (p.aliases) {
+                    if (p._normAliases === undefined) {
+                        p._normAliases = p.aliases.map(a => this.normalizeVolumeInString(a));
+                    }
+                    if (p._normAliases.includes(normRaw)) return true;
+                }
+                return false;
+            });
+        }
+
+        this._productSearchMemo[cacheKey] = cachedProduct || null;
+        return cachedProduct || null;
+    },
+
     getOfficialProductName(regOrName, productId = null) {
         if (!regOrName) return '';
         let rawName = typeof regOrName === 'object' ? (regOrName.producto || '') : regOrName;
         let pId = typeof regOrName === 'object' ? (regOrName.productId || regOrName.vinculoId || null) : productId;
 
-        if (window.app && window.app.cache) {
-            let cachedProduct = null;
-            if (pId) {
-                cachedProduct = window.app.cache.find(p => p.id === pId);
-            }
-
-            // Fallback súper inteligente y automático: si no se encontró por ID, normalizar volumen y buscar
-            if (!cachedProduct && rawName) {
-                const normRaw = this.normalizeVolumeInString(rawName);
-                cachedProduct = window.app.cache.find(p => {
-                    const normDesc = this.normalizeVolumeInString(p.descripcion);
-                    const normAlias = p.aliases && p.aliases.some(a => this.normalizeVolumeInString(a) === normRaw);
-                    return normDesc === normRaw || normAlias;
-                });
-            }
-
-            if (cachedProduct) {
-                return cachedProduct.descripcion || cachedProduct.descripcionTaller || rawName;
-            }
+        const cachedProduct = this._findProductInCache(rawName, pId);
+        if (cachedProduct) {
+            return cachedProduct.descripcion || cachedProduct.descripcionTaller || rawName;
         }
         return rawName;
     },
@@ -312,31 +329,13 @@ const RegistrosApp = {
         let rawName = typeof regOrName === 'object' ? (regOrName.producto || '') : regOrName;
         let pId = typeof regOrName === 'object' ? (regOrName.productId || regOrName.vinculoId || null) : productId;
 
-        if (window.app && window.app.cache) {
-            let cachedProduct = null;
-            if (pId) {
-                cachedProduct = window.app.cache.find(p => p.id === pId);
+        const cachedProduct = this._findProductInCache(rawName, pId);
+        if (cachedProduct) {
+            if (cachedProduct.codigo && cachedProduct.codigo.trim()) {
+                return cachedProduct.codigo.toLowerCase().trim();
             }
-
-            // Fallback súper inteligente y automático: si no se encontró por ID, normalizar volumen y buscar
-            if (!cachedProduct && rawName) {
-                const normRaw = this.normalizeVolumeInString(rawName);
-                cachedProduct = window.app.cache.find(p => {
-                    const normDesc = this.normalizeVolumeInString(p.descripcion);
-                    const normAlias = p.aliases && p.aliases.some(a => this.normalizeVolumeInString(a) === normRaw);
-                    return normDesc === normRaw || normAlias;
-                });
-            }
-
-            if (cachedProduct) {
-                // Si el producto tiene un código en el inventario, agrupar por ese código
-                if (cachedProduct.codigo && cachedProduct.codigo.trim()) {
-                    return cachedProduct.codigo.toLowerCase().trim();
-                }
-                // Si no tiene código, usar su descripción oficial
-                const officialName = cachedProduct.descripcion || cachedProduct.descripcionTaller || rawName;
-                return officialName.toLowerCase().trim();
-            }
+            const officialName = cachedProduct.descripcion || cachedProduct.descripcionTaller || rawName;
+            return officialName.toLowerCase().trim();
         }
         return rawName.toLowerCase().trim();
     },
