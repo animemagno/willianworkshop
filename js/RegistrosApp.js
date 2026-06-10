@@ -570,20 +570,32 @@ const RegistrosApp = {
     },
 
     calculateComputedBilledMap(registros) {
+        if (this._cachedComputedBilledMap) {
+            return this._cachedComputedBilledMap;
+        }
+
         const facturadoPorMesYProducto = {};
-        if (Array.isArray(this.allHistoricalInvoices)) {
-            this.allHistoricalInvoices.forEach(inv => {
-                const mes = inv.fecha ? inv.fecha.substring(0, 7) : '';
-                if (!mes) return;
-                if (!facturadoPorMesYProducto[mes]) facturadoPorMesYProducto[mes] = {};
-                
-                const items = inv.items || [];
-                items.forEach(item => {
-                    if (item.isManoDeObra || item.productId === 'SERVICIO') return;
-                    const key = this.getGroupingKey(item.descripcionPapel || item.producto, item.productId);
-                    facturadoPorMesYProducto[mes][key] = (facturadoPorMesYProducto[mes][key] || 0) + (item.cantidad || 0);
+        if (!this._cachedFacturadoHistorico) {
+            this._cachedFacturadoHistorico = {};
+            if (Array.isArray(this.allHistoricalInvoices)) {
+                this.allHistoricalInvoices.forEach(inv => {
+                    const mes = inv.fecha ? inv.fecha.substring(0, 7) : '';
+                    if (!mes) return;
+                    if (!this._cachedFacturadoHistorico[mes]) this._cachedFacturadoHistorico[mes] = {};
+                    
+                    const items = inv.items || [];
+                    items.forEach(item => {
+                        if (item.isManoDeObra || item.productId === 'SERVICIO') return;
+                        const key = this.getGroupingKey(item.descripcionPapel || item.producto, item.productId);
+                        this._cachedFacturadoHistorico[mes][key] = (this._cachedFacturadoHistorico[mes][key] || 0) + (item.cantidad || 0);
+                    });
                 });
-            });
+            }
+        }
+
+        // Crear copia del cach
+        for (const m in this._cachedFacturadoHistorico) {
+            facturadoPorMesYProducto[m] = { ...this._cachedFacturadoHistorico[m] };
         }
 
         const descAcumuladores = {};
@@ -593,17 +605,21 @@ const RegistrosApp = {
 
         const computedBilledMap = {};
         
-        const registrosParaFIFO = [...registros].sort((a, b) => {
-            const millisA = this.parseDateToMillis(a.fecha);
-            const millisB = this.parseDateToMillis(b.fecha);
-            if (millisA !== millisB) return millisA - millisB;
-            const hasFilaA = a.filaExcel !== undefined && a.filaExcel !== null;
-            const hasFilaB = b.filaExcel !== undefined && b.filaExcel !== null;
-            if (hasFilaA && hasFilaB) return a.filaExcel - b.filaExcel;
-            if (hasFilaA) return -1;
-            if (hasFilaB) return 1;
-            return 0;
-        });
+        if (!this._cachedRegistrosOrdenadosAsc) {
+            this._cachedRegistrosOrdenadosAsc = [...this.allRegistros].sort((a, b) => {
+                const millisA = this.parseDateToMillis(a.fecha);
+                const millisB = this.parseDateToMillis(b.fecha);
+                if (millisA !== millisB) return millisA - millisB;
+                const hasFilaA = a.filaExcel !== undefined && a.filaExcel !== null;
+                const hasFilaB = b.filaExcel !== undefined && b.filaExcel !== null;
+                if (hasFilaA && hasFilaB) return a.filaExcel - b.filaExcel;
+                if (hasFilaA) return -1;
+                if (hasFilaB) return 1;
+                return 0;
+            });
+        }
+        
+        const registrosParaFIFO = this._cachedRegistrosOrdenadosAsc;
 
         registrosParaFIFO.forEach(reg => {
             const mesReg = reg.fecha ? reg.fecha.substring(0, 7) : '';
@@ -624,6 +640,7 @@ const RegistrosApp = {
             computedBilledMap[reg.id] = billedHere;
         });
 
+        this._cachedComputedBilledMap = computedBilledMap;
         return computedBilledMap;
     },
 
@@ -1734,6 +1751,10 @@ const RegistrosApp = {
                 .onSnapshot(snapshot => {
                     this.allRegistros = [];
                     this.allClonesMap = {};
+                    this._cachedFacturadoHistorico = null;
+                    this._cachedRegistrosOrdenadosAsc = null;
+                    this._cachedRegistrosOrdenadosDesc = null;
+                    this._cachedComputedBilledMap = null;
 
                     snapshot.forEach(doc => {
                         const data = doc.data();
@@ -1789,6 +1810,10 @@ const RegistrosApp = {
                 .limit(10000)
                 .onSnapshot(snapshot => {
                     this.allRegistros = [];
+                    this._cachedFacturadoHistorico = null;
+                    this._cachedRegistrosOrdenadosAsc = null;
+                    this._cachedRegistrosOrdenadosDesc = null;
+                    this._cachedComputedBilledMap = null;
                     snapshot.forEach(doc => {
                         const data = doc.data();
 
@@ -1883,27 +1908,29 @@ const RegistrosApp = {
         // 2. Consolidar acumulado facturado por mes y clave de producto
         const facturadoPorMesYProducto = {};
 
-        // A. Agregar el acumulado de facturas históricas ya confirmadas
-        // IMPORTANTE: El orden aquí NO debe afectar el cálculo de cantidades.
-        // Iteramos todas las facturas independientemente de cómo estén ordenadas para la vista,
-        // ya que solo estamos sumando totales por mes/producto, no aplicando FIFO aquí.
-        if (Array.isArray(this.allHistoricalInvoices)) {
-            this.allHistoricalInvoices.forEach(inv => {
-                const mes = inv.fecha ? inv.fecha.substring(0, 7) : '';
-                if (!mes) return;
-                
-                if (!facturadoPorMesYProducto[mes]) {
-                    facturadoPorMesYProducto[mes] = {};
-                }
-                
-                const items = inv.items || [];
-                items.forEach(item => {
-                    if (item.isManoDeObra || item.productId === 'SERVICIO') return;
-                    const key = this.getGroupingKey(item.descripcionPapel || item.producto, item.productId);
-                    // Usar cantidad absoluta del item — no depende del orden de las facturas
-                    facturadoPorMesYProducto[mes][key] = (facturadoPorMesYProducto[mes][key] || 0) + (item.cantidad || 0);
+        if (!this._cachedFacturadoHistorico) {
+            this._cachedFacturadoHistorico = {};
+            if (Array.isArray(this.allHistoricalInvoices)) {
+                this.allHistoricalInvoices.forEach(inv => {
+                    const mes = inv.fecha ? inv.fecha.substring(0, 7) : '';
+                    if (!mes) return;
+                    
+                    if (!this._cachedFacturadoHistorico[mes]) {
+                        this._cachedFacturadoHistorico[mes] = {};
+                    }
+                    
+                    const items = inv.items || [];
+                    items.forEach(item => {
+                        if (item.isManoDeObra || item.productId === 'SERVICIO') return;
+                        const key = this.getGroupingKey(item.descripcionPapel || item.producto, item.productId);
+                        this._cachedFacturadoHistorico[mes][key] = (this._cachedFacturadoHistorico[mes][key] || 0) + (item.cantidad || 0);
+                    });
                 });
-            });
+            }
+        }
+
+        for (const m in this._cachedFacturadoHistorico) {
+            facturadoPorMesYProducto[m] = { ...this._cachedFacturadoHistorico[m] };
         }
 
         // B. Sumar lo que se está facturando en la pantalla en la factura actual (caliente)
@@ -1923,44 +1950,52 @@ const RegistrosApp = {
         }
 
         // 3. Tomar TODOS los registros del mes (tanto pendientes como facturados) para aplicar la deducción FIFO
-        const todosLosRegistrosMes = [...this.allRegistros];
+        if (!this._cachedRegistrosOrdenadosAsc) {
+            this._cachedRegistrosOrdenadosAsc = [...this.allRegistros].sort((a, b) => {
+                const millisA = this.parseDateToMillis(a.fecha);
+                const millisB = this.parseDateToMillis(b.fecha);
+                
+                if (millisA !== millisB) {
+                    return millisA - millisB;
+                }
+                
+                const hasFilaA = a.filaExcel !== undefined && a.filaExcel !== null;
+                const hasFilaB = b.filaExcel !== undefined && b.filaExcel !== null;
+                
+                if (hasFilaA && hasFilaB) {
+                    return a.filaExcel - b.filaExcel;
+                } else if (hasFilaA) {
+                    return -1;
+                } else if (hasFilaB) {
+                    return 1;
+                }
+                
+                let tA = 0;
+                if (a.timestamp) {
+                    if (typeof a.timestamp.toMillis === 'function') tA = a.timestamp.toMillis();
+                    else if (a.timestamp instanceof Date) tA = a.timestamp.getTime();
+                    else if (typeof a.timestamp === 'number') tA = a.timestamp;
+                }
+                let tB = 0;
+                if (b.timestamp) {
+                    if (typeof b.timestamp.toMillis === 'function') tB = b.timestamp.toMillis();
+                    else if (b.timestamp instanceof Date) tB = b.timestamp.getTime();
+                    else if (typeof b.timestamp === 'number') tB = b.timestamp;
+                }
+                return tA - tB;
+            });
+        }
+        
+        const todosLosRegistrosMes = this._cachedRegistrosOrdenadosAsc;
 
-        // Ordenar por fecha ascendente (más antiguas arriba).
-        // Para el mismo día, priorizar filaExcel de forma ascendente (el orden del Excel).
-        // Si son manuales o no tienen filaExcel, colocarlos al final (desempatados por timestamp ascendente).
-        todosLosRegistrosMes.sort((a, b) => {
-            const millisA = this.parseDateToMillis(a.fecha);
-            const millisB = this.parseDateToMillis(b.fecha);
-            
-            if (millisA !== millisB) {
-                return millisA - millisB; // Ascendente (más antiguas arriba)
-            }
-            
-            const hasFilaA = a.filaExcel !== undefined && a.filaExcel !== null;
-            const hasFilaB = b.filaExcel !== undefined && b.filaExcel !== null;
-            
-            if (hasFilaA && hasFilaB) {
-                return a.filaExcel - b.filaExcel; // Fila menor arriba (ascendente)
-            } else if (hasFilaA) {
-                return -1; // a (Excel) va arriba de b (manual)
-            } else if (hasFilaB) {
-                return 1; // b (Excel) va arriba de a (manual)
-            }
-            
-            let tA = 0;
-            if (a.timestamp) {
-                if (typeof a.timestamp.toMillis === 'function') tA = a.timestamp.toMillis();
-                else if (a.timestamp instanceof Date) tA = a.timestamp.getTime();
-                else if (typeof a.timestamp === 'number') tA = a.timestamp;
-            }
-            let tB = 0;
-            if (b.timestamp) {
-                if (typeof b.timestamp.toMillis === 'function') tB = b.timestamp.toMillis();
-                else if (b.timestamp instanceof Date) tB = b.timestamp.getTime();
-                else if (typeof b.timestamp === 'number') tB = b.timestamp;
-            }
-            return tA - tB; // Ascendente (orden de ingreso)
-        });
+        let cacheMap = null;
+        if (window.app && window.app.cache) {
+            cacheMap = { byId: {}, byName: {} };
+            window.app.cache.forEach(p => {
+                if (p.id) cacheMap.byId[p.id] = p;
+                if (p.descripcion) cacheMap.byName[p.descripcion.toLowerCase().trim()] = p;
+            });
+        }
 
         // Calcular los totales originales de los pendientes (para arrastre y límites)
         let resumenMap = {};
@@ -1972,11 +2007,9 @@ const RegistrosApp = {
             const officialName = this.getOfficialProductName(reg);
             
             let currentCosto = reg.costoUnitarioOficial || 0;
-            if (currentCosto === 0 && window.app && window.app.cache) {
-                const cachedProduct = window.app.cache.find(p => 
-                    (reg.productId && p.id === reg.productId) || 
-                    (p.descripcion && p.descripcion.toLowerCase().trim() === officialName.toLowerCase().trim())
-                );
+            if (currentCosto === 0 && cacheMap) {
+                const cachedProduct = (reg.productId && cacheMap.byId[reg.productId]) || 
+                                      cacheMap.byName[officialName.toLowerCase().trim()];
                 if (cachedProduct) {
                     currentCosto = cachedProduct.costo || 0;
                 }
@@ -2064,11 +2097,9 @@ const RegistrosApp = {
             
             tr.setAttribute('draggable', 'true');
             let currentCosto = reg.costoUnitarioOficial || 0;
-            if (currentCosto === 0 && window.app && window.app.cache) {
-                const cachedProduct = window.app.cache.find(p => 
-                    (reg.productId && p.id === reg.productId) || 
-                    (p.descripcion && p.descripcion.toLowerCase().trim() === officialName.toLowerCase().trim())
-                );
+            if (currentCosto === 0 && cacheMap) {
+                const cachedProduct = (reg.productId && cacheMap.byId[reg.productId]) || 
+                                      cacheMap.byName[officialName.toLowerCase().trim()];
                 if (cachedProduct) {
                     currentCosto = cachedProduct.costo || 0;
                 }
@@ -4062,6 +4093,8 @@ const RegistrosApp = {
                 .get();
 
             this.allHistoricalInvoices = [];
+            this._cachedFacturadoHistorico = null;
+            this._cachedComputedBilledMap = null;
             snapshot.forEach(doc => {
                 this.allHistoricalInvoices.push({
                     id: doc.id,
