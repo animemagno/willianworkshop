@@ -2997,7 +2997,6 @@ const RegistrosApp = {
             const safeId = item.producto.replace(/\//g, '-').trim();
             // Preserve vinculoId si viene del escaneo
             let currentVinculoId = item.vinculoId;
-            item.costoUnitario = 0;
             let loadedPrice = 0;
             let precioEncontrado = false;
 
@@ -3006,7 +3005,7 @@ const RegistrosApp = {
                 if (currentVinculoId && window.app && window.app.cache) {
                     const cachedProduct = window.app.cache.find(p => p.id === currentVinculoId);
                     if (cachedProduct) {
-                        item.costoUnitario = cachedProduct.costo || 0;
+                        item.costoUnitario = cachedProduct.costo || item.costoUnitario || 0;
                         loadedPrice = this.facturaTipo === 'repuestos' ? (cachedProduct.precioRepuestos || cachedProduct.precio || 0) : (cachedProduct.precio || 0);
                         precioEncontrado = true;
                     }
@@ -3022,24 +3021,26 @@ const RegistrosApp = {
                             item.vinculoId = data.vinculoId;
                             if (window.app && window.app.cache) {
                                 const p = window.app.cache.find(c => c.id === data.vinculoId);
-                                if (p) item.costoUnitario = p.costo || 0;
+                                if (p) item.costoUnitario = p.costo || item.costoUnitario || 0;
                             } else {
                                 const invDoc = await this.db.collection('INVENTARIO').doc(data.vinculoId).get();
-                                if (invDoc.exists) item.costoUnitario = invDoc.data().costo || 0;
+                                if (invDoc.exists) item.costoUnitario = invDoc.data().costo || item.costoUnitario || 0;
                             }
                         }
                         precioEncontrado = true;
                     }
                 }
 
-                // 3. Fallback a buscar por nombre descriptivo exacto en la caché
-                if (!precioEncontrado && window.app && window.app.cache) {
+                // 3. Fallback a buscar por nombre descriptivo exacto en la caché para el costo (y precio si falta)
+                if ((!item.costoUnitario || !precioEncontrado) && window.app && window.app.cache) {
                     const match = window.app.cache.find(p => p.descripcion && p.descripcion.toLowerCase().trim() === item.producto.toLowerCase().trim());
                     if (match) {
                         item.vinculoId = match.id;
-                        item.costoUnitario = match.costo || 0;
-                        loadedPrice = this.facturaTipo === 'repuestos' ? (match.precioRepuestos || match.precio || 0) : (match.precio || 0);
-                        precioEncontrado = true;
+                        item.costoUnitario = match.costo || item.costoUnitario || 0;
+                        if (!precioEncontrado) {
+                            loadedPrice = this.facturaTipo === 'repuestos' ? (match.precioRepuestos || match.precio || 0) : (match.precio || 0);
+                            precioEncontrado = true;
+                        }
                     }
                 }
             } catch (e) {
@@ -3272,11 +3273,19 @@ const RegistrosApp = {
             this.facturaItems.forEach(item => {
                 if (item.isManoDeObra) return; // Omitir Mano de obra del descuento de pendientes
                 let cantidadFaltante = item.cantidadFacturar;
+                
+                const safeItemName = item.producto.toLowerCase().trim();
+
                 for (let i = 0; i < pendientesParaFacturar.length; i++) {
                     let reg = pendientesParaFacturar[i];
                     const regKey = this.getGroupingKey(reg);
                     const itemKey = this.getGroupingKey(item.producto, item.vinculoId);
-                    if (reg.producto && item.producto && regKey && regKey === itemKey && cantidadFaltante > 0) {
+                    const safeRegName = this.getOfficialProductName(reg).toLowerCase().trim();
+
+                    const matchByKey = (regKey === itemKey);
+                    const matchByName = (safeRegName === safeItemName);
+
+                    if (reg.producto && item.producto && (matchByKey || matchByName) && cantidadFaltante > 0) {
                         let regRef = this.registrosRef.doc(reg.respaldoId);
                         let qtyToConsume = Math.min(reg.cantidad, cantidadFaltante);
                         
