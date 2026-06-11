@@ -2304,9 +2304,11 @@ const RegistrosApp = {
     addItemToFactura(data) {
         try {
             // Check if already in factura
-            let existingItem = this.facturaItems.find(item => 
-                item.producto.toLowerCase().trim() === data.producto.toLowerCase().trim()
-            );
+            const incomingKey = this.getGroupingKey(data.producto, data.productId);
+            let existingItem = this.facturaItems.find(item => {
+                const itemKey = this.getGroupingKey(item.producto, item.vinculoId);
+                return itemKey === incomingKey;
+            });
 
             if (existingItem) {
                 if (data.max > 0) {
@@ -2736,50 +2738,78 @@ const RegistrosApp = {
             return;
         }
 
+        const computedBilledMap = this.calculateComputedBilledMap(this.allRegistros);
+
         // Ordenar: primero los pendientes, luego por fecha descendente
         filtered.sort((a, b) => {
-            if (a.estado === 'pendiente' && b.estado !== 'pendiente') return -1;
-            if (a.estado !== 'pendiente' && b.estado === 'pendiente') return 1;
+            const aDone = (computedBilledMap[a.id] || 0) >= a.cantidad || a.estado === 'facturado';
+            const bDone = (computedBilledMap[b.id] || 0) >= b.cantidad || b.estado === 'facturado';
+            if (!aDone && bDone) return -1;
+            if (aDone && !bDone) return 1;
             return 0; // Ya están del mismo día, mantenemos orden de inserción/timestamp
         });
 
         filtered.forEach(reg => {
             const tr = document.createElement('tr');
+            
+            const totalBilled = computedBilledMap[reg.id] || 0;
+            const isFullyFacturado = totalBilled >= reg.cantidad || reg.estado === 'facturado';
+            const isPartiallyFacturado = totalBilled > 0 && totalBilled < reg.cantidad;
 
-            const statusClass = reg.estado === 'pendiente' ? 'status-pending' : 'status-invoiced';
-            const statusText = reg.estado === 'pendiente' ? 'Pendiente' : 'Facturado';
+            const statusClass = isFullyFacturado ? 'status-invoiced' : 'status-pending';
+            
+            let statusText = 'Pendiente';
+            if (isFullyFacturado) {
+                statusText = 'Facturado';
+            } else if (isPartiallyFacturado) {
+                statusText = `Parcial (${totalBilled}/${reg.cantidad})`;
+            }
 
-            if (reg.estado === 'facturado') {
+            if (isFullyFacturado) {
                 tr.style.backgroundColor = '#f1faf5'; // Fondo verde pastel ultra sutil
                 tr.style.borderLeft = '4px solid #2ecc71'; // Línea verde viva izquierda para indicador de completado
+            } else if (isPartiallyFacturado) {
+                tr.style.backgroundColor = '#fffbeb';
+                tr.style.borderLeft = '4px solid #f39c12';
             }
 
             // Botón para recuperar quirúrgicamente registros huérfanos de facturas eliminadas antes
-            const revertButtonHTML = reg.estado === 'facturado'
+            const revertButtonHTML = isFullyFacturado
                 ? `<button class="btn" style="padding:5px 10px; font-size:12px; background:#2ecc71; color:white; border:none; border-radius:4px; margin-right:5px; cursor:pointer;" onclick="RegistrosApp.revertRegistryToPending('${reg.id}')" title="Devolver a Pendiente">
                        <i class="fas fa-undo"></i> Devolver
                    </button>`
                 : '';
 
-            const editButtonHTML = reg.estado === 'pendiente'
+            const editButtonHTML = !isFullyFacturado
                 ? `<button class="btn btn-warning" style="padding:5px 10px; font-size:12px; margin-right:5px; color:white;" onclick="RegistrosApp.editRegistroQuantity('${reg.id}', ${reg.cantidad})" title="Editar Cantidad">
                        <i class="fas fa-edit"></i>
                    </button>`
                 : '';
 
-            const obsColor = reg.estado === 'facturado' ? '#2e7d32' : '#666';
+            const obsColor = isFullyFacturado ? '#2e7d32' : '#666';
 
             const officialName = this.getOfficialProductName(reg);
+            
+            let codigoText = '';
+            const cachedProduct = this._findProductInCache(reg.producto, reg.productId);
+            if (cachedProduct && cachedProduct.codigo && cachedProduct.codigo !== 'S/C') {
+                codigoText = `<span style="color:#7f8c8d; font-size: 0.9em; margin-right: 5px;">[${cachedProduct.codigo}]</span>`;
+            }
+
             const isLinked = reg.productId ? true : false;
 
-            const productDisplayHTML = reg.estado === 'facturado'
-                ? `<span>${officialName}</span>`
+            const productDisplayHTML = isFullyFacturado
+                ? `<span>${codigoText}${officialName}</span>`
                 : isLinked
-                    ? `<span>${officialName}</span> <span style="font-size:11px; color:#3498db; cursor:pointer; margin-left:6px;" onclick="RegistrosApp.openLinkRegistryModal('${reg.id}', '${reg.producto.replace(/'/g, "\\'")}')" title="Editar vínculo con Inventario"><i class="fas fa-edit"></i></span>`
-                    : `<span style="color:#e67e22;">${reg.producto}</span> <button class="btn" style="padding: 2px 6px; font-size: 11px; margin-left: 8px; border-radius: 4px; border: 1px solid #d35400; color: #d35400; background: #fffcf8; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;" onclick="RegistrosApp.openLinkRegistryModal('${reg.id}', '${reg.producto.replace(/'/g, "\\'")}')"><i class="fas fa-link"></i> Vincular</button>`;
+                    ? `<span>${codigoText}${officialName}</span> <span style="font-size:11px; color:#3498db; cursor:pointer; margin-left:6px;" onclick="RegistrosApp.openLinkRegistryModal('${reg.id}', '${reg.producto.replace(/'/g, "\\'")}')" title="Editar vínculo con Inventario"><i class="fas fa-edit"></i></span>`
+                    : `<span>${codigoText}</span><span style="color:#e67e22;">${reg.producto}</span> <button class="btn" style="padding: 2px 6px; font-size: 11px; margin-left: 8px; border-radius: 4px; border: 1px solid #d35400; color: #d35400; background: #fffcf8; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;" onclick="RegistrosApp.openLinkRegistryModal('${reg.id}', '${reg.producto.replace(/'/g, "\\'")}')"><i class="fas fa-link"></i> Vincular</button>`;
+
+            const qtyDisplay = isFullyFacturado 
+                ? `<strong style="text-decoration: line-through; color: #7f8c8d;">${reg.cantidad}</strong>` 
+                : `<strong>${reg.cantidad}</strong>`;
 
             tr.innerHTML = `
-                <td><strong>${reg.cantidad}</strong></td>
+                <td>${qtyDisplay}</td>
                 <td>${productDisplayHTML}</td>
                 <td>${reg.cuenta || '<span style="color:#ccc;">-</span>'}</td>
                 <td><span style="font-size:13px; color:${obsColor};">${reg.observacion || ''}</span></td>
