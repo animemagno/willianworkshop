@@ -1822,46 +1822,14 @@ const RegistrosApp = {
                             data.fecha = nuevaFecha;
                         }
 
-                        // Simulamos el comportamiento antiguo construyendo clones virtuales
-                        // Para salidas.html, necesitamos tanto pendientes como facturados (para historial)
-                        // Pero la auto-sanación original operaba sobre el doc directo, ahora ya no existe el huérfano.
-
-                        (data.facturas || []).forEach(f => {
-                            // Auto-sanación simulada (si la factura no existe, lo tratamos como pendiente más adelante en una corrección manual)
-                            this.allRegistros.push({
-                                id: 'simul_' + doc.id + '_' + f.facturaId,
-                                estado: 'facturado',
-                                cantidad: f.cantidad,
-                                numeroFactura: f.numeroFactura,
-                                facturaId: f.facturaId,
-                                clienteFactura: f.clienteFactura,
-                                respaldoId: doc.id,
-                                producto: data.producto,
-                                cuenta: data.cuenta,
-                                fecha: data.fecha,
-                                precioEspecial: data.precioEspecial,
-                                observacion: data.observacion
-                            });
+                        this.allRegistros.push({
+                            id: doc.id,
+                            ...data
                         });
-
-                        const cantidadUsada = data.cantidadUsada || 0;
-                        if (cantidadUsada < data.cantidad) {
-                            this.allRegistros.push({
-                                id: 'simul_pend_' + doc.id,
-                                estado: 'pendiente',
-                                cantidad: data.cantidad - cantidadUsada,
-                                respaldoId: doc.id,
-                                producto: data.producto,
-                                cuenta: data.cuenta,
-                                fecha: data.fecha,
-                                precioEspecial: data.precioEspecial,
-                                observacion: data.observacion,
-                                archivado: data.archivado
-                            });
-                        }
                     });
                     this.renderDatesList();
                     this.renderFacturacionData();
+
 
                     const isEditingExcel = document.querySelector('#excel-table-tbody input');
                     if (!isEditingExcel) {
@@ -3316,8 +3284,11 @@ const RegistrosApp = {
                     const matchByName = (safeRegName === safeItemName);
 
                     if (reg.producto && item.producto && (matchByKey || matchByName) && cantidadFaltante > 0) {
-                        let regRef = this.registrosRef.doc(reg.respaldoId);
-                        let qtyToConsume = Math.min(reg.cantidad, cantidadFaltante);
+                        const cantDisponibleReal = reg.cantidad - (reg.cantidadUsada || 0);
+                        if (cantDisponibleReal <= 0) continue;
+
+                        let regRef = this.registrosRef.doc(reg.id);
+                        let qtyToConsume = Math.min(cantDisponibleReal, cantidadFaltante);
                         
                         batch.update(regRef, {
                             cantidadUsada: window.firebase.firestore.FieldValue.increment(qtyToConsume),
@@ -3332,7 +3303,7 @@ const RegistrosApp = {
                         });
                         
                         cantidadFaltante -= qtyToConsume;
-                        reg.cantidad -= qtyToConsume; // En memoria para el siguiente loop
+                        reg.cantidadUsada = (reg.cantidadUsada || 0) + qtyToConsume; // En memoria para el siguiente loop
                     }
                 }
             });
