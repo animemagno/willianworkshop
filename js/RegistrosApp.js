@@ -1174,7 +1174,7 @@ const RegistrosApp = {
                     const totalBilled = fifoBilled;
                     totalPending = Math.max(0, reg.cantidad - totalBilled);
                 } else {
-                    totalPending = reg.estado === 'pendiente' ? reg.cantidad : 0;
+                    totalPending = (reg.estado === 'pendiente' || !reg.estado) ? reg.cantidad : 0;
                 }
                 
                 if (totalPending > 0) {
@@ -2037,7 +2037,7 @@ const RegistrosApp = {
             }
 
             // Acumular la cantidad restante para el Resumen Agrupado
-            if (reg.estado === 'pendiente' && !reg.archivado) {
+            if ((reg.estado === 'pendiente' || !reg.estado) && !reg.archivado) {
                 if (cantidadDisponible > 0 || cantidadEnFacturaActual > 0) {
                     resumenRestanteMap[key] = (resumenRestanteMap[key] || 0) + cantidadDisponible;
                 }
@@ -2085,7 +2085,7 @@ const RegistrosApp = {
             listadoFragment.appendChild(tr);
 
             // Acumular por cuenta usando la data procesada
-            if (reg.estado === 'pendiente' && cantidadDisponible > 0 && !reg.archivado) {
+            if ((reg.estado === 'pendiente' || !reg.estado) && cantidadDisponible > 0 && !reg.archivado) {
                 if (reg.cuenta) {
                     const c = reg.cuenta.trim();
                     if (c !== '') {
@@ -3262,7 +3262,7 @@ const RegistrosApp = {
             // Pasar registros pendientes a facturado (FIFO) - Limitado al mes de la factura
             const targetMonth = fechaFactura.substring(0, 7);
             let pendientesParaFacturar = this.allRegistros.filter(r => 
-                r.estado === 'pendiente' && 
+                (r.estado === 'pendiente' || !r.estado) && 
                 r.fecha && 
                 r.fecha.substring(0, 7) === targetMonth
             );
@@ -5248,7 +5248,7 @@ const RegistrosApp = {
                 if (facturadoMap[key] && facturadoMap[key] > 0) {
                     if (facturadoMap[key] >= reg.cantidad) {
                         facturadoMap[key] -= reg.cantidad;
-                        if (reg.estado === 'pendiente') {
+                        if (reg.estado === 'pendiente' || !reg.estado) {
                             batch.update(this.registrosRef.doc(reg.id), { estado: 'facturado' });
                             actualizados++;
                         }
@@ -5257,7 +5257,7 @@ const RegistrosApp = {
                         const abonar = facturadoMap[key];
                         facturadoMap[key] = 0;
                         
-                        if (reg.estado === 'pendiente') {
+                        if (reg.estado === 'pendiente' || !reg.estado) {
                             // El original lo dejamos pendiente con lo que sobra
                             batch.update(this.registrosRef.doc(reg.id), { 
                                 cantidad: reg.cantidad - abonar 
