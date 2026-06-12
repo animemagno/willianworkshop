@@ -655,8 +655,20 @@ const RegistrosApp = {
         if (excelTbody) excelTbody.innerHTML = '';
         if (historialTbody) historialTbody.innerHTML = '';
 
+        // Calcular mapa de facturación FIFO antes de usarlo en los filtros
+        const computedBilledMap = this.calculateComputedBilledMap(this.allRegistros);
+
         const registrosArchivados = this.allRegistros.filter(r => r.archivado);
-        const registrosAMostrar = this.allRegistros.filter(r => !r.archivado);
+        
+        const registrosAMostrar = this.allRegistros.filter(r => {
+            if (!r.archivado) return true;
+            // Si está archivado pero ya no está completamente facturado (ej: factura eliminada), mostrarlo.
+            const fifoBilled = computedBilledMap[r.id] || 0;
+            const clones = this.allClonesMap[r.id] || [];
+            const explicitBilledClones = clones.filter(c => c.estado === 'facturado').reduce((sum, c) => sum + c.cantidad, 0);
+            const totalBilled = Math.max(fifoBilled, explicitBilledClones);
+            return totalBilled < r.cantidad;
+        });
 
         if (historialTbody) {
             if (registrosArchivados.length === 0) {
@@ -758,9 +770,7 @@ const RegistrosApp = {
             let lastFormattedDate = null;
             let lastRawDate = null;
 
-            // --- INICIO CALCULO FIFO FACTURACION PARA REGISTRO.HTML ---
-            const computedBilledMap = this.calculateComputedBilledMap(this.allRegistros);
-            // --- FIN CALCULO FIFO ---
+            // computedBilledMap ya fue calculado al inicio de renderFastEntryTable()
 
             registrosAMostrar.forEach((reg, index) => {
                 totalItems += reg.cantidad;
@@ -770,7 +780,11 @@ const RegistrosApp = {
                 // Obtener clones y calcular estado de facturación y acumulados
                 const clones = this.allClonesMap[reg.id] || [];
                 const fifoBilled = computedBilledMap[reg.id] || 0;
-                const totalBilled = fifoBilled;
+                
+                const explicitBilledClones = clones.filter(c => c.estado === 'facturado').reduce((sum, c) => sum + c.cantidad, 0);
+                
+                let totalBilled = Math.max(fifoBilled, explicitBilledClones);
+                
                 const totalPending = Math.max(0, reg.cantidad - totalBilled);
 
 
@@ -1975,7 +1989,7 @@ const RegistrosApp = {
                 resumenMap[key] = { 
                     name: officialName, 
                     count: 0, 
-                    productId: reg.productId || null,
+                    productId: reg.productId || reg.vinculoId || null,
                     codigoOficial: reg.codigoOficial || '',
                     precioVentaOficial: reg.precioVentaOficial || 0,
                     costoUnitarioOficial: currentCosto
@@ -2009,22 +2023,10 @@ const RegistrosApp = {
             const factItem = this.facturaItems.find(fi => fi.type === 'single' && fi.originalId === reg.id);
             let cantidadFacturadaExplicit = factItem ? factItem.cantidadFacturar : 0;
             
-            // Determinar cantidad a descontar por resumen (distribucion FIFO)
-            let cantidadDesdeSummary = 0;
-            if (summaryInvoicedMap[key] > 0) {
-                const availableForSummary = reg.cantidad - cantidadFacturadaExplicit;
-                if (availableForSummary > 0) {
-                    const toTake = Math.min(availableForSummary, summaryInvoicedMap[key]);
-                    cantidadDesdeSummary = toTake;
-                    summaryInvoicedMap[key] -= toTake;
-                }
-            }
-
-            let cantidadDisponible = reg.cantidad - cantidadFacturadaExplicit - cantidadDesdeSummary;
-            const cantidadEnFacturaActual = cantidadFacturadaExplicit + cantidadDesdeSummary;
+            let cantidadDisponible = reg.cantidad - cantidadFacturadaExplicit;
             const mesReg = reg.fecha ? reg.fecha.substring(0, 7) : '';
 
-            // Descontar usando FIFO (lo más antiguo primero)
+            // Descontar facturas históricas via FIFO primero
             if (descAcumuladores[mesReg] && descAcumuladores[mesReg][key] > 0) {
                 const descontar = descAcumuladores[mesReg][key];
                 if (descontar >= cantidadDisponible) {
@@ -2035,6 +2037,25 @@ const RegistrosApp = {
                     descAcumuladores[mesReg][key] = 0;
                 }
             }
+
+            // Si el registro está facturado o archivado, su stock restante es fantasma y no debe 
+            // ser consumido por la factura actual en curso.
+            if (reg.estado === 'facturado' || reg.archivado) {
+                cantidadDisponible = 0;
+            }
+
+            // Descontar items summary (factura actual) via FIFO después
+            let cantidadDesdeSummary = 0;
+            if (summaryInvoicedMap[key] > 0) {
+                if (cantidadDisponible > 0) {
+                    const toTake = Math.min(cantidadDisponible, summaryInvoicedMap[key]);
+                    cantidadDesdeSummary = toTake;
+                    summaryInvoicedMap[key] -= toTake;
+                    cantidadDisponible -= toTake;
+                }
+            }
+
+            const cantidadEnFacturaActual = cantidadFacturadaExplicit + cantidadDesdeSummary;
 
             // Acumular la cantidad restante para el Resumen Agrupado
             if ((reg.estado === 'pendiente' || !reg.estado) && !reg.archivado) {
@@ -2269,6 +2290,110 @@ const RegistrosApp = {
         e.currentTarget.style.borderColor = '#bdc3c7';
     },
 
+    // Calcula en tiempo real cuántas unidades reales quedan disponibles para un producto
+    // Replica la lógica FIFO de renderFacturacionData() para obtener el restante actualizado
+    _calculateRealRemaining(productKey, type, specificRegId) {
+        // Obtener registros ordenados ascendentemente (más antiguos primero)
+        const registrosOrdenados = [...this.allRegistros].sort((a, b) => {
+            const millisA = this.parseDateToMillis(a.fecha);
+            const millisB = this.parseDateToMillis(b.fecha);
+            if (millisA !== millisB) return millisA - millisB;
+            const hasFilaA = a.filaExcel !== undefined && a.filaExcel !== null;
+            const hasFilaB = b.filaExcel !== undefined && b.filaExcel !== null;
+            if (hasFilaA && hasFilaB) return a.filaExcel - b.filaExcel;
+            if (hasFilaA) return -1;
+            if (hasFilaB) return 1;
+            return 0;
+        });
+
+        // Reconstruir descuentos de facturas históricas
+        const facturadoPorMesYProducto = {};
+        if (this._cachedFacturadoHistorico) {
+            for (const m in this._cachedFacturadoHistorico) {
+                facturadoPorMesYProducto[m] = { ...this._cachedFacturadoHistorico[m] };
+            }
+        }
+        const descAcumuladores = {};
+        for (const m in facturadoPorMesYProducto) {
+            descAcumuladores[m] = { ...facturadoPorMesYProducto[m] };
+        }
+
+        // Reconstruir descuentos de la factura actual (items summary)
+        let summaryInvoicedMap = {};
+        this.facturaItems.forEach(fi => {
+            if (fi.type === 'summary') {
+                const key = this.getGroupingKey(fi.producto, fi.vinculoId);
+                summaryInvoicedMap[key] = (summaryInvoicedMap[key] || 0) + fi.cantidadFacturar;
+            }
+        });
+
+        // Para type 'single', contar cuantas veces este registro específico ya está en la factura
+        let singleAlreadyInvoiced = 0;
+        if (type === 'single' && specificRegId) {
+            const singleItem = this.facturaItems.find(fi => fi.type === 'single' && fi.originalId === specificRegId);
+            singleAlreadyInvoiced = singleItem ? singleItem.cantidadFacturar : 0;
+        }
+
+        let totalRestante = 0;
+        let restanteParaRegistroEspecifico = 0;
+
+        registrosOrdenados.forEach(reg => {
+            if (!reg.producto) return;
+            const key = this.getGroupingKey(reg);
+            if (key !== productKey) return;
+
+            // Descontar items single de la factura actual
+            const factItem = this.facturaItems.find(fi => fi.type === 'single' && fi.originalId === reg.id);
+            let cantidadFacturadaExplicit = factItem ? factItem.cantidadFacturar : 0;
+
+            let cantidadDisponible = reg.cantidad - cantidadFacturadaExplicit;
+            const mesReg = reg.fecha ? reg.fecha.substring(0, 7) : '';
+
+            // Descontar facturas históricas via FIFO primero
+            if (descAcumuladores[mesReg] && descAcumuladores[mesReg][key] > 0) {
+                const descontar = descAcumuladores[mesReg][key];
+                if (descontar >= cantidadDisponible) {
+                    descAcumuladores[mesReg][key] -= cantidadDisponible;
+                    cantidadDisponible = 0;
+                } else {
+                    cantidadDisponible -= descontar;
+                    descAcumuladores[mesReg][key] = 0;
+                }
+            }
+
+            // Si el registro está facturado o archivado, su stock restante es fantasma y no debe 
+            // ser consumido por la factura actual en curso.
+            if (reg.estado === 'facturado' || reg.archivado) {
+                cantidadDisponible = 0;
+            }
+
+            // Descontar items summary (factura actual) via FIFO después
+            let cantidadDesdeSummary = 0;
+            if (summaryInvoicedMap[key] > 0) {
+                if (cantidadDisponible > 0) {
+                    const toTake = Math.min(cantidadDisponible, summaryInvoicedMap[key]);
+                    cantidadDesdeSummary = toTake;
+                    summaryInvoicedMap[key] -= toTake;
+                    cantidadDisponible -= toTake;
+                }
+            }
+
+            // Solo acumular el restante si el registro no está completamente facturado o archivado
+            if ((reg.estado === 'pendiente' || !reg.estado) && !reg.archivado) {
+                totalRestante += cantidadDisponible;
+
+                // Para type single, guardar el restante del registro específico
+                if (type === 'single' && reg.id === specificRegId) {
+                    restanteParaRegistroEspecifico = cantidadDisponible;
+                }
+            }
+        });
+
+        // Para type single devolvemos el restante del registro específico
+        // Para type summary devolvemos el total restante global del producto
+        return type === 'single' ? restanteParaRegistroEspecifico : totalRestante;
+    },
+
     addItemToFactura(data) {
         try {
             // Check if already in factura
@@ -2279,7 +2404,10 @@ const RegistrosApp = {
             });
 
             if (existingItem) {
-                if (data.max > 0) {
+                // Recalcular el restante REAL en tiempo real, sin depender de data.max (que puede ser obsoleto)
+                const realMax = this._calculateRealRemaining(incomingKey, data.type, data.id);
+                
+                if (realMax > 0) {
                     existingItem.cantidadFacturar += 1;
                     // Si viene un item diferente al que originó la fila, lo convertimos en 'summary'
                     // para que el sistema FIFO distribuya el descuento entre todas las filas coincidentes.
@@ -2291,7 +2419,9 @@ const RegistrosApp = {
                     alert('No puedes agregar más. Límite pendiente alcanzado.');
                 }
             } else {
-                if (data.max <= 0) {
+                // Para items nuevos, también calcular el restante real
+                const realMax = this._calculateRealRemaining(incomingKey, data.type, data.id);
+                if (realMax <= 0) {
                     alert('No puedes agregar más. Límite pendiente alcanzado.');
                     return;
                 }
@@ -2311,7 +2441,7 @@ const RegistrosApp = {
                     producto: data.producto,
                     cuenta: data.cuenta || '',
                     cantidadFacturar: 1,
-                    max: data.max,
+                    max: realMax,
                     vinculoId: data.productId || null,
                     codigoOficial: data.codigoOficial || '',
                     precioUnitario: initialPrice,
@@ -2692,9 +2822,20 @@ const RegistrosApp = {
 
         tbody.innerHTML = '';
 
+        const computedBilledMap = this.calculateComputedBilledMap(this.allRegistros);
+
         let filtered = this.allRegistros.filter(reg => {
             const norm = this.normalizeDateStr(reg.fecha);
             if (norm !== this.currentSelectedDate) return false;
+            
+            // Permitir mostrar registros archivados si ya no están completamente facturados
+            if (reg.archivado) {
+                const fifoBilled = computedBilledMap[reg.id] || 0;
+                const clones = this.allClonesMap[reg.id] || [];
+                const explicitBilledClones = clones.filter(c => c.estado === 'facturado').reduce((sum, c) => sum + c.cantidad, 0);
+                const totalBilled = Math.max(fifoBilled, explicitBilledClones);
+                if (totalBilled >= reg.cantidad) return false;
+            }
 
             const matchSearch = reg.producto.toLowerCase().includes(searchTerm) ||
                 (reg.cuenta && reg.cuenta.toLowerCase().includes(searchTerm));
@@ -2706,22 +2847,33 @@ const RegistrosApp = {
             return;
         }
 
-        const computedBilledMap = this.calculateComputedBilledMap(this.allRegistros);
 
-        // Ordenar: primero los pendientes, luego por fecha descendente
         filtered.sort((a, b) => {
-            const aDone = (computedBilledMap[a.id] || 0) >= a.cantidad || a.estado === 'facturado';
-            const bDone = (computedBilledMap[b.id] || 0) >= b.cantidad || b.estado === 'facturado';
+            const clonesA = this.allClonesMap[a.id] || [];
+            const explicitA = clonesA.filter(c => c.estado === 'facturado').reduce((sum, c) => sum + c.cantidad, 0);
+            const billedA = Math.max(computedBilledMap[a.id] || 0, explicitA);
+            const aDone = billedA >= a.cantidad;
+
+            const clonesB = this.allClonesMap[b.id] || [];
+            const explicitB = clonesB.filter(c => c.estado === 'facturado').reduce((sum, c) => sum + c.cantidad, 0);
+            const billedB = Math.max(computedBilledMap[b.id] || 0, explicitB);
+            const bDone = billedB >= b.cantidad;
+
             if (!aDone && bDone) return -1;
             if (aDone && !bDone) return 1;
-            return 0; // Ya están del mismo día, mantenemos orden de inserción/timestamp
+            return 0;
         });
 
         filtered.forEach(reg => {
             const tr = document.createElement('tr');
             
-            const totalBilled = computedBilledMap[reg.id] || 0;
-            const isFullyFacturado = totalBilled >= reg.cantidad || reg.estado === 'facturado';
+            const clones = this.allClonesMap[reg.id] || [];
+            const fifoBilled = computedBilledMap[reg.id] || 0;
+            const explicitBilledClones = clones.filter(c => c.estado === 'facturado').reduce((sum, c) => sum + c.cantidad, 0);
+            
+            let totalBilled = Math.max(fifoBilled, explicitBilledClones);
+            
+            const isFullyFacturado = totalBilled >= reg.cantidad;
             const isPartiallyFacturado = totalBilled > 0 && totalBilled < reg.cantidad;
 
             const statusClass = isFullyFacturado ? 'status-invoiced' : 'status-pending';

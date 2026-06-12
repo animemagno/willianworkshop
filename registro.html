@@ -333,7 +333,7 @@
 
 <body>
     <!-- TEMPORARY MIGRATION BUTTON -->
-    <div style="background: #e74c3c; color: white; padding: 15px; text-align: center; font-weight: bold; position: relative; z-index: 999999;">
+    <div style="display:none; background: #e74c3c; color: white; padding: 15px; text-align: center; font-weight: bold; position: relative; z-index: 999999;">
         ¡Migración Pendiente! Haz clic aquí para unificar la base de datos a REGISTROS: 
         <button onclick="window.runUnifiedMigration()" style="background: white; color: #e74c3c; border: none; padding: 5px 15px; font-weight: bold; border-radius: 4px; cursor: pointer; margin-left: 10px;">
             Iniciar Migración Ahora
@@ -512,7 +512,7 @@
                             </thead>
                             <tbody id="fast-entry-tbody">
                                 <tr id="empty-state-row">
-                                    <td colspan="6" style="text-align: center; padding: 60px 20px; color: #a0aec0;">
+                                    <td colspan="7" style="text-align: center; padding: 60px 20px; color: #a0aec0;">
                                         <i class="fas fa-box-open"
                                             style="font-size: 45px; margin-bottom: 12px; color: #cbd5e0;"></i>
                                         <p style="margin: 0; font-weight: bold; font-size: 1.1rem;">No hay productos en
@@ -540,7 +540,7 @@
                             </thead>
                             <tbody id="resumen-tbody">
                                 <tr id="resumen-empty-state">
-                                    <td colspan="2" style="text-align: center; padding: 60px 20px; color: #a0aec0;">
+                                    <td colspan="4" style="text-align: center; padding: 60px 20px; color: #a0aec0;">
                                         <i class="fas fa-chart-bar"
                                             style="font-size: 45px; margin-bottom: 12px; color: #cbd5e0;"></i>
                                         <p style="margin: 0; font-weight: bold; font-size: 1.1rem;">El resumen dinámico
@@ -582,7 +582,7 @@
                             </thead>
                             <tbody id="excel-table-tbody">
                                 <tr>
-                                    <td colspan="5" style="text-align: center; padding: 40px; color: #aaa;">No hay datos
+                                    <td colspan="6" style="text-align: center; padding: 40px; color: #aaa;">No hay datos
                                         para mostrar</td>
                                 </tr>
                             </tbody>
@@ -603,7 +603,7 @@
                             </thead>
                             <tbody id="historial-archivo-tbody">
                                 <tr>
-                                    <td colspan="5" style="text-align: center; padding: 40px; color: #aaa;">No hay
+                                    <td colspan="3" style="text-align: center; padding: 40px; color: #aaa;">No hay
                                         registros archivados</td>
                                 </tr>
                             </tbody>
@@ -737,6 +737,7 @@
 
             } catch (error) {
                 console.error("Error al cargar la caché de productos para el escáner:", error);
+                document.getElementById('registro-loading').style.display = 'none';
                 alert("Error crítico al cargar productos: " + error.message + "\nPor favor recarga la página.");
             }
         }

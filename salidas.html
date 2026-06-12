@@ -1010,6 +1010,7 @@
                 
             } catch (error) {
                 console.error("Error al cargar la caché de productos para salidas:", error);
+                document.getElementById('salidas-loading').style.display = 'none';
                 alert("Error crítico al cargar productos: " + error.message + "\nPor favor recarga la página.");
             }
         }
