@@ -767,9 +767,6 @@ const RegistrosApp = {
                 return tB - tA; // Descendente para que los más recientes vayan arriba
             });
 
-            let lastFormattedDate = null;
-            let lastRawDate = null;
-
             // computedBilledMap ya fue calculado al inicio de renderFastEntryTable()
 
             registrosAMostrar.forEach((reg, index) => {
@@ -863,10 +860,42 @@ const RegistrosApp = {
                     <td style="border-bottom: 1px solid #edf2f7; text-align: center;">${actionCell}</td>
                 `;
                 tbody.appendChild(tr);
+            });
 
-                if (excelTbody) {
+            if (excelTbody) {
+                let lastFormattedDate = null;
+                let lastRawDate = null;
+                const registrosParaExcel = registrosAMostrar.slice().reverse();
+
+                registrosParaExcel.forEach((reg, index) => {
                     const currentFormattedDate = this.formatDate(reg.fecha);
                     const currentRawDate = reg.fecha;
+                    
+                    const clones = this.allClonesMap[reg.id] || [];
+                    const fifoBilled = computedBilledMap[reg.id] || 0;
+                    const explicitBilledClones = clones.filter(c => c.estado === 'facturado').reduce((sum, c) => sum + c.cantidad, 0);
+                    let totalBilled = Math.max(fifoBilled, explicitBilledClones);
+                    let isFullyFacturado = totalBilled >= reg.cantidad;
+
+                    let rowStyle = '';
+                    if (isFullyFacturado) {
+                        rowStyle = 'background-color: #e8f5e9 !important;';
+                    } else if (totalBilled > 0) {
+                        rowStyle = 'background-color: #fffbeb !important;';
+                    }
+
+                    const billedClones = clones.filter(c => c.estado === 'facturado');
+                    let pillsHtml = '';
+                    billedClones.forEach(bc => {
+                        const numFact = bc.numeroFactura || bc.facturaId || 'N/A';
+                        const client = bc.clienteFactura || 'Cliente General';
+                        const qty = bc.cantidad;
+                        pillsHtml += `
+                            <span class="invoice-pill" title="Cliente: ${client}">
+                                <i class="fas fa-file-invoice" style="color: #4a5568;"></i> Fact. #${numFact} (${qty} ud${qty > 1 ? 's' : ''})
+                            </span>
+                        `;
+                    });
 
                     if (lastFormattedDate !== null && currentFormattedDate !== lastFormattedDate) {
                         const trBtn = document.createElement('tr');
@@ -885,7 +914,6 @@ const RegistrosApp = {
                     const safeProducto = (reg.producto || '').replace(/'/g, "\\'").replace(/"/g, "&quot;");
                     const safeCuenta = (reg.cuenta || '').replace(/'/g, "\\'").replace(/"/g, "&quot;");
                     const safeObservacion = (reg.observacion || '').replace(/'/g, "\\'").replace(/"/g, "&quot;");
-
                     const safePrecioEspecial = (reg.precioEspecial || '').toString();
 
                     const trExcel = document.createElement('tr');
@@ -910,7 +938,7 @@ const RegistrosApp = {
                     `;
                     excelTbody.appendChild(trExcel);
 
-                    if (index === registrosAMostrar.length - 1) {
+                    if (index === registrosParaExcel.length - 1) {
                         const trBtnFinal = document.createElement('tr');
                         trBtnFinal.innerHTML = `
                             <td colspan="6" style="border: 1px solid #d4d4d4; padding: 4px; text-align: center; background-color: #fcfcfc;">
@@ -919,8 +947,8 @@ const RegistrosApp = {
                         `;
                         excelTbody.appendChild(trBtnFinal);
                     }
-                }
-            });
+                });
+            }
         }
 
         const totalItemsSpan = document.getElementById('total-items');
