@@ -601,6 +601,30 @@ const RegistrosApp = {
             descAcumuladores[m] = { ...facturadoPorMesYProducto[m] };
         }
 
+        // --- PREVENIR DOBLE CONSUMO ---
+        // Si un registro fue facturado de forma explícita (tiene clones), esa cantidad ya está en descAcumuladores
+        // (porque las facturas suman todo al historial). Debemos restarlo de descAcumuladores para que el FIFO
+        // no vuelva a consumir otros registros con esa misma cantidad.
+        for (const regId in this.allClonesMap) {
+            const clones = this.allClonesMap[regId] || [];
+            clones.forEach(c => {
+                if (c.estado === 'facturado' && c.facturaId) {
+                    const inv = this.allHistoricalInvoices.find(f => f.id === c.facturaId);
+                    if (inv && inv.fecha) {
+                        const mesInv = inv.fecha.substring(0, 7);
+                        const originalReg = this.allRegistros.find(r => r.id === regId);
+                        if (originalReg) {
+                            const key = this.getGroupingKey(originalReg);
+                            if (descAcumuladores[mesInv] && descAcumuladores[mesInv][key] > 0) {
+                                const descontar = Math.min(descAcumuladores[mesInv][key], c.cantidad);
+                                descAcumuladores[mesInv][key] -= descontar;
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
         const computedBilledMap = {};
         
         if (!this._cachedRegistrosOrdenadosAsc) {
@@ -625,7 +649,6 @@ const RegistrosApp = {
             let billedHere = 0;
             
             // Solo descontar facturas del MISMO mes del registro.
-            // Facturas de otros meses NO deben consumir registros de un mes diferente.
             let remainingQty = reg.cantidad;
 
             if (descAcumuladores[mesReg] && descAcumuladores[mesReg][key] > 0) {
@@ -658,9 +681,23 @@ const RegistrosApp = {
         // Calcular mapa de facturación FIFO antes de usarlo en los filtros
         const computedBilledMap = this.calculateComputedBilledMap(this.allRegistros);
 
+        // Determinar el mes en contexto para ocultar pendientes de meses pasados
+        let selectedMonthStr = '';
+        const facturaFechaInput = document.getElementById('factura-fecha');
+        if (facturaFechaInput && facturaFechaInput.value) {
+            selectedMonthStr = facturaFechaInput.value.substring(0, 7);
+        } else {
+            const today = new Date();
+            selectedMonthStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+        }
+
         const registrosArchivados = this.allRegistros.filter(r => r.archivado);
         
         const registrosAMostrar = this.allRegistros.filter(r => {
+            // En modo "Meses Aislados", ocultamos los registros que no son del mes en contexto
+            // para que no se sumen en los resúmenes ni se muestren como pendientes en el mes actual.
+            if (r.fecha && r.fecha.substring(0, 7) !== selectedMonthStr) return false;
+
             if (!r.archivado) return true;
             // Si está archivado pero ya no está completamente facturado (ej: factura eliminada), mostrarlo.
             const fifoBilled = computedBilledMap[r.id] || 0;
@@ -1998,7 +2035,7 @@ const RegistrosApp = {
         // Calcular los totales originales de los pendientes (para arrastre y límites)
         let resumenMap = {};
         todosLosRegistrosMes.forEach(reg => {
-            if (reg.estado !== 'pendiente') return;
+            if (reg.estado === 'facturado') return;
             if (reg.archivado) return; // Ignorar archivados en el total visual
             if (!reg.producto) return;
             const key = this.getGroupingKey(reg);
@@ -2041,34 +2078,30 @@ const RegistrosApp = {
             }
         });
 
+        // Calcular mapa facturado usando la lógica centralizada
+        const computedBilledMap = this.calculateComputedBilledMap(this.allRegistros);
+
         // 4. Procesar todos los registros aplicando FIFO
         todosLosRegistrosMes.forEach(reg => {
             if (!reg.producto) return;
             const key = this.getGroupingKey(reg);
             const officialName = this.getOfficialProductName(reg);
             
-            // Determinar cantidad ya cargada explicitamente (type single)
+            // Calcular facturado histórico (igual que en renderFastEntryTable y _calculateRealRemaining)
+            const fifoBilled = computedBilledMap[reg.id] || 0;
+            const clones = this.allClonesMap[reg.id] || [];
+            const explicitBilledClones = clones.filter(c => c.estado === 'facturado').reduce((sum, c) => sum + c.cantidad, 0);
+            const totalBilledHist = Math.max(fifoBilled, explicitBilledClones);
+            
+            // Determinar cantidad ya cargada explicitamente (type single) en la factura actual
             const factItem = this.facturaItems.find(fi => fi.type === 'single' && fi.originalId === reg.id);
             let cantidadFacturadaExplicit = factItem ? factItem.cantidadFacturar : 0;
             
-            let cantidadDisponible = reg.cantidad - cantidadFacturadaExplicit;
-            const mesReg = reg.fecha ? reg.fecha.substring(0, 7) : '';
+            let cantidadDisponible = reg.cantidad - totalBilledHist - cantidadFacturadaExplicit;
+            if (cantidadDisponible < 0) cantidadDisponible = 0;
 
-            // Descontar facturas históricas via FIFO primero
-            if (descAcumuladores[mesReg] && descAcumuladores[mesReg][key] > 0) {
-                const descontar = descAcumuladores[mesReg][key];
-                if (descontar >= cantidadDisponible) {
-                    descAcumuladores[mesReg][key] -= cantidadDisponible;
-                    cantidadDisponible = 0;
-                } else {
-                    cantidadDisponible -= descontar;
-                    descAcumuladores[mesReg][key] = 0;
-                }
-            }
-
-            // Si el registro está facturado o archivado, su stock restante es fantasma y no debe 
-            // ser consumido por la factura actual en curso.
-            if (reg.estado === 'facturado' || reg.archivado) {
+            // Si el registro está archivado, su stock restante es fantasma
+            if (reg.archivado) {
                 cantidadDisponible = 0;
             }
 
@@ -2334,17 +2367,7 @@ const RegistrosApp = {
             return 0;
         });
 
-        // Reconstruir descuentos de facturas históricas
-        const facturadoPorMesYProducto = {};
-        if (this._cachedFacturadoHistorico) {
-            for (const m in this._cachedFacturadoHistorico) {
-                facturadoPorMesYProducto[m] = { ...this._cachedFacturadoHistorico[m] };
-            }
-        }
-        const descAcumuladores = {};
-        for (const m in facturadoPorMesYProducto) {
-            descAcumuladores[m] = { ...facturadoPorMesYProducto[m] };
-        }
+        const computedBilledMap = this.calculateComputedBilledMap(this.allRegistros);
 
         // Reconstruir descuentos de la factura actual (items summary)
         let summaryInvoicedMap = {};
@@ -2370,28 +2393,21 @@ const RegistrosApp = {
             const key = this.getGroupingKey(reg);
             if (key !== productKey) return;
 
+            // Calcular facturado histórico (igual que en renderFastEntryTable)
+            const fifoBilled = computedBilledMap[reg.id] || 0;
+            const clones = this.allClonesMap[reg.id] || [];
+            const explicitBilledClones = clones.filter(c => c.estado === 'facturado').reduce((sum, c) => sum + c.cantidad, 0);
+            const totalBilledHist = Math.max(fifoBilled, explicitBilledClones);
+
             // Descontar items single de la factura actual
             const factItem = this.facturaItems.find(fi => fi.type === 'single' && fi.originalId === reg.id);
             let cantidadFacturadaExplicit = factItem ? factItem.cantidadFacturar : 0;
 
-            let cantidadDisponible = reg.cantidad - cantidadFacturadaExplicit;
-            const mesReg = reg.fecha ? reg.fecha.substring(0, 7) : '';
+            let cantidadDisponible = reg.cantidad - totalBilledHist - cantidadFacturadaExplicit;
+            if (cantidadDisponible < 0) cantidadDisponible = 0;
 
-            // Descontar facturas históricas via FIFO primero
-            if (descAcumuladores[mesReg] && descAcumuladores[mesReg][key] > 0) {
-                const descontar = descAcumuladores[mesReg][key];
-                if (descontar >= cantidadDisponible) {
-                    descAcumuladores[mesReg][key] -= cantidadDisponible;
-                    cantidadDisponible = 0;
-                } else {
-                    cantidadDisponible -= descontar;
-                    descAcumuladores[mesReg][key] = 0;
-                }
-            }
-
-            // Si el registro está facturado o archivado, su stock restante es fantasma y no debe 
-            // ser consumido por la factura actual en curso.
-            if (reg.estado === 'facturado' || reg.archivado) {
+            // Si el registro está archivado, su stock restante es fantasma
+            if (reg.archivado) {
                 cantidadDisponible = 0;
             }
 
@@ -4311,7 +4327,7 @@ const RegistrosApp = {
         tbody.innerHTML = '';
 
         if (invoices.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:#718096;"><i class="fas fa-folder-open" style="font-size:30px; margin-bottom:8px;"></i><br>No se encontraron facturas.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:30px; color:#718096;"><i class="fas fa-folder-open" style="font-size:30px; margin-bottom:8px;"></i><br>No se encontraron facturas.</td></tr>';
             return;
         }
 
@@ -4325,12 +4341,20 @@ const RegistrosApp = {
                 ? `<span style="display:inline-flex;align-items:center;gap:3px;background:#fed7d7;color:#c53030;border:1px solid #fc8181;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:bold;margin-left:6px;"><i class='fas fa-exclamation-triangle'></i> Sin vincular</span>`
                 : '';
 
+            const isChecked = localStorage.getItem(`invoiceChecked_${inv.id}`) === 'true';
+            const hasNote = !!localStorage.getItem(`invoiceNote_${inv.id}`);
+            const checkIcon = isChecked ? '<i class="fas fa-check-circle" style="font-size:18px; color:#38a169;"></i>' : '<i class="fas fa-circle" style="font-size:18px; color:#cbd5e0;"></i>';
+            const rowBg = isChecked ? '#f0fff4' : '';
+            const noteIcon = hasNote ? ' <i class="fas fa-sticky-note" title="Tiene nota" style="color: #d69e2e; font-size: 0.9rem; margin-left: 5px;"></i>' : '';
+
             const tr = document.createElement('tr');
-            if (sinVincular) tr.style.cssText = 'background:#fff5f5; border-left:4px solid #e53e3e;';
+            if (rowBg) tr.style.backgroundColor = rowBg;
+            if (sinVincular) tr.style.cssText += 'background:#fff5f5; border-left:4px solid #e53e3e;';
             tr.innerHTML = `
+                <td style="padding: 12px; border: 1px solid #edf2f7; text-align: center; cursor: pointer;" onclick="RegistrosApp.toggleInvoiceChecked('${inv.id}', this)">${checkIcon}</td>
                 <td style="padding: 12px; border: 1px solid #edf2f7; font-weight: 500;">${dateFormatted}</td>
                 <td style="padding: 12px; border: 1px solid #edf2f7; font-weight: 600; color: #2d3748;">${inv.CLIENTE || 'Cliente General'}${alertaBadge}</td>
-                <td style="padding: 12px; border: 1px solid #edf2f7; text-align: center; font-family: monospace; font-size: 0.95rem;">${inv.numeroFactura || '<span style="color:#cbd5e0;">-</span>'}</td>
+                <td style="padding: 12px; border: 1px solid #edf2f7; text-align: center; font-family: monospace; font-size: 0.95rem;">${inv.numeroFactura || '<span style="color:#cbd5e0;">-</span>'}${noteIcon}</td>
                 <td style="padding: 12px; border: 1px solid #edf2f7; text-align: center;"><span class="status-badge ${typeClass}">${typeText}</span></td>
                 <td style="padding: 12px; border: 1px solid #edf2f7; text-align: right; font-weight: bold; color: #2b6cb0;">$${totalVal.toFixed(2)}</td>
                 <td style="padding: 12px; border: 1px solid #edf2f7; text-align: center;">
@@ -4341,6 +4365,42 @@ const RegistrosApp = {
             `;
             tbody.appendChild(tr);
         });
+    },
+
+    toggleInvoiceChecked(id, btn) {
+        const current = localStorage.getItem(`invoiceChecked_${id}`) === 'true';
+        const next = !current;
+        localStorage.setItem(`invoiceChecked_${id}`, next ? 'true' : 'false');
+        const row = btn.closest('tr');
+        if (next) {
+            btn.innerHTML = '<i class="fas fa-check-circle" style="font-size:18px; color:#38a169;"></i>';
+            if (row) row.style.backgroundColor = '#f0fff4';
+        } else {
+            btn.innerHTML = '<i class="fas fa-circle" style="font-size:18px; color:#cbd5e0;"></i>';
+            if (row) row.style.backgroundColor = '';
+        }
+    },
+
+    saveInvoiceNote() {
+        const id = this.currentViewedInvoiceId;
+        if (!id) return;
+        const textarea = document.getElementById('invoice-notes-textarea');
+        if (!textarea) return;
+        if (this._noteSaveTimeout) clearTimeout(this._noteSaveTimeout);
+        this._noteSaveTimeout = setTimeout(() => {
+            const text = textarea.value.trim();
+            if (text) {
+                localStorage.setItem(`invoiceNote_${id}`, text);
+            } else {
+                localStorage.removeItem(`invoiceNote_${id}`);
+            }
+            const savedMsg = document.getElementById('invoice-note-saved-msg');
+            if (savedMsg) {
+                savedMsg.style.display = 'block';
+                savedMsg.innerText = 'Nota guardada ✔';
+                setTimeout(() => { savedMsg.style.display = 'none'; }, 2000);
+            }
+        }, 500);
     },
 
     filterInvoicesHistory() {
@@ -4587,6 +4647,14 @@ const RegistrosApp = {
 
         const totalVal = typeof inv.total === 'number' ? inv.total : 0;
         document.getElementById('detail-invoice-total').innerText = "$" + totalVal.toFixed(2);
+
+        // Cargar nota guardada de esta factura
+        const textarea = document.getElementById('invoice-notes-textarea');
+        if (textarea) {
+            textarea.value = localStorage.getItem(`invoiceNote_${id}`) || '';
+        }
+        const savedMsg = document.getElementById('invoice-note-saved-msg');
+        if (savedMsg) savedMsg.style.display = 'none';
 
         // Enlazar el botón de anular factura dinámicamente
         const btnAnular = document.getElementById('btn-anular-factura');

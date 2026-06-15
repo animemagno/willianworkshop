@@ -727,6 +727,7 @@
                     <table class="inventario-table" style="width: 100%; border-collapse: collapse; margin: 0;">
                         <thead>
                             <tr style="background: #f8f9fa;">
+                                <th style="border: 1px solid #ddd; padding: 8px; text-align: center; width: 50px;">✔</th>
                                 <th style="border: 1px solid #ddd; padding: 12px;">Fecha</th>
                                 <th style="border: 1px solid #ddd; padding: 12px;">Cliente / Cuenta</th>
                                 <th style="border: 1px solid #ddd; padding: 12px; text-align: center; width: 130px;">N° Factura</th>
@@ -877,6 +878,19 @@
                         </tr>
                     </tfoot>
                 </table>
+            </div>
+
+            <!-- NOTAS DE REVISIÓN POR FACTURA -->
+            <div style="margin-top: 18px; margin-bottom: 10px;">
+                <label style="font-weight: bold; color: #4a5568; font-size: 0.9rem; display: block; margin-bottom: 6px;">
+                    <i class="fas fa-sticky-note" style="color: #d69e2e; margin-right: 5px;"></i> Notas de revisión
+                </label>
+                <textarea id="invoice-notes-textarea"
+                    placeholder="Ej: El artículo X ya fue agregado en la factura 735, no agregar aquí..."
+                    style="width: 100%; min-height: 80px; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.9rem; font-family: inherit; resize: vertical; box-sizing: border-box; color: #2d3748;"
+                    oninput="RegistrosApp.saveInvoiceNote()">
+                </textarea>
+                <span id="invoice-note-saved-msg" style="display:none; font-size: 0.8rem; color: #38a169; margin-top: 4px; display: block;"></span>
             </div>
 
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
