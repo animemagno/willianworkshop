@@ -112,16 +112,6 @@ const RegistrosApp = {
             resolve();
         });
     },
-                }, err => {
-                    console.error("Error al escuchar facturas activas para auto-sanación:", err);
-                    if (!this.activeInvoiceIds) this.activeInvoiceIds = new Set();
-                    if (isInitial) {
-                        isInitial = false;
-                        resolve();
-                    }
-                });
-        });
-    },
 
     // autoMigrateRegistros removed.,
 
