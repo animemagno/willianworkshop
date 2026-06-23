@@ -869,13 +869,17 @@ const RegistrosApp = {
                     </div>
                 `;
 
-                // Bloquear eliminación si tiene partes facturadas, pero permitir archivar
+                // Bloquear eliminación si tiene partes facturadas, pero permitir archivar y forzar borrado
                 const actionCell = (isFullyFacturado || isPartiallyFacturado)
                     ? (isFullyFacturado 
-                        ? `<i class="fas fa-check-circle" style="color: #27ae60; font-size: 1.2rem;" title="Facturado"></i>`
+                        ? `<div style="display: flex; gap: 5px; align-items: center; justify-content: center;">
+                             <i class="fas fa-check-circle" style="color: #27ae60; font-size: 1.2rem;" title="Facturado"></i>
+                             <button type="button" class="btn btn-danger" style="padding: 2px 6px; font-size: 10px; border-radius: 4px; border: none; cursor: pointer;" onclick="RegistrosApp.deleteRegistro('${reg.id}')" title="Forzar eliminación"><i class="fas fa-trash"></i></button>
+                           </div>`
                         : `<div style="display: flex; gap: 5px; align-items: center; justify-content: center;">
                              <i class="fas fa-adjust" style="color: #b7791f; font-size: 1.2rem;" title="Facturado Parcial (${totalBilled}/${reg.cantidad})"></i>
                              <button type="button" class="btn btn-warning" style="padding: 2px 6px; font-size: 10px; border-radius: 4px; background-color: #f39c12; color: white; border: none; cursor: pointer;" onclick="RegistrosApp.forzarArchivar('${reg.id}')" title="Archivar manualmente"><i class="fas fa-archive"></i></button>
+                             <button type="button" class="btn btn-danger" style="padding: 2px 6px; font-size: 10px; border-radius: 4px; border: none; cursor: pointer;" onclick="RegistrosApp.deleteRegistro('${reg.id}')" title="Forzar eliminación"><i class="fas fa-trash"></i></button>
                            </div>`)
                     : `<button type="button" class="btn btn-danger" style="padding: 5px; width: 30px; height: 30px; border-radius: 50%;" onclick="RegistrosApp.deleteRegistro('${reg.id}')" title="Eliminar fila"><i class="fas fa-times"></i></button>`;
 
@@ -2634,12 +2638,12 @@ const RegistrosApp = {
         let precioEncontrado = false;
 
         try {
-            // 1. Intentar buscar por ID de vínculo en el inventario
-            if (currentVinculoId && window.app && window.app.cache) {
-                const cachedProduct = window.app.cache.find(p => p.id === currentVinculoId);
-                if (cachedProduct) {
-                    item.costoUnitario = cachedProduct.costo || 0;
-                    item.precioUnitario = cachedProduct.precio || 0;
+            // 1. Intentar buscar por ID de vínculo en el inventario directo en Firestore
+            if (currentVinculoId) {
+                const doc = await this.db.collection('INVENTARIO').doc(currentVinculoId).get();
+                if (doc.exists) {
+                    item.costoUnitario = doc.data().costo || 0;
+                    item.precioUnitario = doc.data().precio || 0;
                     precioEncontrado = true;
                 }
             }
@@ -2652,18 +2656,30 @@ const RegistrosApp = {
                     item.precioUnitario = data.precioNormal || 0;
                     if (data.vinculoId) {
                         item.vinculoId = data.vinculoId;
-                        if (window.app && window.app.cache) {
-                            const p = window.app.cache.find(c => c.id === data.vinculoId);
-                            if (p) item.costoUnitario = p.costo || 0;
-                        }
+                        const pDoc = await this.db.collection('INVENTARIO').doc(data.vinculoId).get();
+                        if (pDoc.exists) item.costoUnitario = pDoc.data().costo || 0;
                     }
                     precioEncontrado = true;
                 }
             }
 
-            // 3. Si aún no se encuentra, buscar en el inventario por el nombre descriptivo exacto
-            if (!precioEncontrado && window.app && window.app.cache) {
-                const match = window.app.cache.find(p => p.descripcion && p.descripcion.toLowerCase().trim() === item.producto.toLowerCase().trim());
+            // 3. Si aún no se encuentra, buscar en el inventario usando la caché local (case-insensitive, por nombre, código y alias)
+            if (!precioEncontrado) {
+                if (!this._inventarioCache) {
+                    const snapAll = await this.db.collection('INVENTARIO').get();
+                    this._inventarioCache = [];
+                    snapAll.forEach(d => this._inventarioCache.push({ id: d.id, ...d.data() }));
+                }
+
+                const searchName = item.producto.toLowerCase().trim();
+                const match = this._inventarioCache.find(p => {
+                    const descMatch = p.descripcion && p.descripcion.toLowerCase().trim() === searchName;
+                    const codeMatch = p.codigo && p.codigo.toLowerCase().trim() === searchName;
+                    const officialCodeMatch = item.codigoOficial && p.codigo && p.codigo.toLowerCase().trim() === item.codigoOficial.toLowerCase().trim();
+                    const aliasMatch = p.aliases && Array.isArray(p.aliases) && p.aliases.some(alias => alias.toLowerCase().trim() === searchName);
+                    return descMatch || codeMatch || officialCodeMatch || aliasMatch;
+                });
+                
                 if (match) {
                     item.vinculoId = match.id;
                     item.costoUnitario = match.costo || 0;
@@ -5599,5 +5615,8 @@ if (document.readyState === 'loading') {
 
 // Exponer globalmente para los botones HTML
 window.RegistrosApp = RegistrosApp;
+
+
+
 
 
