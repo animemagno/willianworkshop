@@ -1824,10 +1824,9 @@ const RegistrosApp = {
             let respaldoReady = false;
             let clonesReady = false;
 
-            // Para registro.html, bajamos el límite de 10,000 a 3,000 para ahorrar lecturas
             this.unsubscribe = this.registrosRef
                 .orderBy('fecha', 'desc')
-                .limit(3000)
+                .limit(10000)
                 .onSnapshot(snapshot => {
                     this.allRegistros = [];
                     this.allClonesMap = {};
@@ -1885,10 +1884,9 @@ const RegistrosApp = {
 
         } else {
             // ====== SALIDAS.HTML y otras pantallas: Escucha simple de REGISTROS ======
-            // Optimización: Solo descargar registros PENDIENTES (archivado: false)
-            // Se elimina el orderBy para evitar requerir un índice compuesto en Firebase.
             this.unsubscribe = this.registrosRef
-                .where('archivado', '==', false)
+                .orderBy('fecha', 'desc')
+                .limit(10000)
                 .onSnapshot(snapshot => {
                     this.allRegistros = [];
                     this._cachedFacturadoHistorico = null;
@@ -1910,14 +1908,6 @@ const RegistrosApp = {
                             ...data
                         });
                     });
-                    
-                    // Ordenar localmente en memoria para simular el orderBy('fecha', 'desc')
-                    this.allRegistros.sort((a, b) => {
-                        const dateA = a.fecha || '';
-                        const dateB = b.fecha || '';
-                        return dateB.localeCompare(dateA);
-                    });
-
                     this.renderDatesList();
                     this.renderFacturacionData();
 
