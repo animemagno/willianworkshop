@@ -3573,6 +3573,8 @@ const RegistrosApp = {
             this.loadInvoicesHistory();
 
         } catch (error) {
+            console.error("Error crítico al finalizar factura:", error);
+            alert("Error al guardar la factura: " + error.message);
             this.showLoading(false);
         }
     },
