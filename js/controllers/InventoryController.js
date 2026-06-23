@@ -423,8 +423,9 @@ class InventoryController {
                 return true;
             };
 
-            // 1. Obtener VENTAS (Facturas)
-            const salidasSnapshot = await db.collection('INVENTARIO_SALIDAS').get();
+            // 1. Obtener VENTAS (Facturas) del mes actual
+            const startOfMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            const salidasSnapshot = await db.collection('INVENTARIO_SALIDAS').where('timestamp', '>=', startOfMonthDate).get();
             const salidasMap = {};
             salidasSnapshot.forEach(doc => {
                 const data = doc.data();
@@ -441,8 +442,8 @@ class InventoryController {
                 }
             });
 
-            // 2. Obtener ENTRADAS DESGLOSADAS POR PROVEEDOR
-            const entradasSnapshot = await db.collection('INVENTARIO_ENTRADAS').get();
+            // 2. Obtener ENTRADAS DESGLOSADAS POR PROVEEDOR del mes actual
+            const entradasSnapshot = await db.collection('INVENTARIO_ENTRADAS').where('timestamp', '>=', startOfMonthDate).get();
             const entradasPorProveedorMap = {}; // { stableKey: { "PROV A": 10, "PROV B": 5 } }
             const activeProvidersSet = new Set();
 
@@ -466,8 +467,8 @@ class InventoryController {
             
             this.activeProviders = Array.from(activeProvidersSet).sort();
 
-            // 3. Obtener TOTAL REGISTRADOS (para aplicar FIFO igual que salidas.html)
-            const registradosSnapshot = await db.collection('REGISTROS').get();
+            // 3. Obtener TOTAL REGISTRADOS (para aplicar FIFO igual que salidas.html) del mes actual
+            const registradosSnapshot = await db.collection('REGISTROS').where('fecha', '>=', currentMonthPrefix + '-01').get();
             const registradosMap = {};
             registradosSnapshot.forEach(doc => {
                 const data = doc.data();
