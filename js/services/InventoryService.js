@@ -108,27 +108,7 @@ class InventoryService {
                 // Actualizar
                 transaction.update(ref, datos);
 
-                // Log de Ajuste (Si hubo cambio de stock)
-                if (!isNaN(newStock) && Math.abs(newStock - oldStock) > 0.001) {
-                    const diff = newStock - oldStock;
-                    const entryRef = db.collection('INVENTARIO_ENTRADAS').doc();
-
-                    transaction.set(entryRef, {
-                        productId: id,
-                        productName: oldData.descripcion,
-                        cantidad: diff, // Puede ser negativo
-                        costoUnitario: oldData.costo || 0,
-                        costoAnterior: oldData.costo || 0,
-                        costoNuevo: oldData.costo || 0,
-                        stockAnterior: oldStock,
-                        stockNuevo: newStock,
-                        providerId: null,
-                        providerName: "AJUSTE MANUAL",
-                        esCredito: false,
-                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                        tipo: 'AJUSTE'
-                    });
-                }
+                // Log de Ajuste eliminado. Ya no se guardará "AJUSTE MANUAL" al modificar desde inventario.
             });
             return true;
         } catch (error) {

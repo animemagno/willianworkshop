@@ -703,7 +703,7 @@ const RegistrosApp = {
             const fifoBilled = computedBilledMap[r.id] || 0;
             const clones = this.allClonesMap[r.id] || [];
             const explicitBilledClones = clones.filter(c => c.estado === 'facturado').reduce((sum, c) => sum + c.cantidad, 0);
-            const totalBilled = Math.max(fifoBilled, explicitBilledClones);
+            const totalBilled = (fifoBilled + explicitBilledClones);
             return totalBilled < r.cantidad;
         });
 
@@ -817,7 +817,7 @@ const RegistrosApp = {
                 
                 const explicitBilledClones = clones.filter(c => c.estado === 'facturado').reduce((sum, c) => sum + c.cantidad, 0);
                 
-                let totalBilled = Math.max(fifoBilled, explicitBilledClones);
+                let totalBilled = (fifoBilled + explicitBilledClones);
                 
                 const totalPending = Math.max(0, reg.cantidad - totalBilled);
 
@@ -911,7 +911,7 @@ const RegistrosApp = {
                     const clones = this.allClonesMap[reg.id] || [];
                     const fifoBilled = computedBilledMap[reg.id] || 0;
                     const explicitBilledClones = clones.filter(c => c.estado === 'facturado').reduce((sum, c) => sum + c.cantidad, 0);
-                    let totalBilled = Math.max(fifoBilled, explicitBilledClones);
+                    let totalBilled = (fifoBilled + explicitBilledClones);
                     let isFullyFacturado = totalBilled >= reg.cantidad;
 
                     let rowStyle = '';
@@ -1204,7 +1204,7 @@ const RegistrosApp = {
                 const fifoBilled = computedBilledMap[r.id] || 0;
                 const clones = this.allClonesMap[r.id] || [];
                 const cloneBilled = clones.reduce((sum, c) => c.estado === 'facturado' ? sum + c.cantidad : sum, 0);
-                const totalBilled = Math.max(fifoBilled, cloneBilled);
+                const totalBilled = (fifoBilled + cloneBilled);
                 return totalBilled >= r.cantidad;
             });
         } else {
@@ -2091,7 +2091,7 @@ const RegistrosApp = {
             const fifoBilled = computedBilledMap[reg.id] || 0;
             const clones = this.allClonesMap[reg.id] || [];
             const explicitBilledClones = clones.filter(c => c.estado === 'facturado').reduce((sum, c) => sum + c.cantidad, 0);
-            const totalBilledHist = Math.max(fifoBilled, explicitBilledClones);
+            const totalBilledHist = (fifoBilled + explicitBilledClones);
             
             // Determinar cantidad ya cargada explicitamente (type single) en la factura actual
             const factItem = this.facturaItems.find(fi => fi.type === 'single' && fi.originalId === reg.id);
@@ -2397,7 +2397,7 @@ const RegistrosApp = {
             const fifoBilled = computedBilledMap[reg.id] || 0;
             const clones = this.allClonesMap[reg.id] || [];
             const explicitBilledClones = clones.filter(c => c.estado === 'facturado').reduce((sum, c) => sum + c.cantidad, 0);
-            const totalBilledHist = Math.max(fifoBilled, explicitBilledClones);
+            const totalBilledHist = (fifoBilled + explicitBilledClones);
 
             // Descontar items single de la factura actual
             const factItem = this.facturaItems.find(fi => fi.type === 'single' && fi.originalId === reg.id);
@@ -2877,7 +2877,7 @@ const RegistrosApp = {
                 const fifoBilled = computedBilledMap[reg.id] || 0;
                 const clones = this.allClonesMap[reg.id] || [];
                 const explicitBilledClones = clones.filter(c => c.estado === 'facturado').reduce((sum, c) => sum + c.cantidad, 0);
-                const totalBilled = Math.max(fifoBilled, explicitBilledClones);
+                const totalBilled = (fifoBilled + explicitBilledClones);
                 if (totalBilled >= reg.cantidad) return false;
             }
 
@@ -2915,7 +2915,7 @@ const RegistrosApp = {
             const fifoBilled = computedBilledMap[reg.id] || 0;
             const explicitBilledClones = clones.filter(c => c.estado === 'facturado').reduce((sum, c) => sum + c.cantidad, 0);
             
-            let totalBilled = Math.max(fifoBilled, explicitBilledClones);
+            let totalBilled = (fifoBilled + explicitBilledClones);
             
             const isFullyFacturado = totalBilled >= reg.cantidad;
             const isPartiallyFacturado = totalBilled > 0 && totalBilled < reg.cantidad;
@@ -4273,7 +4273,7 @@ const RegistrosApp = {
         try {
             const snapshot = await this.db.collection('INVENTARIO_SALIDAS')
                 .orderBy('fecha', 'desc')
-                .limit(150)
+                .limit(1500)
                 .get();
 
             this.allHistoricalInvoices = [];
@@ -5599,3 +5599,4 @@ if (document.readyState === 'loading') {
 
 // Exponer globalmente para los botones HTML
 window.RegistrosApp = RegistrosApp;
+

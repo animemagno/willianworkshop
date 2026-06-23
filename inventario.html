@@ -291,7 +291,7 @@
 
             <div class="table-responsive">
                 <table class="inventario-table">
-                    <thead>
+                    <thead id="inventario-thead">
                         <tr>
                             <th data-sort="codigo">Código</th>
                             <th data-sort="descripcion">Descripción Taller</th>
@@ -299,10 +299,12 @@
                             <th data-sort="costo" style="text-align:left!important">Costo c/IVA</th>
                             <th data-sort="costoSinIva" style="text-align:left!important">Costo s/IVA</th>
                             <th data-sort="precio" style="text-align:left!important">P. Venta</th>
-                            <th data-sort="existencia">Exist.</th>
-                            <th data-sort="stockMinimo">Min</th>
-                            <th data-sort="creditoFiscal">CF</th>
-                            <th data-sort="proveedor">Prov.</th>
+                            <th>Total Costo</th>
+                            <th data-sort="existencia" title="Stock base congelado">Stock Inicial</th>
+                            <!-- Las columnas de proveedores se inyectarán aquí dinámicamente -->
+                            <th id="th-dinamico-ventas" title="Unidades facturadas">Ventas</th>
+                            <th id="th-dinamico-flotantes" title="Unidades en registros pendientes">Pendientes</th>
+                            <th id="th-dinamico-stock-real" title="Stock Inicial + Compras - Ventas - Pendientes">Stock Real</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>

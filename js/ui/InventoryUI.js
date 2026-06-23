@@ -16,11 +16,11 @@ class InventoryUI {
         };
     }
 
-    renderTable(products) {
+    renderTable(products, activeProviders = []) {
         if (!products || products.length === 0) {
             this.els.tableBody.innerHTML = `
                 <tr>
-                    <td colspan="11" style="text-align:center; padding:30px; color:#888;">
+                    <td colspan="15" style="text-align:center; padding:30px; color:#888;">
                         <i class="fas fa-box-open" style="font-size:2rem;margin-bottom:10px;"></i><br>
                         No se encontraron productos
                     </td>
@@ -29,18 +29,44 @@ class InventoryUI {
             return;
         }
 
-        this.els.tableBody.innerHTML = products.map(p => {
-            const stockClass = p.existencia <= (p.stockMinimo || 0) && p.existencia > 0 ? 'stock-bajo' :
-                p.existencia <= 0 ? 'stock-critico' : 'stock-normal';
+        // Actualizar cabeceras dinámicas
+        const thead = document.getElementById('inventario-thead');
+        if (thead) {
+            const tr = thead.querySelector('tr');
+            if (tr) {
+                // Limpiar columnas de proveedores anteriores
+                tr.querySelectorAll('.dinamico-prov').forEach(e => e.remove());
+                
+                // Buscar dónde insertar (antes de Ventas)
+                const refNode = document.getElementById('th-dinamico-ventas');
+                activeProviders.forEach(prov => {
+                    const th = document.createElement('th');
+                    th.className = 'dinamico-prov';
+                    th.style.color = '#2980b9'; // Color distintivo para compras
+                    th.innerText = prov;
+                    tr.insertBefore(th, refNode);
+                });
+            }
+        }
 
-            const creditoBadge = p.creditoFiscal ?
-                '<span class="credito-si">SI</span>' :
-                '<span class="credito-no">NO</span>';
+        this.els.tableBody.innerHTML = products.map(p => {
+            const stockClass = p.stockReal <= (p.stockMinimo || 0) && p.stockReal > 0 ? 'stock-bajo' :
+                p.stockReal <= 0 ? 'stock-critico' : 'stock-normal';
 
             // Usamos window.Utils si existe, o fallback simple
             const precioFmt = window.Utils && window.Utils.formatCurrency ?
                 window.Utils.formatCurrency(p.precioVenta) :
                 "$" + p.precioVenta.toFixed(2);
+                
+            const totalFmt = window.Utils && window.Utils.formatCurrency ?
+                window.Utils.formatCurrency(p.totalCosto) :
+                "$" + p.totalCosto.toFixed(2);
+
+            // Generar celdas de proveedores
+            const tdProveedores = activeProviders.map(prov => {
+                const cant = p.providers && p.providers[prov] ? p.providers[prov] : 0;
+                return `<td style="text-align:center; color:#2980b9; font-weight:bold;">${cant > 0 ? '+'+cant : '-'}</td>`;
+            }).join('');
 
             return `
                 <tr data-id="${p.id}">
@@ -50,10 +76,12 @@ class InventoryUI {
                     <td style="text-align:left;">$${(p.precioCosto || 0).toFixed(2)}</td>
                     <td style="text-align:left; color:#7f8c8d;">$${(p.costoSinIva || 0).toFixed(2)}</td>
                     <td class="precio" style="font-weight:bold; color:#2c3e50; text-align:left;">${precioFmt}</td>
-                    <td class="${stockClass}" style="text-align:center;">${p.existencia}</td>
-                    <td style="text-align:center;">${p.stockMinimo || 0}</td>
-                    <td style="text-align:center;">${creditoBadge}</td>
-                    <td>${p.proveedor || '-'}</td>
+                    <td style="font-weight:bold; color:#16a085;">${totalFmt}</td>
+                    <td style="text-align:center; background:#f4f6f6;" title="Stock Congelado">${p.stockInicial}</td>
+                    ${tdProveedores}
+                    <td style="text-align:center; color:#c0392b; font-weight:bold;">${p.totalVentas > 0 ? '-'+p.totalVentas : '-'}</td>
+                    <td style="text-align:center; color:#e67e22; font-weight:bold;">${p.totalPendientes > 0 ? '-'+p.totalPendientes : '-'}</td>
+                    <td class="${stockClass}" style="text-align:center; font-size:1.1em;">${p.stockReal}</td>
                     <td style="text-align:center;">
                         <button class="icon-btn btn-edit" title="Editar" onclick="window.editarProducto('${p.id}')">
                             <i class="fas fa-edit"></i>

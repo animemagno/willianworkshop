@@ -403,49 +403,119 @@ class InventoryController {
     // =========================================
     async loadData() {
         const tbody = document.getElementById('inventario-body');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center">Cargando datos...</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="15" style="text-align:center">Cargando datos (Cálculo Dinámico)...</td></tr>';
 
         try {
-            // Cargar resumen de salidas del mes (para simulación de stock)
             const db = firebase.firestore();
             
-            // 1. Obtener resumen de salidas (ventas)
-            const resumenSalidasSnapshot = await db.collection('RESUMEN_SALIDAS_MES').get();
+            const now = new Date();
+            const currentMonthPrefix = now.toISOString().substring(0, 7);
+            const startOfMonthMillis = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+            const isCurrentMonth = (data) => {
+                if (data.fecha && typeof data.fecha === 'string' && data.fecha.length >= 7) {
+                    return data.fecha.startsWith(currentMonthPrefix);
+                }
+                if (data.timestamp) {
+                    const millis = data.timestamp.toMillis ? data.timestamp.toMillis() : (data.timestamp.seconds * 1000);
+                    return millis >= startOfMonthMillis;
+                }
+                return true;
+            };
+
+            // 1. Obtener VENTAS (Facturas)
+            const salidasSnapshot = await db.collection('INVENTARIO_SALIDAS').get();
             const salidasMap = {};
-            resumenSalidasSnapshot.forEach(doc => {
-                salidasMap[doc.id] = doc.data().cantidadFacturada || 0;
-            });
-
-            // 2. Obtener resumen de entradas (compras)
-            const resumenEntradasSnapshot = await db.collection('RESUMEN_ENTRADAS_MES').get();
-            const entradasMap = {};
-            resumenEntradasSnapshot.forEach(doc => {
-                entradasMap[doc.id] = doc.data().cantidadEntrada || 0;
-            });
-
-            // 2.5 Obtener registros pendientes (flotantes)
-            const pendientesSnapshot = await db.collection('REGISTROS_SALIDA').where('estado', '==', 'pendiente').get();
-            const flotantesMap = {};
-            pendientesSnapshot.forEach(doc => {
+            salidasSnapshot.forEach(doc => {
                 const data = doc.data();
-                if (data.productId || data.producto) {
-                    const stableKey = window.RegistrosApp ? window.RegistrosApp.getGroupingKey(data.producto, data.productId) : (data.codigoOficial || data.producto).replace(/\//g, '-').trim();
-                    flotantesMap[stableKey] = (flotantesMap[stableKey] || 0) + (data.cantidad || 0);
+                if (data.anulada || data.revertida) return; // Ignorar facturas anuladas
+                if (!isCurrentMonth(data)) return; // Sumar SOLO lo de este mes
+                
+                if (data.items && Array.isArray(data.items)) {
+                    data.items.forEach(item => {
+                        if (item.isManoDeObra || item.productId === 'SERVICIO') return;
+                        const name = item.descripcionPapel || item.producto || item.descripcion || "";
+                        const stableKey = window.RegistrosApp ? window.RegistrosApp.getGroupingKey(name, item.productId) : (item.codigoOficial || name).replace(/\//g, '-').trim();
+                        salidasMap[stableKey] = (salidasMap[stableKey] || 0) + (parseFloat(item.cantidad) || 0);
+                    });
                 }
             });
 
+            // 2. Obtener ENTRADAS DESGLOSADAS POR PROVEEDOR
+            const entradasSnapshot = await db.collection('INVENTARIO_ENTRADAS').get();
+            const entradasPorProveedorMap = {}; // { stableKey: { "PROV A": 10, "PROV B": 5 } }
+            const activeProvidersSet = new Set();
+
+            entradasSnapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.revertida || data.tipo === 'AJUSTE') return; // Ignorar revertidas y ajustes manuales
+                if (!isCurrentMonth(data)) return; // Sumar SOLO lo de este mes
+                
+                const provName = (data.providerName || "SIN PROVEEDOR").toUpperCase().trim();
+                activeProvidersSet.add(provName);
+
+                if (data.items) {
+                    data.items.forEach(item => {
+                        const stableKey = window.RegistrosApp ? window.RegistrosApp.getGroupingKey(item.productName, item.productId) : (item.productCode || item.productName).replace(/\//g, '-').trim();
+                        
+                        if (!entradasPorProveedorMap[stableKey]) entradasPorProveedorMap[stableKey] = {};
+                        entradasPorProveedorMap[stableKey][provName] = (entradasPorProveedorMap[stableKey][provName] || 0) + (parseFloat(item.cantidad) || 0);
+                    });
+                }
+            });
+            
+            this.activeProviders = Array.from(activeProvidersSet).sort();
+
+            // 3. Obtener TOTAL REGISTRADOS (para aplicar FIFO igual que salidas.html)
+            const registradosSnapshot = await db.collection('REGISTROS').get();
+            const registradosMap = {};
+            registradosSnapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.archivado) return; // Ignorar si ya fue cerrado en el mes anterior
+                if (!isCurrentMonth(data)) return;
+                
+                const cantidadTotal = parseFloat(data.cantidad) || 0;
+                if (cantidadTotal > 0 && (data.productId || data.producto)) {
+                    const stableKey = window.RegistrosApp ? window.RegistrosApp.getGroupingKey(data.producto, data.productId) : (data.codigoOficial || data.producto).replace(/\//g, '-').trim();
+                    registradosMap[stableKey] = (registradosMap[stableKey] || 0) + cantidadTotal;
+                }
+            });
+
+            // 4. Obtener STOCK INICIAL (Inventario Base Congelado)
             const rawProducts = await this.svc.obtenerTodos();
             
-            // 3. Combinar para obtener el stock simulado/actual
+            // 5. Cruzar datos (Cálculo Tipo Excel)
             this.cache = rawProducts.map(p => {
                 const stableKey = window.RegistrosApp ? window.RegistrosApp.getGroupingKey(p.descripcion, p.id) : (p.codigo || p.descripcion).replace(/\//g, '-').trim();
+                
                 const soldQty = salidasMap[stableKey] || 0;
-                const addedQty = entradasMap[stableKey] || 0;
-                const floatingQty = flotantesMap[stableKey] || 0;
+                const provs = entradasPorProveedorMap[stableKey] || {};
+                
+                const totalRegistrado = registradosMap[stableKey] || 0;
+                // Calculamos Pendientes tal cual lo hace salidas.html (Total Registrado - Total Facturado)
+                let floatingQty = totalRegistrado - soldQty;
+                if (floatingQty < 0) floatingQty = 0; // Si se facturó más de lo registrado, no hay pendientes
+                
+                let addedQty = 0;
+                for (const k in provs) addedQty += provs[k];
+
+                const stockSistema = parseFloat(p.existencia || 0);
+                // Opción A: Calculamos el Stock Inicial en reversa (Stock Inicial = Stock Sistema - Entradas + Ventas)
+                // Esto evita el doble conteo, porque el sistema ya modificó el stockSistema en tiempo real al hacer la compra/venta
+                const stockInicialVirtual = stockSistema - addedQty + soldQty;
+                
+                // El Stock Real es el Stock Inicial + Entradas - Ventas - Pendientes. 
+                // Matemáticamente se simplifica a: stockSistema - Pendientes.
+                const stockReal = stockSistema - floatingQty;
+
                 return {
                     ...p,
-                    existenciaOriginal: p.existencia || 0, // Conservar el original para la auditoría
-                    existencia: (p.existencia || 0) + addedQty - soldQty - floatingQty // Stock simulado incluye flotantes
+                    stockInicial: stockInicialVirtual,
+                    providers: provs,
+                    totalVentas: soldQty,
+                    totalPendientes: floatingQty,
+                    stockReal: stockReal,
+                    existencia: stockReal // Mantenemos existencia para la compatibilidad de búsquedas/sorts actuales
                 };
             });
 
@@ -453,7 +523,7 @@ class InventoryController {
             this.applySort();
         } catch (error) {
             console.error(error);
-            if (tbody) tbody.innerHTML = `<tr><td colspan="11" style="color:red; text-align:center">Error: ${error.message}</td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="15" style="color:red; text-align:center">Error: ${error.message}</td></tr>`;
         }
     }
 
@@ -516,13 +586,19 @@ class InventoryController {
             precioCosto: p.costo || 0,
             costoSinIva: p.costoSinIva !== undefined ? p.costoSinIva : ((p.costo || 0) / 1.13),
             precioVenta: p.precio || 0,
-            existencia: p.existencia || 0,
+            stockInicial: p.stockInicial || 0,
+            providers: p.providers || {},
+            totalVentas: p.totalVentas || 0,
+            totalPendientes: p.totalPendientes || 0,
+            stockReal: p.stockReal || 0,
+            totalCosto: (p.stockReal || 0) * (p.costo || 0),
+            existencia: p.stockReal || 0,
             stockMinimo: p.stockMinimo || 5,
             creditoFiscal: p.creditoFiscal,
             proveedor: p.proveedor
         }));
 
-        this.ui.renderTable(uiData);
+        this.ui.renderTable(uiData, this.activeProviders || []);
     }
 
     // =========================================
