@@ -3653,3 +3653,5 @@ class InventoryController {
 }
 
 window.app = new InventoryController();
+
+

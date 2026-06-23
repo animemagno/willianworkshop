@@ -4341,8 +4341,8 @@ const RegistrosApp = {
                 ? `<span style="display:inline-flex;align-items:center;gap:3px;background:#fed7d7;color:#c53030;border:1px solid #fc8181;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:bold;margin-left:6px;"><i class='fas fa-exclamation-triangle'></i> Sin vincular</span>`
                 : '';
 
-            const isChecked = localStorage.getItem(`invoiceChecked_${inv.id}`) === 'true';
-            const hasNote = !!localStorage.getItem(`invoiceNote_${inv.id}`);
+            const isChecked = !!inv.revisado;
+            const hasNote = !!inv.nota;
             const checkIcon = isChecked ? '<i class="fas fa-check-circle" style="font-size:18px; color:#38a169;"></i>' : '<i class="fas fa-circle" style="font-size:18px; color:#cbd5e0;"></i>';
             const rowBg = isChecked ? '#f0fff4' : '';
             const noteIcon = hasNote ? ' <i class="fas fa-sticky-note" title="Tiene nota" style="color: #d69e2e; font-size: 0.9rem; margin-left: 5px;"></i>' : '';
@@ -4368,9 +4368,9 @@ const RegistrosApp = {
     },
 
     toggleInvoiceChecked(id, btn) {
-        const current = localStorage.getItem(`invoiceChecked_${id}`) === 'true';
-        const next = !current;
-        localStorage.setItem(`invoiceChecked_${id}`, next ? 'true' : 'false');
+        const isCurrentlyChecked = btn.innerHTML.includes('fa-check-circle');
+        const next = !isCurrentlyChecked;
+        
         const row = btn.closest('tr');
         if (next) {
             btn.innerHTML = '<i class="fas fa-check-circle" style="font-size:18px; color:#38a169;"></i>';
@@ -5599,4 +5599,5 @@ if (document.readyState === 'loading') {
 
 // Exponer globalmente para los botones HTML
 window.RegistrosApp = RegistrosApp;
+
 
