@@ -113,10 +113,10 @@
             flex-direction: column;
             padding: 15px; /* Reducido para pantallas pequeñas */
             background: white;
-            border-radius: 10px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
             transition: all 0.4s ease;
-            overflow: hidden;
+            overflow-y: auto;
+            overflow-x: hidden;
             position: relative;
             border: 1px solid rgba(0,0,0,0.03);
             min-height: 0; /* EVITA EL DESBORDAMIENTO VERTICAL */
@@ -600,7 +600,7 @@
                     <i class="fas fa-file-invoice" style="color: #27ae60;"></i> Paso 3: Confirmación de Precios y Ganancias
                 </h2>
 
-                <div id="invoice-prices-section" style="flex: 1; display: grid; grid-template-columns: 320px 1fr; grid-template-rows: minmax(0, 1fr); gap: 25px; align-items: stretch; min-height: 0; overflow: hidden; box-sizing: border-box;">
+                <div id="invoice-prices-section" style="flex: 1; display: grid; grid-template-columns: 320px 1fr; grid-template-rows: minmax(0, 1fr); gap: 25px; align-items: stretch; min-height: 0; box-sizing: border-box;">
                     <!-- COLUMNA IZQUIERDA: RESÚMENES Y GANANCIAS -->
                     <div style="display: flex; flex-direction: column; gap: 20px; min-height: 0; overflow-y: auto;">
                         <!-- Bloque 1: Ganancia Factura Actual -->
