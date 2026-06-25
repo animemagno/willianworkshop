@@ -3091,8 +3091,10 @@ const RegistrosApp = {
             });
 
             // Extraer cliente y numero ANTES del FIFO para poder estamparlos en los clones facturados
-            const cliente = document.getElementById('factura-cliente').value || 'Cliente General';
-            const numero = document.getElementById('factura-numero').value || '';
+            const elCliente = document.getElementById('factura-cliente');
+            const elNumero = document.getElementById('factura-numero');
+            const cliente = elCliente ? (elCliente.value || 'Cliente General') : 'Cliente General';
+            const numero = elNumero ? (elNumero.value || '') : '';
 
             // Pasar registros pendientes a facturado (FIFO) - Limitado al mes de la factura
             const targetMonth = fechaFactura.substring(0, 7);
