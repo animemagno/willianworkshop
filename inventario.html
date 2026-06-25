@@ -1725,7 +1725,10 @@
             });
 
             // Función para alternar el tamaño de las tarjetas en la pestaña de Salidas
+            // (Desactivado temporalmente a petición del usuario para que no se contraigan)
             window.toggleSalidasCard = function (activeCardNum) {
+                return;
+                /*
                 const card1 = document.getElementById('card-listado');
                 const card2 = document.getElementById('card-resumen');
                 
@@ -1750,6 +1753,7 @@
                     card1.classList.add('collapsed');
                     card2.classList.remove('collapsed');
                 }
+                */
             };
 
             // ==========================================
