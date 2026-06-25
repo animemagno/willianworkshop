@@ -2056,7 +2056,9 @@ const RegistrosApp = {
 
             if (existingItem) {
                 // Recalcular el restante REAL en tiempo real, sin depender de data.max (que puede ser obsoleto)
-                const realMax = this._calculateRealRemaining(incomingKey, data.type, data.id);
+                // Si el item en factura ya se convirtió en 'summary' (agrupado), verificamos el inventario global, no el específico de la tarjeta.
+                const typeToCheck = existingItem.type === 'summary' ? 'summary' : data.type;
+                const realMax = this._calculateRealRemaining(incomingKey, typeToCheck, data.id);
                 
                 if (realMax > 0) {
                     existingItem.cantidadFacturar += 1;
