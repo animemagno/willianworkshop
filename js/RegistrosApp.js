@@ -3176,26 +3176,40 @@ const RegistrosApp = {
                 }
             });
 
-            // Aplicar todas las agrupaciones al batch
+            // --- APLICAR OPERACIONES EN BATCHES (CON LÍMITE DE 400 POR BATCH) ---
+            const allBatches = [];
+            let currentBatch = this.db.batch();
+            let opsCount = 0;
+
+            const pushOp = (callback) => {
+                callback(currentBatch);
+                opsCount++;
+                if (opsCount >= 400) {
+                    allBatches.push(currentBatch.commit()); // Ejecutar el batch actual
+                    currentBatch = this.db.batch(); // Crear uno nuevo
+                    opsCount = 0;
+                }
+            };
+
+            // Aplicar todas las agrupaciones al sistema de chunking
             preciosUpdates.forEach(update => {
-                batch.set(update.ref, update.data, { merge: true });
+                pushOp(b => b.set(update.ref, update.data, { merge: true }));
             });
 
             resumenUpdates.forEach(update => {
-                batch.set(update.ref, {
+                pushOp(b => b.set(update.ref, {
                     productId: update.productId,
                     producto: update.producto,
                     cantidadFacturada: window.firebase.firestore.FieldValue.increment(update.cantidadFacturada),
                     mes: update.mes
-                }, { merge: true });
+                }, { merge: true }));
             });
 
             registrosUpdates.forEach(update => {
-                // arrayUnion acepta múltiples elementos pasados como argumentos separados (spread syntax)
-                batch.update(update.ref, {
+                pushOp(b => b.update(update.ref, {
                     cantidadUsada: window.firebase.firestore.FieldValue.increment(update.cantidadUsada),
                     facturas: window.firebase.firestore.FieldValue.arrayUnion(...update.facturas)
-                });
+                }));
             });
 
             // Guardar factura en colección INVENTARIO_SALIDAS (Compatible con willianworkshop)
@@ -3207,7 +3221,7 @@ const RegistrosApp = {
             const gananciaProductos = totalProductos - totalCosto;
             const gananciaNeta = grandTotal - totalCosto;
 
-            batch.set(facturaRef, {
+            pushOp(b => b.set(facturaRef, {
                 CLIENTE: cliente,
                 numeroFactura: numero,
                 tipo: this.facturaTipo,
@@ -3230,9 +3244,15 @@ const RegistrosApp = {
                     isManoDeObra: !!item.isManoDeObra,
                     total: item.cantidadFacturar * item.precioUnitario
                 }))
-            });
+            }));
 
-            await batch.commit();
+            // Hacer commit del batch final
+            if (opsCount > 0) {
+                allBatches.push(currentBatch.commit());
+            }
+
+            // Esperar a que se procesen TODOS los batches
+            await Promise.all(allBatches);
 
             // AGREGAR A LA MEMORIA INMEDIATAMENTE PARA EVITAR RACE CONDITIONS CON FIREBASE CACHE
             const localInvoiceData = {
