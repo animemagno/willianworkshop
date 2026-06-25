@@ -3059,6 +3059,11 @@ const RegistrosApp = {
                 this.activeInvoiceIds.add(facturaId);
             }
 
+            // Maps para agrupar operaciones y evitar el error "Cannot update the same document twice in a batch"
+            const preciosUpdates = new Map();
+            const resumenUpdates = new Map();
+            const registrosUpdates = new Map();
+
             // Guardar o actualizar la memoria de precios
             this.facturaItems.forEach(item => {
                 if (item.isManoDeObra) return; // Omitir mano de obra en memoria de precios de repuestos
@@ -3075,18 +3080,29 @@ const RegistrosApp = {
                     updateData.vinculoId = item.vinculoId;
                 }
 
-                batch.set(realDocRef, updateData, { merge: true });
+                // Agrupar actualización de precios
+                if (!preciosUpdates.has(safeId)) {
+                    preciosUpdates.set(safeId, { ref: realDocRef, data: { ...updateData } });
+                } else {
+                    Object.assign(preciosUpdates.get(safeId).data, updateData);
+                }
 
                 // Acumular en RESUMEN_SALIDAS_MES en vez de descontar directamente de INVENTARIO (Inmovilizado)
                 if (item.vinculoId) {
                     const stableKey = this.getGroupingKey(item.descripcionPapel || item.producto, item.vinculoId);
                     const resumenRef = this.db.collection('RESUMEN_SALIDAS_MES').doc(stableKey);
-                    batch.set(resumenRef, {
-                        productId: item.vinculoId,
-                        producto: item.producto,
-                        cantidadFacturada: window.firebase.firestore.FieldValue.increment(item.cantidadFacturar),
-                        mes: fechaFactura.substring(0, 7)
-                    }, { merge: true });
+                    
+                    if (!resumenUpdates.has(stableKey)) {
+                        resumenUpdates.set(stableKey, {
+                            ref: resumenRef,
+                            productId: item.vinculoId,
+                            producto: item.producto,
+                            cantidadFacturada: item.cantidadFacturar,
+                            mes: fechaFactura.substring(0, 7)
+                        });
+                    } else {
+                        resumenUpdates.get(stableKey).cantidadFacturada += item.cantidadFacturar;
+                    }
                 }
             });
 
@@ -3127,22 +3143,59 @@ const RegistrosApp = {
                         let regRef = this.registrosRef.doc(reg.id);
                         let qtyToConsume = Math.min(cantDisponibleReal, cantidadFaltante);
                         
-                        batch.update(regRef, {
-                            cantidadUsada: window.firebase.firestore.FieldValue.increment(qtyToConsume),
-                            facturas: window.firebase.firestore.FieldValue.arrayUnion({
+                        // Agrupar actualización de registros pendientes
+                        if (!registrosUpdates.has(reg.id)) {
+                            registrosUpdates.set(reg.id, {
+                                ref: regRef,
+                                cantidadUsada: qtyToConsume,
+                                facturas: [{
+                                    facturaId: facturaId,
+                                    numeroFactura: numero,
+                                    clienteFactura: cliente,
+                                    precioFacturado: item.precioUnitario,
+                                    costoFacturado: item.costoUnitario || 0,
+                                    cantidad: qtyToConsume
+                                }]
+                            });
+                        } else {
+                            const existing = registrosUpdates.get(reg.id);
+                            existing.cantidadUsada += qtyToConsume;
+                            existing.facturas.push({
                                 facturaId: facturaId,
                                 numeroFactura: numero,
                                 clienteFactura: cliente,
                                 precioFacturado: item.precioUnitario,
                                 costoFacturado: item.costoUnitario || 0,
                                 cantidad: qtyToConsume
-                            })
-                        });
+                            });
+                        }
                         
                         cantidadFaltante -= qtyToConsume;
                         reg.cantidadUsada = (reg.cantidadUsada || 0) + qtyToConsume; // En memoria para el siguiente loop
                     }
                 }
+            });
+
+            // Aplicar todas las agrupaciones al batch
+            preciosUpdates.forEach(update => {
+                batch.set(update.ref, update.data, { merge: true });
+            });
+
+            resumenUpdates.forEach(update => {
+                batch.set(update.ref, {
+                    productId: update.productId,
+                    producto: update.producto,
+                    cantidadFacturada: window.firebase.firestore.FieldValue.increment(update.cantidadFacturada),
+                    mes: update.mes
+                }, { merge: true });
+            });
+
+            registrosUpdates.forEach(update => {
+                // arrayUnion acepta múltiples elementos pasados como argumentos separados (spread syntax)
+                batch.update(update.ref, {
+                    cantidadUsada: window.firebase.firestore.FieldValue.increment(update.cantidadUsada),
+                    facturas: window.firebase.firestore.FieldValue.arrayUnion(...update.facturas)
+                });
             });
 
             // Guardar factura en colección INVENTARIO_SALIDAS (Compatible con willianworkshop)
