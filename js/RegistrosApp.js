@@ -4127,22 +4127,21 @@ const RegistrosApp = {
         typeEl.className = "status-badge " + typeClass;
 
         // -------------------------------------------------------------
-        // CÁLCULO DINÁMICO DE EXCESO DE FACTURACIÓN (HISTÓRICO HASTA LA FECHA DE LA FACTURA)
+        // CÁLCULO DINÁMICO DE EXCESO DE FACTURACIÓN PARA EL MES DE ESTA FACTURA
         // -------------------------------------------------------------
-        const fechaLimite = inv.fecha;
-        const millisLimite = this.parseDateToMillis(fechaLimite);
+        const mesFactura = inv.fecha.substring(0, 7); // ej: "2026-05"
         
-        // 1. Obtener registros históricos hasta la fecha de esta factura
-        const regsValidos = this.allRegistros.filter(r => this.parseDateToMillis(r.fecha) <= millisLimite);
+        // 1. Obtener registros de ese mes
+        const regsDelMes = this.allRegistros.filter(r => r.fecha && r.fecha.startsWith(mesFactura));
         const totalRegistrado = {};
-        regsValidos.forEach(r => {
+        regsDelMes.forEach(r => {
             const key = this.getGroupingKey(r);
             totalRegistrado[key] = (totalRegistrado[key] || 0) + r.cantidad;
         });
 
-        // 2. Obtener todas las facturas históricas hasta la fecha de esta factura y ordenarlas cronológicamente
-        const facturasValidas = this.allHistoricalInvoices.filter(f => this.parseDateToMillis(f.fecha) <= millisLimite);
-        facturasValidas.sort((a, b) => {
+        // 2. Obtener todas las facturas del mes y ordenarlas cronológicamente
+        const facturasDelMes = this.allHistoricalInvoices.filter(f => f.fecha && f.fecha.startsWith(mesFactura));
+        facturasDelMes.sort((a, b) => {
             const tA = this.parseDateToMillis(a.fecha);
             const tB = this.parseDateToMillis(b.fecha);
             if (tA !== tB) return tA - tB;
@@ -4155,7 +4154,7 @@ const RegistrosApp = {
         const acumuladoFacturado = {};
         const excedidoEnFactura = {}; // { facturaId: { key: { esOrigen: boolean, exceso: number } } }
         
-        facturasValidas.forEach(f => {
+        facturasDelMes.forEach(f => {
             excedidoEnFactura[f.id] = {};
             const items = f.items || [];
             items.forEach(item => {
