@@ -373,10 +373,10 @@
                 </h2>
                 
                 <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                    <button id="tab-listado-general" class="btn" style="flex: 1; padding: 8px; font-weight: bold; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer;" onclick="RegistrosApp.switchListadoTab('general')">
+                    <button id="tab-listado-general" class="btn" style="flex: 1; padding: 8px; font-weight: bold; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer;" onclick="SalidasController.switchListadoTab('general')">
                         <i class="fas fa-list"></i> General
                     </button>
-                    <button id="tab-listado-cuentas" class="btn" style="flex: 1; padding: 8px; font-weight: bold; background: #e2e8f0; color: #4a5568; border: 1px solid #cbd5e0; border-radius: 6px; cursor: pointer;" onclick="RegistrosApp.switchListadoTab('cuentas')">
+                    <button id="tab-listado-cuentas" class="btn" style="flex: 1; padding: 8px; font-weight: bold; background: #e2e8f0; color: #4a5568; border: 1px solid #cbd5e0; border-radius: 6px; cursor: pointer;" onclick="SalidasController.switchListadoTab('cuentas')">
                         <i class="fas fa-users"></i> Por Cuenta
                     </button>
                 </div>
@@ -464,7 +464,7 @@
                     <input type="text" id="factura-numero" class="large-input" placeholder="N° Fac" style="width: 65px; padding: 6px 4px; text-align: center; font-size: 0.85rem;">
                     <div style="display: flex; gap: 3px; align-items: center;">
                         <input type="date" id="factura-fecha" class="large-input" style="width: 110px; padding: 6px 4px; font-size: 0.85rem;">
-                        <button type="button" class="btn" onclick="RegistrosApp.avanzarDiaFactura()" style="background: #e2e8f0; border: 1px solid #cbd5e0; border-radius: 6px; padding: 6px 8px; cursor: pointer; color: #4a5568; font-weight: bold; font-size: 0.85rem;" title="Avanzar 1 día">
+                        <button type="button" class="btn" onclick="SalidasController.avanzarDiaFactura()" style="background: #e2e8f0; border: 1px solid #cbd5e0; border-radius: 6px; padding: 6px 8px; cursor: pointer; color: #4a5568; font-weight: bold; font-size: 0.85rem;" title="Avanzar 1 día">
                             +1D
                         </button>
                     </div>
@@ -501,7 +501,7 @@
                     <span>$<span id="card-factura-total">0.00</span></span>
                 </div>
 
-                <button id="btn-siguiente-factura" class="btn btn-success" style="width: 100%; margin-top: 10px; padding: 12px; font-size: 1.05rem; font-weight: bold; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px rgba(39, 174, 96, 0.2);" onclick="RegistrosApp.nextStep()">
+                <button id="btn-siguiente-factura" class="btn btn-success" style="width: 100%; margin-top: 10px; padding: 12px; font-size: 1.05rem; font-weight: bold; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px rgba(39, 174, 96, 0.2);" onclick="SalidasController.nextStep()">
                     <i class="fas fa-arrow-circle-right"></i> <span id="btn-siguiente-factura-text">Siguiente: Servicios</span>
                 </button>
             </div>
@@ -585,10 +585,10 @@
                 </div>
 
                 <div style="display: flex; justify-content: space-between; border-top: 1px solid #f1f1f1; padding-top: 15px; margin-top: auto;">
-                    <button class="btn btn-danger" onclick="RegistrosApp.backToRepuestosStep()" style="padding: 12px 25px; font-weight: bold; display: flex; align-items: center; gap: 8px; cursor: pointer; border: 1px solid #cbd5e0; background: #e2e8f0; border-radius: 6px; color: #4a5568;">
+                    <button class="btn btn-danger" onclick="SalidasController.backToRepuestosStep()" style="padding: 12px 25px; font-weight: bold; display: flex; align-items: center; gap: 8px; cursor: pointer; border: 1px solid #cbd5e0; background: #e2e8f0; border-radius: 6px; color: #4a5568;">
                         <i class="fas fa-arrow-left"></i> Atrás: Repuestos
                     </button>
-                    <button class="btn btn-success" onclick="RegistrosApp.goToBillingStep()" style="padding: 12px 30px; font-weight: bold; display: flex; align-items: center; gap: 8px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                    <button class="btn btn-success" onclick="SalidasController.goToBillingStep()" style="padding: 12px 30px; font-weight: bold; display: flex; align-items: center; gap: 8px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer;">
                         Siguiente: Precios de Repuestos <i class="fas fa-arrow-right"></i>
                     </button>
                 </div>
@@ -671,7 +671,7 @@
                         </div>
 
                         <div style="display: flex; justify-content: space-between; border-top: 1px solid #f1f1f1; padding-top: 20px; margin-top: auto;">
-                            <button class="btn" onclick="RegistrosApp.backToServicesStep()" style="padding: 12px 25px; font-weight: bold; background: #718096; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                            <button class="btn" onclick="SalidasController.backToServicesStep()" style="padding: 12px 25px; font-weight: bold; background: #718096; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
                                 <i class="fas fa-arrow-left"></i> Atrás: Mano de Obra
                             </button>
                             <button class="btn btn-success" onclick="RegistrosApp.finalizeInvoice()" style="padding: 12px 35px; font-size: 1.1rem; font-weight: bold; display: flex; align-items: center; gap: 8px; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer; box-shadow: 0 4px 6px rgba(39,174,96,0.2);">
@@ -706,13 +706,13 @@
             </div>
         </div>
         <div style="display:flex; border-bottom:2px solid #e2e8f0; margin-bottom:20px; gap:15px;">
-                <button id="tab-historial-list" class="btn" style="background: none; border: none; border-bottom: 3px solid #3498db; border-radius: 0; color: #3498db; padding: 10px 20px; font-weight: bold; font-size: 1rem; cursor: pointer;" onclick="RegistrosApp.switchHistorialTab('list')">
+                <button id="tab-historial-list" class="btn" style="background: none; border: none; border-bottom: 3px solid #3498db; border-radius: 0; color: #3498db; padding: 10px 20px; font-weight: bold; font-size: 1rem; cursor: pointer;" onclick="SalidasController.switchHistorialTab('list')">
                     <i class="fas fa-file-invoice"></i> Facturas Emitidas
                 </button>
-                <button id="tab-historial-import" class="btn" style="background: none; border: none; border-bottom: 3px solid transparent; border-radius: 0; color: #718096; padding: 10px 20px; font-weight: bold; font-size: 1rem; cursor: pointer;" onclick="RegistrosApp.switchHistorialTab('import')">
+                <button id="tab-historial-import" class="btn" style="background: none; border: none; border-bottom: 3px solid transparent; border-radius: 0; color: #718096; padding: 10px 20px; font-weight: bold; font-size: 1rem; cursor: pointer;" onclick="SalidasController.switchHistorialTab('import')">
                     <i class="fas fa-file-upload"></i> Cargar Facturas de Excel
                 </button>
-                <button id="tab-historial-audit" class="btn" style="background: none; border: none; border-bottom: 3px solid transparent; border-radius: 0; color: #718096; padding: 10px 20px; font-weight: bold; font-size: 1rem; cursor: pointer;" onclick="RegistrosApp.switchHistorialTab('audit')">
+                <button id="tab-historial-audit" class="btn" style="background: none; border: none; border-bottom: 3px solid transparent; border-radius: 0; color: #718096; padding: 10px 20px; font-weight: bold; font-size: 1rem; cursor: pointer;" onclick="SalidasController.switchHistorialTab('audit')">
                     <i class="fas fa-shield-alt"></i> Auditoría de Desfases
                 </button>
             </div>
@@ -1134,8 +1134,15 @@
     <!-- UTILS Y SERVICIOS DE IMPRESIÓN -->
     <script src="js/DateUtils.js?v=2.0.3"></script>
     <script src="js/PrintingService.js?v=2.0.3"></script>
+    <!-- CARGAR SERVICIOS CORE -->
+    <script src="js/core/FirebaseService.js"></script>
+    <script src="js/core/InventoryLogic.js"></script>
+    
+    <!-- CONTROLADORES MODULARES -->
+    <script src="js/salidas/SalidasController.js"></script>
+
     <!-- CARGAR SCRIPT DE REGISTROS -->
-    <script src="js/RegistrosApp.js?v=2.0.6"></script>
+    <script src="js/RegistrosApp.js?v=2.0.7"></script>
 
 </body>
 

@@ -54,16 +54,15 @@ const RegistrosApp = {
     async init() {
         this.showLoading(true);
         try {
-            // Inicializar Firebase
-            if (!window.firebase.apps.length) {
-                console.error("Firebase no está inicializado. Verifica firebase-config.js.");
+            if (!window.firebaseService || !window.firebaseService.getDb()) {
+                console.error("Firebase no está inicializado. Verifica FirebaseService.");
                 return;
             }
-            this.db = window.firebase.firestore();
-            this.registrosRef = this.db.collection('REGISTROS');
-            this.respaldoRef = this.db.collection('REGISTROS_RESPALDO'); // Only used for auto-migration logic now
-            this.preciosRef = this.db.collection('PRECIOS_REGISTROS');
-            this.mapeoRef = this.db.collection('MAPEO_NOMBRES');
+            this.db = window.firebaseService.getDb();
+            this.registrosRef = window.firebaseService.getRegistrosRef();
+            this.respaldoRef = window.firebaseService.getRespaldoRef();
+            this.preciosRef = window.firebaseService.getPreciosRef();
+            this.mapeoRef = window.firebaseService.getMapeoRef();
             this.facturaTipo = null;
 
             this.allRegistros = []; // Todos los registros
@@ -106,10 +105,22 @@ const RegistrosApp = {
         if (this.activeInvoicesUnsubscribe) this.activeInvoicesUnsubscribe();
 
         return new Promise((resolve) => {
-            // Optimización: Desactivada la descarga masiva de facturas activas.
-            // La auto-sanación fue removida, por lo que esta consulta que consumía miles de lecturas es innecesaria.
-            this.activeInvoiceIds = new Set();
-            resolve();
+            let isInitial = true;
+            this.activeInvoicesUnsubscribe = this.db.collection('INVENTARIO_SALIDAS')
+                .onSnapshot(snap => {
+                    this.activeInvoiceIds = new Set(snap.docs.map(doc => doc.id));
+                    if (isInitial) {
+                        isInitial = false;
+                        resolve();
+                    }
+                }, err => {
+                    console.error("Error al escuchar facturas activas para auto-sanación:", err);
+                    if (!this.activeInvoiceIds) this.activeInvoiceIds = new Set();
+                    if (isInitial) {
+                        isInitial = false;
+                        resolve();
+                    }
+                });
         });
     },
 
@@ -215,6 +226,16 @@ const RegistrosApp = {
     getLocalISODate(dateObj = new Date()) {
         const offset = dateObj.getTimezoneOffset() * 60000;
         return (new Date(dateObj.getTime() - offset)).toISOString().split('T')[0];
+    },
+
+    formatDateUserFriendly(dateStr) {
+        // Recibe YYYY-MM-DD y devuelve DD/MM/YYYY
+        if (!dateStr) return '';
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+        return dateStr;
     },
 
     parseDateToMillis(dateStr) {
@@ -336,6 +357,32 @@ const RegistrosApp = {
         return normalized.replace(/\s+/g, ' ');
     },
 
+    // Extrae el mes en formato YYYY-MM de una fecha (sea YYYY-MM-DD o DD/MM/YYYY)
+    _getRegMonth(fecha) {
+        if (!fecha) return '';
+        const str = String(fecha).trim();
+        // YYYY-MM-DD
+        if (str.length >= 7 && str[4] === '-') {
+            return str.substring(0, 7);
+        }
+        // DD/MM/YYYY
+        if (str.includes('/')) {
+            const parts = str.split('/');
+            if (parts.length === 3) {
+                const y = parts[2].length === 4 ? parts[2] : (parts[0].length === 4 ? parts[0] : '');
+                const m = parts[2].length === 4 ? parts[1] : parts[1];
+                if (y && m) return `${y}-${m.padStart(2, '0')}`;
+            }
+        }
+        // Intentar parsear con parseDateToMillis
+        const millis = this.parseDateToMillis(str);
+        if (millis > 0) {
+            const d = new Date(millis);
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+        }
+        return '';
+    },
+
     // Convierte un nombre a clave válida para ID de documento Firestore
     sanitizeForDocId(str) {
         return str.toLowerCase().trim().replace(/[/.#$\[\]]/g, '_');
@@ -412,7 +459,7 @@ const RegistrosApp = {
         const fastExcelFile = document.getElementById('fast-excel-file');
         if (fastExcelFile) {
             fastExcelFile.addEventListener('change', (e) => {
-                this.handleExcelUpload(e);
+                if (window.RegistroController) window.RegistroController.handleExcelUpload(e);
             });
         }
 
@@ -579,7 +626,6 @@ const RegistrosApp = {
             }
         }
 
-        // Crear copia del cach
         for (const m in this._cachedFacturadoHistorico) {
             facturadoPorMesYProducto[m] = { ...this._cachedFacturadoHistorico[m] };
         }
@@ -589,10 +635,6 @@ const RegistrosApp = {
             descAcumuladores[m] = { ...facturadoPorMesYProducto[m] };
         }
 
-        // --- PREVENIR DOBLE CONSUMO ---
-        // Si un registro fue facturado de forma explícita (tiene clones), esa cantidad ya está en descAcumuladores
-        // (porque las facturas suman todo al historial). Debemos restarlo de descAcumuladores para que el FIFO
-        // no vuelva a consumir otros registros con esa misma cantidad.
         for (const regId in this.allClonesMap) {
             const clones = this.allClonesMap[regId] || [];
             clones.forEach(c => {
@@ -631,12 +673,11 @@ const RegistrosApp = {
         
         const registrosParaFIFO = this._cachedRegistrosOrdenadosAsc;
 
+        // --- STRICT MONTHLY FIFO ---
         registrosParaFIFO.forEach(reg => {
             const mesReg = reg.fecha ? reg.fecha.substring(0, 7) : '';
             const key = this.getGroupingKey(reg);
             let billedHere = 0;
-            
-            // Solo descontar facturas del MISMO mes del registro.
             let remainingQty = reg.cantidad;
 
             if (descAcumuladores[mesReg] && descAcumuladores[mesReg][key] > 0) {
@@ -645,7 +686,7 @@ const RegistrosApp = {
                 remainingQty -= descontar;
                 billedHere += descontar;
             }
-            
+
             computedBilledMap[reg.id] = billedHere;
         });
 
@@ -857,17 +898,13 @@ const RegistrosApp = {
                     </div>
                 `;
 
-                // Bloquear eliminación si tiene partes facturadas, pero permitir archivar y forzar borrado
+                // Bloquear eliminación si tiene partes facturadas, pero permitir archivar
                 const actionCell = (isFullyFacturado || isPartiallyFacturado)
                     ? (isFullyFacturado 
-                        ? `<div style="display: flex; gap: 5px; align-items: center; justify-content: center;">
-                             <i class="fas fa-check-circle" style="color: #27ae60; font-size: 1.2rem;" title="Facturado"></i>
-                             <button type="button" class="btn btn-danger" style="padding: 2px 6px; font-size: 10px; border-radius: 4px; border: none; cursor: pointer;" onclick="RegistrosApp.deleteRegistro('${reg.id}')" title="Forzar eliminación"><i class="fas fa-trash"></i></button>
-                           </div>`
+                        ? `<i class="fas fa-check-circle" style="color: #27ae60; font-size: 1.2rem;" title="Facturado"></i>`
                         : `<div style="display: flex; gap: 5px; align-items: center; justify-content: center;">
                              <i class="fas fa-adjust" style="color: #b7791f; font-size: 1.2rem;" title="Facturado Parcial (${totalBilled}/${reg.cantidad})"></i>
                              <button type="button" class="btn btn-warning" style="padding: 2px 6px; font-size: 10px; border-radius: 4px; background-color: #f39c12; color: white; border: none; cursor: pointer;" onclick="RegistrosApp.forzarArchivar('${reg.id}')" title="Archivar manualmente"><i class="fas fa-archive"></i></button>
-                             <button type="button" class="btn btn-danger" style="padding: 2px 6px; font-size: 10px; border-radius: 4px; border: none; cursor: pointer;" onclick="RegistrosApp.deleteRegistro('${reg.id}')" title="Forzar eliminación"><i class="fas fa-trash"></i></button>
                            </div>`)
                     : `<button type="button" class="btn btn-danger" style="padding: 5px; width: 30px; height: 30px; border-radius: 50%;" onclick="RegistrosApp.deleteRegistro('${reg.id}')" title="Eliminar fila"><i class="fas fa-times"></i></button>`;
 
@@ -1374,7 +1411,7 @@ const RegistrosApp = {
 
                     delete consolidatedData.id;
                     delete consolidatedData.respaldoId;
-                    delete consolidatedData.estado;
+                    consolidatedData.estado = 'pendiente'; // BUGFIX: Ensure consolidated items are correctly marked as pending so they can be invoiced!
 
                     batch.set(newRef, consolidatedData);
                     count++;
@@ -1395,407 +1432,7 @@ const RegistrosApp = {
         }
     },
 
-    async addFastEntryRow() {
-        const productoInput = document.getElementById('fast-producto');
-        const fechaInput = document.getElementById('fast-fecha');
-        const cantidadInput = document.getElementById('fast-cantidad');
-        const cuentaInput = document.getElementById('fast-cuenta');
-        const precioEspecialInput = document.getElementById('fast-precio-especial');
-        const observacionInput = document.getElementById('fast-observacion');
-
-        const rawInputValue = productoInput.value.trim().toLowerCase();
-        
-        // Limpiar sufijos extra del código QR (ej. "AN131032'1" -> "AN131032")
-        const inputValue = rawInputValue.includes("'") ? rawInputValue.split("'")[0] : rawInputValue;
-        
-        let productoDesc = productoInput.value.trim();
-        // Si se limpió el código, usamos el código limpio como fallback visual
-        if (rawInputValue.includes("'")) {
-            productoDesc = inputValue.toUpperCase();
-        }
-
-        let productId = null;
-
-        let cantidad = parseInt(cantidadInput.value);
-        if (isNaN(cantidad) || cantidad < 1) cantidad = 1;
-        const cuenta = cuentaInput.value.trim();
-        const precioEspecial = precioEspecialInput ? parseFloat(precioEspecialInput.value) : null;
-        const observacion = observacionInput.value.trim();
-
-        if (!inputValue) return;
-
-        // Función auxiliar para comparar códigos ignorando ceros a la izquierda
-        const compareCodes = (code1, code2) => {
-            if (!code1 || !code2) return false;
-            // Quitamos ceros a la izquierda para comparar "03714" con "3714"
-            const c1 = code1.toLowerCase().replace(/^0+/, '');
-            const c2 = code2.toLowerCase().replace(/^0+/, '');
-            // Si después de quitar ceros quedan vacíos (ej. era "0"), los comparamos como "0"
-            return (c1 || "0") === (c2 || "0");
-        };
-
-        // Búsqueda en caché local de InventoryController
-        if (window.app && window.app.cache) {
-            const match = window.app.cache.find(p => {
-                // Separar el código principal por espacios, comas o guiones por si tiene múltiples códigos (ej. "AA12 3714 1414")
-                const mainCodes = p.codigo ? p.codigo.split(/[\s,-]+/) : [];
-                
-                const matchMain = mainCodes.some(c => compareCodes(c, inputValue));
-                const matchDesc = p.descripcion && compareCodes(p.descripcion, inputValue);
-                const matchAlias = p.aliases && p.aliases.some(a => compareCodes(a, inputValue));
-                const matchProv = p.codigosProveedor && p.codigosProveedor.some(c => compareCodes(c, inputValue));
-
-                return matchMain || matchDesc || matchAlias || matchProv;
-            });
-
-            if (match) {
-                productoDesc = match.descripcion;
-                productId = match.id;
-            } else {
-                console.warn("Producto escaneado no encontrado en BD:", productoDesc);
-                productoDesc += " ⚠️ NO ENCONTRADO";
-            }
-        }
-
-        // Guardar instantáneamente en Firebase en colección unificada REGISTROS
-        try {
-            const unifiedRef = RegistrosApp.db.collection('REGISTROS');
-            const newDocId = unifiedRef.doc().id;
-
-            const baseData = {
-                fecha: (fechaInput && fechaInput.value) ? fechaInput.value : RegistrosApp.getLocalISODate() || "",
-                producto: productoDesc || "",
-                productId: productId || null,
-                cantidad: cantidad || 1,
-                cantidadUsada: 0,
-                facturas: [],
-                cuenta: cuenta || "",
-                precioEspecial: isNaN(precioEspecial) ? null : precioEspecial,
-                observacion: observacion || "",
-                archivado: false,
-                origen: 'manual',
-                timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
-            };
-
-            await unifiedRef.doc(newDocId).set(baseData);
-        } catch (error) {
-            console.error("Error guardando registro:", error);
-            alert("Error al guardar el producto: " + error.message);
-            return;
-        }
-
-        // Resetear inputs para el siguiente producto
-        productoInput.value = '';
-        cantidadInput.value = '1';
-        observacionInput.value = '';
-
-        // Volver a enfocar en cantidad para el siguiente registro
-        cantidadInput.focus();
-        cantidadInput.select();
-    },
-
-    handleExcelUpload(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        this.showLoading(true);
-        const reader = new FileReader();
-
-        reader.onload = async (event) => {
-            try {
-                const data = new Uint8Array(event.target.result);
-                // Usar cellDates: true para que la librería maneje las fechas de Excel automáticamente
-                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-                
-                this.currentWorkbook = workbook;
-                
-                // Mostrar nombre del archivo
-                const filenameDisplay = document.getElementById('fast-excel-filename-display');
-                if (filenameDisplay) filenameDisplay.innerText = `Archivo: ${file.name}`;
-                
-                // Llenar selector de hojas
-                const sheetSel = document.getElementById('fast-excel-sheet-select');
-                if (sheetSel) {
-                    sheetSel.innerHTML = '';
-                    workbook.SheetNames.forEach(name => {
-                        const opt = document.createElement('option');
-                        opt.value = name;
-                        opt.innerText = name;
-                        sheetSel.appendChild(opt);
-                    });
-                }
-                
-                // Mostrar contenedor del selector de hojas
-                const sheetsContainer = document.getElementById('fast-excel-sheets-container');
-                if (sheetsContainer) sheetsContainer.style.display = 'block';
-                
-            } catch (error) {
-                console.error("Error leyendo Excel:", error);
-                alert("Error al leer el archivo Excel: " + error.message);
-            } finally {
-                this.showLoading(false);
-            }
-        };
-
-        reader.readAsArrayBuffer(file);
-    },
-
-    async processSelectedFastExcelSheet() {
-        if (!this.currentWorkbook) {
-            alert("Por favor selecciona un archivo Excel primero.");
-            return;
-        }
-        
-        const sheetName = document.getElementById('fast-excel-sheet-select').value;
-        if (!sheetName) {
-            alert("Selecciona una hoja válida.");
-            return;
-        }
-        
-        this.showLoading(true);
-        try {
-            const worksheet = this.currentWorkbook.Sheets[sheetName];
-            // Convertir a JSON crudo garantizando que las columnas A, B, C y D siempre existan incluso si están vacías
-            const rawData = XLSX.utils.sheet_to_json(worksheet, { header: "A", defval: null });
-            
-            await this.processExcelData(rawData);
-            
-            // Ocultar selector de hojas y limpiar campos
-            const sheetsContainer = document.getElementById('fast-excel-sheets-container');
-            if (sheetsContainer) sheetsContainer.style.display = 'none';
-            
-            const filenameDisplay = document.getElementById('fast-excel-filename-display');
-            if (filenameDisplay) filenameDisplay.innerText = '';
-            
-            const fileInput = document.getElementById('fast-excel-file');
-            if (fileInput) fileInput.value = '';
-            
-            this.currentWorkbook = null;
-            
-        } catch (error) {
-            console.error("Error al procesar hoja:", error);
-            alert("Error al procesar la hoja de Excel: " + error.message);
-        } finally {
-            this.showLoading(false);
-        }
-    },
-
-    async processExcelData(rows) {
-        let currentExcelDate = null;
-        let batch = this.db.batch();
-        let operationsCount = 0;
-        let totalProcessed = 0;
-        let totalUpdated = 0;
-        let totalSkipped = 0;
-
-        // Cargar registros existentes en REGISTROS que no estén archivados
-        const existingSnap = await this.registrosRef.where('archivado', '==', false).get();
-        const existingMap = {};
-        existingSnap.forEach(doc => {
-            const data = doc.data();
-            if (data.filaExcel !== undefined && data.filaExcel !== null) {
-                existingMap[data.filaExcel] = { id: doc.id, ...data };
-            }
-        });
-
-        // Saltar la primera fila si es el encabezado
-        let startIndex = 0;
-        if (rows.length > 0 && typeof rows[0].A === 'string' && rows[0].A.toLowerCase().includes('fecha')) {
-            startIndex = 1;
-        }
-
-        for (let i = startIndex; i < rows.length; i++) {
-            const row = rows[i];
-
-            // Columna C: Descripción (Producto) - Si no hay producto, saltar la fila
-            const producto = row.C ? String(row.C).trim() : '';
-            if (!producto) continue;
-
-            // Columna A: Fecha
-            let fechaRaw = row.A;
-            let newDateDetected = false;
-            let tempDateStr = null;
-
-            if (fechaRaw !== undefined && fechaRaw !== null) {
-                if (fechaRaw instanceof Date) {
-                    if (!isNaN(fechaRaw.getTime())) {
-                        // Extraer partes UTC directamente para evitar desplazamientos por zona horaria
-                        const y = fechaRaw.getUTCFullYear();
-                        const m = String(fechaRaw.getUTCMonth() + 1).padStart(2, '0');
-                        const d = String(fechaRaw.getUTCDate()).padStart(2, '0');
-                        tempDateStr = `${y}-${m}-${d}`;
-                        newDateDetected = true;
-                    }
-                } else if (typeof fechaRaw === 'string') {
-                    const cleanStr = fechaRaw.trim();
-                    if (cleanStr.includes('/') || cleanStr.includes('-')) {
-                        const parts = cleanStr.includes('/') ? cleanStr.split('/') : cleanStr.split('-');
-                        if (parts.length === 3) {
-                            let y = parts[2];
-                            if (y.length === 2) {
-                                if (y === "06") y = "2026"; // Corregir "06" -> "2026" (evitar 2006)
-                                else y = "20" + y;
-                            } else if (y.length === 1 && y === "6") {
-                                y = "2026"; // Corregir "6" -> "2026"
-                            }
-                            if (parts[0].length === 4) {
-                                tempDateStr = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
-                            } else {
-                                tempDateStr = `${y}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-                            }
-                            newDateDetected = true;
-                        }
-                    }
-                } else if (typeof fechaRaw === 'number') {
-                    // Ignorar números pequeños como 15 o 8
-                    if (fechaRaw > 30000) {
-                        const excelEpoch = new Date(Date.UTC(1899, 11, 30));
-                        const jsDate = new Date(excelEpoch.getTime() + fechaRaw * 86400000);
-                        const y = jsDate.getUTCFullYear();
-                        const m = String(jsDate.getUTCMonth() + 1).padStart(2, '0');
-                        const d = String(jsDate.getUTCDate()).padStart(2, '0');
-                        tempDateStr = `${y}-${m}-${d}`;
-                        newDateDetected = true;
-                    }
-                }
-            }
-
-            if (newDateDetected && tempDateStr && !tempDateStr.startsWith("1900")) {
-                currentExcelDate = tempDateStr;
-            }
-
-            if (!currentExcelDate) {
-                currentExcelDate = this.getLocalISODate();
-            }
-
-            // Columna B: Cantidad
-            const cantidad = parseInt(row.B) || 1;
-
-            // Columna D: Cuenta
-            const cuenta = row.D ? String(row.D).trim() : '';
-
-            // Columna E: Observacion
-            const observacion = row.E ? String(row.E).trim() : '';
-
-            // Fecha final a usar
-            const fechaAUsar = currentExcelDate;
-
-            // Intentar vincular usando MAPEO_NOMBRES primero (vínculos manuales guardados)
-            let productId = null;
-            let productoDesc = producto;
-            if (window.app && window.app.cache) {
-                // 1. Buscar en el diccionario de vínculos manuales
-                const mapeoKey = this.sanitizeForDocId(producto);
-                const codigoMapeado = this.mapeoNombres ? this.mapeoNombres[mapeoKey] : null;
-                if (codigoMapeado) {
-                    const matchMapeado = this.findProductByCodigo(codigoMapeado);
-                    if (matchMapeado) {
-                        productId = matchMapeado.id;
-                        productoDesc = matchMapeado.descripcion;
-                    }
-                }
-
-                // 2. Fallback: coincidencia exacta por descripción o alias
-                if (!productId) {
-                    const match = window.app.cache.find(p => {
-                        const matchDesc = p.descripcion && p.descripcion.toLowerCase().trim() === producto.toLowerCase().trim();
-                        const matchAlias = p.aliases && p.aliases.some(a => a.toLowerCase().trim() === producto.toLowerCase().trim());
-                        return matchDesc || matchAlias;
-                    });
-                    if (match) {
-                        productId = match.id;
-                        productoDesc = match.descripcion;
-                    }
-                }
-            }
-
-            const filaExcelNum = i + 1;
-            const existingDoc = existingMap[filaExcelNum];
-
-            if (existingDoc) {
-                // Fila ya importada previamente. Comparar datos.
-                const isSame = existingDoc.fecha === fechaAUsar &&
-                               existingDoc.producto === productoDesc &&
-                               existingDoc.cantidad === cantidad &&
-                               (existingDoc.cuenta || '') === cuenta &&
-                               (existingDoc.observacion || '') === observacion;
-                
-                if (isSame) {
-                    totalSkipped++;
-                    continue; // Duplicado idéntico, omitir.
-                }
-
-                // Si cambiaron los datos, verificar cantidadUsada en REGISTROS
-                const totalBilled = existingDoc.cantidadUsada || 0;
-
-                if (totalBilled > 0) {
-                    // Si ya está facturado, actualizar solo los campos descriptivos (producto, cuenta, observacion)
-                    // pero mantener fecha y cantidad inalteradas para no desajustar la facturación.
-                    batch.update(this.registrosRef.doc(existingDoc.id), {
-                        producto: productoDesc,
-                        productId: productId,
-                        cuenta: cuenta,
-                        observacion: observacion
-                    });
-                    operationsCount++;
-                } else {
-                    // Si no está facturado, actualizar libremente cantidad, fecha y demás campos
-                    batch.update(this.registrosRef.doc(existingDoc.id), {
-                        fecha: fechaAUsar,
-                        producto: productoDesc,
-                        productId: productId,
-                        cantidad: cantidad,
-                        cuenta: cuenta,
-                        observacion: observacion
-                    });
-                    operationsCount++;
-                }
-                totalUpdated++;
-            } else {
-                // Nuevo registro unificado
-                const newDocId = this.registrosRef.doc().id;
-
-                const baseData = {
-                    fecha: fechaAUsar,
-                    producto: productoDesc,
-                    productId: productId,
-                    cantidad: cantidad,
-                    cantidadUsada: 0,
-                    facturas: [],
-                    cuenta: cuenta,
-                    observacion: observacion,
-                    origen: 'excel',
-                    filaExcel: filaExcelNum,
-                    archivado: false,
-                    timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
-                };
-
-                batch.set(this.registrosRef.doc(newDocId), baseData);
-
-                operationsCount++;
-                totalProcessed++;
-            }
-
-            // Límite de operaciones en lote de Firestore
-            if (operationsCount >= 400) {
-                await batch.commit();
-                batch = this.db.batch();
-                operationsCount = 0;
-            }
-        }
-
-        if (operationsCount > 0) {
-            await batch.commit();
-        }
-
-        let msg = `¡Carga de Excel finalizada!\n`;
-        if (totalProcessed > 0) msg += `- ${totalProcessed} registros nuevos agregados.\n`;
-        if (totalUpdated > 0) msg += `- ${totalUpdated} registros existentes actualizados.\n`;
-        if (totalSkipped > 0) msg += `- ${totalSkipped} registros duplicados omitidos.\n`;
-        if (totalProcessed === 0 && totalUpdated === 0) msg += `- No se agregaron nuevos registros (todos ya existían).`;
-        
-        alert(msg);
-    },
+    // Métodos movidos a RegistroController.js
 
     currentSelectedDate: null,
     facturaItems: [],
@@ -1833,6 +1470,16 @@ const RegistrosApp = {
                             const nuevaFecha = data.fecha.replace("2006-", "2026-");
                             this.registrosRef.doc(doc.id).update({ fecha: nuevaFecha }).catch(() => {});
                             data.fecha = nuevaFecha;
+                        }
+
+                        // BUGFIX: Auto-limpiar respaldoId en registros consolidados del mes anterior.
+                        // El cerrarMes copiaba el respaldoId del doc archivado, causando que las
+                        // escrituras de facturación/anulación fueran al documento equivocado.
+                        if (data.respaldoId && data.observacion && data.observacion.includes('CONSOLIDADO')) {
+                            this.registrosRef.doc(doc.id).update({
+                                respaldoId: window.firebase.firestore.FieldValue.delete()
+                            }).catch(() => {});
+                            delete data.respaldoId;
                         }
 
                         this.allRegistros.push({ id: doc.id, ...data });
@@ -1942,39 +1589,7 @@ const RegistrosApp = {
         const dateInputVal = dateInput ? dateInput.value : '';
         const mesFacturaActual = dateInputVal ? dateInputVal.substring(0, 7) : new Date().toISOString().substring(0, 7);
 
-        // 2. Consolidar acumulado facturado por mes y clave de producto
-        const facturadoPorMesYProducto = {};
-
-        if (!this._cachedFacturadoHistorico) {
-            this._cachedFacturadoHistorico = {};
-            if (Array.isArray(this.allHistoricalInvoices)) {
-                this.allHistoricalInvoices.forEach(inv => {
-                    const mes = inv.fecha ? inv.fecha.substring(0, 7) : '';
-                    if (!mes) return;
-                    
-                    if (!this._cachedFacturadoHistorico[mes]) {
-                        this._cachedFacturadoHistorico[mes] = {};
-                    }
-                    
-                    const items = inv.items || [];
-                    items.forEach(item => {
-                        if (item.isManoDeObra || item.productId === 'SERVICIO') return;
-                        const key = this.getGroupingKey(item.descripcionPapel || item.producto, item.productId);
-                        this._cachedFacturadoHistorico[mes][key] = (this._cachedFacturadoHistorico[mes][key] || 0) + (item.cantidad || 0);
-                    });
-                });
-            }
-        }
-
-        for (const m in this._cachedFacturadoHistorico) {
-            facturadoPorMesYProducto[m] = { ...this._cachedFacturadoHistorico[m] };
-        }
-
-        // Copia de los acumuladores para ir descontando vía FIFO en caliente en la renderización
-        const descAcumuladores = {};
-        for (const m in facturadoPorMesYProducto) {
-            descAcumuladores[m] = { ...facturadoPorMesYProducto[m] };
-        }
+        // Código muerto de consolidación por mes eliminado.
 
         // 3. Tomar TODOS los registros del mes (tanto pendientes como facturados) para aplicar la deducción FIFO
         if (!this._cachedRegistrosOrdenadosAsc) {
@@ -2626,12 +2241,12 @@ const RegistrosApp = {
         let precioEncontrado = false;
 
         try {
-            // 1. Intentar buscar por ID de vínculo en el inventario directo en Firestore
-            if (currentVinculoId) {
-                const doc = await this.db.collection('INVENTARIO').doc(currentVinculoId).get();
-                if (doc.exists) {
-                    item.costoUnitario = doc.data().costo || 0;
-                    item.precioUnitario = doc.data().precio || 0;
+            // 1. Intentar buscar por ID de vínculo en el inventario
+            if (currentVinculoId && window.app && window.app.cache) {
+                const cachedProduct = window.app.cache.find(p => p.id === currentVinculoId);
+                if (cachedProduct) {
+                    item.costoUnitario = cachedProduct.costo || 0;
+                    item.precioUnitario = cachedProduct.precio || 0;
                     precioEncontrado = true;
                 }
             }
@@ -2644,8 +2259,10 @@ const RegistrosApp = {
                     item.precioUnitario = data.precioNormal || 0;
                     if (data.vinculoId) {
                         item.vinculoId = data.vinculoId;
-                        const pDoc = await this.db.collection('INVENTARIO').doc(data.vinculoId).get();
-                        if (pDoc.exists) item.costoUnitario = pDoc.data().costo || 0;
+                        if (window.app && window.app.cache) {
+                            const p = window.app.cache.find(c => c.id === data.vinculoId);
+                            if (p) item.costoUnitario = p.costo || 0;
+                        }
                     }
                     precioEncontrado = true;
                 }
@@ -2660,14 +2277,30 @@ const RegistrosApp = {
                 }
 
                 const searchName = item.producto.toLowerCase().trim();
+                
+                // Función auxiliar para comparar códigos ignorando ceros a la izquierda
+                const compareCodes = (code1, code2) => {
+                    if (!code1 || !code2) return false;
+                    const c1 = code1.toLowerCase().replace(/^0+/, '');
+                    const c2 = code2.toLowerCase().replace(/^0+/, '');
+                    return (c1 || "0") === (c2 || "0");
+                };
+
                 const match = this._inventarioCache.find(p => {
                     const descMatch = p.descripcion && p.descripcion.toLowerCase().trim() === searchName;
-                    const codeMatch = p.codigo && p.codigo.toLowerCase().trim() === searchName;
-                    const officialCodeMatch = item.codigoOficial && p.codigo && p.codigo.toLowerCase().trim() === item.codigoOficial.toLowerCase().trim();
-                    const aliasMatch = p.aliases && Array.isArray(p.aliases) && p.aliases.some(alias => alias.toLowerCase().trim() === searchName);
-                    return descMatch || codeMatch || officialCodeMatch || aliasMatch;
+                    
+                    // Separar el código principal por si tiene múltiples (ej. "AA12 3714")
+                    const mainCodes = p.codigo ? p.codigo.split(/[\s,-]+/) : [];
+                    const codeMatch = mainCodes.some(c => compareCodes(c, searchName));
+                    
+                    const officialCodeMatch = item.codigoOficial && p.codigo && compareCodes(p.codigo, item.codigoOficial);
+                    
+                    const aliasMatch = p.aliases && Array.isArray(p.aliases) && p.aliases.some(alias => compareCodes(alias, searchName));
+                    const provMatch = p.codigosProveedor && Array.isArray(p.codigosProveedor) && p.codigosProveedor.some(c => compareCodes(c, searchName));
+
+                    return descMatch || codeMatch || officialCodeMatch || aliasMatch || provMatch;
                 });
-                
+
                 if (match) {
                     item.vinculoId = match.id;
                     item.costoUnitario = match.costo || 0;
@@ -3544,6 +3177,41 @@ const RegistrosApp = {
 
             await batch.commit();
 
+            // AGREGAR A LA MEMORIA INMEDIATAMENTE PARA EVITAR RACE CONDITIONS CON FIREBASE CACHE
+            const localInvoiceData = {
+                id: facturaRef.id,
+                CLIENTE: cliente,
+                numeroFactura: numero,
+                tipo: this.facturaTipo,
+                total: grandTotal,
+                costoTotal: totalCosto,
+                totalManoObra: totalManoObra,
+                gananciaProductos: gananciaProductos,
+                gananciaNeta: gananciaNeta,
+                fecha: fechaFactura,
+                items: this.facturaItems.map(item => ({
+                    descripcionPapel: item.producto,
+                    cuenta: item.cuenta || '',
+                    cantidad: item.cantidadFacturar,
+                    precioUnitario: item.precioUnitario,
+                    costoUnitario: item.costoUnitario || 0,
+                    productId: item.vinculoId || null,
+                    codigoOficial: item.codigoOficial || '',
+                    isManoDeObra: !!item.isManoDeObra,
+                    total: item.cantidadFacturar * item.precioUnitario
+                }))
+            };
+            if (this.allHistoricalInvoices) {
+                this.allHistoricalInvoices = this.allHistoricalInvoices.filter(inv => inv.id !== localInvoiceData.id);
+            }
+            this.allHistoricalInvoices.push(localInvoiceData);
+            // Guardar en buffer local para proteger contra race condition de loadInvoicesHistory
+            if (!this._locallyAddedInvoices) this._locallyAddedInvoices = [];
+            this._locallyAddedInvoices.push(localInvoiceData);
+
+            this._cachedFacturadoHistorico = null;
+            this._cachedComputedBilledMap = null;
+
             this.showLoading(false);
             alert("¡Factura procesada con éxito! Las existencias actuales en pantalla reflejan el cambio y se guardó para la auditoría.");
 
@@ -3561,20 +3229,28 @@ const RegistrosApp = {
                 }
             }
 
-            // Limpiar factura
+            // Regresar al Paso 1 visualmente
+            this.goToStep(1);
+
+            // Fetch histórico en background después de un margen de seguridad
+            // para que Firestore cache sincronice, manteniendo la memoria local
+            // como la fuente de verdad inmediata.
+            setTimeout(() => {
+                this.loadInvoicesHistory();
+            }, 3000);
+
+            // Limpiar factura DESPUÉS de actualizar la UI
+            // Esto evita que los repintados locales vacíen la información antes de tiempo.
             this.facturaItems = [];
             this.saveFacturaDraft();
             this.renderFactura();
             document.getElementById('factura-cliente').value = '';
             document.getElementById('factura-numero').value = '';
-
-            // Regresar al Paso 1
-            this.goToStep(1);
-            this.loadInvoicesHistory();
+            
+            // Repintar las tablas (Tarjetas 1 y 2) con el inventario actualizado
+            this.renderFacturacionData();
 
         } catch (error) {
-            console.error("Error crítico al finalizar factura:", error);
-            alert("Error al guardar la factura: " + error.message);
             this.showLoading(false);
         }
     },
@@ -3693,11 +3369,14 @@ const RegistrosApp = {
 
             // 3. Buscar todos los registros unificados que tengan este facturaId para restaurarlos
             const registrosLocales = this.allRegistros.filter(r => r.facturas && r.facturas.some(f => f.facturaId === facturaId));
-            const uniqueRegIds = [...new Set(registrosLocales.map(r => r.respaldoId || r.id))];
+            // BUGFIX: Usar reg.id (el ID real del documento en Firestore), NO reg.respaldoId
+            // porque los registros consolidados del mes anterior tienen un respaldoId que apunta
+            // al documento archivado viejo, causando que las escrituras vayan al doc equivocado.
+            const uniqueRegIds = [...new Set(registrosLocales.map(r => r.id))];
             
             for (let id of uniqueRegIds) {
                 // Find original in memory to get current arrays
-                const originalReg = this.allRegistros.find(r => (r.respaldoId || r.id) === id && !(r.id || '').startsWith('simul_'));
+                const originalReg = this.allRegistros.find(r => r.id === id && !(r.id || '').startsWith('simul_'));
                 if (originalReg) {
                     const facturasToKeep = (originalReg.facturas || []).filter(f => f.facturaId !== facturaId);
                     const removedFacturas = (originalReg.facturas || []).filter(f => f.facturaId === facturaId);
@@ -3731,13 +3410,28 @@ const RegistrosApp = {
             batch.delete(this.db.collection('INVENTARIO_SALIDAS').doc(facturaId));
 
             await batch.commit();
+
+            // ELIMINAR DE LA MEMORIA INMEDIATAMENTE PARA EVITAR RACE CONDITIONS CON FIREBASE CACHE
+            if (this.allHistoricalInvoices) {
+                this.allHistoricalInvoices = this.allHistoricalInvoices.filter(inv => inv.id !== facturaId);
+            }
+            // También eliminar del buffer de facturas locales para que no se re-agregue
+            if (this._locallyAddedInvoices) {
+                this._locallyAddedInvoices = this._locallyAddedInvoices.filter(inv => inv.id !== facturaId);
+            }
+            this._cachedFacturadoHistorico = null;
+            this._cachedComputedBilledMap = null;
+            this.renderFacturacionData(); // Forzar repintado con memoria actualizada
+
             alert("✅ Factura anulada con éxito. Todos los productos han vuelto a estar Pendientes.");
 
             const inputNum = document.getElementById('factura-numero');
             if (inputNum) inputNum.value = '';
 
-            // Recargar historial
-            this.loadInvoicesHistory();
+            // Recargar historial (en background) después de un margen de seguridad
+            setTimeout(() => {
+                this.loadInvoicesHistory();
+            }, 3000);
 
         } catch (error) {
             console.error("Error al anular la factura:", error);
@@ -4160,107 +3854,8 @@ const RegistrosApp = {
     // ==========================================
     // SECCIÓN DE SERVICIOS, HISTORIAL E IMPORTACIÓN MASIVA
     // ==========================================
-    goToBillingStep() {
-        if (this.facturaItems.length === 0) {
-            alert("Debes agregar al menos un repuesto, servicio o mano de obra.");
-            return;
-        }
-
-        this.goToStep(3);
-
-        // Pre-seleccionar tipo normal por defecto
-        this.selectInvoiceType(this.facturaTipo || 'normal');
-    },
-
-    backToServicesStep() {
-        this.goToStep(2);
-    },
-
-    backToRepuestosStep() {
-        this.goToStep(1);
-    },
-
-    switchListadoTab(tabId) {
-        const btnGeneral = document.getElementById('tab-listado-general');
-        const btnCuentas = document.getElementById('tab-listado-cuentas');
-        const contentGeneral = document.getElementById('content-listado-general');
-        const contentCuentas = document.getElementById('content-listado-cuentas');
-
-        if (tabId === 'general') {
-            btnGeneral.style.background = '#3498db';
-            btnGeneral.style.color = 'white';
-            btnGeneral.style.border = 'none';
-            
-            btnCuentas.style.background = '#e2e8f0';
-            btnCuentas.style.color = '#4a5568';
-            btnCuentas.style.border = '1px solid #cbd5e0';
-            
-            contentGeneral.style.display = 'flex';
-            contentCuentas.style.display = 'none';
-        } else {
-            btnCuentas.style.background = '#3498db';
-            btnCuentas.style.color = 'white';
-            btnCuentas.style.border = 'none';
-            
-            btnGeneral.style.background = '#e2e8f0';
-            btnGeneral.style.color = '#4a5568';
-            btnGeneral.style.border = '1px solid #cbd5e0';
-            
-            contentGeneral.style.display = 'none';
-            contentCuentas.style.display = 'flex';
-        }
-    },
 
     currentHistorialTab: 'list',
-    switchHistorialTab(tabId) {
-        this.currentHistorialTab = tabId;
-        const listBtn = document.getElementById('tab-historial-list');
-        const importBtn = document.getElementById('tab-historial-import');
-        const auditBtn = document.getElementById('tab-historial-audit');
-        const listContent = document.getElementById('historial-tab-list-content');
-        const importContent = document.getElementById('historial-tab-import-content');
-        const auditContent = document.getElementById('historial-tab-audit-content');
-
-        // Resetear estilos y ocultar contenidos
-        [listBtn, importBtn, auditBtn].forEach(btn => {
-            if (btn) {
-                btn.style.borderBottomColor = 'transparent';
-                btn.style.color = '#718096';
-            }
-        });
-        [listContent, importContent, auditContent].forEach(content => {
-            if (content) content.style.display = 'none';
-        });
-
-        if (tabId === 'list') {
-            if (listBtn) {
-                listBtn.style.borderBottomColor = '#3498db';
-                listBtn.style.color = '#3498db';
-            }
-            if (listContent) listContent.style.display = 'block';
-            this.loadInvoicesHistory();
-        } else if (tabId === 'import') {
-            if (importBtn) {
-                importBtn.style.borderBottomColor = '#3498db';
-                importBtn.style.color = '#3498db';
-            }
-            if (importContent) importContent.style.display = 'block';
-        } else if (tabId === 'audit') {
-            if (auditBtn) {
-                auditBtn.style.borderBottomColor = '#3498db';
-                auditBtn.style.color = '#3498db';
-            }
-            if (auditContent) auditContent.style.display = 'block';
-            // Poner por defecto el mes en curso en el selector si no tiene valor
-            const auditMonthInput = document.getElementById('audit-month-input');
-            if (auditMonthInput && !auditMonthInput.value) {
-                const now = new Date();
-                const y = now.getFullYear();
-                const m = String(now.getMonth() + 1).padStart(2, '0');
-                auditMonthInput.value = `${y}-${m}`;
-            }
-        }
-    },
 
     allHistoricalInvoices: [],
     async openInvoicesHistoryModal() {
@@ -4282,15 +3877,34 @@ const RegistrosApp = {
                 .limit(1500)
                 .get();
 
+            // Guardar IDs de facturas que ya teníamos en memoria local (podrían no estar aún en Firestore)
+            const localInvoiceIds = new Set((this.allHistoricalInvoices || []).map(inv => inv.id));
+
             this.allHistoricalInvoices = [];
             this._cachedFacturadoHistorico = null;
             this._cachedComputedBilledMap = null;
+            const fetchedIds = new Set();
             snapshot.forEach(doc => {
+                fetchedIds.add(doc.id);
                 this.allHistoricalInvoices.push({
                     id: doc.id,
                     ...doc.data()
                 });
             });
+
+            // BUGFIX: Re-agregar facturas que existían en memoria local pero que Firestore
+            // aún no devolvió (race condition de sincronización de caché).
+            // Esto evita que la compuerta "rebote" de regreso a las tarjetas.
+            if (this._locallyAddedInvoices && this._locallyAddedInvoices.length > 0) {
+                this._locallyAddedInvoices.forEach(localInv => {
+                    if (!fetchedIds.has(localInv.id)) {
+                        this.allHistoricalInvoices.push(localInv);
+                        console.log('[RACE-FIX] Re-agregada factura local no sincronizada:', localInv.id, localInv.numeroFactura);
+                    }
+                });
+                // Limpiar las que ya fueron confirmadas por Firestore
+                this._locallyAddedInvoices = this._locallyAddedInvoices.filter(inv => !fetchedIds.has(inv.id));
+            }
 
             this.allHistoricalInvoices.sort((a, b) => {
                 const nA = String(a.numeroFactura || '').replace(/\D/g, '');
@@ -4347,8 +3961,8 @@ const RegistrosApp = {
                 ? `<span style="display:inline-flex;align-items:center;gap:3px;background:#fed7d7;color:#c53030;border:1px solid #fc8181;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:bold;margin-left:6px;"><i class='fas fa-exclamation-triangle'></i> Sin vincular</span>`
                 : '';
 
-            const isChecked = !!inv.revisado;
-            const hasNote = !!inv.nota;
+            const isChecked = localStorage.getItem(`invoiceChecked_${inv.id}`) === 'true';
+            const hasNote = !!localStorage.getItem(`invoiceNote_${inv.id}`);
             const checkIcon = isChecked ? '<i class="fas fa-check-circle" style="font-size:18px; color:#38a169;"></i>' : '<i class="fas fa-circle" style="font-size:18px; color:#cbd5e0;"></i>';
             const rowBg = isChecked ? '#f0fff4' : '';
             const noteIcon = hasNote ? ' <i class="fas fa-sticky-note" title="Tiene nota" style="color: #d69e2e; font-size: 0.9rem; margin-left: 5px;"></i>' : '';
@@ -4374,9 +3988,9 @@ const RegistrosApp = {
     },
 
     toggleInvoiceChecked(id, btn) {
-        const isCurrentlyChecked = btn.innerHTML.includes('fa-check-circle');
-        const next = !isCurrentlyChecked;
-        
+        const current = localStorage.getItem(`invoiceChecked_${id}`) === 'true';
+        const next = !current;
+        localStorage.setItem(`invoiceChecked_${id}`, next ? 'true' : 'false');
         const row = btn.closest('tr');
         if (next) {
             btn.innerHTML = '<i class="fas fa-check-circle" style="font-size:18px; color:#38a169;"></i>';
@@ -4513,21 +4127,22 @@ const RegistrosApp = {
         typeEl.className = "status-badge " + typeClass;
 
         // -------------------------------------------------------------
-        // CÁLCULO DINÁMICO DE EXCESO DE FACTURACIÓN PARA EL MES DE ESTA FACTURA
+        // CÁLCULO DINÁMICO DE EXCESO DE FACTURACIÓN (HISTÓRICO HASTA LA FECHA DE LA FACTURA)
         // -------------------------------------------------------------
-        const mesFactura = inv.fecha.substring(0, 7); // ej: "2026-05"
+        const fechaLimite = inv.fecha;
+        const millisLimite = this.parseDateToMillis(fechaLimite);
         
-        // 1. Obtener registros de ese mes
-        const regsDelMes = this.allRegistros.filter(r => r.fecha.startsWith(mesFactura));
+        // 1. Obtener registros históricos hasta la fecha de esta factura
+        const regsValidos = this.allRegistros.filter(r => this.parseDateToMillis(r.fecha) <= millisLimite);
         const totalRegistrado = {};
-        regsDelMes.forEach(r => {
+        regsValidos.forEach(r => {
             const key = this.getGroupingKey(r);
             totalRegistrado[key] = (totalRegistrado[key] || 0) + r.cantidad;
         });
 
-        // 2. Obtener todas las facturas del mes y ordenarlas cronológicamente
-        const facturasDelMes = this.allHistoricalInvoices.filter(f => f.fecha.startsWith(mesFactura));
-        facturasDelMes.sort((a, b) => {
+        // 2. Obtener todas las facturas históricas hasta la fecha de esta factura y ordenarlas cronológicamente
+        const facturasValidas = this.allHistoricalInvoices.filter(f => this.parseDateToMillis(f.fecha) <= millisLimite);
+        facturasValidas.sort((a, b) => {
             const tA = this.parseDateToMillis(a.fecha);
             const tB = this.parseDateToMillis(b.fecha);
             if (tA !== tB) return tA - tB;
@@ -4540,7 +4155,7 @@ const RegistrosApp = {
         const acumuladoFacturado = {};
         const excedidoEnFactura = {}; // { facturaId: { key: { esOrigen: boolean, exceso: number } } }
         
-        facturasDelMes.forEach(f => {
+        facturasValidas.forEach(f => {
             excedidoEnFactura[f.id] = {};
             const items = f.items || [];
             items.forEach(item => {
@@ -4563,38 +4178,11 @@ const RegistrosApp = {
             });
         });
 
-        // 4. Inyectar advertencia si esta factura tiene excesos
+        // 4. Ocultar advertencia de excesos (desactivado por solicitud del usuario)
         const alertContainer = document.getElementById('detail-invoice-alert-container');
         if (alertContainer) {
             alertContainer.innerHTML = '';
             alertContainer.style.display = 'none';
-
-            const excesosDeEstaFactura = excedidoEnFactura[id] || {};
-            const keysExcesos = Object.keys(excesosDeEstaFactura);
-            if (keysExcesos.length > 0) {
-                alertContainer.style.display = 'block';
-                const itemsFact = inv.items || [];
-                const listaAlertas = keysExcesos.map(k => {
-                    const info = excesosDeEstaFactura[k];
-                    const itemMatch = itemsFact.find(it => this.getGroupingKey(it.descripcionPapel || it.producto, it.productId) === k);
-                    const name = itemMatch ? (itemMatch.descripcionPapel || itemMatch.producto) : 'Producto';
-                    const tipoAlerta = info.esOrigen 
-                        ? `<span style="background: #e53e3e; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-left: 5px;">⚠️ AQUÍ EMPEZÓ EXCESO</span>` 
-                        : `<span style="background: #e2e8f0; color: #4a5568; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-left: 5px;">Exceso Continuo</span>`;
-                    return `<li style="margin-bottom: 6px; line-height: 1.4;">
-                        <strong>${name}</strong>: Cantidad facturada supera los registros diarios por <strong>${info.exceso} ud.</strong> ${tipoAlerta}
-                    </li>`;
-                }).join('');
-
-                alertContainer.innerHTML = `
-                    <div style="background-color: #fff5f5; border: 1px solid #fc8181; color: #c53030; padding: 15px; border-radius: 8px; margin-bottom: 15px; font-size: 0.92rem;">
-                        <strong style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 1rem;"><i class="fas fa-exclamation-triangle" style="font-size: 1.2rem;"></i> Alerta de Exceso de Facturación</strong>
-                        <ul style="margin: 0; padding-left: 20px;">
-                            ${listaAlertas}
-                        </ul>
-                    </div>
-                `;
-            }
         }
         // -------------------------------------------------------------
 
@@ -5605,8 +5193,3 @@ if (document.readyState === 'loading') {
 
 // Exponer globalmente para los botones HTML
 window.RegistrosApp = RegistrosApp;
-
-
-
-
-

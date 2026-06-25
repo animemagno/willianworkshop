@@ -380,7 +380,7 @@
                     <h2><i class="fas fa-keyboard"></i> Ingreso de Producto</h2>
 
                     <form id="fast-entry-form"
-                        onsubmit="event.preventDefault(); RegistrosApp.addFastEntryRow(); return false;"
+                        onsubmit="event.preventDefault(); RegistroController.addFastEntryRow(); return false;"
                         class="form-grid-layout">
                         
                         <div class="col-6">
@@ -453,7 +453,7 @@
                         <select id="fast-excel-sheet-select" class="large-input" style="margin-bottom: 15px;"></select>
                         <button type="button" class="btn-submit-large"
                             style="background-color: #2196f3; box-shadow: 0 4px 6px rgba(33, 150, 243, 0.2); margin-top: 0;"
-                            onclick="RegistrosApp.processSelectedFastExcelSheet()">
+                            onclick="RegistroController.processSelectedFastExcelSheet()">
                             <i class="fas fa-check"></i> Cargar Hoja Seleccionada
                         </button>
                     </div>
@@ -926,6 +926,13 @@
             </div>
         </div>
     </div>
+
+    <!-- CARGAR SERVICIOS CORE -->
+    <script src="js/core/FirebaseService.js"></script>
+    <script src="js/core/InventoryLogic.js"></script>
+
+    <!-- CONTROLADORES MODULARES -->
+    <script src="js/registro/RegistroController.js"></script>
 
     <!-- CARGAR SCRIPT DE REGISTROS -->
     <script src="js/RegistrosApp.js?v=2.0.4"></script>
