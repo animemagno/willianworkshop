@@ -3240,6 +3240,24 @@ const RegistrosApp = {
             console.log(`Iniciando guardado de factura. Total de operaciones: ${totalOps}`);
             this.showLoading(true, `Preparando ${totalOps} operaciones...`);
 
+            // Helper para forzar timeout si Firebase se congela (WebChannel infinito)
+            const commitWithTimeout = async (batchToCommit, index) => {
+                const timeoutMs = 15000; // 15 segundos
+                return new Promise((resolve, reject) => {
+                    const timer = setTimeout(() => {
+                        reject(new Error(`Timeout: Firebase no respondió tras 15 segundos al intentar guardar el lote ${index}. Posible bloqueo de red o datos malformados.`));
+                    }, timeoutMs);
+                    
+                    batchToCommit.commit().then(() => {
+                        clearTimeout(timer);
+                        resolve();
+                    }).catch(err => {
+                        clearTimeout(timer);
+                        reject(err);
+                    });
+                });
+            };
+
             for (let i = 0; i < allOps.length; i++) {
                 allOps[i](currentBatch);
                 opsCount++;
@@ -3247,7 +3265,7 @@ const RegistrosApp = {
                 if (opsCount >= 50) {
                     this.showLoading(true, `Guardando en la nube (Parte ${batchIndex} de ${totalBatches})... Por favor no cierres la ventana.`);
                     console.log(`Enviando lote ${batchIndex}...`);
-                    await currentBatch.commit();
+                    await commitWithTimeout(currentBatch, batchIndex);
                     console.log(`Lote ${batchIndex} guardado exitosamente.`);
                     currentBatch = this.db.batch();
                     opsCount = 0;
@@ -3258,7 +3276,7 @@ const RegistrosApp = {
             if (opsCount > 0) {
                 this.showLoading(true, `Guardando en la nube (Parte final ${batchIndex} de ${totalBatches})...`);
                 console.log(`Enviando lote final ${batchIndex}...`);
-                await currentBatch.commit();
+                await commitWithTimeout(currentBatch, batchIndex);
                 console.log(`Lote final ${batchIndex} guardado exitosamente.`);
             }
 
