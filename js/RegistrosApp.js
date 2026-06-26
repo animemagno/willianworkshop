@@ -3230,24 +3230,35 @@ const RegistrosApp = {
                 }))
             }));
 
-            // --- EJECUTAR OPERACIONES SECUENCIALMENTE EN BATCHES DE 400 ---
+            // --- EJECUTAR OPERACIONES SECUENCIALMENTE EN BATCHES DE 50 ---
             let currentBatch = this.db.batch();
             let opsCount = 0;
+            let batchIndex = 1;
+            const totalOps = allOps.length;
+            
+            console.log(`Iniciando guardado de factura. Total de operaciones: ${totalOps}`);
 
             for (let i = 0; i < allOps.length; i++) {
                 allOps[i](currentBatch);
                 opsCount++;
 
-                if (opsCount >= 400) {
+                if (opsCount >= 50) {
+                    console.log(`Enviando lote ${batchIndex}...`);
                     await currentBatch.commit();
+                    console.log(`Lote ${batchIndex} guardado exitosamente.`);
                     currentBatch = this.db.batch();
                     opsCount = 0;
+                    batchIndex++;
                 }
             }
 
             if (opsCount > 0) {
+                console.log(`Enviando lote final ${batchIndex}...`);
                 await currentBatch.commit();
+                console.log(`Lote final ${batchIndex} guardado exitosamente.`);
             }
+
+            console.log(`¡Todos los lotes guardados en Firebase!`);
 
             // AGREGAR A LA MEMORIA INMEDIATAMENTE PARA EVITAR RACE CONDITIONS CON FIREBASE CACHE
             const localInvoiceData = {
@@ -3273,10 +3284,14 @@ const RegistrosApp = {
                     total: item.cantidadFacturar * item.precioUnitario
                 }))
             };
+
             if (this.allHistoricalInvoices) {
                 this.allHistoricalInvoices = this.allHistoricalInvoices.filter(inv => inv.id !== localInvoiceData.id);
+                this.allHistoricalInvoices.push(localInvoiceData);
+            } else {
+                this.allHistoricalInvoices = [localInvoiceData];
             }
-            this.allHistoricalInvoices.push(localInvoiceData);
+
             // Guardar en buffer local para proteger contra race condition de loadInvoicesHistory
             if (!this._locallyAddedInvoices) this._locallyAddedInvoices = [];
             this._locallyAddedInvoices.push(localInvoiceData);
