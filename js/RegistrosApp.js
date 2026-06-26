@@ -3235,14 +3235,17 @@ const RegistrosApp = {
             let opsCount = 0;
             let batchIndex = 1;
             const totalOps = allOps.length;
+            const totalBatches = Math.ceil(totalOps / 50) || 1;
             
             console.log(`Iniciando guardado de factura. Total de operaciones: ${totalOps}`);
+            this.showLoading(true, `Preparando ${totalOps} operaciones...`);
 
             for (let i = 0; i < allOps.length; i++) {
                 allOps[i](currentBatch);
                 opsCount++;
 
                 if (opsCount >= 50) {
+                    this.showLoading(true, `Guardando en la nube (Parte ${batchIndex} de ${totalBatches})... Por favor no cierres la ventana.`);
                     console.log(`Enviando lote ${batchIndex}...`);
                     await currentBatch.commit();
                     console.log(`Lote ${batchIndex} guardado exitosamente.`);
@@ -3253,12 +3256,14 @@ const RegistrosApp = {
             }
 
             if (opsCount > 0) {
+                this.showLoading(true, `Guardando en la nube (Parte final ${batchIndex} de ${totalBatches})...`);
                 console.log(`Enviando lote final ${batchIndex}...`);
                 await currentBatch.commit();
                 console.log(`Lote final ${batchIndex} guardado exitosamente.`);
             }
 
             console.log(`¡Todos los lotes guardados en Firebase!`);
+            this.showLoading(true, `Finalizando...`);
 
             // AGREGAR A LA MEMORIA INMEDIATAMENTE PARA EVITAR RACE CONDITIONS CON FIREBASE CACHE
             const localInvoiceData = {
