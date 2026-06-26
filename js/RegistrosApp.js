@@ -3147,6 +3147,7 @@ const RegistrosApp = {
                         if (!registrosUpdates.has(reg.id)) {
                             registrosUpdates.set(reg.id, {
                                 ref: regRef,
+                                regBaseData: reg,
                                 cantidadUsada: qtyToConsume,
                                 facturas: [{
                                     facturaId: facturaId,
@@ -3191,10 +3192,14 @@ const RegistrosApp = {
             });
 
             registrosUpdates.forEach(update => {
-                allOps.push(b => b.update(update.ref, {
+                const baseData = { ...update.regBaseData };
+                delete baseData.id; // No guardar el ID dentro del documento
+
+                allOps.push(b => b.set(update.ref, {
+                    ...baseData,
                     cantidadUsada: window.firebase.firestore.FieldValue.increment(update.cantidadUsada),
                     facturas: window.firebase.firestore.FieldValue.arrayUnion(...update.facturas)
-                }));
+                }, { merge: true }));
             });
 
             // Guardar factura en colección INVENTARIO_SALIDAS (Compatible con willianworkshop)
