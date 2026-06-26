@@ -3001,7 +3001,7 @@ const RegistrosApp = {
                 return;
             }
 
-            const batch = this.db.batch();
+            const allOps = [];
 
             // Si estamos editando, revertir primero los efectos de la factura anterior
             if (this.editingInvoiceId) {
@@ -3016,9 +3016,9 @@ const RegistrosApp = {
                         if (pId && pId !== 'SERVICIO' && pId !== 'OMITIDO') {
                             const stableKey = this.getGroupingKey(item.descripcionPapel || item.producto, pId);
                             const resumenRef = this.db.collection('RESUMEN_SALIDAS_MES').doc(stableKey);
-                            batch.set(resumenRef, {
+                            allOps.push(b => b.set(resumenRef, {
                                 cantidadFacturada: window.firebase.firestore.FieldValue.increment(-item.cantidad)
-                            }, { merge: true });
+                            }, { merge: true }));
                         }
                     });
 
@@ -3035,10 +3035,10 @@ const RegistrosApp = {
                         const cantidadRestaurar = removedFacturas.reduce((sum, f) => sum + f.cantidad, 0);
                         
                         if (cantidadRestaurar > 0) {
-                            batch.update(this.registrosRef.doc(id), {
+                            allOps.push(b => b.update(this.registrosRef.doc(id), {
                                 facturas: facturasToKeep,
                                 cantidadUsada: window.firebase.firestore.FieldValue.increment(-cantidadRestaurar)
-                            });
+                            }));
                             
                             // Sincronizar memoria caché
                             originalReg.facturas = facturasToKeep;
@@ -3055,7 +3055,7 @@ const RegistrosApp = {
             const facturaId = facturaRef.id;
 
             // Asegurar que activeInvoiceIds reconozca esta factura antes de que se lance el snapshot y la auto-sanación la borre
-            if (this.activeInvoiceIds) {
+            if (!this.editingInvoiceId && this.activeInvoiceIds) {
                 this.activeInvoiceIds.add(facturaId);
             }
 
@@ -3176,28 +3176,13 @@ const RegistrosApp = {
                 }
             });
 
-            // --- APLICAR OPERACIONES EN BATCHES (CON LÍMITE DE 400 POR BATCH) ---
-            const allBatches = [];
-            let currentBatch = this.db.batch();
-            let opsCount = 0;
-
-            const pushOp = (callback) => {
-                callback(currentBatch);
-                opsCount++;
-                if (opsCount >= 400) {
-                    allBatches.push(currentBatch.commit()); // Ejecutar el batch actual
-                    currentBatch = this.db.batch(); // Crear uno nuevo
-                    opsCount = 0;
-                }
-            };
-
-            // Aplicar todas las agrupaciones al sistema de chunking
+            // Aplicar todas las agrupaciones a la lista global de operaciones
             preciosUpdates.forEach(update => {
-                pushOp(b => b.set(update.ref, update.data, { merge: true }));
+                allOps.push(b => b.set(update.ref, update.data, { merge: true }));
             });
 
             resumenUpdates.forEach(update => {
-                pushOp(b => b.set(update.ref, {
+                allOps.push(b => b.set(update.ref, {
                     productId: update.productId,
                     producto: update.producto,
                     cantidadFacturada: window.firebase.firestore.FieldValue.increment(update.cantidadFacturada),
@@ -3206,14 +3191,13 @@ const RegistrosApp = {
             });
 
             registrosUpdates.forEach(update => {
-                pushOp(b => b.update(update.ref, {
+                allOps.push(b => b.update(update.ref, {
                     cantidadUsada: window.firebase.firestore.FieldValue.increment(update.cantidadUsada),
                     facturas: window.firebase.firestore.FieldValue.arrayUnion(...update.facturas)
                 }));
             });
 
             // Guardar factura en colección INVENTARIO_SALIDAS (Compatible con willianworkshop)
-            // NOTA: cliente y numero se extraen al inicio del FIFO más arriba.
             const grandTotal = this.facturaItems.reduce((sum, item) => sum + (item.cantidadFacturar * item.precioUnitario), 0);
             const totalCosto = this.facturaItems.reduce((sum, item) => sum + (item.cantidadFacturar * (item.costoUnitario || 0)), 0);
             const totalManoObra = this.facturaItems.reduce((sum, item) => sum + (item.isManoDeObra ? (item.cantidadFacturar * item.precioUnitario) : 0), 0);
@@ -3221,7 +3205,7 @@ const RegistrosApp = {
             const gananciaProductos = totalProductos - totalCosto;
             const gananciaNeta = grandTotal - totalCosto;
 
-            pushOp(b => b.set(facturaRef, {
+            allOps.push(b => b.set(facturaRef, {
                 CLIENTE: cliente,
                 numeroFactura: numero,
                 tipo: this.facturaTipo,
@@ -3246,13 +3230,24 @@ const RegistrosApp = {
                 }))
             }));
 
-            // Hacer commit del batch final
-            if (opsCount > 0) {
-                allBatches.push(currentBatch.commit());
+            // --- EJECUTAR OPERACIONES SECUENCIALMENTE EN BATCHES DE 400 ---
+            let currentBatch = this.db.batch();
+            let opsCount = 0;
+
+            for (let i = 0; i < allOps.length; i++) {
+                allOps[i](currentBatch);
+                opsCount++;
+
+                if (opsCount >= 400) {
+                    await currentBatch.commit();
+                    currentBatch = this.db.batch();
+                    opsCount = 0;
+                }
             }
 
-            // Esperar a que se procesen TODOS los batches
-            await Promise.all(allBatches);
+            if (opsCount > 0) {
+                await currentBatch.commit();
+            }
 
             // AGREGAR A LA MEMORIA INMEDIATAMENTE PARA EVITAR RACE CONDITIONS CON FIREBASE CACHE
             const localInvoiceData = {
