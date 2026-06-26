@@ -3230,57 +3230,38 @@ const RegistrosApp = {
                 }))
             }));
 
-            // --- EJECUTAR OPERACIONES SECUENCIALMENTE EN BATCHES DE 50 ---
-            let currentBatch = this.db.batch();
-            let opsCount = 0;
-            let batchIndex = 1;
+            // --- EJECUTAR OPERACIONES DIRECTAMENTE (SIN BATCH) ---
             const totalOps = allOps.length;
-            const totalBatches = Math.ceil(totalOps / 50) || 1;
-            
-            console.log(`Iniciando guardado de factura. Total de operaciones: ${totalOps}`);
-            this.showLoading(true, `Preparando ${totalOps} operaciones...`);
+            console.log(`Iniciando guardado directo de factura sin lotes. Total de operaciones: ${totalOps}`);
+            this.showLoading(true, `Guardando ${totalOps} registros uno por uno (0%)...`);
 
-            // Helper para forzar timeout si Firebase se congela (WebChannel infinito)
-            const commitWithTimeout = async (batchToCommit, index) => {
-                const timeoutMs = 15000; // 15 segundos
-                return new Promise((resolve, reject) => {
-                    const timer = setTimeout(() => {
-                        reject(new Error(`Timeout: Firebase no respondió tras 15 segundos al intentar guardar el lote ${index}. Posible bloqueo de red o datos malformados.`));
-                    }, timeoutMs);
-                    
-                    batchToCommit.commit().then(() => {
-                        clearTimeout(timer);
-                        resolve();
-                    }).catch(err => {
-                        clearTimeout(timer);
-                        reject(err);
-                    });
-                });
+            // Objeto que simula ser un batch pero ejecuta directamente las operaciones en Firebase
+            const directExecutor = {
+                set: async (ref, data, options) => {
+                    return await ref.set(data, options);
+                },
+                update: async (ref, data) => {
+                    return await ref.update(data);
+                }
             };
 
             for (let i = 0; i < allOps.length; i++) {
-                allOps[i](currentBatch);
-                opsCount++;
-
-                if (opsCount >= 50) {
-                    this.showLoading(true, `Guardando en la nube (Parte ${batchIndex} de ${totalBatches})... Por favor no cierres la ventana.`);
-                    console.log(`Enviando lote ${batchIndex}...`);
-                    await commitWithTimeout(currentBatch, batchIndex);
-                    console.log(`Lote ${batchIndex} guardado exitosamente.`);
-                    currentBatch = this.db.batch();
-                    opsCount = 0;
-                    batchIndex++;
+                try {
+                    // Ejecutar la operación (b => b.set(...) o b => b.update(...)) usando nuestro executor directo
+                    await allOps[i](directExecutor);
+                    
+                    // Actualizar UI cada 5 operaciones para no saturar el renderizado
+                    if (i % 5 === 0 || i === allOps.length - 1) {
+                        const percent = Math.round(((i + 1) / totalOps) * 100);
+                        this.showLoading(true, `Guardando en la nube (${percent}% completado)...`);
+                    }
+                } catch (err) {
+                    console.error(`Error crítico al guardar la operación ${i + 1} de ${totalOps}:`, err);
+                    throw new Error(`Fallo al guardar el dato ${i + 1}. Firebase rechazó la operación: ` + err.message);
                 }
             }
 
-            if (opsCount > 0) {
-                this.showLoading(true, `Guardando en la nube (Parte final ${batchIndex} de ${totalBatches})...`);
-                console.log(`Enviando lote final ${batchIndex}...`);
-                await commitWithTimeout(currentBatch, batchIndex);
-                console.log(`Lote final ${batchIndex} guardado exitosamente.`);
-            }
-
-            console.log(`¡Todos los lotes guardados en Firebase!`);
+            console.log(`¡Todas las operaciones guardadas directamente en Firebase!`);
             this.showLoading(true, `Finalizando...`);
 
             // AGREGAR A LA MEMORIA INMEDIATAMENTE PARA EVITAR RACE CONDITIONS CON FIREBASE CACHE
