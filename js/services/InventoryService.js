@@ -102,19 +102,141 @@ class InventoryService {
                 if (!doc.exists) throw "Producto no encontrado";
 
                 const oldData = doc.data();
-                const oldStock = parseFloat(oldData.existencia || 0);
-                const newStock = parseFloat(datos.existencia);
+                const cambios = [];
 
-                // Actualizar
+                if (datos.descripcion !== undefined && datos.descripcion !== oldData.descripcion) {
+                    cambios.push(`Descripción: "${oldData.descripcion || ''}" ➔ "${datos.descripcion}"`);
+                }
+                if (datos.precio !== undefined && parseFloat(datos.precio) !== parseFloat(oldData.precio || 0)) {
+                    cambios.push(`Precio: $${parseFloat(oldData.precio || 0).toFixed(2)} ➔ $${parseFloat(datos.precio).toFixed(2)}`);
+                }
+                if (datos.costo !== undefined && parseFloat(datos.costo) !== parseFloat(oldData.costo || 0)) {
+                    cambios.push(`Costo c/IVA: $${parseFloat(oldData.costo || 0).toFixed(2)} ➔ $${parseFloat(datos.costo).toFixed(2)}`);
+                }
+                if (datos.existencia !== undefined && parseFloat(datos.existencia) !== parseFloat(oldData.existencia || 0)) {
+                    cambios.push(`Existencia: ${oldData.existencia || 0} ➔ ${datos.existencia}`);
+                }
+
+                // Actualizar producto
                 transaction.update(ref, datos);
 
-                // Log de Ajuste eliminado. Ya no se guardará "AJUSTE MANUAL" al modificar desde inventario.
+                // Registrar en la bitácora del reloj si hubo cambios
+                if (cambios.length > 0) {
+                    const logRef = db.collection('HISTORIAL_MODIFICACIONES_PRODUCTO').doc();
+                    transaction.set(logRef, {
+                        productId: id,
+                        codigo: oldData.codigo || datos.codigo || '',
+                        descripcion: datos.descripcion || oldData.descripcion || '',
+                        cambios: cambios,
+                        fecha: new Date().toISOString(),
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
             });
             return true;
         } catch (error) {
             console.error("Error actualizando producto:", error);
             throw error;
         }
+    }
+
+    // Obtener historial de modificaciones de un producto para la vista de Reloj 🕒
+    async obtenerHistorialModificaciones(productId) {
+        try {
+            const db = firebase.firestore();
+            const snapshot = await db.collection('HISTORIAL_MODIFICACIONES_PRODUCTO')
+                .where('productId', '==', productId)
+                .get();
+            const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            docs.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+            return docs;
+        } catch (error) {
+            console.error("Error obteniendo historial de modificaciones:", error);
+            return [];
+        }
+    }
+
+    // GESTIÓN DE PROVEEDORES Y ABONOS
+    async obtenerProveedores() {
+        try {
+            const db = firebase.firestore();
+            const snapshot = await db.collection('PROVEEDORES').get();
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch (e) {
+            console.error("Error obteniendo proveedores:", e);
+            return [];
+        }
+    }
+
+    async guardarProveedor(datos) {
+        try {
+            const db = firebase.firestore();
+            if (datos.id) {
+                await db.collection('PROVEEDORES').doc(datos.id).set(datos, { merge: true });
+            } else {
+                await db.collection('PROVEEDORES').add({
+                    ...datos,
+                    saldoPendiente: datos.saldoPendiente || 0,
+                    fechaCreacion: new Date().toISOString()
+                });
+            }
+            return true;
+        } catch (e) {
+            console.error("Error guardando proveedor:", e);
+            throw e;
+        }
+    }
+
+    async registrarAbonoProveedor(abonoData) {
+        const db = firebase.firestore();
+        const provRef = db.collection('PROVEEDORES').doc(abonoData.proveedorId);
+        const abonoRef = db.collection('ABONOS_PROVEEDOR').doc();
+
+        return db.runTransaction(async (transaction) => {
+            const provDoc = await transaction.get(provRef);
+            if (!provDoc.exists) throw "Proveedor no encontrado";
+
+            const currentSaldo = parseFloat(provDoc.data().saldoPendiente || 0);
+            const montoAbono = parseFloat(abonoData.monto || 0);
+            const nuevoSaldo = Math.max(0, currentSaldo - montoAbono);
+
+            transaction.update(provRef, { saldoPendiente: nuevoSaldo });
+            transaction.set(abonoRef, {
+                ...abonoData,
+                saldoAnterior: currentSaldo,
+                nuevoSaldo: nuevoSaldo,
+                estado: 'COMPLETADO',
+                fecha: new Date().toISOString(),
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            return { abonoId: abonoRef.id, nuevoSaldo };
+        });
+    }
+
+    async cancelarAbonoProveedor(abonoId) {
+        const db = firebase.firestore();
+        const abonoRef = db.collection('ABONOS_PROVEEDOR').doc(abonoId);
+
+        return db.runTransaction(async (transaction) => {
+            const abonoDoc = await transaction.get(abonoRef);
+            if (!abonoDoc.exists) throw "Abono no encontrado";
+
+            const aData = abonoDoc.data();
+            if (aData.estado === 'CANCELADO') throw "Este abono ya está cancelado.";
+
+            const provRef = db.collection('PROVEEDORES').doc(aData.proveedorId);
+            const provDoc = await transaction.get(provRef);
+
+            if (provDoc.exists) {
+                const currentSaldo = parseFloat(provDoc.data().saldoPendiente || 0);
+                const restoredSaldo = currentSaldo + parseFloat(aData.monto || 0);
+                transaction.update(provRef, { saldoPendiente: restoredSaldo });
+            }
+
+            transaction.update(abonoRef, { estado: 'CANCELADO', fechaCancelacion: new Date().toISOString() });
+            return true;
+        });
     }
 
     // Eliminar un producto individual

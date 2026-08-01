@@ -694,6 +694,36 @@ const RegistrosApp = {
         return computedBilledMap;
     },
 
+    getRecordMonthStr(dateStr) {
+        if (!dateStr) return '';
+        const str = String(dateStr).trim();
+        if (str.includes('-')) {
+            const parts = str.split('-');
+            if (parts[0].length === 4) {
+                return `${parts[0]}-${parts[1].padStart(2, '0')}`;
+            } else if (parts[2] && parts[2].length === 4) {
+                return `${parts[2]}-${parts[1].padStart(2, '0')}`;
+            }
+        } else if (str.includes('/')) {
+            const parts = str.split('/');
+            if (parts[0].length === 4) {
+                return `${parts[0]}-${parts[1].padStart(2, '0')}`;
+            } else if (parts[2] && parts[2].length === 4) {
+                return `${parts[2]}-${parts[1].padStart(2, '0')}`;
+            }
+        }
+        return str.substring(0, 7);
+    },
+
+    getFormMonthStr() {
+        const el = document.getElementById('fast-fecha') || document.getElementById('factura-fecha');
+        if (el && el.value) {
+            return this.getRecordMonthStr(el.value);
+        }
+        const today = new Date();
+        return today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+    },
+
     renderFastEntryTable() {
         const tbody = document.getElementById('fast-entry-tbody');
         const excelTbody = document.getElementById('excel-table-tbody');
@@ -710,31 +740,43 @@ const RegistrosApp = {
         // Calcular mapa de facturación FIFO antes de usarlo en los filtros
         const computedBilledMap = this.calculateComputedBilledMap(this.allRegistros);
 
-        // Determinar el mes en contexto para ocultar pendientes de meses pasados
-        let selectedMonthStr = '';
-        const facturaFechaInput = document.getElementById('factura-fecha');
-        if (facturaFechaInput && facturaFechaInput.value) {
-            selectedMonthStr = facturaFechaInput.value.substring(0, 7);
-        } else {
-            const today = new Date();
-            selectedMonthStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
-        }
+        const activeFormMonth = this.getFormMonthStr(); // ej: "2026-08"
+        
+        // Calcular el mes inmediatamente anterior (ej: "2026-07")
+        const [yrStr, moStr] = activeFormMonth.split('-');
+        const yrNum = parseInt(yrStr, 10);
+        const moNum = parseInt(moStr, 10);
+        const prevMonthDate = new Date(yrNum, moNum - 2, 1);
+        const prevMonthStr = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
+
+        // Verificar si existen pendientes no archivados en el mes inmediatamente anterior
+        const hasUnclosedPrevMonth = this.allRegistros.some(r => !r.archivado && this.getRecordMonthStr(r.fecha) === prevMonthStr);
+        const displayMonth = hasUnclosedPrevMonth ? prevMonthStr : activeFormMonth;
 
         const registrosArchivados = this.allRegistros.filter(r => r.archivado);
         
         const registrosAMostrar = this.allRegistros.filter(r => {
-            // En modo "Meses Aislados", ocultamos los registros que no son del mes en contexto
-            // para que no se sumen en los resúmenes ni se muestren como pendientes en el mes actual.
-            if (r.fecha && r.fecha.substring(0, 7) !== selectedMonthStr) return false;
+            if (r.archivado) return false;
+            if (!r.fecha) return false;
+            const m = this.getRecordMonthStr(r.fecha);
+            // Mostrar los registros del mes en contexto o los nuevos registros del mes del formulario
+            return m === displayMonth || m === activeFormMonth;
+        });
 
-            if (!r.archivado) return true;
-            // Si está archivado pero ya no está completamente facturado (ej: factura eliminada), mostrarlo.
+        let totalUnbilledUnits = 0;
+        this.allRegistros.forEach(r => {
+            if (r.archivado) return;
+            if (r.fecha && this.getRecordMonthStr(r.fecha) !== displayMonth) return;
             const fifoBilled = computedBilledMap[r.id] || 0;
             const clones = this.allClonesMap[r.id] || [];
-            const explicitBilledClones = clones.filter(c => c.estado === 'facturado').reduce((sum, c) => sum + c.cantidad, 0);
-            const totalBilled = (fifoBilled + explicitBilledClones);
-            return totalBilled < r.cantidad;
+            const cloneBilled = clones.reduce((sum, c) => c.estado === 'facturado' ? sum + c.cantidad : sum, 0);
+            const pending = Math.max(0, r.cantidad - (fifoBilled + cloneBilled));
+            totalUnbilledUnits += pending;
         });
+        const badgeTab = document.getElementById('badge-pendientes-count');
+        if (badgeTab) badgeTab.innerText = `${totalUnbilledUnits} Libres`;
+        const badgeBtn = document.getElementById('badge-btn-cierre-count');
+        if (badgeBtn) badgeBtn.innerText = totalUnbilledUnits;
 
         if (historialTbody) {
             if (registrosArchivados.length === 0) {
@@ -743,7 +785,7 @@ const RegistrosApp = {
                 const mesesMap = {};
                 registrosArchivados.forEach(reg => {
                     if (!reg.fecha) return;
-                    const mesKey = reg.fecha.substring(0, 7); // YYYY-MM
+                    const mesKey = this.getRecordMonthStr(reg.fecha); // Normalización robusta (YYYY-MM)
                     if (!mesesMap[mesKey]) {
                         mesesMap[mesKey] = { mesKey, count: 0 };
                     }
@@ -1189,7 +1231,7 @@ const RegistrosApp = {
         if (!tbody) return;
         tbody.innerHTML = '';
         
-        const registrosDelMes = this.allRegistros.filter(r => r.archivado && r.fecha && r.fecha.startsWith(mesKey));
+        const registrosDelMes = this.allRegistros.filter(r => r.archivado && r.fecha && this.getRecordMonthStr(r.fecha) === mesKey);
         
         registrosDelMes.sort((a, b) => {
             const diff = this.parseDateToMillis(b.fecha) - this.parseDateToMillis(a.fecha);
@@ -1219,126 +1261,111 @@ const RegistrosApp = {
     async cerrarMes() {
         const isRegistroPage = !!document.getElementById('fast-entry-tbody');
         
-        let registrosParaArchivar;
+        const activeFormMonth = this.getFormMonthStr();
+        const unarchivedMonths = [...new Set(
+            this.allRegistros
+                .filter(r => !r.archivado && r.fecha)
+                .map(r => this.getRecordMonthStr(r.fecha))
+        )].filter(m => m && m.length === 7).sort();
+
+        let closingMonthStr = (unarchivedMonths.length > 0 && unarchivedMonths[0] <= activeFormMonth)
+            ? unarchivedMonths[0]
+            : activeFormMonth;
+
+        this.closingTargetMonthStr = closingMonthStr;
+
         let computedBilledMap = {};
-        
         if (isRegistroPage) {
-            // Calcular estado de facturación real usando lógica FIFO
             computedBilledMap = this.calculateComputedBilledMap(this.allRegistros);
-            
-            // En registro.html, allRegistros contiene los respaldos
-            // Filtrar los que ya fueron completamente facturados
-            registrosParaArchivar = this.allRegistros.filter(r => {
-                if (r.archivado) return false;
-                const fifoBilled = computedBilledMap[r.id] || 0;
-                const clones = this.allClonesMap[r.id] || [];
-                const cloneBilled = clones.reduce((sum, c) => c.estado === 'facturado' ? sum + c.cantidad : sum, 0);
-                const totalBilled = (fifoBilled + cloneBilled);
-                return totalBilled >= r.cantidad;
-            });
-        } else {
-            registrosParaArchivar = this.allRegistros.filter(r => r.estado === 'facturado' && !r.archivado);
         }
 
         const modal = document.getElementById('modalConsolidacionFlotantes');
+        if (!modal) return;
 
-        if (!modal) {
-            // Comportamiento fallback si no existe el modal
-            if (registrosParaArchivar.length === 0) {
-                alert("No hay registros facturados listos para archivar.");
-                return;
-            }
-            if (!confirm(`¿Estás seguro de cerrar el mes? Se archivarán ${registrosParaArchivar.length} registros facturados.`)) return;
-            
-            this.showLoading(true);
-            try {
-                let batch = this.db.batch();
-                let count = 0;
-                for (let reg of registrosParaArchivar) {
-                    batch.update(this.registrosRef.doc(reg.id), { archivado: true });
-                    count++;
-                    if (count >= 400) { await batch.commit(); batch = this.db.batch(); count = 0; }
-                }
-                if (count > 0) await batch.commit();
-                alert("Archivado exitoso.");
-            } catch(e) { console.error(e); } finally { this.showLoading(false); }
-            return;
-        }
-
-        // --- LÓGICA DE CIERRE + CONSOLIDACIÓN DE FLOTANTES EN REGISTRO.HTML ---
+        // --- LÓGICA DE CIERRE EN REGISTRO.HTML ---
         this.showLoading(true);
         try {
             this.flotantesParaCierre = {};
-            this.registrosParaArchivarCierre = registrosParaArchivar;
 
-            // Agrupar flotantes (aquellos con totalPending > 0)
-            for (let reg of this.allRegistros) {
-                if (reg.archivado) continue;
-                
-                let totalPending = 0;
-                
-                if (isRegistroPage) {
-                    const fifoBilled = computedBilledMap[reg.id] || 0;
-                    const totalBilled = fifoBilled;
-                    totalPending = Math.max(0, reg.cantidad - totalBilled);
+            // Obtener registros no archivados pertenecientes al mes que se va a cerrar
+            const registrosDelMes = this.allRegistros.filter(r => {
+                if (r.archivado) return false;
+                if (r.fecha && this.getRecordMonthStr(r.fecha) !== closingMonthStr) return false;
+                return true;
+            });
+
+            // Separar pendientes y facturados
+            const registrosPendientes = [];
+            const registrosFacturados = [];
+
+            registrosDelMes.forEach(r => {
+                const fifoBilled = computedBilledMap[r.id] || 0;
+                const clones = this.allClonesMap[r.id] || [];
+                const cloneBilled = clones.reduce((sum, c) => c.estado === 'facturado' ? sum + c.cantidad : sum, 0);
+                const pending = Math.max(0, r.cantidad - (fifoBilled + cloneBilled));
+                if (pending > 0) {
+                    registrosPendientes.push({ reg: r, pendingQty: pending });
                 } else {
-                    totalPending = (reg.estado === 'pendiente' || !reg.estado) ? reg.cantidad : 0;
+                    registrosFacturados.push(r);
                 }
-                
-                if (totalPending > 0) {
-                    const clones = this.allClonesMap[reg.id] || [];
-                    const pendingClones = clones.filter(c => c.estado === 'pendiente');
-                    const dataToGroup = pendingClones.length > 0 ? pendingClones[0] : reg; // Usa el clon pendiente o el registro base
-                    
-                    if (dataToGroup.productId || dataToGroup.producto) {
-                        const stableKey = this.getGroupingKey(dataToGroup) || (dataToGroup.codigoOficial || dataToGroup.producto).replace(/\//g, '-').trim();
-                        
-                        if (!this.flotantesParaCierre[stableKey]) {
-                            this.flotantesParaCierre[stableKey] = {
-                                cantidad: 0,
-                                registrosCount: 0,
-                                producto: dataToGroup.producto || 'Producto',
-                                codigoOficial: dataToGroup.codigoOficial || '',
-                                respaldoIds: new Set(),
-                                clonIds: [],
-                                dataReference: dataToGroup
-                            };
-                        }
-                        this.flotantesParaCierre[stableKey].cantidad += totalPending;
-                        this.flotantesParaCierre[stableKey].registrosCount += 1;
-                        this.flotantesParaCierre[stableKey].respaldoIds.add(reg.id);
-                        
-                        pendingClones.forEach(c => {
-                           this.flotantesParaCierre[stableKey].clonIds.push(c.id);
-                        });
-                    }
-                }
-            }
+            });
 
-            // Renderizar la tabla UI
+            // Guardar facturados para el proceso de archivado
+            this.registrosParaArchivarCierre = registrosFacturados;
+
+            // Agrupar los pendientes por producto para la tabla resumen
+            registrosPendientes.forEach(({ reg, pendingQty }) => {
+                const producto = reg.producto || reg.descripcion || 'Producto';
+                const stableKey = this.getGroupingKey(reg) || producto.replace(/\//g, '-').trim();
+
+                if (!this.flotantesParaCierre[stableKey]) {
+                    this.flotantesParaCierre[stableKey] = {
+                        cantidad: 0,
+                        registrosCount: 0,
+                        producto: producto,
+                        codigoOficial: reg.codigoOficial || '',
+                        respaldoIds: new Set(),
+                        dataReference: reg
+                    };
+                }
+                this.flotantesParaCierre[stableKey].cantidad += pendingQty;
+                this.flotantesParaCierre[stableKey].registrosCount += 1;
+                this.flotantesParaCierre[stableKey].respaldoIds.add(reg.id);
+            });
+
+            // Calcular totales para los contadores del modal
+            let totalUnbilledUnits = 0;
+            Object.keys(this.flotantesParaCierre).forEach(k => {
+                totalUnbilledUnits += (this.flotantesParaCierre[k].cantidad || 0);
+            });
+
+            const totalArchivar = registrosFacturados.length;
+
+            const elArch = document.getElementById('cierre-count-archivados');
+            if (elArch) elArch.innerText = totalArchivar;
+            const elPend = document.getElementById('cierre-count-pendientes');
+            if (elPend) elPend.innerText = totalUnbilledUnits;
+
+            // Renderizar tabla solo con productos pendientes
             const tbody = document.getElementById('cierre-flotantes-body');
             tbody.innerHTML = '';
             const keys = Object.keys(this.flotantesParaCierre);
-            
+
             if (keys.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#888; padding: 15px;">No hay registros flotantes (pendientes).</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#888; padding: 20px;">No hay registros pendientes sin facturar.</td></tr>`;
             } else {
                 keys.forEach(k => {
                     const flot = this.flotantesParaCierre[k];
                     tbody.innerHTML += `
                         <tr>
                             <td style="padding:10px; border-bottom:1px solid #eee;">
-                                <strong>${flot.codigoOficial}</strong><br>
-                                <small>${flot.producto}</small>
+                                <strong>${flot.producto}</strong>
                             </td>
                             <td style="padding:10px; border-bottom:1px solid #eee; text-align:center;">
-                                <span style="background: #eee; padding: 3px 8px; border-radius: 10px; font-size: 12px;">${flot.registrosCount} regs</span>
+                                ${flot.registrosCount}
                             </td>
-                            <td style="padding:10px; border-bottom:1px solid #eee; text-align:center; color:#d35400; font-weight:bold;">
+                            <td style="padding:10px; border-bottom:1px solid #eee; text-align:right; color:#dd6b20; font-weight:bold; font-size: 1.05rem;">
                                 ${flot.cantidad}
-                            </td>
-                            <td style="padding:10px; border-bottom:1px solid #eee; text-align:center;">
-                                <input type="number" class="flotante-cierre-input" data-key="${k}" value="${flot.cantidad}" min="0" style="width: 80px; text-align:center; padding:5px;">
                             </td>
                         </tr>
                     `;
@@ -1348,14 +1375,14 @@ const RegistrosApp = {
             modal.style.display = 'flex';
         } catch(e) {
             console.error(e);
-            alert("Error cargando flotantes");
+            alert("Error cargando registros pendientes para el cierre");
         } finally {
             this.showLoading(false);
         }
     },
 
     async confirmarCierreMes() {
-        if (!confirm("¿Confirmar el cierre mensual? Esto archivará los registros facturados y consolidará tus registros flotantes según lo indicado.")) return;
+        if (!confirm("¿Confirmar el cierre mensual? Esto archivará los registros facturados y trasladará tus registros pendientes al día 1 del nuevo mes con la nota 'MES ANTERIOR'.")) return;
 
         const btn = document.getElementById('btn-confirmar-cierre-mes');
         btn.disabled = true;
@@ -1365,37 +1392,40 @@ const RegistrosApp = {
             let batch = this.db.batch();
             let count = 0;
 
-            // 1. Archivar los facturados
+            // 1. Archivar los facturados (mantienen su fecha original del mes cerrado)
             for (let reg of this.registrosParaArchivarCierre) {
                 batch.update(this.registrosRef.doc(reg.id), { archivado: true });
                 count++;
                 if (count >= 400) { await batch.commit(); batch = this.db.batch(); count = 0; }
             }
 
-            // 2. Consolidar Flotantes
-            const flotantesInputs = document.querySelectorAll('.flotante-cierre-input');
-            const flotantesAConservar = {};
-            flotantesInputs.forEach(input => {
-                flotantesAConservar[input.getAttribute('data-key')] = parseInt(input.value) || 0;
-            });
-
-            const now = new Date();
-            // Pone la fecha del primer día del mes actual
-            const nextMonth1stDate = new Date(now.getFullYear(), now.getMonth(), 1);
-            const nextMonth1st = nextMonth1stDate.toISOString().split('T')[0];
+            // 2. Calcular fecha del día 1 del nuevo mes
+            let nextMonth1st = '';
+            let nextMonth1stDate = new Date();
+            if (this.closingTargetMonthStr) {
+                const parts = this.closingTargetMonthStr.split('-');
+                const yr = parseInt(parts[0], 10);
+                const mo = parseInt(parts[1], 10); // Mes 1-indexed (ej: 07 para Julio) -> new Date(yr, mo, 1) da Agosto 1
+                nextMonth1stDate = new Date(yr, mo, 1);
+                nextMonth1st = `${nextMonth1stDate.getFullYear()}-${String(nextMonth1stDate.getMonth() + 1).padStart(2, '0')}-01`;
+            } else {
+                const now = new Date();
+                nextMonth1stDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                nextMonth1st = `${nextMonth1stDate.getFullYear()}-${String(nextMonth1stDate.getMonth() + 1).padStart(2, '0')}-01`;
+            }
 
             for (const key of Object.keys(this.flotantesParaCierre)) {
                 const flot = this.flotantesParaCierre[key];
-                const aConservar = flotantesAConservar[key] || 0;
+                const aConservar = flot.cantidad || 0;
 
-                // Archivar registros base sin importar si tienen facturados o no
+                // Archivar registros pendientes antiguos del mes cerrado
                 for (const respaldoId of flot.respaldoIds) {
                     batch.update(this.registrosRef.doc(respaldoId), { archivado: true });
                     count++;
                     if (count >= 400) { await batch.commit(); batch = this.db.batch(); count = 0; }
                 }
 
-                // Crear consolidado nuevo
+                // Crear registro trasladado al nuevo mes (día 1) con etiqueta MES ANTERIOR
                 if (aConservar > 0) {
                     const newRef = this.registrosRef.doc();
                     const consolidatedData = {
@@ -1405,13 +1435,14 @@ const RegistrosApp = {
                         facturas: [],
                         fecha: nextMonth1st,
                         timestamp: nextMonth1stDate,
-                        observacion: `(CONSOLIDADO) Flotante del mes anterior.`,
-                        archivado: false
+                        observacion: `MES ANTERIOR`,
+                        archivado: false,
+                        estado: 'pendiente'
                     };
 
                     delete consolidatedData.id;
                     delete consolidatedData.respaldoId;
-                    consolidatedData.estado = 'pendiente'; // BUGFIX: Ensure consolidated items are correctly marked as pending so they can be invoiced!
+                    consolidatedData.estado = 'pendiente';
 
                     batch.set(newRef, consolidatedData);
                     count++;
@@ -1420,7 +1451,7 @@ const RegistrosApp = {
 
             if (count > 0) await batch.commit();
 
-            alert("Cierre de mes y Consolidación exitosos.");
+            alert("Cierre de mes exitoso. Los registros archivados pasaron al Historial y los pendientes al nuevo mes.");
             document.getElementById('modalConsolidacionFlotantes').style.display = 'none';
 
         } catch (e) {
@@ -4297,7 +4328,6 @@ const RegistrosApp = {
             if (esServicio) {
                 estadoHTML = `<span style="font-size:10px;color:#00796b;background:#e6fffa;padding:1px 6px;border-radius:3px;margin-left:5px;font-weight:bold;">Servicio</span>`;
             } else if (estaVinculado) {
-                // Verificar si tiene alerta de exceso específica
                 const key = this.getGroupingKey(desc, item.productId);
                 const excesoInfo = excedidoEnFactura[id] && excedidoEnFactura[id][key];
                 if (excesoInfo) {
@@ -4315,18 +4345,33 @@ const RegistrosApp = {
             }
             let displayCuenta = item.cuenta || '';
             if (!displayCuenta && !esServicio) {
-                // Fallback para facturas antiguas: buscar el registro original en allRegistros
                 const regMatch = this.allRegistros.find(r => r.facturaId === id && this.getGroupingKey(r) === this.getGroupingKey(desc, item.productId));
                 if (regMatch && regMatch.cuenta) {
                     displayCuenta = regMatch.cuenta;
                 }
             }
 
+            const isLineChecked = localStorage.getItem(`invoiceLineChecked_${id}_${itemIdx}`) === 'true';
+            const lineCheckIcon = isLineChecked 
+                ? '<i class="fas fa-check-square" style="color:#27ae60; font-size:16px;"></i>' 
+                : '<i class="far fa-square" style="color:#cbd5e0; font-size:16px;"></i>';
+
             const tr = document.createElement('tr');
-            if (!esServicio && !estaVinculado) tr.style.backgroundColor = '#fff5f5';
+            tr.style.cursor = 'pointer';
+            if (isLineChecked) {
+                tr.style.backgroundColor = '#f0fff4';
+            } else if (!esServicio && !estaVinculado) {
+                tr.style.backgroundColor = '#fff5f5';
+            }
+            tr.onclick = (e) => {
+                if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+                this.toggleInvoiceItemLineChecked(id, itemIdx, tr);
+            };
+
             tr.innerHTML = `
+                <td style="text-align: center; border: 1px solid #edf2f7; padding: 8px;" class="line-check-cell">${lineCheckIcon}</td>
                 <td style="text-align: center; border: 1px solid #edf2f7; padding: 8px; font-weight: bold;">${cant}</td>
-                <td style="border: 1px solid #edf2f7; padding: 8px; font-size:13px;">${desc}${estadoHTML}</td>
+                <td style="border: 1px solid #edf2f7; padding: 8px; font-size:13px; ${isLineChecked ? 'text-decoration: line-through; color: #718096;' : ''}" class="line-desc-cell">${desc}${estadoHTML}</td>
                 <td style="border: 1px solid #edf2f7; padding: 8px; font-size:12px; color:#7f8c8d;">${displayCuenta || '-'}</td>
                 <td style="text-align: right; border: 1px solid #edf2f7; padding: 8px; color:#555;">$${unit.toFixed(2)}</td>
                 <td style="text-align: right; border: 1px solid #edf2f7; padding: 8px; font-weight: bold;">$${tot.toFixed(2)}</td>
@@ -4336,6 +4381,9 @@ const RegistrosApp = {
 
         const totalVal = typeof inv.total === 'number' ? inv.total : 0;
         document.getElementById('detail-invoice-total').innerText = "$" + totalVal.toFixed(2);
+
+        // Estado del botón Enviada a Hacienda
+        this.updateHaciendaButtonState(id);
 
         // Cargar nota guardada de esta factura
         const textarea = document.getElementById('invoice-notes-textarea');
@@ -4361,9 +4409,9 @@ const RegistrosApp = {
             btnEditar.id = 'btn-editar-factura';
             btnEditar.className = 'btn';
             btnEditar.style.cssText = 'background: #f39c12; color: white; padding: 10px 20px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px; margin-left: 10px;';
-            btnEditar.innerHTML = `<i class="fas fa-edit"></i> Editar Factura`;
-            if (btnAnular) {
-                btnAnular.after(btnEditar);
+            btnEditar.innerHTML = '<i class="fas fa-edit"></i> Modificar Pre-factura';
+            if (btnAnular && btnAnular.parentNode) {
+                btnAnular.parentNode.insertBefore(btnEditar, btnAnular.nextSibling);
             }
         }
         btnEditar.onclick = () => {
@@ -4372,6 +4420,92 @@ const RegistrosApp = {
         };
 
         document.getElementById('modal-detalle-factura').style.display = 'flex';
+    },
+
+    toggleInvoiceItemLineChecked(facturaId, itemIndex, rowEl) {
+        const key = `invoiceLineChecked_${facturaId}_${itemIndex}`;
+        const current = localStorage.getItem(key) === 'true';
+        const next = !current;
+        localStorage.setItem(key, next ? 'true' : 'false');
+
+        const checkCell = rowEl.querySelector('.line-check-cell');
+        const descCell = rowEl.querySelector('.line-desc-cell');
+
+        if (next) {
+            rowEl.style.backgroundColor = '#f0fff4';
+            if (checkCell) checkCell.innerHTML = '<i class="fas fa-check-square" style="color:#27ae60; font-size:16px;"></i>';
+            if (descCell) {
+                descCell.style.textDecoration = 'line-through';
+                descCell.style.color = '#718096';
+            }
+        } else {
+            rowEl.style.backgroundColor = '';
+            if (checkCell) checkCell.innerHTML = '<i class="far fa-square" style="color:#cbd5e0; font-size:16px;"></i>';
+            if (descCell) {
+                descCell.style.textDecoration = 'none';
+                descCell.style.color = '';
+            }
+        }
+    },
+
+    toggleMarcarEnviadaHacienda() {
+        const id = this.currentViewedInvoiceId;
+        if (!id) return;
+        const current = localStorage.getItem(`invoiceHaciendaEnviada_${id}`) === 'true';
+        const next = !current;
+        localStorage.setItem(`invoiceHaciendaEnviada_${id}`, next ? 'true' : 'false');
+        localStorage.setItem(`invoiceChecked_${id}`, next ? 'true' : 'false');
+
+        this.updateHaciendaButtonState(id);
+        this.renderInvoicesHistory(this.allHistoricalInvoices);
+    },
+
+    updateHaciendaButtonState(id) {
+        const isEnviada = localStorage.getItem(`invoiceHaciendaEnviada_${id}`) === 'true';
+        const btn = document.getElementById('btn-marcar-hacienda');
+        const textSpan = document.getElementById('text-marcar-hacienda');
+        const icon = document.getElementById('icon-marcar-hacienda');
+        if (!btn || !textSpan) return;
+
+        if (isEnviada) {
+            btn.style.background = '#2b6cb0';
+            btn.style.color = '#ffffff';
+            btn.style.borderColor = '#2b6cb0';
+            textSpan.innerText = '✔️ Enviada a Hacienda';
+            if (icon) {
+                icon.className = 'fas fa-check-circle';
+                icon.style.color = '#ffffff';
+            }
+        } else {
+            btn.style.background = '#ffffff';
+            btn.style.color = '#4a5568';
+            btn.style.borderColor = '#cbd5e0';
+            textSpan.innerText = 'Enviada a Hacienda';
+            if (icon) {
+                icon.className = 'far fa-check-circle';
+                icon.style.color = '#a0aec0';
+            }
+        }
+    },
+
+    prevInvoiceDetail() {
+        if (!this.allHistoricalInvoices || this.allHistoricalInvoices.length === 0) return;
+        const index = this.allHistoricalInvoices.findIndex(i => i.id === this.currentViewedInvoiceId);
+        if (index > 0) {
+            this.viewInvoiceDetail(this.allHistoricalInvoices[index - 1].id);
+        } else {
+            alert('Esta es la primera factura en el listado.');
+        }
+    },
+
+    nextInvoiceDetail() {
+        if (!this.allHistoricalInvoices || this.allHistoricalInvoices.length === 0) return;
+        const index = this.allHistoricalInvoices.findIndex(i => i.id === this.currentViewedInvoiceId);
+        if (index >= 0 && index < this.allHistoricalInvoices.length - 1) {
+            this.viewInvoiceDetail(this.allHistoricalInvoices[index + 1].id);
+        } else {
+            alert('Esta es la última factura en el listado.');
+        }
     },
 
     async removeInvoiceItemExcess(facturaId, itemIndex, itemDesc, cantidadExceso) {
