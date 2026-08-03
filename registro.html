@@ -430,21 +430,21 @@
                     </form>
                 </div>
 
-                <!-- 2. Importación desde Excel -->
+                <!-- 2. Importación desde Archivo (Excel / Markdown) -->
                 <div class="registro-card" style="border-top: 4px solid #27ae60;">
-                    <h2 style="color: #27ae60;"><i class="fas fa-file-excel"></i> Importar desde Excel</h2>
+                    <h2 style="color: #27ae60;"><i class="fas fa-file-import"></i> Importar Registros</h2>
                     <p style="font-size: 0.9rem; color: #4a5568; margin-top: 0; margin-bottom: 20px; line-height: 1.4;">
-                        Carga masiva de registros del mes mediante un archivo Excel (.xlsx, .xls).
+                        Carga masiva de registros del mes mediante un archivo Markdown (.md), Excel (.xlsx) o CSV.
                     </p>
 
                     <button type="button" class="btn-submit-large"
                         style="background-color: #27ae60; box-shadow: 0 4px 6px rgba(39, 174, 96, 0.2); margin-top: 0;"
                         onclick="document.getElementById('fast-excel-file').click()">
-                        <i class="fas fa-file-excel"></i> Seleccionar Archivo Excel
+                        <i class="fas fa-file-upload"></i> Seleccionar Archivo (.md / .xlsx / .csv)
                     </button>
-                    <input type="file" id="fast-excel-file" accept=".xlsx, .xls" style="display: none;">
+                    <input type="file" id="fast-excel-file" accept=".md, .markdown, .txt, .csv, .xlsx, .xls" style="display: none;">
                     <span id="fast-excel-filename-display"
-                        style="margin-top: 12px; font-size: 0.9rem; font-weight: bold; color: #4a5568; text-align: center; display: block;"></span>
+                        style="margin-top: 12px; font-size: 0.9rem; font-weight: bold; color: #27ae60; text-align: center; display: block;"></span>
 
                     <!-- Selector de Hojas de Excel -->
                     <div id="fast-excel-sheets-container"

@@ -102,42 +102,94 @@ window.RegistroController = {
         const file = e.target.files[0];
         if (!file) return;
 
+        const fileName = file.name.toLowerCase();
+        const isTextOrMd = fileName.endsWith('.md') || fileName.endsWith('.markdown') || fileName.endsWith('.txt') || fileName.endsWith('.csv');
+
         app.showLoading(true);
-        const reader = new FileReader();
 
-        reader.onload = async (event) => {
-            try {
-                const data = new Uint8Array(event.target.result);
-                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-                
-                app.currentWorkbook = workbook;
-                
-                const filenameDisplay = document.getElementById('fast-excel-filename-display');
-                if (filenameDisplay) filenameDisplay.innerText = `Archivo: ${file.name}`;
-                
-                const sheetSel = document.getElementById('fast-excel-sheet-select');
-                if (sheetSel) {
-                    sheetSel.innerHTML = '';
-                    workbook.SheetNames.forEach(name => {
-                        const opt = document.createElement('option');
-                        opt.value = name;
-                        opt.innerText = name;
-                        sheetSel.appendChild(opt);
-                    });
+        if (isTextOrMd) {
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                try {
+                    const rawText = event.target.result || '';
+                    const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+                    const rows = [];
+
+                    for (let line of lines) {
+                        if (/^\|?\s*:?-+:?\s*(\|?\s*:?-+:?\s*)+$/i.test(line)) continue;
+                        let cols = [];
+                        if (line.includes('|')) {
+                            cols = line.split('|').map(c => c.trim());
+                            if (cols.length > 0 && cols[0] === '') cols.shift();
+                            if (cols.length > 0 && cols[cols.length - 1] === '') cols.pop();
+                        } else if (line.includes('\t')) {
+                            cols = line.split('\t').map(c => c.trim());
+                        } else if (line.includes(',')) {
+                            cols = line.split(',').map(c => c.trim());
+                        } else {
+                            cols = [line];
+                        }
+                        if (cols.length > 0) {
+                            rows.push({
+                                A: cols[0] || null,
+                                B: cols[1] || null,
+                                C: cols[2] || null,
+                                D: cols[3] || null,
+                                E: cols[4] || null
+                            });
+                        }
+                    }
+
+                    if (rows.length === 0) throw new Error("No se encontraron registros válidos en el archivo MD/Texto.");
+
+                    const filenameDisplay = document.getElementById('fast-excel-filename-display');
+                    if (filenameDisplay) filenameDisplay.innerText = `Cargando ${rows.length} registros desde: ${file.name}`;
+
+                    await this.processExcelData(rows);
+
+                } catch (error) {
+                    console.error("Error leyendo archivo MD/Texto:", error);
+                    alert("Error al leer el archivo MD/Texto: " + error.message);
+                } finally {
+                    app.showLoading(false);
                 }
-                
-                const sheetsContainer = document.getElementById('fast-excel-sheets-container');
-                if (sheetsContainer) sheetsContainer.style.display = 'block';
-                
-            } catch (error) {
-                console.error("Error leyendo Excel:", error);
-                alert("Error al leer el archivo Excel: " + error.message);
-            } finally {
-                app.showLoading(false);
-            }
-        };
-
-        reader.readAsArrayBuffer(file);
+            };
+            reader.readAsText(file);
+        } else {
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                try {
+                    const data = new Uint8Array(event.target.result);
+                    const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                    
+                    app.currentWorkbook = workbook;
+                    
+                    const filenameDisplay = document.getElementById('fast-excel-filename-display');
+                    if (filenameDisplay) filenameDisplay.innerText = `Archivo: ${file.name}`;
+                    
+                    const sheetSel = document.getElementById('fast-excel-sheet-select');
+                    if (sheetSel) {
+                        sheetSel.innerHTML = '';
+                        workbook.SheetNames.forEach(name => {
+                            const opt = document.createElement('option');
+                            opt.value = name;
+                            opt.innerText = name;
+                            sheetSel.appendChild(opt);
+                        });
+                    }
+                    
+                    const sheetsContainer = document.getElementById('fast-excel-sheets-container');
+                    if (sheetsContainer) sheetsContainer.style.display = 'block';
+                    
+                } catch (error) {
+                    console.error("Error leyendo Excel:", error);
+                    alert("Error al leer el archivo Excel: " + error.message);
+                } finally {
+                    app.showLoading(false);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
     },
 
     async processSelectedFastExcelSheet() {
