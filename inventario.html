@@ -539,13 +539,20 @@
                     <div
                         style="background: #fdfefe; padding: 15px; border: 1px solid #ddd; border-radius: 8px; margin-top: 20px;">
                         <label
-                            style="cursor: pointer; display: flex; align-items: center; gap: 10px; font-weight: bold; color: #2c3e50;">
+                            style="cursor: pointer; display: flex; align-items: center; gap: 10px; font-weight: bold; color: #2c3e50; margin-bottom: 5px;">
                             <input type="checkbox" id="update-existing-check" checked
                                 style="width: 18px; height: 18px;">
                             Actualizar productos existentes si coincide el CÓDIGO
                         </label>
-                        <small style="display: block; margin-left: 28px; color: #7f8c8d;">Si está desmarcado, se
-                            ignorarán los códigos duplicados.</small>
+                        <small style="display: block; margin-left: 28px; color: #7f8c8d; margin-bottom: 12px;">Si está desmarcado, se ignorarán los códigos duplicados.</small>
+
+                        <label
+                            style="cursor: pointer; display: flex; align-items: center; gap: 10px; font-weight: bold; color: #c0392b;">
+                            <input type="checkbox" id="delete-unlisted-check" checked
+                                style="width: 18px; height: 18px;">
+                            Eliminar del inventario los productos antiguos que NO estén en este archivo
+                        </label>
+                        <small style="display: block; margin-left: 28px; color: #7f8c8d;">Mantiene únicamente los productos incluidos en tu nuevo archivo de Julio 2026.</small>
                     </div>
 
                     <div style="margin-top: 25px; text-align: right;">
@@ -1990,6 +1997,7 @@
                 }
 
                 const updateExisting = document.getElementById('update-existing-check').checked;
+                const deleteUnlisted = document.getElementById('delete-unlisted-check') ? document.getElementById('delete-unlisted-check').checked : false;
                 const btn = document.getElementById('btn-execute-import');
 
                 // UI Loading
@@ -2024,6 +2032,8 @@
 
                     let importedCount = 0;
                     let updatedCount = 0;
+                    let deletedCount = 0;
+                    const processedProductIds = new Set();
                     const batchSize = 400; // Firestore batch limit estricto es 500, usamos 400 por seguridad
                     const db = firebase.firestore();
                     let batch = db.batch();
@@ -2044,13 +2054,6 @@
                             cf: mapping.cf !== '' ? cleanCF(row[mapping.cf]) : true
                         };
 
-                        // Si no tiene código, se permite importar (campo vacío)
-                        // if (!rowInfo.codigo) continue; 
-
-                        // Lógica de Guardado (Verificar duplicados)
-                        // NOTA: Para ser eficientes en masivo, lo haremos optimista o con lecturas minimizadas.
-                        // Usamos cache local del app controller
-
                         let docRef;
                         // USAR CACHE DEL CONTROLLER
                         const existing = rowInfo.codigo ? window.app.cache.find(p => p.codigo === rowInfo.codigo) : null;
@@ -2058,10 +2061,12 @@
                         if (existing) {
                             if (!updateExisting) continue; // Saltar
                             docRef = db.collection('INVENTARIO').doc(existing.id);
+                            processedProductIds.add(existing.id);
                             updatedCount++;
                         } else {
                             // Nuevo
                             docRef = db.collection('INVENTARIO').doc(); // Auto-ID
+                            processedProductIds.add(docRef.id);
                             importedCount++;
                         }
 
@@ -2094,10 +2099,32 @@
                         }
                     }
 
+                    // Eliminar de la base de datos los productos antiguos que NO estuvieron en el archivo
+                    if (deleteUnlisted && window.app.cache) {
+                        for (const existingProd of window.app.cache) {
+                            if (!processedProductIds.has(existingProd.id)) {
+                                const docRef = db.collection('INVENTARIO').doc(existingProd.id);
+                                batch.delete(docRef);
+                                opsCount++;
+                                deletedCount++;
+
+                                if (opsCount >= batchSize) {
+                                    await batch.commit();
+                                    batch = db.batch();
+                                    opsCount = 0;
+                                }
+                            }
+                        }
+                    }
+
                     // Commit final
                     if (opsCount > 0) await batch.commit();
 
-                    alert(`Proceso Terminado.\n\nNuevos: ${importedCount}\nActualizados: ${updatedCount}`);
+                    let msg = `Proceso Terminado.\n\n- Creados: ${importedCount}\n- Actualizados: ${updatedCount}`;
+                    if (deleteUnlisted) {
+                        msg += `\n- Eliminados (no presentes en el archivo): ${deletedCount}`;
+                    }
+                    alert(msg);
 
                     // Resetear y recargar
                     window.resetImportInterface();
