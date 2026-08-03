@@ -379,27 +379,27 @@
             <h3 style="margin-bottom: 20px; color: #27ae60;"><i class="fas fa-file-excel"></i> Importar Masivamente con
                 Mapeo Inteligente</h3>
 
-            <!-- Paso 1: Selección de Archivo -->
+            <!-- Paso 1: Selección de Archivo (.md, .xlsx, .csv, .txt) -->
             <div id="import-step-1"
                 style="max-width: 800px; margin: 0 auto; text-align: center; padding: 40px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
                 <i class="fas fa-cloud-upload-alt" style="font-size: 4rem; color: #27ae60; margin-bottom: 20px;"></i>
-                <h4 style="margin-bottom: 10px;">Sube tu archivo de Inventario</h4>
+                <h4 style="margin-bottom: 10px; color: #2c3e50;">Sube tu archivo de Inventario (Julio 2026)</h4>
                 <p style="color: #666; margin-bottom: 30px;">
-                    El sistema detectará automáticamente las columnas. Sopoerta archivos .xlsx y .xls
+                    El sistema detectará automáticamente las columnas. Soporta archivos <strong>.md, .markdown, .txt, .csv, .xlsx y .xls</strong>
                 </p>
 
                 <div class="file-input-container" style="margin-bottom: 30px;">
-                    <input type="file" id="import-excel-input" accept=".xlsx, .xls" style="display: none;"
+                    <input type="file" id="import-excel-input" accept=".md, .markdown, .txt, .csv, .xlsx, .xls" style="display: none;"
                         onchange="document.getElementById('file-name-display').textContent = this.files[0] ? this.files[0].name : 'Ningún archivo seleccionado'">
                     <button class="btn" onclick="document.getElementById('import-excel-input').click()"
                         style="background: #34495e; color: white; padding: 12px 25px; font-size: 1.1rem;">
-                        <i class="fas fa-folder-open"></i> Seleccionar Archivo
+                        <i class="fas fa-folder-open"></i> Seleccionar Archivo (.md / .xlsx / .csv)
                     </button>
-                    <div id="file-name-display" style="margin-top: 10px; font-weight: bold; color: #555;"></div>
+                    <div id="file-name-display" style="margin-top: 12px; font-weight: bold; color: #27ae60; font-size: 1.05rem;"></div>
                 </div>
 
                 <button class="btn btn-success" id="btn-analyze-file" onclick="window.analyzeExcelFile()"
-                    style="width: 100%; max-width: 300px; padding: 15px; font-size: 1.1rem;">
+                    style="width: 100%; max-width: 320px; padding: 15px; font-size: 1.1rem;">
                     <i class="fas fa-search"></i> 1. ANALIZAR ARCHIVO
                 </button>
             </div>
@@ -1777,59 +1777,105 @@
                 btn.disabled = true;
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analizando...';
 
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    try {
-                        const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, { type: 'array' });
-                        const firstSheetName = workbook.SheetNames[0];
-                        const worksheet = workbook.Sheets[firstSheetName];
+                const fileName = file.name.toLowerCase();
+                const isTextOrMd = fileName.endsWith('.md') || fileName.endsWith('.markdown') || fileName.endsWith('.txt') || fileName.endsWith('.csv');
 
-                        // Leer como array de arrays para detectar headers manualmente
-                        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                if (isTextOrMd) {
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        try {
+                            const rawText = e.target.result || '';
+                            const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+                            const parsedRows = [];
 
-                        if (!rows || rows.length === 0) throw new Error("Archivo vacío o ilegible.");
+                            for (let line of lines) {
+                                // Ignorar líneas divisorias de tabla Markdown como |---|---|
+                                if (/^\|?\s*:?-+:?\s*(\|?\s*:?-+:?\s*)+$/i.test(line)) continue;
 
-                        // Buscar fila de encabezados (primera fila con al menos 2 columnas con texto)
-                        let headerRowIndex = 0;
-                        for (let i = 0; i < Math.min(rows.length, 20); i++) {
-                            const row = rows[i]; if (row && row.filter(c => c && typeof c ===
-                                'string').length >= 2) {
-                                headerRowIndex = i;
-                                break;
+                                let cols = [];
+                                if (line.includes('|')) {
+                                    cols = line.split('|').map(c => c.trim());
+                                    if (cols.length > 0 && cols[0] === '') cols.shift();
+                                    if (cols.length > 0 && cols[cols.length - 1] === '') cols.pop();
+                                } else if (line.includes('\t')) {
+                                    cols = line.split('\t').map(c => c.trim());
+                                } else if (line.includes(',')) {
+                                    cols = line.split(',').map(c => c.trim());
+                                } else {
+                                    cols = [line];
+                                }
+                                if (cols.length > 0) parsedRows.push(cols);
                             }
+
+                            if (parsedRows.length < 2) {
+                                throw new Error("No se pudo detectar una tabla válida en el archivo MD. Asegúrate de incluir la fila de encabezados y los datos.");
+                            }
+
+                            excelHeaders = parsedRows[0].map((h, i) => h ? String(h).trim() : `Columna ${i + 1}`);
+                            excelData = parsedRows.slice(1);
+
+                            populateColumnMappers();
+                            autoMapColumns();
+                            showPreview();
+
+                            document.getElementById('import-step-1').style.display = 'none';
+                            document.getElementById('import-step-2').style.display = 'block';
+
+                        } catch (err) {
+                            console.error(err);
+                            alert("Error al leer archivo MD/Texto: " + err.message);
+                        } finally {
+                            btn.disabled = false;
+                            btn.innerHTML = originalText;
                         }
+                    };
+                    reader.readAsText(file);
+                } else {
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        try {
+                            const data = new Uint8Array(e.target.result);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            const firstSheetName = workbook.SheetNames[0];
+                            const worksheet = workbook.Sheets[firstSheetName];
 
-                        // Extraer headers
-                        excelHeaders = (rows[headerRowIndex] || []).map((h, i) => h ? String(h).trim() : `Columna ${i + 1}`);
+                            // Leer como array de arrays para detectar headers manualmente
+                            const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-                        // Extraer datos
-                        excelData = rows.slice(headerRowIndex + 1).filter(r => r && r.length > 0);
+                            if (!rows || rows.length === 0) throw new Error("Archivo vacío o ilegible.");
 
-                        if (excelData.length === 0) throw new Error("No se encontraron datos después de la fila de encabezados.");
+                            // Buscar fila de encabezados
+                            let headerRowIndex = 0;
+                            for (let i = 0; i < Math.min(rows.length, 20); i++) {
+                                const row = rows[i];
+                                if (row && row.filter(c => c && typeof c === 'string').length >= 2) {
+                                    headerRowIndex = i;
+                                    break;
+                                }
+                            }
 
-                        // Llenar selects
-                        populateColumnMappers();
+                            excelHeaders = (rows[headerRowIndex] || []).map((h, i) => h ? String(h).trim() : `Columna ${i + 1}`);
+                            excelData = rows.slice(headerRowIndex + 1).filter(r => r && r.length > 0);
 
-                        // Ejecutar Auto-Mapeo
-                        autoMapColumns();
+                            if (excelData.length === 0) throw new Error("No se encontraron datos después de la fila de encabezados.");
 
-                        // Mostrar Vista Previa
-                        showPreview();
+                            populateColumnMappers();
+                            autoMapColumns();
+                            showPreview();
 
-                        // Cambiar vista
-                        document.getElementById('import-step-1').style.display = 'none';
-                        document.getElementById('import-step-2').style.display = 'block';
+                            document.getElementById('import-step-1').style.display = 'none';
+                            document.getElementById('import-step-2').style.display = 'block';
 
-                    } catch (err) {
-                        console.error(err);
-                        alert("Error al leer archivo: " + err.message);
-                    } finally {
-                        btn.disabled = false;
-                        btn.innerHTML = originalText;
-                    }
-                };
-                reader.readAsArrayBuffer(file);
+                        } catch (err) {
+                            console.error(err);
+                            alert("Error al leer archivo Excel: " + err.message);
+                        } finally {
+                            btn.disabled = false;
+                            btn.innerHTML = originalText;
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
+                }
             };
 
             function populateColumnMappers() {
@@ -2027,6 +2073,7 @@
                             costo: rowInfo.costo, // CORREGIDO: antes precioCosto
                             precio: rowInfo.precio, // CORREGIDO: antes precioVenta
                             existencia: rowInfo.existencia,
+                            stockInicial: rowInfo.existencia, // Stock Base Congelado para Inventario Inicial
                             stockMinimo: 5, // Default
                             creditoFiscal: rowInfo.cf, // NUEVO
                             fechaActualizacion: firebase.firestore.FieldValue.serverTimestamp(),
@@ -2058,7 +2105,7 @@
 
                 } catch (err) {
                     console.error(err);
-                    alert("Ocurrió un error al guardar los datos: " + err.message);
+                    alert("Error en la importación: " + err.message);
                 } finally {
                     btn.disabled = false;
                     btn.innerHTML = originalText;
@@ -2171,7 +2218,7 @@
 
         <script src="js/core/FirebaseService.js"></script>
         <script src="js/core/InventoryLogic.js"></script>
-        <script src="js/RegistrosApp.js?v=2.0.7"></script>
+        <script src="js/RegistrosApp.js?v=2.1.0"></script>
 
 </body>
 
