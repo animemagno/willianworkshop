@@ -112,31 +112,98 @@ window.RegistroController = {
             reader.onload = async (event) => {
                 try {
                     const rawText = event.target.result || '';
-                    const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
                     const rows = [];
 
-                    for (let line of lines) {
-                        if (/^\|?\s*:?-+:?\s*(\|?\s*:?-+:?\s*)+$/i.test(line)) continue;
-                        let cols = [];
-                        if (line.includes('|')) {
-                            cols = line.split('|').map(c => c.trim());
-                            if (cols.length > 0 && cols[0] === '') cols.shift();
-                            if (cols.length > 0 && cols[cols.length - 1] === '') cols.pop();
-                        } else if (line.includes('\t')) {
-                            cols = line.split('\t').map(c => c.trim());
-                        } else if (line.includes(',')) {
-                            cols = line.split(',').map(c => c.trim());
-                        } else {
-                            cols = [line];
+                    // Detección automática de reporte exportado por FEL (Facturación Electrónica en Línea)
+                    const isFELReport = rawText.includes('ID Concepto') || rawText.includes('Total Facturado') || rawText.includes('Concepto');
+
+                    if (isFELReport) {
+                        const conceptos = [];
+                        const cantidades = [];
+                        const rawLines = rawText.split('\n');
+                        let currentSection = null;
+
+                        for (let rawLine of rawLines) {
+                            let line = rawLine.trim();
+                            if (!line) continue;
+
+                            if (line.includes('Concepto') || line.includes('ID Concepto')) {
+                                currentSection = 'conceptos';
+                                continue;
+                            }
+                            if (line.includes('Total Cantidad') || line.includes('Total Facturado')) {
+                                currentSection = 'cantidades';
+                                continue;
+                            }
+
+                            if (/^\|?\s*:?-+\\?:?\s*(\|?\s*:?-+\\?:?\s*)+$/i.test(line)) continue;
+
+                            if (line.includes('|')) {
+                                let cols = line.split('|').map(c => c.trim().replace(/\\/g, ''));
+                                if (cols.length > 0 && cols[0] === '') cols.shift();
+                                if (cols.length > 0 && cols[cols.length - 1] === '') cols.pop();
+
+                                if (currentSection === 'conceptos') {
+                                    const name = cols.length >= 2 ? (cols[1] || cols[0]) : cols[0];
+                                    if (name && !name.toLowerCase().includes('concepto') && !name.toLowerCase().includes('id concepto')) {
+                                        conceptos.push(name);
+                                    }
+                                } else if (currentSection === 'cantidades') {
+                                    const cantNum = parseFloat(cols[0]) || 0;
+                                    const totalFact = parseFloat(cols[1]) || 0;
+                                    const sucursal = cols[2] || 'CASA MATRIZ';
+                                    if (cantNum > 0 || totalFact > 0) {
+                                        cantidades.push({
+                                            cantidad: cantNum,
+                                            totalFacturado: totalFact,
+                                            sucursal: sucursal
+                                        });
+                                    }
+                                }
+                            }
                         }
-                        if (cols.length > 0) {
-                            rows.push({
-                                A: cols[0] || null,
-                                B: cols[1] || null,
-                                C: cols[2] || null,
-                                D: cols[3] || null,
-                                E: cols[4] || null
-                            });
+
+                        const targetDate = document.getElementById('fast-fecha')?.value || app.getLocalISODate();
+
+                        for (let i = 0; i < conceptos.length; i++) {
+                            const prodName = conceptos[i];
+                            const cantData = cantidades[i] || { cantidad: 1, totalFacturado: 0, sucursal: 'CASA MATRIZ' };
+
+                            if (prodName && cantData.cantidad > 0) {
+                                rows.push({
+                                    A: targetDate,
+                                    B: cantData.cantidad,
+                                    C: prodName,
+                                    D: cantData.sucursal || 'CASA MATRIZ',
+                                    E: cantData.totalFacturado > 0 ? `FEL Facturado: $${cantData.totalFacturado.toFixed(2)}` : ''
+                                });
+                            }
+                        }
+                    } else {
+                        const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+                        for (let line of lines) {
+                            if (/^\|?\s*:?-+:?\s*(\|?\s*:?-+:?\s*)+$/i.test(line)) continue;
+                            let cols = [];
+                            if (line.includes('|')) {
+                                cols = line.split('|').map(c => c.trim());
+                                if (cols.length > 0 && cols[0] === '') cols.shift();
+                                if (cols.length > 0 && cols[cols.length - 1] === '') cols.pop();
+                            } else if (line.includes('\t')) {
+                                cols = line.split('\t').map(c => c.trim());
+                            } else if (line.includes(',')) {
+                                cols = line.split(',').map(c => c.trim());
+                            } else {
+                                cols = [line];
+                            }
+                            if (cols.length > 0) {
+                                rows.push({
+                                    A: cols[0] || null,
+                                    B: cols[1] || null,
+                                    C: cols[2] || null,
+                                    D: cols[3] || null,
+                                    E: cols[4] || null
+                                });
+                            }
                         }
                     }
 
