@@ -62,13 +62,45 @@ body {
 header {
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     color: #ffffff;
-    padding: 12px 24px;
+    padding: 10px 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.15);
     z-index: 100;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    gap: 20px;
+}
+
+.header-search {
+    flex: 1;
+    max-width: 480px;
+}
+
+.header-search input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.12) !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    color: #ffffff !important;
+    padding: 8px 16px 8px 38px !important;
+    border-radius: var(--radius-full) !important;
+    font-size: 0.875rem !important;
+    transition: all 0.2s ease !important;
+}
+
+.header-search input::placeholder {
+    color: #94a3b8 !important;
+}
+
+.header-search::before {
+    color: #94a3b8 !important;
+}
+
+.header-search input:focus {
+    background: rgba(255, 255, 255, 0.22) !important;
+    border-color: #60a5fa !important;
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25) !important;
+    outline: none !important;
 }
 
 header h1 {
@@ -78,6 +110,7 @@ header h1 {
     display: flex;
     align-items: center;
     gap: 10px;
+    white-space: nowrap;
 }
 
 header h1 i {
@@ -90,7 +123,7 @@ header h1 i {
     color: white;
     font-size: 1.1rem;
     cursor: pointer;
-    margin-right: 15px;
+    margin-right: 10px;
     padding: 8px 12px;
     border-radius: var(--radius-sm);
     transition: all 0.2s ease;
@@ -101,128 +134,36 @@ header h1 i {
     transform: scale(1.03);
 }
 
-/* MENÚ MÓVIL / SANDWICH */
-.mobile-menu {
-    display: none;
-    position: absolute;
-    top: 55px;
-    left: 15px;
-    background: #ffffff;
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-xl);
-    flex-direction: column;
-    min-width: 250px;
-    z-index: 2000;
-    overflow: hidden;
-    border: 1px solid var(--border-subtle);
-    padding: 6px 0;
-}
-
-.mobile-menu.show {
-    display: flex;
-}
-
-.mobile-menu a,
-.mobile-menu-item {
-    padding: 10px 18px;
-    text-decoration: none;
-    color: var(--text-primary);
-    border: none;
-    background: none;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
-    text-align: left;
-    transition: all 0.15s ease;
-}
-
-.mobile-menu a:hover,
-.mobile-menu-item:hover {
-    background-color: var(--color-primary-light);
-    color: var(--color-primary);
-    padding-left: 24px;
-}
-
-/* CONTENEDOR CENTRAL */
+/* CONTENEDOR CENTRAL EXPANSIÓN TOTAL */
 .container {
     flex: 1;
-    padding: 24px;
+    padding: 10px;
     width: 100%;
     margin: 0;
     display: flex;
     flex-direction: column;
-    overflow-x: hidden;
+    overflow: hidden;
+    height: calc(100vh - 58px);
 }
 
-/* PESTAÑAS (TABS HEADER) */
-.tabs-header {
-    display: flex;
-    gap: 8px;
-    border-bottom: 2px solid var(--border-subtle);
-    padding-bottom: 0;
-    margin-bottom: 0;
-    width: 100%;
-    justify-content: flex-start;
-    overflow-x: auto;
-    scrollbar-width: none;
-}
-
-.tabs-header::-webkit-scrollbar {
-    display: none;
-}
-
-.tab-btn {
-    padding: 12px 20px;
-    background-color: #f1f5f9;
-    border: 1px solid var(--border-subtle);
-    border-bottom: none;
-    border-radius: var(--radius-md) var(--radius-md) 0 0;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    white-space: nowrap;
-}
-
-.tab-btn:hover {
-    background-color: #e2e8f0;
-    color: var(--color-primary);
-    transform: translateY(-1px);
-}
-
-.tab-btn.active {
-    background-color: var(--bg-surface);
-    color: var(--color-primary);
-    border-color: var(--color-primary);
-    border-bottom: 2px solid var(--bg-surface);
-    margin-bottom: -2px;
-    box-shadow: 0 -4px 12px rgba(37, 99, 235, 0.08);
-}
-
-/* TAB CONTENT CARD */
+/* TAB CONTENT CARD COMPACTO */
 .tab-content {
     background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
-    padding: 24px;
-    border-radius: 0 var(--radius-md) var(--radius-md) var(--radius-md);
+    padding: 0;
+    border-radius: var(--radius-md);
     box-shadow: var(--shadow-md);
     display: none;
     width: 100%;
+    height: 100%;
     flex: 1;
-    overflow-y: auto;
+    overflow: hidden;
 }
 
 .tab-content.active {
-    display: block;
-    animation: slideUpFade 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+    animation: slideUpFade 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes slideUpFade {
