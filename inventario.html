@@ -229,6 +229,22 @@
             <input type="text" id="buscar-producto" placeholder="Buscar por código, nombre o proveedor...">
         </div>
 
+        <!-- SELECTOR DE PERÍODO / MES DE TRABAJO -->
+        <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.12); padding: 5px 12px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.25);">
+            <i class="fas fa-calendar-alt" style="color: #60a5fa; font-size: 0.9rem;"></i>
+            <span style="font-size: 0.8rem; font-weight: 600; color: #94a3b8; white-space: nowrap;">Período:</span>
+            <select id="select-mes-trabajo" style="background: transparent; color: white; border: none; font-size: 0.85rem; font-weight: 700; cursor: pointer; outline: none; padding-right: 5px;" onchange="window.app && window.app.setWorkingMonth(this.value)">
+                <option value="2026-08" style="color:#0f172a;">Agosto 2026 (Actual)</option>
+                <option value="2026-07" selected style="color:#0f172a;">Julio 2026 (Mes Pasado)</option>
+                <option value="2026-06" style="color:#0f172a;">Junio 2026</option>
+                <option value="2026-05" style="color:#0f172a;">Mayo 2026</option>
+                <option value="2026-04" style="color:#0f172a;">Abril 2026</option>
+                <option value="2026-03" style="color:#0f172a;">Marzo 2026</option>
+                <option value="2026-02" style="color:#0f172a;">Febrero 2026</option>
+                <option value="2026-01" style="color:#0f172a;">Enero 2026</option>
+            </select>
+        </div>
+
         <div class="user-info" style="display: flex; align-items: center; gap: 10px;">
             <button class="btn" style="background: rgba(255, 255, 255, 0.15); color: white; border: 1px solid rgba(255, 255, 255, 0.25); font-size: 0.8rem; padding: 8px 14px;" onclick="document.getElementById('modalColumnas').style.display='flex'">
                 <i class="fas fa-columns"></i> Columnas
@@ -256,6 +272,10 @@
         <button class="mobile-menu-item" onclick="window.location.href='registro.html'"><i class="fas fa-barcode" style="color: #8b5cf6;"></i> Registro Salidas</button>
         <button class="tab-btn mobile-menu-item" data-target="reportes"><i class="fas fa-chart-bar" style="color: #ec4899;"></i> Reportes</button>
         <button class="tab-btn mobile-menu-item" data-target="sincronizacion"><i class="fas fa-sync" style="color: #f59e0b;"></i> Sincronizar</button>
+
+        <div style="border-top: 1px solid #e2e8f0; margin: 6px 0; padding: 8px 16px 4px 16px; font-size: 0.75rem; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Períodos de Inventario</div>
+        <button class="mobile-menu-item" onclick="app.setWorkingMonth('2026-07')"><i class="fas fa-calendar-check" style="color: #2563eb;"></i> Trabajar Inventario Julio 2026</button>
+        <button class="mobile-menu-item" onclick="app.setWorkingMonth('2026-08')"><i class="fas fa-calendar-alt" style="color: #059669;"></i> Trabajar Inventario Agosto 2026</button>
 
         <div style="border-top: 1px solid #e2e8f0; margin: 6px 0; padding: 8px 16px 4px 16px; font-size: 0.75rem; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Acciones de Inventario</div>
         <button class="mobile-menu-item" onclick="document.getElementById('modalColumnas').style.display='flex'"><i class="fas fa-columns" style="color: #2563eb;"></i> Personalizar Columnas</button>
@@ -2287,7 +2307,7 @@
         <script src="js/core/FirebaseService.js"></script>
         <script src="js/core/InventoryLogic.js"></script>
         <script src="js/core/ColumnManager.js"></script>
-        <script src="js/RegistrosApp.js?v=2.3.0"></script>
+        <script src="js/RegistrosApp.js?v=2.4.0"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 const mobileBtn = document.getElementById('mobileMenuBtn');

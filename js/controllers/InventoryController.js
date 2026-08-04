@@ -27,14 +27,17 @@ class InventoryController {
         this.exitBatchSvc = window.ExitBatchService ? new window.ExitBatchService() : null;
         this.invoiceClassification = {};
         this.classificationSummary = { new: 0, identical: 0, modified: 0, total: 0 };
+        // Período / Mes de trabajo seleccionado
+        this.workingMonth = localStorage.getItem('inventario_working_month') || '2026-07';
 
         this.init();
     }
 
     async init() {
-        console.log("INVENTORY CONTROLLER (GLOBAL) STARTED");
-        this.bindEvents();
+        console.log("INVENTORY CONTROLLER (GLOBAL) STARTED - Mes: " + this.workingMonth);
         this.exposeGlobalFunctions();
+        this.syncMonthSelectorUI();
+        this.bindEvents();
         await this.loadData();
 
         // Check for tools in URL
@@ -167,7 +170,24 @@ class InventoryController {
         // Funciones para onclick="" del HTML
         window.editarProducto = (id) => this.openEditModal(id);
         window.eliminarProducto = (id) => this.deleteProduct(id);
+        window.setWorkingMonth = (m) => this.setWorkingMonth(m);
         window.app = this;
+    }
+
+    syncMonthSelectorUI() {
+        const select = document.getElementById('select-mes-trabajo');
+        if (select) {
+            select.value = this.workingMonth || '2026-07';
+        }
+    }
+
+    setWorkingMonth(monthStr) {
+        if (!monthStr || monthStr.length < 7) return;
+        this.workingMonth = monthStr;
+        localStorage.setItem('inventario_working_month', monthStr);
+        this.syncMonthSelectorUI();
+        console.log(`[INVENTARIO] Período de trabajo cambiado a: ${monthStr}`);
+        this.loadData();
     }
 
     bindEvents() {
@@ -408,29 +428,36 @@ class InventoryController {
         try {
             const db = firebase.firestore();
             
-            const now = new Date();
-            const currentMonthPrefix = now.toISOString().substring(0, 7);
-            const startOfMonthMillis = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+            const selectedMonthPrefix = this.workingMonth || localStorage.getItem('inventario_working_month') || '2026-07';
+            this.workingMonth = selectedMonthPrefix;
 
-            const isCurrentMonth = (data) => {
+            const [yearStr, monthStr] = selectedMonthPrefix.split('-');
+            const year = parseInt(yearStr) || 2026;
+            const monthIndex = (parseInt(monthStr) || 7) - 1;
+
+            const startOfMonthDate = new Date(year, monthIndex, 1, 0, 0, 0, 0);
+            const endOfMonthDate = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+            const startOfMonthMillis = startOfMonthDate.getTime();
+            const endOfMonthMillis = endOfMonthDate.getTime();
+
+            const isSelectedMonth = (data) => {
                 if (data.fecha && typeof data.fecha === 'string' && data.fecha.length >= 7) {
-                    return data.fecha.startsWith(currentMonthPrefix);
+                    return data.fecha.startsWith(selectedMonthPrefix);
                 }
                 if (data.timestamp) {
                     const millis = data.timestamp.toMillis ? data.timestamp.toMillis() : (data.timestamp.seconds * 1000);
-                    return millis >= startOfMonthMillis;
+                    return millis >= startOfMonthMillis && millis <= endOfMonthMillis;
                 }
                 return true;
             };
 
-            // 1. Obtener VENTAS (Facturas) del mes actual
-            const startOfMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
-            const salidasSnapshot = await db.collection('INVENTARIO_SALIDAS').where('timestamp', '>=', startOfMonthDate).get();
+            // 1. Obtener VENTAS (Facturas) del período seleccionado
+            const salidasSnapshot = await db.collection('INVENTARIO_SALIDAS').get();
             const salidasMap = {};
             salidasSnapshot.forEach(doc => {
                 const data = doc.data();
                 if (data.anulada || data.revertida) return; // Ignorar facturas anuladas
-                if (!isCurrentMonth(data)) return; // Sumar SOLO lo de este mes
+                if (!isSelectedMonth(data)) return; // Sumar SOLO lo del período seleccionado
                 
                 if (data.items && Array.isArray(data.items)) {
                     data.items.forEach(item => {
@@ -442,15 +469,15 @@ class InventoryController {
                 }
             });
 
-            // 2. Obtener ENTRADAS DESGLOSADAS POR PROVEEDOR del mes actual
-            const entradasSnapshot = await db.collection('INVENTARIO_ENTRADAS').where('timestamp', '>=', startOfMonthDate).get();
+            // 2. Obtener ENTRADAS DESGLOSADAS POR PROVEEDOR del período seleccionado
+            const entradasSnapshot = await db.collection('INVENTARIO_ENTRADAS').get();
             const entradasPorProveedorMap = {}; // { stableKey: { "PROV A": 10, "PROV B": 5 } }
             const activeProvidersSet = new Set();
 
             entradasSnapshot.forEach(doc => {
                 const data = doc.data();
                 if (data.revertida || data.tipo === 'AJUSTE') return; // Ignorar revertidas y ajustes manuales
-                if (!isCurrentMonth(data)) return; // Sumar SOLO lo de este mes
+                if (!isSelectedMonth(data)) return; // Sumar SOLO lo del período seleccionado
                 
                 const provName = (data.providerName || "SIN PROVEEDOR").toUpperCase().trim();
                 activeProvidersSet.add(provName);
@@ -467,13 +494,13 @@ class InventoryController {
             
             this.activeProviders = Array.from(activeProvidersSet).sort();
 
-            // 3. Obtener TOTAL REGISTRADOS (para aplicar FIFO igual que salidas.html) del mes actual
-            const registradosSnapshot = await db.collection('REGISTROS').where('fecha', '>=', currentMonthPrefix + '-01').get();
+            // 3. Obtener TOTAL REGISTRADOS del período seleccionado
+            const registradosSnapshot = await db.collection('REGISTROS').get();
             const registradosMap = {};
             registradosSnapshot.forEach(doc => {
                 const data = doc.data();
-                if (data.archivado) return; // Ignorar si ya fue cerrado en el mes anterior
-                if (!isCurrentMonth(data)) return;
+                if (data.archivado) return; // Ignorar si ya fue cerrado
+                if (!isSelectedMonth(data)) return;
                 
                 const cantidadTotal = parseFloat(data.cantidad) || 0;
                 if (cantidadTotal > 0 && (data.productId || data.producto)) {
