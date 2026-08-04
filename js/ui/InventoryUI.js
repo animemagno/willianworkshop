@@ -42,6 +42,7 @@ class InventoryUI {
                 activeProviders.forEach(prov => {
                     const th = document.createElement('th');
                     th.className = 'dinamico-prov';
+                    th.dataset.col = 'proveedores';
                     th.style.color = '#2980b9'; // Color distintivo para compras
                     th.innerText = prov;
                     tr.insertBefore(th, refNode);
@@ -65,24 +66,24 @@ class InventoryUI {
             // Generar celdas de proveedores
             const tdProveedores = activeProviders.map(prov => {
                 const cant = p.providers && p.providers[prov] ? p.providers[prov] : 0;
-                return `<td style="text-align:center; color:#2980b9; font-weight:bold;">${cant > 0 ? '+'+cant : '-'}</td>`;
+                return `<td data-col="proveedores" style="text-align:center; color:#2980b9; font-weight:bold;">${cant > 0 ? '+'+cant : '-'}</td>`;
             }).join('');
 
             return `
                 <tr data-id="${p.id}">
-                    <td><strong>${p.codigo}</strong></td>
-                    <td>${p.descInventario}</td>
-                    <td style="display:none;"><small>${p.descFactura || ''}</small></td>
-                    <td style="text-align:right;">$${(p.precioCosto || 0).toFixed(2)}</td>
-                    <td style="text-align:right; color:#7f8c8d;">$${(p.costoSinIva || 0).toFixed(2)}</td>
-                    <td class="precio" style="font-weight:bold; color:#2c3e50; text-align:right;">${precioFmt}</td>
-                    <td style="font-weight:bold; color:#16a085; text-align:right;">${totalFmt}</td>
-                    <td style="text-align:center; background:#f4f6f6;" title="Stock Congelado">${p.stockInicial}</td>
+                    <td data-col="codigo"><strong>${p.codigo}</strong></td>
+                    <td data-col="descripcion">${p.descInventario}</td>
+                    <td data-col="descFactura" style="display:none;"><small>${p.descFactura || ''}</small></td>
+                    <td data-col="costo" style="text-align:right;">$${(p.precioCosto || 0).toFixed(2)}</td>
+                    <td data-col="costoSinIva" style="text-align:right; color:#7f8c8d;">$${(p.costoSinIva || 0).toFixed(2)}</td>
+                    <td data-col="precio" class="precio" style="font-weight:bold; color:#2c3e50; text-align:right;">${precioFmt}</td>
+                    <td data-col="totalCosto" style="font-weight:bold; color:#16a085; text-align:right;">${totalFmt}</td>
+                    <td data-col="stockInicial" style="text-align:center; background:#f4f6f6;" title="Stock Congelado">${p.stockInicial}</td>
                     ${tdProveedores}
-                    <td style="text-align:center; color:#c0392b; font-weight:bold;">${p.totalVentas > 0 ? '-'+p.totalVentas : '-'}</td>
-                    <td style="text-align:center; color:#e67e22; font-weight:bold;">${p.totalPendientes > 0 ? '-'+p.totalPendientes : '-'}</td>
-                    <td class="${stockClass}" style="text-align:center; font-size:1.1em;">${p.stockReal}</td>
-                    <td style="text-align:center;">
+                    <td data-col="ventas" style="text-align:center; color:#c0392b; font-weight:bold;">${p.totalVentas > 0 ? '-'+p.totalVentas : '-'}</td>
+                    <td data-col="pendientes" style="text-align:center; color:#e67e22; font-weight:bold;">${p.totalPendientes > 0 ? '-'+p.totalPendientes : '-'}</td>
+                    <td data-col="stockReal" class="${stockClass}" style="text-align:center; font-size:1.1em;">${p.stockReal}</td>
+                    <td data-col="acciones" style="text-align:center;">
                         <button class="icon-btn btn-edit" title="Editar" onclick="window.editarProducto('${p.id}')">
                             <i class="fas fa-edit"></i>
                         </button>
