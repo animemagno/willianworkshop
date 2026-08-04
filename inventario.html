@@ -223,9 +223,24 @@
             <button class="menu-toggle" id="mobileMenuBtn"><i class="fas fa-bars"></i></button>
             <h1><i class="fas fa-boxes"></i> Inventario Taller Willian</h1>
         </div>
-        <div class="user-info">
-            <button id="logoutBtn" class="btn btn-danger" style="font-size: 0.8rem;"><i class="fas fa-sign-out-alt"></i>
-                Salir</button>
+        <div class="user-info" style="display: flex; align-items: center; gap: 10px; position: relative;">
+            <!-- MENÚ SANDWICH DE ACCIONES / OPCIONES -->
+            <button id="btnHeaderMenuToggle" class="btn" style="background: rgba(255, 255, 255, 0.15); color: white; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 8px; font-weight: 600; padding: 8px 14px; cursor: pointer;">
+                <i class="fas fa-bars"></i> Acciones
+            </button>
+
+            <!-- DROPDOWN DESPLEGABLE CON TODOS LOS BOTONES -->
+            <div id="headerActionsDropdown" class="header-dropdown-menu" style="display: none; position: absolute; top: 45px; right: 75px; background: white; min-width: 240px; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.18); border: 1px solid #e2e8f0; z-index: 2000; overflow: hidden; padding: 6px 0;">
+                <button class="dropdown-item" id="btn-refresh"><i class="fas fa-sync-alt" style="color: #2563eb;"></i> Actualizar</button>
+                <button class="dropdown-item" id="btn-create-backup"><i class="fas fa-history" style="color: #475569;"></i> Crear Backup</button>
+                <button class="dropdown-item" id="btn-open-backups"><i class="fas fa-database" style="color: #8e44ad;"></i> Ver Historial Backups</button>
+                <button class="dropdown-item" id="btn-open-alias-manager"><i class="fas fa-project-diagram" style="color: #d97706;"></i> Gestionar Alias</button>
+                <button class="dropdown-item" id="btn-open-auditoria" onclick="window.app.openAuditoriaModal()"><i class="fas fa-tasks" style="color: #dc2626;"></i> Auditoría Ventas</button>
+                <button class="dropdown-item" id="btn-print-inventory"><i class="fas fa-print" style="color: #059669;"></i> Imprimir</button>
+                <div id="extra-actions"></div>
+            </div>
+
+            <button id="logoutBtn" class="btn btn-danger" style="font-size: 0.8rem; padding: 8px 14px;"><i class="fas fa-sign-out-alt"></i> Salir</button>
         </div>
     </header>
 
@@ -272,21 +287,7 @@
 
         <!-- 1. LISTA -->
         <div id="tab-lista" class="tab-content active">
-            <div class="actions-bar">
-                <div class="buttons" style="display: flex; gap: 8px;">
-                    <button class="btn btn-success" id="btn-refresh"><i class="fas fa-sync-alt"></i> Actualizar</button>
-                    <button class="btn" style="background: #34495e; color: white;" id="btn-create-backup"><i
-                            class="fas fa-history"></i> Crear Backup</button>
-                    <button class="btn" style="background: #8e44ad; color: white;" id="btn-open-backups"><i
-                            class="fas fa-database"></i> Ver Historial Backups</button>
-                    <button class="btn" style="background: #f39c12; color: white;" id="btn-open-alias-manager"><i
-                            class="fas fa-project-diagram"></i> Gestionar Alias</button>
-                    <button class="btn" style="background: #e74c3c; color: white;" id="btn-open-auditoria" onclick="window.app.openAuditoriaModal()"><i
-                            class="fas fa-tasks"></i> Auditoría Ventas</button>
-                    <button class="btn" style="background: #16a085; color: white;" id="btn-print-inventory"><i
-                            class="fas fa-print"></i> Imprimir</button>
-                    <span id="extra-actions"></span> <!-- Borrar Todo btn injected here -->
-                </div>
+            <div class="actions-bar" style="display: flex; justify-content: flex-end; margin-bottom: 16px;">
                 <div class="search-box">
                     <input type="text" id="buscar-producto" placeholder="Buscar por código, nombre o proveedor...">
                 </div>
@@ -2249,6 +2250,23 @@
         <script src="js/core/FirebaseService.js"></script>
         <script src="js/core/InventoryLogic.js"></script>
         <script src="js/RegistrosApp.js?v=2.1.0"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const menuBtn = document.getElementById('btnHeaderMenuToggle');
+                const dropdown = document.getElementById('headerActionsDropdown');
+                if (menuBtn && dropdown) {
+                    menuBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        dropdown.style.display = (dropdown.style.display === 'none' || !dropdown.style.display) ? 'block' : 'none';
+                    });
+                    document.addEventListener('click', (e) => {
+                        if (!dropdown.contains(e.target) && !menuBtn.contains(e.target)) {
+                            dropdown.style.display = 'none';
+                        }
+                    });
+                }
+            });
+        </script>
 
 </body>
 
