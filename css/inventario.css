@@ -101,7 +101,7 @@ header h1 i {
     transform: scale(1.03);
 }
 
-/* MENÚ MÓVIL */
+/* MENÚ MÓVIL / SANDWICH */
 .mobile-menu {
     display: none;
     position: absolute;
@@ -111,32 +111,40 @@ header h1 i {
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-xl);
     flex-direction: column;
-    min-width: 220px;
-    z-index: 1000;
+    min-width: 250px;
+    z-index: 2000;
     overflow: hidden;
     border: 1px solid var(--border-subtle);
-}
-
-.mobile-menu a {
-    padding: 12px 18px;
-    text-decoration: none;
-    color: var(--text-primary);
-    border-bottom: 1px solid #f1f5f9;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-weight: 500;
-    transition: all 0.2s ease;
-}
-
-.mobile-menu a:hover {
-    background-color: var(--color-primary-light);
-    color: var(--color-primary);
-    padding-left: 22px;
+    padding: 6px 0;
 }
 
 .mobile-menu.show {
     display: flex;
+}
+
+.mobile-menu a,
+.mobile-menu-item {
+    padding: 10px 18px;
+    text-decoration: none;
+    color: var(--text-primary);
+    border: none;
+    background: none;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s ease;
+}
+
+.mobile-menu a:hover,
+.mobile-menu-item:hover {
+    background-color: var(--color-primary-light);
+    color: var(--color-primary);
+    padding-left: 24px;
 }
 
 /* CONTENEDOR CENTRAL */
