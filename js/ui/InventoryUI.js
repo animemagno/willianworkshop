@@ -73,10 +73,10 @@ class InventoryUI {
                     <td><strong>${p.codigo}</strong></td>
                     <td>${p.descInventario}</td>
                     <td style="display:none;"><small>${p.descFactura || ''}</small></td>
-                    <td style="text-align:left;">$${(p.precioCosto || 0).toFixed(2)}</td>
-                    <td style="text-align:left; color:#7f8c8d;">$${(p.costoSinIva || 0).toFixed(2)}</td>
-                    <td class="precio" style="font-weight:bold; color:#2c3e50; text-align:left;">${precioFmt}</td>
-                    <td style="font-weight:bold; color:#16a085; text-align:left;">${totalFmt}</td>
+                    <td style="text-align:right;">$${(p.precioCosto || 0).toFixed(2)}</td>
+                    <td style="text-align:right; color:#7f8c8d;">$${(p.costoSinIva || 0).toFixed(2)}</td>
+                    <td class="precio" style="font-weight:bold; color:#2c3e50; text-align:right;">${precioFmt}</td>
+                    <td style="font-weight:bold; color:#16a085; text-align:right;">${totalFmt}</td>
                     <td style="text-align:center; background:#f4f6f6;" title="Stock Congelado">${p.stockInicial}</td>
                     ${tdProveedores}
                     <td style="text-align:center; color:#c0392b; font-weight:bold;">${p.totalVentas > 0 ? '-'+p.totalVentas : '-'}</td>
