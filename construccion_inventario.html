@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Construcción de Inventario por Mes - Taller Willian</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Estilos Base -->
+    <link rel="stylesheet" href="css/inventario.css?v=2.4.0">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <style>
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: #ffffff;
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 16px 20px;
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .stat-card .info h4 {
+            font-size: 0.8rem;
+            color: #64748b;
+            text-transform: uppercase;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .stat-card .info .number {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
+        .stat-card .icon-box {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .drop-zone-card {
+            background: #f8fafc;
+            border: 2px dashed #cbd5e1;
+            border-radius: var(--radius-md);
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 20px;
+        }
+
+        .drop-zone-card:hover {
+            border-color: #2563eb;
+            background: #eff6ff;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- HEADER GLOBAL -->
+    <header>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <button class="menu-toggle" id="mobileMenuBtn"><i class="fas fa-bars"></i></button>
+            <h1><i class="fas fa-hammer" style="color: #60a5fa;"></i> Construcción de Inventario por Mes</h1>
+        </div>
+
+        <!-- SELECTOR DE PERÍODO / MES -->
+        <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.12); padding: 5px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.25);">
+            <i class="fas fa-calendar-alt" style="color: #60a5fa; font-size: 0.95rem;"></i>
+            <span style="font-size: 0.85rem; font-weight: 600; color: #94a3b8; white-space: nowrap;">Mes a Construir:</span>
+            <select id="select-mes-construccion" style="background: transparent; color: white; border: none; font-size: 0.9rem; font-weight: 700; cursor: pointer; outline: none; padding-right: 5px;" onchange="window.setWorkingMonthConstruccion && window.setWorkingMonthConstruccion(this.value)">
+                <option value="2026-08" style="color:#0f172a;">Agosto 2026 (Actual)</option>
+                <option value="2026-07" selected style="color:#0f172a;">Julio 2026 (Mes Pasado)</option>
+                <option value="2026-06" style="color:#0f172a;">Junio 2026</option>
+                <option value="2026-05" style="color:#0f172a;">Mayo 2026</option>
+                <option value="2026-04" style="color:#0f172a;">Abril 2026</option>
+                <option value="2026-03" style="color:#0f172a;">Marzo 2026</option>
+            </select>
+        </div>
+
+        <div class="user-info">
+            <button onclick="window.location.href='inventario.html'" class="btn" style="background: rgba(255, 255, 255, 0.15); color: white; border: 1px solid rgba(255, 255, 255, 0.25); font-size: 0.8rem; padding: 8px 14px;">
+                <i class="fas fa-boxes"></i> Ir a Inventario
+            </button>
+        </div>
+    </header>
+
+    <!-- MENÚ SANDWICH -->
+    <nav class="mobile-menu" id="mobileMenu">
+        <div style="padding: 8px 16px 4px 16px; font-size: 0.75rem; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Navegación</div>
+        <a href="index.html"><i class="fas fa-home"></i> Inicio</a>
+        <a href="venta.html"><i class="fas fa-cash-register"></i> Ventas</a>
+        <a href="facturas.html"><i class="fas fa-file-invoice-dollar"></i> Facturas</a>
+        <a href="historial.html"><i class="fas fa-history"></i> Historial</a>
+        <a href="inventario.html"><i class="fas fa-boxes"></i> Inventario</a>
+        <a href="construccion_inventario.html" style="background:#eff6ff; color:#2563eb; font-weight: 700;"><i class="fas fa-hammer"></i> Construcción Inventario</a>
+        <a href="configuracion.html"><i class="fas fa-cog"></i> Configuración</a>
+    </nav>
+
+    <!-- CONTENEDOR PRINCIPAL -->
+    <div class="container" style="height: auto; min-height: calc(100vh - 60px); padding: 16px;">
+
+        <!-- TARJETA CABECERA DE CONSTRUCCIÓN -->
+        <div style="background: #ffffff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 18px 24px; margin-bottom: 20px; box-shadow: var(--shadow-sm); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <h2 style="margin: 0; font-size: 1.25rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 10px;">
+                    🔨 Construcción del Mes de <span id="label-mes-actual" style="color: #2563eb;">Julio 2026</span>
+                </h2>
+                <p style="margin: 4px 0 0 0; font-size: 0.875rem; color: #64748b;">
+                    Carga ventas FEL, compras e inicializa el inventario base sin afectar meses futuros.
+                </p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-primary" onclick="appConstruccion.autoFixAllNegativeStocks()" style="font-size: 0.85rem; padding: 10px 16px;">
+                    <i class="fas fa-magic"></i> Auto-Nivelar Saldos Negativos
+                </button>
+                <button class="btn btn-secondary" onclick="appConstruccion.loadMonthData()" style="font-size: 0.85rem; padding: 10px 16px;">
+                    <i class="fas fa-sync-alt"></i> Recargar Mes
+                </button>
+            </div>
+        </div>
+
+        <!-- TARJETAS DE MÉTRICAS -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="info">
+                    <h4>Productos Registrados</h4>
+                    <div class="number" id="metric-total-prod">0</div>
+                </div>
+                <div class="icon-box" style="background: #eff6ff; color: #2563eb;">
+                    <i class="fas fa-boxes"></i>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="info">
+                    <h4>Entradas / Compras</h4>
+                    <div class="number" id="metric-total-entradas" style="color: #059669;">0</div>
+                </div>
+                <div class="icon-box" style="background: #ecfdf5; color: #059669;">
+                    <i class="fas fa-truck-loading"></i>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="info">
+                    <h4>Ventas Facturadas</h4>
+                    <div class="number" id="metric-total-ventas" style="color: #dc2626;">0</div>
+                </div>
+                <div class="icon-box" style="background: #fef2f2; color: #dc2626;">
+                    <i class="fas fa-cash-register"></i>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="info">
+                    <h4>Inconsistencias / Negativos</h4>
+                    <div class="number" id="metric-inconsistencias" style="color: #d97706;">0</div>
+                </div>
+                <div class="icon-box" style="background: #fffbeb; color: #d97706;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- DRAG & DROP CARGA DE VENTAS FEL (.md / .csv / .txt) -->
+        <div class="drop-zone-card" id="sales-drop-area">
+            <i class="fas fa-file-upload" style="font-size: 2rem; color: #2563eb; margin-bottom: 8px;"></i>
+            <h3 style="margin: 0; font-size: 1rem; font-weight: 700; color: #1e293b;">
+                Arrastra o haz clic para cargar el Reporte de Ventas FEL (.md, .csv, .txt)
+            </h3>
+            <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">
+                El sistema asociará automáticamente las ventas extraídas al mes de trabajo seleccionado.
+            </p>
+            <input type="file" id="sales-file-input" accept=".md,.markdown,.csv,.txt,.xlsx,.xls" style="display: none;">
+        </div>
+
+        <!-- TABLA DE RECONSTRUCCIÓN -->
+        <div class="tab-content active" style="display: flex; flex-direction: column; flex: 1;">
+            <div style="padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; font-size: 1rem; font-weight: 700; color: #1e293b;">
+                    📋 Reconciliación de Stock por Producto
+                </h3>
+                <div class="search-box">
+                    <input type="text" id="search-construccion" placeholder="Filtrar por código o nombre..." style="width: 280px; padding: 6px 12px 6px 36px; font-size: 0.85rem;">
+                </div>
+            </div>
+
+            <div class="table-responsive" style="flex: 1; overflow: auto;">
+                <table class="inventario-table">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Descripción Taller</th>
+                            <th style="text-align:right;">Costo c/IVA</th>
+                            <th style="text-align:right;">P. Venta</th>
+                            <th style="text-align:center;">Stock Inicial</th>
+                            <th style="text-align:center;">+ Entradas</th>
+                            <th style="text-align:center;">- Ventas</th>
+                            <th style="text-align:center;">Stock Resultante</th>
+                            <th style="text-align:center;">Estado</th>
+                            <th style="text-align:center;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-construccion-body">
+                        <tr>
+                            <td colspan="10" style="text-align:center; padding: 20px;">Cargando productos...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- SCRIPTS CORE Y CONTROLLER -->
+    <script src="js/core/FirebaseService.js"></script>
+    <script src="js/core/InventoryLogic.js"></script>
+    <script src="js/services/InventoryService.js"></script>
+    <script src="js/registro/RegistroController.js"></script>
+    <script src="js/controllers/ConstruccionInventarioController.js"></script>
+
+</body>
+
+</html>
