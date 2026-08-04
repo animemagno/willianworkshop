@@ -228,7 +228,7 @@
         </div>
     </header>
 
-    <!-- MENÚ SANDWICH DE NAVEGACIÓN Y ACCIONES -->
+    <!-- MENÚ SANDWICH DE NAVEGACIÓN, PESTAÑAS Y ACCIONES -->
     <nav class="mobile-menu" id="mobileMenu">
         <div style="padding: 8px 16px 4px 16px; font-size: 0.75rem; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Navegación</div>
         <a href="index.html"><i class="fas fa-home"></i> Inicio</a>
@@ -237,6 +237,16 @@
         <a href="historial.html"><i class="fas fa-history"></i> Historial</a>
         <a href="inventario.html" style="background:#eff6ff; color:#2563eb; font-weight: 700;"><i class="fas fa-boxes"></i> Inventario</a>
         <a href="configuracion.html"><i class="fas fa-cog"></i> Configuración</a>
+
+        <div style="border-top: 1px solid #e2e8f0; margin: 6px 0; padding: 8px 16px 4px 16px; font-size: 0.75rem; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Módulos de Inventario</div>
+        <button class="tab-btn mobile-menu-item active" data-target="lista"><i class="fas fa-list" style="color: #2563eb;"></i> Lista de Productos</button>
+        <button class="tab-btn mobile-menu-item" data-target="nuevo"><i class="fas fa-plus-circle" style="color: #059669;"></i> Nuevo Producto</button>
+        <button class="tab-btn mobile-menu-item" data-target="excel"><i class="fas fa-file-excel" style="color: #10b981;"></i> Importar Excel</button>
+        <button class="tab-btn mobile-menu-item" data-target="entradas"><i class="fas fa-truck-loading" style="color: #6366f1;"></i> Entradas de Stock</button>
+        <button class="mobile-menu-item" onclick="window.location.href='salidas.html'"><i class="fas fa-sign-out-alt" style="color: #f59e0b;"></i> Salidas</button>
+        <button class="mobile-menu-item" onclick="window.location.href='registro.html'"><i class="fas fa-barcode" style="color: #8b5cf6;"></i> Registro Salidas</button>
+        <button class="tab-btn mobile-menu-item" data-target="reportes"><i class="fas fa-chart-bar" style="color: #ec4899;"></i> Reportes</button>
+        <button class="tab-btn mobile-menu-item" data-target="sincronizacion"><i class="fas fa-sync" style="color: #f59e0b;"></i> Sincronizar</button>
 
         <div style="border-top: 1px solid #e2e8f0; margin: 6px 0; padding: 8px 16px 4px 16px; font-size: 0.75rem; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Acciones de Inventario</div>
         <button class="mobile-menu-item" id="btn-refresh"><i class="fas fa-sync-alt" style="color: #2563eb;"></i> Actualizar</button>
@@ -250,34 +260,6 @@
 
     <!-- CONTENEDOR PRINCIPAL -->
     <div class="container">
-
-        <!-- PESTAÑAS -->
-        <div class="tabs-header">
-            <div class="tab-btn active" data-target="lista">
-                <i class="fas fa-list"></i> Lista
-            </div>
-            <div class="tab-btn" data-target="nuevo">
-                <i class="fas fa-plus-circle"></i> Nuevo
-            </div>
-            <div class="tab-btn" data-target="excel">
-                <i class="fas fa-file-excel"></i> Excel
-            </div>
-            <div class="tab-btn" data-target="entradas">
-                <i class="fas fa-truck-loading"></i> Entradas
-            </div>
-            <div class="tab-btn" onclick="window.location.href='salidas.html'">
-                <i class="fas fa-sign-out-alt"></i> Salidas
-            </div>
-            <div class="tab-btn" onclick="window.location.href='registro.html'">
-                <i class="fas fa-barcode"></i> Registro
-            </div>
-            <div class="tab-btn" data-target="reportes">
-                <i class="fas fa-chart-bar"></i> Reportes
-            </div>
-            <div class="tab-btn" data-target="sincronizacion" style="background-color: #f39c12; color: white;">
-                <i class="fas fa-sync"></i> Sincronizar
-            </div>
-        </div>
 
         <!-- 1. LISTA -->
         <div id="tab-lista" class="tab-content active">
@@ -2255,6 +2237,11 @@
                     });
                     document.addEventListener('click', (e) => {
                         if (!mobileMenu.contains(e.target) && !mobileBtn.contains(e.target)) {
+                            mobileMenu.classList.remove('show');
+                        }
+                    });
+                    mobileMenu.addEventListener('click', (e) => {
+                        if (e.target.closest('.mobile-menu-item') || e.target.closest('a') || e.target.closest('.tab-btn')) {
                             mobileMenu.classList.remove('show');
                         }
                     });
