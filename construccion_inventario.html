@@ -198,16 +198,19 @@
 
             <!-- PASO 1: ARRASTRAR ARCHIVO Y SELECCIONAR HOJA -->
             <div id="construccion-excel-step-1">
-                <div class="drop-zone-card" id="construccion-excel-drop-area">
-                    <i class="fas fa-file-excel" style="font-size: 2.2rem; color: #10b981; margin-bottom: 8px;"></i>
-                    <h4 style="margin: 0; font-size: 1rem; font-weight: 700; color: #1e293b;">
+                <div class="drop-zone-card" id="construccion-excel-drop-area" onclick="document.getElementById('construccion-excel-file-input').click()">
+                    <i class="fas fa-file-excel" style="font-size: 2.5rem; color: #10b981; margin-bottom: 10px;"></i>
+                    <h4 style="margin: 0 0 6px 0; font-size: 1.05rem; font-weight: 700; color: #1e293b;">
                         Arrastra aquí tu archivo Excel o haz clic para seleccionarlo
                     </h4>
-                    <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">
+                    <p style="margin: 0 0 12px 0; font-size: 0.85rem; color: #64748b;">
                         Soporta archivos de varias hojas (.xlsx, .xls, .csv, .md)
                     </p>
-                    <input type="file" id="construccion-excel-file-input" accept=".xlsx, .xls, .csv, .md, .markdown, .txt" style="display: none;">
+                    <button type="button" class="btn btn-success" style="font-size:0.85rem; padding:8px 18px; pointer-events:none;">
+                        <i class="fas fa-folder-open"></i> Seleccionar Archivo Excel
+                    </button>
                 </div>
+                <input type="file" id="construccion-excel-file-input" accept=".xlsx, .xls, .csv, .md, .markdown, .txt" style="display: none;" onchange="window.appConstruccion && window.appConstruccion.handleFileInputChange(this)">
 
                 <!-- SELECTOR DE HOJA DE EXCEL -->
                 <div id="construccion-sheets-container" style="display: none; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 15px;">
@@ -282,16 +285,19 @@
             <h3 style="margin:0 0 12px 0; font-size:1.05rem; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:8px;">
                 <i class="fas fa-file-invoice-dollar" style="color:#2563eb;"></i> Cargar Reporte de Ventas FEL del Mes (.md, .csv, .txt)
             </h3>
-            <div class="drop-zone-card" id="sales-drop-area" style="margin-bottom:0; background:#f0f9ff; border-color:#93c5fd;">
+            <div class="drop-zone-card" id="sales-drop-area" style="margin-bottom:0; background:#f0f9ff; border-color:#93c5fd;" onclick="document.getElementById('sales-file-input').click()">
                 <i class="fas fa-cloud-upload-alt" style="font-size: 2.2rem; color: #2563eb; margin-bottom: 8px;"></i>
-                <h4 style="margin: 0; font-size: 1rem; font-weight: 700; color: #1e293b;">
+                <h4 style="margin: 0 0 6px 0; font-size: 1rem; font-weight: 700; color: #1e293b;">
                     Arrastra o haz clic para cargar el Reporte de Ventas FEL (.md, .csv, .txt)
                 </h4>
-                <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">
+                <p style="margin: 0 0 12px 0; font-size: 0.85rem; color: #64748b;">
                     El sistema extraerá automáticamente cantidades, facturas y descripciones para el período <span class="label-mes-actual">Julio 2026</span>.
                 </p>
-                <input type="file" id="sales-file-input" accept=".md,.markdown,.csv,.txt,.xlsx,.xls" style="display: none;">
+                <button type="button" class="btn" style="background:#2563eb; color:white; font-size:0.85rem; padding:8px 18px; pointer-events:none;">
+                    <i class="fas fa-folder-open"></i> Seleccionar Reporte FEL
+                </button>
             </div>
+            <input type="file" id="sales-file-input" accept=".md,.markdown,.csv,.txt,.xlsx,.xls" style="display: none;" onchange="window.appConstruccion && window.appConstruccion.handleSalesInputChange(this)">
         </div>
 
         <!-- TABLA DE RECONSTRUCCIÓN -->

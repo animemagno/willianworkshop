@@ -80,7 +80,11 @@ class ConstruccionInventarioController {
         const excelFileInput = document.getElementById('construccion-excel-file-input');
 
         if (excelDrop && excelFileInput) {
-            excelDrop.addEventListener('click', () => excelFileInput.click());
+            excelDrop.addEventListener('click', (e) => {
+                if (e.target !== excelFileInput) {
+                    excelFileInput.click();
+                }
+            });
             excelDrop.addEventListener('dragover', (e) => { e.preventDefault(); excelDrop.style.borderColor = '#10b981'; });
             excelDrop.addEventListener('dragleave', () => { excelDrop.style.borderColor = '#cbd5e1'; });
             excelDrop.addEventListener('drop', (e) => {
@@ -99,7 +103,11 @@ class ConstruccionInventarioController {
         const salesFileInput = document.getElementById('sales-file-input');
 
         if (salesDrop && salesFileInput) {
-            salesDrop.addEventListener('click', () => salesFileInput.click());
+            salesDrop.addEventListener('click', (e) => {
+                if (e.target !== salesFileInput) {
+                    salesFileInput.click();
+                }
+            });
             salesDrop.addEventListener('dragover', (e) => { e.preventDefault(); salesDrop.style.borderColor = '#2563eb'; });
             salesDrop.addEventListener('dragleave', () => { salesDrop.style.borderColor = '#cbd5e1'; });
             salesDrop.addEventListener('drop', (e) => {
@@ -117,6 +125,18 @@ class ConstruccionInventarioController {
         const searchInput = document.getElementById('search-construccion');
         if (searchInput) {
             searchInput.addEventListener('input', (e) => this.filterTable(e.target.value));
+        }
+    }
+
+    handleFileInputChange(input) {
+        if (input && input.files && input.files.length > 0) {
+            this.handleExcelFileUpload(input.files[0]);
+        }
+    }
+
+    handleSalesInputChange(input) {
+        if (input && input.files && input.files.length > 0) {
+            this.handleSalesFile(input.files[0]);
         }
     }
 
