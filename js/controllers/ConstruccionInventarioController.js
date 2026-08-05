@@ -16,6 +16,11 @@ class ConstruccionInventarioController {
         this.reconciliationData = [];
         this.activeProviders = [];
 
+        // Excel Engine State
+        this.workbook = null;
+        this.excelHeaders = [];
+        this.excelData = [];
+
         this.init();
     }
 
@@ -36,13 +41,14 @@ class ConstruccionInventarioController {
         const select = document.getElementById('select-mes-construccion');
         if (select) select.value = this.selectedMonth;
 
-        const label = document.getElementById('label-mes-actual');
-        if (label) {
-            const [y, m] = this.selectedMonth.split('-');
-            const nombresMeses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-            const mesNombre = nombresMeses[parseInt(m) - 1] || m;
-            label.innerText = `${mesNombre} ${y}`;
-        }
+        const [y, m] = this.selectedMonth.split('-');
+        const nombresMeses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        const mesNombre = nombresMeses[parseInt(m) - 1] || m;
+        const formattedLabel = `${mesNombre} ${y}`;
+
+        document.querySelectorAll('.label-mes-actual').forEach(el => {
+            el.innerText = formattedLabel;
+        });
     }
 
     async changeMonth(monthStr) {
@@ -69,21 +75,40 @@ class ConstruccionInventarioController {
             });
         }
 
-        // File drop zone for FEL / Sales report
-        const dropArea = document.getElementById('sales-drop-area');
-        const fileInput = document.getElementById('sales-file-input');
+        // Drop Area for Excel / Inventory Import
+        const excelDrop = document.getElementById('construccion-excel-drop-area');
+        const excelFileInput = document.getElementById('construccion-excel-file-input');
 
-        if (dropArea && fileInput) {
-            dropArea.addEventListener('click', () => fileInput.click());
-            dropArea.addEventListener('dragover', (e) => { e.preventDefault(); dropArea.style.borderColor = '#2563eb'; });
-            dropArea.addEventListener('dragleave', () => { dropArea.style.borderColor = '#cbd5e1'; });
-            dropArea.addEventListener('drop', (e) => {
+        if (excelDrop && excelFileInput) {
+            excelDrop.addEventListener('click', () => excelFileInput.click());
+            excelDrop.addEventListener('dragover', (e) => { e.preventDefault(); excelDrop.style.borderColor = '#10b981'; });
+            excelDrop.addEventListener('dragleave', () => { excelDrop.style.borderColor = '#cbd5e1'; });
+            excelDrop.addEventListener('drop', (e) => {
                 e.preventDefault();
-                dropArea.style.borderColor = '#cbd5e1';
+                excelDrop.style.borderColor = '#cbd5e1';
+                if (e.dataTransfer.files.length > 0) this.handleExcelFileUpload(e.dataTransfer.files[0]);
+            });
+
+            excelFileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) this.handleExcelFileUpload(e.target.files[0]);
+            });
+        }
+
+        // Drop Area for Sales FEL Report
+        const salesDrop = document.getElementById('sales-drop-area');
+        const salesFileInput = document.getElementById('sales-file-input');
+
+        if (salesDrop && salesFileInput) {
+            salesDrop.addEventListener('click', () => salesFileInput.click());
+            salesDrop.addEventListener('dragover', (e) => { e.preventDefault(); salesDrop.style.borderColor = '#2563eb'; });
+            salesDrop.addEventListener('dragleave', () => { salesDrop.style.borderColor = '#cbd5e1'; });
+            salesDrop.addEventListener('drop', (e) => {
+                e.preventDefault();
+                salesDrop.style.borderColor = '#cbd5e1';
                 if (e.dataTransfer.files.length > 0) this.handleSalesFile(e.dataTransfer.files[0]);
             });
 
-            fileInput.addEventListener('change', (e) => {
+            salesFileInput.addEventListener('change', (e) => {
                 if (e.target.files.length > 0) this.handleSalesFile(e.target.files[0]);
             });
         }
@@ -95,6 +120,284 @@ class ConstruccionInventarioController {
         }
     }
 
+    // =========================================
+    // EXCEL IMPORT ENGINE (CON HOJAS Y MAPEO)
+    // =========================================
+    handleExcelFileUpload(file) {
+        if (!file) return;
+
+        const fileName = file.name.toLowerCase();
+        const isTextOrMd = fileName.endsWith('.md') || fileName.endsWith('.markdown') || fileName.endsWith('.txt') || fileName.endsWith('.csv');
+
+        if (isTextOrMd) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const rawText = e.target.result || '';
+                    const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+                    const parsedRows = [];
+
+                    for (let line of lines) {
+                        if (/^\|?\s*:?-+:?\s*(\|?\s*:?-+:?\s*)+$/i.test(line)) continue;
+                        let cols = [];
+                        if (line.includes('|')) {
+                            cols = line.split('|').map(c => c.trim());
+                            if (cols.length > 0 && cols[0] === '') cols.shift();
+                            if (cols.length > 0 && cols[cols.length - 1] === '') cols.pop();
+                        } else if (line.includes('\t')) {
+                            cols = line.split('\t').map(c => c.trim());
+                        } else if (line.includes(',')) {
+                            cols = line.split(',').map(c => c.trim());
+                        } else {
+                            cols = [line];
+                        }
+                        if (cols.length > 0) parsedRows.push(cols);
+                    }
+
+                    if (parsedRows.length < 2) throw new Error("No se encontró una estructura de datos válida.");
+
+                    this.excelHeaders = parsedRows[0].map((h, i) => h ? String(h).trim() : `Columna ${i + 1}`);
+                    this.excelData = parsedRows.slice(1);
+
+                    document.getElementById('construccion-sheets-container').style.display = 'none';
+                    this.setupColumnMapper();
+                } catch (err) {
+                    alert("Error al leer archivo de texto/csv: " + err.message);
+                }
+            };
+            reader.readAsText(file);
+        } else {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    this.workbook = XLSX.read(data, { type: 'array' });
+
+                    const sheetSelect = document.getElementById('construccion-sheet-select');
+                    sheetSelect.innerHTML = '';
+
+                    this.workbook.SheetNames.forEach((sheetName) => {
+                        const opt = document.createElement('option');
+                        opt.value = sheetName;
+                        opt.text = sheetName;
+                        sheetSelect.add(opt);
+                    });
+
+                    document.getElementById('construccion-sheets-container').style.display = 'block';
+                    this.analyzeSelectedSheet();
+                } catch (err) {
+                    console.error(err);
+                    alert("Error al leer archivo Excel: " + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+    }
+
+    analyzeSelectedSheet() {
+        if (!this.workbook) return;
+        const sheetSelect = document.getElementById('construccion-sheet-select');
+        const selectedSheetName = sheetSelect.value || this.workbook.SheetNames[0];
+        const worksheet = this.workbook.Sheets[selectedSheetName];
+
+        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        if (!rows || rows.length === 0) return alert("La hoja seleccionada no contiene datos.");
+
+        let headerRowIndex = 0;
+        for (let i = 0; i < Math.min(rows.length, 20); i++) {
+            const row = rows[i];
+            if (row && row.filter(c => c && typeof c === 'string').length >= 2) {
+                headerRowIndex = i;
+                break;
+            }
+        }
+
+        this.excelHeaders = (rows[headerRowIndex] || []).map((h, i) => h ? String(h).trim() : `Columna ${i + 1}`);
+        this.excelData = rows.slice(headerRowIndex + 1).filter(r => r && r.length > 0);
+
+        this.setupColumnMapper();
+    }
+
+    setupColumnMapper() {
+        const mappers = ['c-map-codigo', 'c-map-descripcion', 'c-map-costo', 'c-map-precio', 'c-map-existencia'];
+        
+        mappers.forEach(id => {
+            const select = document.getElementById(id);
+            if (!select) return;
+            select.innerHTML = '<option value="">-- No incluir / Generar --</option>';
+
+            this.excelHeaders.forEach((header, idx) => {
+                const opt = document.createElement('option');
+                opt.value = idx;
+                opt.text = `${header} (Columna ${idx + 1})`;
+                select.add(opt);
+            });
+        });
+
+        this.autoMapColumns();
+        this.renderExcelPreview();
+
+        document.getElementById('construccion-excel-step-1').style.display = 'none';
+        document.getElementById('construccion-excel-step-2').style.display = 'block';
+    }
+
+    autoMapColumns() {
+        const findMatch = (keywords) => {
+            for (let i = 0; i < this.excelHeaders.length; i++) {
+                const h = this.excelHeaders[i].toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (keywords.some(k => h.includes(k))) return i;
+            }
+            return '';
+        };
+
+        const mapConfig = {
+            'c-map-codigo': ['codigo', 'código', 'id', 'ref', 'sku', 'part number'],
+            'c-map-descripcion': ['descripcion', 'descripción', 'producto', 'nombre', 'detalle', 'item'],
+            'c-map-costo': ['costo', 'compra', 'precio costo', 'valor compra'],
+            'c-map-precio': ['precio', 'venta', 'publico', 'pvp', 'salida'],
+            'c-map-existencia': ['existencia', 'stock', 'cantidad', 'cant', 'saldo', 'total', 'inicial']
+        };
+
+        for (const [id, keywords] of Object.entries(mapConfig)) {
+            const match = findMatch(keywords);
+            const select = document.getElementById(id);
+            if (select && match !== '') select.value = match;
+        }
+    }
+
+    renderExcelPreview() {
+        const thead = document.getElementById('c-preview-header');
+        const tbody = document.getElementById('c-preview-body');
+        if (!thead || !tbody) return;
+
+        thead.innerHTML = '';
+        tbody.innerHTML = '';
+
+        let trHeader = document.createElement('tr');
+        this.excelHeaders.forEach(h => {
+            let th = document.createElement('th');
+            th.textContent = h;
+            th.style.padding = '8px';
+            th.style.textAlign = 'left';
+            th.style.fontWeight = '600';
+            trHeader.appendChild(th);
+        });
+        thead.appendChild(trHeader);
+
+        this.excelData.slice(0, 5).forEach(row => {
+            let tr = document.createElement('tr');
+            this.excelHeaders.forEach((_, i) => {
+                let td = document.createElement('td');
+                td.textContent = row[i] !== undefined ? row[i] : '';
+                td.style.padding = '8px';
+                td.style.borderTop = '1px solid #eee';
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+    }
+
+    resetExcelInterface() {
+        this.workbook = null;
+        this.excelHeaders = [];
+        this.excelData = [];
+
+        const fileInput = document.getElementById('construccion-excel-file-input');
+        if (fileInput) fileInput.value = '';
+
+        document.getElementById('construccion-sheets-container').style.display = 'none';
+        document.getElementById('construccion-excel-step-2').style.display = 'none';
+        document.getElementById('construccion-excel-step-1').style.display = 'block';
+    }
+
+    async importMappedExcelData() {
+        const idxCodigo = document.getElementById('c-map-codigo').value;
+        const idxDesc = document.getElementById('c-map-descripcion').value;
+        const idxCosto = document.getElementById('c-map-costo').value;
+        const idxPrecio = document.getElementById('c-map-precio').value;
+        const idxExistencia = document.getElementById('c-map-existencia').value;
+
+        if (idxDesc === '') {
+            return alert("Por favor selecciona al menos la columna de Descripción.");
+        }
+
+        const confirmMsg = `¿Deseas procesar e importar ${this.excelData.length} productos a la base de datos para el mes de ${this.selectedMonth}?`;
+        if (!confirm(confirmMsg)) return;
+
+        try {
+            let batch = this.db.batch();
+            let count = 0;
+            let totalProcessed = 0;
+
+            for (const row of this.excelData) {
+                const codigoRaw = idxCodigo !== '' && row[idxCodigo] ? String(row[idxCodigo]).trim() : '';
+                const descRaw = idxDesc !== '' && row[idxDesc] ? String(row[idxDesc]).trim() : '';
+
+                if (!descRaw && !codigoRaw) continue;
+
+                const costoVal = idxCosto !== '' && row[idxCosto] ? parseFloat(String(row[idxCosto]).replace(/[^0-9.]/g, '')) || 0 : 0;
+                const precioVal = idxPrecio !== '' && row[idxPrecio] ? parseFloat(String(row[idxPrecio]).replace(/[^0-9.]/g, '')) || 0 : 0;
+                const existenciaVal = idxExistencia !== '' && row[idxExistencia] ? parseFloat(String(row[idxExistencia]).replace(/[^0-9.-]/g, '')) || 0 : 0;
+
+                const codigoFinal = codigoRaw || 'PROD-' + Math.floor(100000 + Math.random() * 900000);
+
+                // Buscar si existe en cache por código o descripción
+                const existing = this.productsCache.find(p => 
+                    (p.codigo && p.codigo.toLowerCase() === codigoFinal.toLowerCase()) ||
+                    (p.descripcion && p.descripcion.toLowerCase().trim() === descRaw.toLowerCase())
+                );
+
+                if (existing) {
+                    const ref = this.db.collection('INVENTARIO').doc(existing.id);
+                    batch.update(ref, {
+                        descripcion: descRaw || existing.descripcion,
+                        costo: costoVal > 0 ? costoVal : (existing.costo || 0),
+                        precioVenta: precioVal > 0 ? precioVal : (existing.precioVenta || 0),
+                        stockInicial: existenciaVal >= 0 ? existenciaVal : (existing.stockInicial || 0),
+                        existencia: existenciaVal >= 0 ? existenciaVal : (existing.existencia || 0)
+                    });
+                } else {
+                    const newRef = this.db.collection('INVENTARIO').doc();
+                    batch.set(newRef, {
+                        codigo: codigoFinal,
+                        descripcion: descRaw || 'PRODUCTO SIN NOMBRE',
+                        costo: costoVal,
+                        costoSinIva: costoVal > 0 ? costoVal / 1.13 : 0,
+                        precioVenta: precioVal,
+                        stockInicial: existenciaVal,
+                        existencia: existenciaVal,
+                        stockMinimo: 5,
+                        creditoFiscal: true,
+                        aliases: [],
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+
+                count++;
+                totalProcessed++;
+
+                if (count >= 400) {
+                    await batch.commit();
+                    batch = this.db.batch();
+                    count = 0;
+                }
+            }
+
+            if (count > 0) await batch.commit();
+
+            alert(`¡Importación masiva completada! Se procesaron ${totalProcessed} productos.`);
+            this.resetExcelInterface();
+            await this.loadMonthData();
+
+        } catch (err) {
+            console.error("Error importando Excel:", err);
+            alert("Error durante la importación: " + err.message);
+        }
+    }
+
+    // =========================================
+    // LOAD & RECONCILIATION LOGIC
+    // =========================================
     async loadMonthData() {
         const tbody = document.getElementById('tabla-construccion-body');
         if (tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Cargando datos e inconsistencias de ' + this.selectedMonth + '...</td></tr>';
@@ -183,7 +486,7 @@ class ConstruccionInventarioController {
                 }
             });
 
-            // 4. Cargar todos los productos base
+            // 4. Cargar productos base
             const rawProducts = await this.db.collection('INVENTARIO').orderBy('codigo').get();
             this.productsCache = rawProducts.docs.map(d => ({ id: d.id, ...d.data() }));
 
@@ -311,7 +614,6 @@ class ConstruccionInventarioController {
         const item = this.reconciliationData.find(x => x.id === productId);
         if (!item) return;
 
-        // Necesitamos un stock inicial que haga stockResultante >= 0
         const neededInitial = Math.max(0, item.ventas + item.pendientes - item.entradas);
         await this.updateStockInicialDirect(productId, neededInitial);
     }
@@ -381,7 +683,6 @@ class ConstruccionInventarioController {
 
             if (!confirm(confirmMsg)) return;
 
-            // Insertar o actualizar salidas
             let batch = this.db.batch();
             let count = 0;
             const fechaAUsar = this.selectedMonth + '-31';

@@ -13,6 +13,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Estilos Base -->
     <link rel="stylesheet" href="css/inventario.css?v=2.4.0">
+    <!-- SheetJS CDN para lectura de Hojas de Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
@@ -67,12 +69,12 @@
             text-align: center;
             cursor: pointer;
             transition: all 0.2s ease;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
         .drop-zone-card:hover {
-            border-color: #2563eb;
-            background: #eff6ff;
+            border-color: #10b981;
+            background: #ecfdf5;
         }
     </style>
 </head>
@@ -126,10 +128,10 @@
         <div style="background: #ffffff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 18px 24px; margin-bottom: 20px; box-shadow: var(--shadow-sm); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
             <div>
                 <h2 style="margin: 0; font-size: 1.25rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 10px;">
-                    🔨 Construcción del Mes de <span id="label-mes-actual" style="color: #2563eb;">Julio 2026</span>
+                    🔨 Construcción del Mes de <span class="label-mes-actual" style="color: #2563eb;">Julio 2026</span>
                 </h2>
                 <p style="margin: 4px 0 0 0; font-size: 0.875rem; color: #64748b;">
-                    Carga ventas FEL, compras e inicializa el inventario base sin afectar meses futuros.
+                    Carga archivos Excel eligiendo hoja y columnas, importa ventas FEL e inicializa el inventario base.
                 </p>
             </div>
             <div style="display: flex; gap: 10px;">
@@ -185,23 +187,118 @@
             </div>
         </div>
 
-        <!-- DRAG & DROP CARGA DE VENTAS FEL (.md / .csv / .txt) -->
-        <div class="drop-zone-card" id="sales-drop-area">
-            <i class="fas fa-file-upload" style="font-size: 2rem; color: #2563eb; margin-bottom: 8px;"></i>
-            <h3 style="margin: 0; font-size: 1rem; font-weight: 700; color: #1e293b;">
-                Arrastra o haz clic para cargar el Reporte de Ventas FEL (.md, .csv, .txt)
+        <!-- MOTOR DE IMPORTACIÓN DE EXCEL (CON HOJAS Y MAPEO) -->
+        <div style="background:#ffffff; border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:20px; margin-bottom:20px; box-shadow:var(--shadow-sm);">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:12px; margin-bottom:16px;">
+                <h3 style="margin:0; font-size:1.05rem; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-file-excel" style="color:#10b981;"></i> Cargar Inventario Base desde Excel / CSV (.xlsx, .xls, .csv, .md)
+                </h3>
+                <span style="font-size:0.8rem; color:#64748b; font-weight:600;">Selección de Hoja + Mapeo de Columnas</span>
+            </div>
+
+            <!-- PASO 1: ARRASTRAR ARCHIVO Y SELECCIONAR HOJA -->
+            <div id="construccion-excel-step-1">
+                <div class="drop-zone-card" id="construccion-excel-drop-area">
+                    <i class="fas fa-file-excel" style="font-size: 2.2rem; color: #10b981; margin-bottom: 8px;"></i>
+                    <h4 style="margin: 0; font-size: 1rem; font-weight: 700; color: #1e293b;">
+                        Arrastra aquí tu archivo Excel o haz clic para seleccionarlo
+                    </h4>
+                    <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">
+                        Soporta archivos de varias hojas (.xlsx, .xls, .csv, .md)
+                    </p>
+                    <input type="file" id="construccion-excel-file-input" accept=".xlsx, .xls, .csv, .md, .markdown, .txt" style="display: none;">
+                </div>
+
+                <!-- SELECTOR DE HOJA DE EXCEL -->
+                <div id="construccion-sheets-container" style="display: none; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 15px;">
+                    <label style="font-weight: 700; font-size: 0.9rem; color: #1e293b; display: block; margin-bottom: 8px;">
+                        <i class="fas fa-layer-group" style="color: #2563eb;"></i> Selecciona la Hoja de Excel a procesar:
+                    </label>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <select id="construccion-sheet-select" style="flex: 1; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-weight: 600; font-size: 0.9rem; color: #0f172a;"></select>
+                        <button class="btn btn-primary" onclick="appConstruccion.analyzeSelectedSheet()" style="padding: 8px 16px; font-size: 0.875rem;">
+                            <i class="fas fa-search"></i> Analizar Hoja
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PASO 2: MAPEO DE COLUMNAS Y VISTA PREVIA -->
+            <div id="construccion-excel-step-2" style="display: none; background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <h4 style="margin-top:0; color:#1e293b; font-size:1rem; font-weight:700;">
+                    <i class="fas fa-exchange-alt" style="color: #2563eb;"></i> Mapear Columnas de la Hoja Seleccionada
+                </h4>
+                <p style="font-size:0.85rem; color:#64748b; margin-bottom:16px;">
+                    Asigna qué campo del sistema corresponde a cada columna de la hoja seleccionada.
+                </p>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px;">
+                    <div>
+                        <label style="font-weight:600; font-size:0.85rem; display:block; margin-bottom:4px; color:#334155;">Código</label>
+                        <select id="c-map-codigo" style="width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.85rem;"></select>
+                    </div>
+                    <div>
+                        <label style="font-weight:600; font-size:0.85rem; display:block; margin-bottom:4px; color:#334155;">Descripción Taller *</label>
+                        <select id="c-map-descripcion" style="width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.85rem;"></select>
+                    </div>
+                    <div>
+                        <label style="font-weight:600; font-size:0.85rem; display:block; margin-bottom:4px; color:#334155;">Costo c/IVA</label>
+                        <select id="c-map-costo" style="width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.85rem;"></select>
+                    </div>
+                    <div>
+                        <label style="font-weight:600; font-size:0.85rem; display:block; margin-bottom:4px; color:#334155;">Precio de Venta</label>
+                        <select id="c-map-precio" style="width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.85rem;"></select>
+                    </div>
+                    <div>
+                        <label style="font-weight:600; font-size:0.85rem; display:block; margin-bottom:4px; color:#334155;">Stock Inicial / Existencia</label>
+                        <select id="c-map-existencia" style="width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.85rem;"></select>
+                    </div>
+                </div>
+
+                <!-- VISTA PREVIA -->
+                <div style="margin-bottom: 20px;">
+                    <h5 style="margin:0 0 8px 0; font-size:0.85rem; font-weight:700; color:#475569;">Vista Previa (Primeras 5 filas):</h5>
+                    <div style="max-height:160px; overflow:auto; border:1px solid #cbd5e1; border-radius:6px; background:#ffffff;">
+                        <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                            <thead id="c-preview-header" style="background:#f1f5f9; position:sticky; top:0;"></thead>
+                            <tbody id="c-preview-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <button class="btn btn-secondary" onclick="appConstruccion.resetExcelInterface()" style="font-size:0.85rem;">
+                        <i class="fas fa-arrow-left"></i> Cambiar Archivo / Hoja
+                    </button>
+                    <button class="btn btn-success" onclick="appConstruccion.importMappedExcelData()" style="font-size:0.85rem;">
+                        <i class="fas fa-file-import"></i> Procesar e Importar a <span class="label-mes-actual">Julio 2026</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CARGA DE VENTAS FEL (.md / .csv / .txt) -->
+        <div style="background:#ffffff; border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:20px; margin-bottom:20px; box-shadow:var(--shadow-sm);">
+            <h3 style="margin:0 0 12px 0; font-size:1.05rem; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-file-invoice-dollar" style="color:#2563eb;"></i> Cargar Reporte de Ventas FEL del Mes (.md, .csv, .txt)
             </h3>
-            <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">
-                El sistema asociará automáticamente las ventas extraídas al mes de trabajo seleccionado.
-            </p>
-            <input type="file" id="sales-file-input" accept=".md,.markdown,.csv,.txt,.xlsx,.xls" style="display: none;">
+            <div class="drop-zone-card" id="sales-drop-area" style="margin-bottom:0; background:#f0f9ff; border-color:#93c5fd;">
+                <i class="fas fa-cloud-upload-alt" style="font-size: 2.2rem; color: #2563eb; margin-bottom: 8px;"></i>
+                <h4 style="margin: 0; font-size: 1rem; font-weight: 700; color: #1e293b;">
+                    Arrastra o haz clic para cargar el Reporte de Ventas FEL (.md, .csv, .txt)
+                </h4>
+                <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">
+                    El sistema extraerá automáticamente cantidades, facturas y descripciones para el período <span class="label-mes-actual">Julio 2026</span>.
+                </p>
+                <input type="file" id="sales-file-input" accept=".md,.markdown,.csv,.txt,.xlsx,.xls" style="display: none;">
+            </div>
         </div>
 
         <!-- TABLA DE RECONSTRUCCIÓN -->
         <div class="tab-content active" style="display: flex; flex-direction: column; flex: 1;">
-            <div style="padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+            <div style="padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; flex-wrap:wrap; gap:10px;">
                 <h3 style="margin: 0; font-size: 1rem; font-weight: 700; color: #1e293b;">
-                    📋 Reconciliación de Stock por Producto
+                    📋 Reconciliación de Stock por Producto - <span class="label-mes-actual">Julio 2026</span>
                 </h3>
                 <div class="search-box">
                     <input type="text" id="search-construccion" placeholder="Filtrar por código o nombre..." style="width: 280px; padding: 6px 12px 6px 36px; font-size: 0.85rem;">
