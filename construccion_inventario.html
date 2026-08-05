@@ -13,8 +13,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Estilos Base -->
     <link rel="stylesheet" href="css/inventario.css?v=2.4.0">
-    <!-- SheetJS CDN para lectura de Hojas de Excel -->
+    <!-- SheetJS CDN para lectura de Hojas de Excel con fallback -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
@@ -209,6 +210,7 @@
                     <button type="button" class="btn btn-success" style="font-size:0.85rem; padding:8px 18px; pointer-events:none;">
                         <i class="fas fa-folder-open"></i> Seleccionar Archivo Excel
                     </button>
+                    <div id="construccion-excel-filename" style="margin-top: 10px; font-weight: 700; color: #10b981; font-size: 0.9rem;"></div>
                 </div>
                 <input type="file" id="construccion-excel-file-input" accept=".xlsx, .xls, .csv, .md, .markdown, .txt" style="display: none;" onchange="window.appConstruccion && window.appConstruccion.handleFileInputChange(this)">
 

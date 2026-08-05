@@ -145,9 +145,13 @@ class ConstruccionInventarioController {
     // =========================================
     handleExcelFileUpload(file) {
         if (!file) return;
+        console.log("📂 Archivo Excel seleccionado:", file.name, file.size, "bytes");
 
         const fileName = file.name.toLowerCase();
         const isTextOrMd = fileName.endsWith('.md') || fileName.endsWith('.markdown') || fileName.endsWith('.txt') || fileName.endsWith('.csv');
+
+        const label = document.getElementById('construccion-excel-filename');
+        if (label) label.innerText = `📄 ${file.name}`;
 
         if (isTextOrMd) {
             const reader = new FileReader();
@@ -176,17 +180,23 @@ class ConstruccionInventarioController {
 
                     if (parsedRows.length < 2) throw new Error("No se encontró una estructura de datos válida.");
 
-                    this.excelHeaders = parsedRows[0].map((h, i) => h ? String(h).trim() : `Columna ${i + 1}`);
+                    this.excelHeaders = parsedRows[0].map((h, i) => (h !== null && h !== undefined && String(h).trim() !== '') ? String(h).trim() : `Columna ${i + 1}`);
                     this.excelData = parsedRows.slice(1);
 
-                    document.getElementById('construccion-sheets-container').style.display = 'none';
+                    const sheetsContainer = document.getElementById('construccion-sheets-container');
+                    if (sheetsContainer) sheetsContainer.style.display = 'none';
                     this.setupColumnMapper();
                 } catch (err) {
+                    console.error("Error leyendo archivo de texto/csv:", err);
                     alert("Error al leer archivo de texto/csv: " + err.message);
                 }
             };
             reader.readAsText(file);
         } else {
+            if (typeof XLSX === 'undefined') {
+                return alert("La librería para procesar Excel (XLSX) aún no se ha cargado. Por favor espera 3 segundos e intenta nuevamente.");
+            }
+
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
@@ -194,19 +204,22 @@ class ConstruccionInventarioController {
                     this.workbook = XLSX.read(data, { type: 'array' });
 
                     const sheetSelect = document.getElementById('construccion-sheet-select');
-                    sheetSelect.innerHTML = '';
+                    if (sheetSelect) {
+                        sheetSelect.innerHTML = '';
+                        this.workbook.SheetNames.forEach((sheetName) => {
+                            const opt = document.createElement('option');
+                            opt.value = sheetName;
+                            opt.text = sheetName;
+                            sheetSelect.add(opt);
+                        });
+                    }
 
-                    this.workbook.SheetNames.forEach((sheetName) => {
-                        const opt = document.createElement('option');
-                        opt.value = sheetName;
-                        opt.text = sheetName;
-                        sheetSelect.add(opt);
-                    });
+                    const sheetsContainer = document.getElementById('construccion-sheets-container');
+                    if (sheetsContainer) sheetsContainer.style.display = 'block';
 
-                    document.getElementById('construccion-sheets-container').style.display = 'block';
                     this.analyzeSelectedSheet();
                 } catch (err) {
-                    console.error(err);
+                    console.error("Error al leer archivo Excel:", err);
                     alert("Error al leer archivo Excel: " + err.message);
                 }
             };
@@ -215,25 +228,31 @@ class ConstruccionInventarioController {
     }
 
     analyzeSelectedSheet() {
-        if (!this.workbook) return;
+        if (!this.workbook || !this.workbook.SheetNames || this.workbook.SheetNames.length === 0) return;
         const sheetSelect = document.getElementById('construccion-sheet-select');
-        const selectedSheetName = sheetSelect.value || this.workbook.SheetNames[0];
+        const selectedSheetName = (sheetSelect && sheetSelect.value) ? sheetSelect.value : this.workbook.SheetNames[0];
         const worksheet = this.workbook.Sheets[selectedSheetName];
 
+        if (!worksheet) return alert("No se pudo leer la hoja seleccionada.");
+
         const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-        if (!rows || rows.length === 0) return alert("La hoja seleccionada no contiene datos.");
+        if (!rows || rows.length === 0) return alert("La hoja '" + selectedSheetName + "' no contiene datos.");
 
         let headerRowIndex = 0;
         for (let i = 0; i < Math.min(rows.length, 20); i++) {
             const row = rows[i];
-            if (row && row.filter(c => c && typeof c === 'string').length >= 2) {
+            if (row && row.filter(c => c !== null && c !== undefined && String(c).trim() !== '').length >= 1) {
                 headerRowIndex = i;
                 break;
             }
         }
 
-        this.excelHeaders = (rows[headerRowIndex] || []).map((h, i) => h ? String(h).trim() : `Columna ${i + 1}`);
-        this.excelData = rows.slice(headerRowIndex + 1).filter(r => r && r.length > 0);
+        this.excelHeaders = (rows[headerRowIndex] || []).map((h, i) => (h !== null && h !== undefined && String(h).trim() !== '') ? String(h).trim() : `Columna ${i + 1}`);
+        this.excelData = rows.slice(headerRowIndex + 1).filter(r => r && r.length > 0 && r.some(c => c !== null && c !== undefined && String(c).trim() !== ''));
+
+        if (this.excelData.length === 0) {
+            return alert("No se encontraron filas con datos después de la cabecera en la hoja '" + selectedSheetName + "'.");
+        }
 
         this.setupColumnMapper();
     }
@@ -257,8 +276,10 @@ class ConstruccionInventarioController {
         this.autoMapColumns();
         this.renderExcelPreview();
 
-        document.getElementById('construccion-excel-step-1').style.display = 'none';
-        document.getElementById('construccion-excel-step-2').style.display = 'block';
+        const step1 = document.getElementById('construccion-excel-step-1');
+        const step2 = document.getElementById('construccion-excel-step-2');
+        if (step1) step1.style.display = 'none';
+        if (step2) step2.style.display = 'block';
     }
 
     autoMapColumns() {
