@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Memos y Cuentas - Taller Wilian</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="stylesheet" href="css/cuentas.css">
+</head>
+
+<body class="main-wrapper">
+
+    <header>
+        <button class="menu-toggle" id="mobileMenuBtn"><i class="fas fa-bars"></i></button>
+        <h1>Taller Willian</h1>
+        <div class="header-actions">
+            <!-- Sin carrito -->
+        </div>
+    </header>
+
+    <div class="mobile-menu" id="mobileMenu">
+        <a href="index.html"><i class="fas fa-home"></i> Inicio</a>
+        <a href="venta.html"><i class="fas fa-cash-register"></i> Nueva Venta</a>
+        <a href="facturas.html"><i class="fas fa-file-invoice-dollar"></i> Facturas Pendientes</a>
+        <a href="historial.html"><i class="fas fa-history"></i> Historial de Ventas</a>
+        <a href="inventario.html"><i class="fas fa-boxes"></i> Inventario</a>
+        <a href="servicios.html"><i class="fas fa-tools"></i> Servicios</a>
+        <a href="entregas.html"><i class="fas fa-truck"></i> Entregas</a>
+        <a href="cuentas.html" class="active"><i class="fas fa-sticky-note"></i> Memos y Cuentas</a>
+        <a href="configuracion.html"><i class="fas fa-cog"></i> Configuración</a>
+        <a href="#" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
+    </div>
+
+    <div class="container">
+        <div class="dashboard-section">
+            <div class="section-title">MEMOS Y CUENTAS</div>
+
+            <!-- 🔥 Contenedor con ancho completo -->
+            <div class="memos-cuentas-wrapper">
+                <div class="tabs-container">
+                    <div class="tabs-header">
+                        <button class="tab-btn active" data-tab="memos">MEMOS</button>
+                        <button class="tab-btn" data-tab="cuentas">CUENTAS</button>
+                    </div>
+
+                    <!-- PESTAÑA MEMOS -->
+                    <div class="tab-content active" id="tab-memos">
+                        <h2 class="section-title">NOTAS INTERNAS</h2>
+                        <div class="memos-actions">
+                            <div>
+                                <button class="btn btn-success" id="nuevo-memo-btn"><i class="fas fa-plus"></i> NUEVO
+                                    MEMO</button>
+                            </div>
+                            <div class="form-group">
+                                <input type="text" id="buscar-memo" placeholder="Buscar memo...">
+                            </div>
+                        </div>
+
+                        <div class="memos-grid" id="memos-container">
+                            <!-- Llenado dinámicamente -->
+                            <div class="empty-cart">
+                                <i class="fas fa-sticky-note" style="font-size:2rem;margin-bottom:10px;opacity:.5;"></i>
+                                <div>Cargando memos...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PESTAÑA CUENTAS -->
+                    <div class="tab-content" id="tab-cuentas">
+                        <h2 class="section-title">CONTROL DE CUENTAS</h2>
+
+                        <!-- TARJETA CUENTA JEFE (CAPITAL) -->
+                        <div class="capital-card">
+                            <div class="capital-info">
+                                <h3><i class="fas fa-user-tie"></i> CUENTA JEFE</h3>
+                                <p>Fondo de Capital e Inversión</p>
+                            </div>
+                            <div class="capital-balance">
+                                <span class="currency">$</span>
+                                <span id="capital-total">0.00</span>
+                            </div>
+                            <button class="btn-capital" id="btn-add-capital">
+                                <i class="fas fa-plus-circle"></i> INGRESAR DINERO
+                            </button>
+                        </div>
+
+                        <div class="cuentas-actions">
+                            <div>
+                                <button class="btn btn-primary" id="nueva-cuenta-btn"><i class="fas fa-plus"></i> NUEVA
+                                    CUENTA (Proveedor)</button>
+                            </div>
+                            <div class="form-group">
+                                <input type="text" id="buscar-cuenta" placeholder="Buscar cuenta...">
+                            </div>
+                        </div>
+
+                        <div class="cuentas-table-container">
+                            <table class="cuentas-table">
+                                <thead>
+                                    <tr>
+                                        <th>Cuenta / Proveedor</th>
+                                        <th>Descripción</th>
+                                        <th>Saldo Pendiente</th>
+                                        <th>Estado</th>
+                                        <th width="120">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cuentas-body">
+                                    <!-- Llenado dinámicamente -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL INYECCIÓN CAPITAL -->
+    <div class="modal-overlay" id="capitalModal">
+        <div class="modal-content glass-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-money-bill-wave"></i> Nuevo Aporte de Capital</h3>
+                <button class="close-modal" id="closeCapitalModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Monto a Ingresar ($)</label>
+                    <input type="number" id="capital-monto" placeholder="0.00" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label>Descripción / Motivo</label>
+                    <input type="text" id="capital-desc" placeholder="Ej: Dinero inicial para caja, Aporte extra...">
+                </div>
+                <div class="form-group">
+                    <label>Fecha</label>
+                    <input type="date" id="capital-fecha">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-cancel" id="cancelCapitalBtn">Cancelar</button>
+                <button class="btn btn-confirm" id="saveCapitalBtn">Registrar Aporte</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/controllers/AccountsController.js"></script>
+</body>
+
+</html>

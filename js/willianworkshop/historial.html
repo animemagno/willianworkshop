@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Historial de Ventas - Taller Wilian</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="stylesheet" href="css/historial.css">
+</head>
+
+<body class="main-wrapper">
+
+  <header>
+    <button class="menu-toggle" id="mobileMenuBtn"><i class="fas fa-bars"></i></button>
+    <h1>Taller Wilian</h1>
+    <div class="header-actions"></div>
+  </header>
+
+  <div class="mobile-menu" id="mobileMenu">
+    <a href="index.html"><i class="fas fa-home"></i> Inicio</a>
+    <a href="venta.html"><i class="fas fa-cash-register"></i> Nueva Venta</a>
+    <a href="facturas.html"><i class="fas fa-file-invoice-dollar"></i> Facturas Pendientes</a>
+    <a href="historial.html" class="active"><i class="fas fa-history"></i> Historial de Ventas</a>
+    <a href="inventario.html"><i class="fas fa-boxes"></i> Inventario</a>
+    <a href="servicios.html"><i class="fas fa-tools"></i> Servicios</a>
+    <a href="entregas.html"><i class="fas fa-truck"></i> Entregas</a>
+    <a href="cuentas.html"><i class="fas fa-sticky-note"></i> Memos y Cuentas</a>
+    <a href="configuracion.html"><i class="fas fa-cog"></i> Configuración</a>
+    <a href="#" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
+  </div>
+
+  <div class="container">
+    <div class="dashboard-section">
+      <div class="section-title">
+        <h2>HISTORIAL DE VENTAS</h2>
+        <button class="btn btn-info btn-imprimir" id="print-historial-btn"><i class="fas fa-print"></i> IMPRIMIR
+          HISTORIAL</button>
+      </div>
+
+      <div class="historial-wrapper">
+        <div class="form-group">
+          <input type="text" id="filter-equipo" placeholder="Buscar por equipo...">
+        </div>
+
+        <div class="filtros-avanzados">
+          <div class="form-group">
+            <input type="text" id="filter-producto" placeholder="Buscar producto vendido...">
+          </div>
+          <div class="form-group">
+            <select id="filter-tipo">
+              <option value="">Todos los tipos</option>
+              <option value="efectivo">Efectivo</option>
+              <option value="credito">Crédito</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <input type="date" id="filter-fecha">
+        </div>
+
+        <div id="ventas-container" class="dias-container">
+          <!-- Se llenará dinámicamente -->
+        </div>
+
+        <div class="empty-state" id="empty-ventas" style="display: none;">
+          <i class="fas fa-history"></i>
+          <div>No hay ventas en el historial</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODALES ===== -->
+  <!-- Eliminar -->
+  <div id="modalEliminar" class="modal-overlay">
+    <div class="modal-box">
+      <h3>¿Eliminar esta venta?</h3>
+      <p>Esta acción no se puede deshacer.</p>
+      <div class="modal-buttons">
+        <button class="btn btn-danger" id="modalConfirmarEliminar">Sí, eliminar</button>
+        <button class="btn btn-primary" id="modalCancelarEliminar">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SCRIPTS ===== -->
+  <script type="module" src="js/controllers/HistoryController.js"></script>
+</body>
+
+</html>

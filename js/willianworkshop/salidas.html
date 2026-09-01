@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salidas (Facturación) - Taller Willian</title>
+    <!-- CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/inventario.css">
+    <link rel="manifest" href="manifest.json">
+    <!-- EXCEL PARSER -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Estilos optimizados para pantalla completa y tablet de Salidas */
+        html, body {
+            height: 100%;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f0f4f8, #e2e8f0);
+            background-attachment: fixed;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            color: #2d3748;
+        }
+
+        /* Ocultar cabecera en pantalla completa */
+        :fullscreen header { display: none !important; }
+        :-webkit-full-screen header { display: none !important; }
+        :-ms-fullscreen header { display: none !important; }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            color: white;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .btn-back {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            color: white;
+            text-decoration: none;
+            padding: 10px 18px;
+            border-radius: 6px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
+        }
+
+        .btn-back:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateX(-3px);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .container-full {
+            max-width: 100%;
+            width: 100%;
+            margin: 0 auto;
+            padding: 15px 20px;
+            box-sizing: border-box;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        /* Rejilla de Salidas adaptada a Pantalla Completa */
+        .salidas-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1.3fr;
+            grid-template-rows: minmax(0, 1fr);
+            gap: 15px; /* Reducido un poco para tablet */
+            align-items: stretch;
+            transition: grid-template-columns 0.4s ease;
+            flex: 1;
+            min-height: 0; /* EVITA QUE EL GRID EMPUJE HACIA ABAJO Y ROMPA EL LAYOUT */
+            box-sizing: border-box;
+        }
+
+        .salidas-grid.active-col1 {
+            grid-template-columns: 1.8fr 0.3fr 1.3fr;
+        }
+
+        .salidas-grid.active-col2 {
+            grid-template-columns: 0.3fr 1.8fr 1.3fr;
+        }
+
+        @media (max-width: 767px) {
+            .salidas-grid {
+                grid-template-columns: 1fr !important;
+                display: flex;
+                flex-direction: column;
+                gap: 20px;
+                height: auto !important; /* Desactivar alto fijo en móvil */
+            }
+        }
+
+        /* Tarjetas de Salidas */
+        .salidas-card {
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            padding: 18px; 
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.02);
+            border-radius: 12px;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            overflow-y: auto;
+            overflow-x: hidden;
+            position: relative;
+            border: 1px solid rgba(255,255,255,0.4);
+            min-height: 0; /* EVITA EL DESBORDAMIENTO VERTICAL */
+        }
+
+        .salidas-card.collapsed {
+            background: #f8f9fa;
+            border: 1px dashed #cbd5e0;
+            opacity: 0.8;
+            cursor: pointer;
+        }
+
+        .salidas-card.collapsed:hover {
+            background: #edf2f7;
+            opacity: 1;
+        }
+
+        /* Ocultar contenido normal si está colapsado */
+        .salidas-card.collapsed > *:not(.collapsed-indicator) {
+            display: none !important;
+        }
+
+        /* Mostrar indicador de colapsado */
+        .salidas-card .collapsed-indicator {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            color: #718096;
+            padding: 20px 0;
+        }
+
+        .salidas-card.collapsed .collapsed-indicator {
+            display: flex;
+        }
+
+        .collapsed-indicator h3 {
+            writing-mode: vertical-lr;
+            transform: rotate(180deg);
+            margin: 15px 0;
+            font-size: 1rem;
+            white-space: nowrap;
+            color: #2c3e50;
+        }
+
+        .collapsed-indicator i {
+            font-size: 1.5rem;
+            color: #3498db;
+        }
+
+        /* Mejoras táctiles en tablas de salidas */
+        .salidas-card .inventario-table td {
+            padding: 12px 10px !important;
+            font-size: 0.95rem;
+        }
+
+        .salidas-card .inventario-table tbody tr {
+            cursor: pointer;
+            transition: all 0.25s ease;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .salidas-card .inventario-table tbody tr:hover {
+            background-color: #f8fafc !important;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+            position: relative;
+            z-index: 2;
+        }
+
+        .salidas-card .inventario-table tbody tr:active {
+            background-color: #f1f5f9 !important;
+            transform: scale(0.995);
+        }
+
+        /* Contenedores de tabla scrollable */
+        .table-responsive-scroll {
+            flex: 1;
+            min-height: 0;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow-y: auto;
+            background: white;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        /* Inputs ultra cómodos para tablet */
+        .large-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ccd1d9;
+            border-radius: 6px;
+            font-size: 1rem;
+            box-sizing: border-box;
+            transition: all 0.2s ease;
+            background-color: #fcfdfd;
+        }
+
+        .large-input:focus {
+            border-color: #3498db;
+            background-color: white;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
+            outline: none;
+        }
+
+        /* Pantalla de carga */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.85);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Asegurar la alineación exacta de las tarjetas según el paso */
+        #card-listado {
+            grid-column: 1;
+            grid-row: 1;
+        }
+        #card-resumen {
+            grid-column: 2;
+            grid-row: 1;
+        }
+        #factura-dropzone {
+            grid-column: 3;
+            grid-row: 1;
+        }
+        #card-servicios-mano-obra {
+            grid-column: 1 / span 2;
+            grid-row: 1;
+        }
+        #card-facturacion-precios {
+            grid-column: 1 / span 2;
+            grid-row: 1;
+        }
+
+        /* En pantallas móviles se ignora el orden del grid para ordenarse en flujo vertical */
+        @media (max-width: 767px) {
+            #card-listado, #card-resumen, #factura-dropzone, #card-servicios-mano-obra, #card-facturacion-precios {
+                grid-column: auto !important;
+                grid-row: auto !important;
+            }
+        }
+        /* Pestañas principales */
+        .main-tab-btn {
+            background: none; border: none;
+            border-bottom: 3px solid transparent;
+            padding: 14px 22px; font-size: 0.95rem; font-weight: bold;
+            color: #718096; cursor: pointer;
+            display: flex; align-items: center; gap: 8px;
+            transition: all 0.2s; margin-bottom: -2px;
+        }
+        .main-tab-btn.active { color: #3498db; border-bottom-color: #3498db; }
+        .main-tab-btn:hover:not(.active) { color: #2d3748; background: #f7fafc; }
+
+        @media print {
+            body * { visibility: hidden; }
+            #modal-detalle-factura, #modal-detalle-factura * { visibility: visible; }
+            #modal-detalle-factura { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; box-shadow: none; background: white; }
+            .modal-content { border: none; box-shadow: none; width: 100%; max-width: 100%; padding: 0; margin: 0; }
+            button, .btn, span[onclick] { display: none !important; }
+        }
+
+        /* Estilos Premium para SweetAlert2 */
+        .swal2-container {
+            z-index: 9999 !important;
+        }
+        .premium-popup {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+            border-radius: 16px !important;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2) !important;
+            padding: 25px !important;
+        }
+        .premium-popup .swal2-title { font-size: 1.4rem !important; color: #2c3e50 !important; font-weight: 700 !important; }
+        .premium-popup .swal2-html-container { font-size: 1.05rem !important; color: #4a5568 !important; line-height: 1.5 !important; }
+        .premium-popup .swal2-confirm, .premium-popup .swal2-cancel {
+            border-radius: 8px !important; font-weight: bold !important; padding: 12px 24px !important; font-size: 1rem !important;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- PANTALLA DE CARGA -->
+    <div id="salidas-loading" class="loading-screen">
+        <div class="loading-spinner"></div>
+        <h3 style="color: #2c3e50; font-family: inherit;">Cargando Panel de Salidas...</h3>
+        <p style="color: #718096; margin: 0;">Obteniendo registros pendientes y lista de precios</p>
+    </div>
+
+    <!-- CABECERA PRINCIPAL -->
+    <header>
+        <div style="display: flex; align-items: center; gap: 20px;">
+            <a href="inventario.html" class="btn-back">
+                <i class="fas fa-arrow-left"></i> Volver al Inventario
+            </a>
+            <h1 style="margin: 0; font-size: 1.4rem; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-sign-out-alt"></i> Módulo de Salidas (Facturación)
+            </h1>
+        </div>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <button onclick="toggleFullScreen()" class="btn-back" style="cursor: pointer; background: rgba(52, 152, 219, 0.2); border-color: rgba(52, 152, 219, 0.5);">
+                <i class="fas fa-expand"></i> <span id="fs-btn-text">Pantalla Completa</span>
+            </button>
+            <div style="font-weight: 500; font-size: 0.95rem; color: #bdc3c7;">Taller Willian</div>
+        </div>
+    </header>
+
+    <!-- PESTAÑAS PRINCIPALES -->
+    <div style="background:white; border-bottom:2px solid #e2e8f0; padding:0 20px; display:flex;">
+        <button id="main-tab-btn-facturacion" class="main-tab-btn active" onclick="switchMainTab('facturacion')">
+            <i class="fas fa-file-invoice-dollar"></i> Facturación
+        </button>
+        <button id="main-tab-btn-historial" class="main-tab-btn" onclick="switchMainTab('historial')">
+            <i class="fas fa-history"></i> Historial de Facturas
+        </button>
+    </div>
+
+    <!-- SECCIÓN FACTURACIÓN -->
+    <div id="facturacion-section" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+    <div class="container-full">
+        <div id="salidas-grid" class="salidas-grid">
+
+            <!-- Tarjeta 1: Listado Pendiente -->
+            <div id="card-listado" class="salidas-card" onclick="toggleSalidasCard(1)">
+                <!-- Indicador de colapsado -->
+                <div class="collapsed-indicator">
+                    <i class="fas fa-list-ol"></i>
+                    <h3>1. Todos los Registros</h3>
+                    <span style="font-size: 0.85rem; color: #3498db; margin-top: 10px; font-weight: bold;"><i class="fas fa-expand-alt"></i> Expandir</span>
+                </div>
+
+                <h2 style="font-size: 1.15rem; border-bottom: 1px solid #f1f1f1; padding-bottom: 12px; margin-bottom: 12px; color: #2c3e50; display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-list-ol"></i> 1. Todos los Registros
+                    </div>
+                </h2>
+                
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <button id="tab-listado-general" class="btn" style="flex: 1; padding: 8px; font-weight: bold; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer;" onclick="SalidasController.switchListadoTab('general')">
+                        <i class="fas fa-list"></i> General
+                    </button>
+                    <button id="tab-listado-cuentas" class="btn" style="flex: 1; padding: 8px; font-weight: bold; background: #e2e8f0; color: #4a5568; border: 1px solid #cbd5e0; border-radius: 6px; cursor: pointer;" onclick="SalidasController.switchListadoTab('cuentas')">
+                        <i class="fas fa-users"></i> Por Cuenta
+                    </button>
+                </div>
+
+                <div id="content-listado-general" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
+                    <p style="font-size: 0.85rem; color: #718096; margin-top: 0; margin-bottom: 10px;">
+                        Orden de ingreso. <strong>Toca una fila</strong> para agregarla o arrástrala.
+                    </p>
+                    <div class="table-responsive-scroll">
+                        <table class="inventario-table" style="margin: 0; width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: #f8f9fa;">
+                                    <th style="width: 90px; border: 1px solid #ddd;">Fecha</th>
+                                    <th style="width: 50px; text-align: center; border: 1px solid #ddd;">Cant.</th>
+                                    <th style="border: 1px solid #ddd;">Producto</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fact-listado-tbody">
+                                <!-- JS inserts rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="content-listado-cuentas" style="display: none; flex-direction: column; flex: 1; min-height: 0;">
+                    <p style="font-size: 0.85rem; color: #718096; margin-top: 0; margin-bottom: 10px;">
+                        Toca una <strong>Cuenta</strong> para cargar todos sus repuestos a la vez.
+                    </p>
+                    <div class="table-responsive-scroll">
+                        <table class="inventario-table" style="margin: 0; width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: #f8f9fa;">
+                                    <th style="border: 1px solid #ddd;">Cuenta</th>
+                                    <th style="width: 80px; text-align: center; border: 1px solid #ddd;">Items</th>
+                                    <th style="width: 60px; text-align: center; border: 1px solid #ddd;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="fact-cuentas-tbody">
+                                <!-- JS inserts accounts -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tarjeta 2: Resumen Pendiente -->
+            <div id="card-resumen" class="salidas-card" onclick="toggleSalidasCard(2)">
+                <!-- Indicador de colapsado -->
+                <div class="collapsed-indicator">
+                    <i class="fas fa-layer-group"></i>
+                    <h3>2. Resumen Agrupado</h3>
+                    <span style="font-size: 0.85rem; color: #3498db; margin-top: 10px; font-weight: bold;"><i class="fas fa-expand-alt"></i> Expandir</span>
+                </div>
+
+                <h2 style="font-size: 1.15rem; border-bottom: 1px solid #f1f1f1; padding-bottom: 12px; margin-bottom: 12px; color: #2c3e50; display: flex; align-items: center; gap: 8px;"><i class="fas fa-layer-group"></i> 2. Resumen Agrupado</h2>
+                <p style="font-size: 0.85rem; color: #718096; margin-top: 0; margin-bottom: 15px;">
+                    Totales unificados por producto. <strong>Toca una fila</strong> para agregarla.
+                </p>
+                <div class="table-responsive-scroll">
+                    <table class="inventario-table" style="margin: 0; width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f8f9fa;">
+                                <th style="border: 1px solid #ddd;">Producto</th>
+                                <th style="width: 90px; text-align: center; border: 1px solid #ddd;">Disponibles</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fact-resumen-tbody">
+                            <!-- JS inserts rows -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tarjeta 3: La Factura (Dropzone) -->
+            <div style="display: flex; flex-direction: column; padding: 15px; border: 2px dashed #3498db; background-color: #f7fafc; transition: all 0.3s; border-radius: 10px; min-height: 0; overflow: hidden;"
+                id="factura-dropzone" ondragover="RegistrosApp.allowDrop(event)"
+                ondragleave="RegistrosApp.dragLeave(event)" ondrop="RegistrosApp.dropToFactura(event)">
+                
+                <h2 style="font-size: 1.1rem; color: #27ae60; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-top: 0; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-file-invoice-dollar"></i> 3. Factura en Construcción <span id="factura-line-counter" style="font-size: 0.85rem; color: #718096; margin-left: auto;">(0 líneas)</span>
+                </h2>
+
+                <div style="display: flex; gap: 5px; margin-bottom: 12px; flex-wrap: nowrap; align-items: center;">
+                    <input type="text" id="factura-cliente" class="large-input" placeholder="Cliente o Cuenta..." style="flex: 1; min-width: 80px; padding: 6px 8px; font-size: 0.85rem;">
+                    <input type="text" id="factura-numero" class="large-input" placeholder="N° Fac" style="width: 65px; padding: 6px 4px; text-align: center; font-size: 0.85rem;">
+                    <div style="display: flex; gap: 3px; align-items: center;">
+                        <input type="date" id="factura-fecha" class="large-input" style="width: 110px; padding: 6px 4px; font-size: 0.85rem;">
+                        <button type="button" class="btn" onclick="SalidasController.avanzarDiaFactura()" style="background: #e2e8f0; border: 1px solid #cbd5e0; border-radius: 6px; padding: 6px 8px; cursor: pointer; color: #4a5568; font-weight: bold; font-size: 0.85rem;" title="Avanzar 1 día">
+                            +1D
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-responsive-scroll">
+                    <table class="inventario-table" style="margin: 0; width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f8f9fa;">
+                                <th style="width: 45px; text-align: center; border: 1px solid #ddd; font-size: 0.85rem; padding: 8px 4px;">Cant.</th>
+                                <th style="border: 1px solid #ddd; font-size: 0.85rem; padding: 8px;">Producto</th>
+                                <th style="width: 60px; border: 1px solid #ddd; font-size: 0.85rem; padding: 8px 4px;">Costo</th>
+                                <th style="width: 65px; border: 1px solid #ddd; font-size: 0.85rem; padding: 8px 4px;">Venta</th>
+                                <th style="width: 70px; border: 1px solid #ddd; font-size: 0.85rem; padding: 8px 4px;">Total</th>
+                                <th style="width: 35px; border: 1px solid #ddd; padding: 8px 4px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="factura-tbody">
+                            <tr id="factura-empty-state">
+                                <td colspan="6" style="text-align: center; padding: 25px 10px; color: #a0aec0;">
+                                    <i class="fas fa-hand-holding-box" style="font-size: 30px; margin-bottom: 8px; color: #cbd5e0;"></i>
+                                    <br><strong style="font-size: 0.9rem;">La factura está vacía</strong>
+                                    <br><span style="font-size: 0.8rem; color: #a0aec0;">Toca o arrastra los productos</span>
+                                    <br><small style="font-size: 0.8rem; color: #a0aec0;">(Sin límite de productos)</small>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Bloque de Total General en la Tarjeta -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-weight: bold; font-size: 1.05rem; padding: 10px 15px; background: #e6fffa; border-radius: 6px; border: 1px solid #b2f5ea; color: #234e52;">
+                    <span>Total Factura:</span>
+                    <span>$<span id="card-factura-total">0.00</span></span>
+                </div>
+
+                <button id="btn-siguiente-factura" class="btn btn-success" style="width: 100%; margin-top: 10px; padding: 12px; font-size: 1.05rem; font-weight: bold; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px rgba(39, 174, 96, 0.2);" onclick="SalidasController.nextStep()">
+                    <i class="fas fa-arrow-circle-right"></i> <span id="btn-siguiente-factura-text">Siguiente: Servicios</span>
+                </button>
+            </div>
+
+            <!-- Tarjeta para el Paso 2: Servicios y Mano de Obra (Oculta por defecto) -->
+            <div id="card-servicios-mano-obra" class="salidas-card" style="display: none; grid-column: span 2;">
+                <h2 style="font-size: 1.15rem; color: #2c3e50; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+                    <div><i class="fas fa-tools" style="color: #3498db;"></i> 2. Servicios Realizados en el Taller</div>
+                    <button class="btn" style="padding: 4px 10px; font-size: 0.85rem; font-weight: bold; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 5px;" onclick="RegistrosApp.promptCustomService()">
+                        <i class="fas fa-plus"></i> Añadir Otro
+                    </button>
+                </h2>
+
+                <div class="table-responsive-scroll" style="margin-bottom: 20px;">
+                    <table class="inventario-table" style="margin: 0; width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f8f9fa;">
+                                <th style="border: 1px solid #ddd; padding: 12px;">Servicio</th>
+                                <th style="width: 140px; text-align: center; border: 1px solid #ddd; padding: 12px;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="servicios-list-tbody">
+                            <tr onclick="RegistrosApp.addServiceToFactura('Cambio de aceite')">
+                                <td style="font-weight: 500; padding: 12px 10px;"><i class="fas fa-oil-can" style="color: #3498db; margin-right: 8px;"></i> Cambio de aceite</td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <button class="btn" style="padding: 4px 10px; font-size: 13px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                        <i class="fas fa-plus"></i> Agregar
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr onclick="RegistrosApp.addServiceToFactura('Cambio de aceite de caja')">
+                                <td style="font-weight: 500; padding: 12px 10px;"><i class="fas fa-cogs" style="color: #3498db; margin-right: 8px;"></i> Cambio de aceite de caja</td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <button class="btn" style="padding: 4px 10px; font-size: 13px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                        <i class="fas fa-plus"></i> Agregar
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr onclick="RegistrosApp.addServiceToFactura('Revisión de frenos')">
+                                <td style="font-weight: 500; padding: 12px 10px;"><i class="fas fa-car" style="color: #3498db; margin-right: 8px;"></i> Revisión de frenos</td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <button class="btn" style="padding: 4px 10px; font-size: 13px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                        <i class="fas fa-plus"></i> Agregar
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr onclick="RegistrosApp.addServiceToFactura('Lubricar cables')">
+                                <td style="font-weight: 500; padding: 12px 10px;"><i class="fas fa-spray-can" style="color: #3498db; margin-right: 8px;"></i> Lubricar cables</td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <button class="btn" style="padding: 4px 10px; font-size: 13px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                        <i class="fas fa-plus"></i> Agregar
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr onclick="RegistrosApp.addServiceToFactura('Poner Bomba trasera')">
+                                <td style="font-weight: 500; padding: 12px 10px;"><i class="fas fa-wrench" style="color: #3498db; margin-right: 8px;"></i> Poner Bomba trasera</td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <button class="btn" style="padding: 4px 10px; font-size: 13px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                        <i class="fas fa-plus"></i> Agregar
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr onclick="RegistrosApp.addServiceToFactura('Poner bomba delantera')">
+                                <td style="font-weight: 500; padding: 12px 10px;"><i class="fas fa-wrench" style="color: #3498db; margin-right: 8px;"></i> Poner bomba delantera</td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <button class="btn" style="padding: 4px 10px; font-size: 13px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                        <i class="fas fa-plus"></i> Agregar
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr id="row-mano-obra" onclick="RegistrosApp.addServiceToFactura('Mano de Obra', true)" style="background-color: #e6fffa; border-top: 2px solid #b2f5ea;">
+                                <td style="font-weight: bold; color: #004d40; padding: 12px 10px;"><i class="fas fa-hand-holding-usd" style="color: #2e7d32; margin-right: 8px;"></i> Mano de Obra (Solicita precio)</td>
+                                <td style="text-align: center; padding: 12px 10px;">
+                                    <button class="btn" style="padding: 4px 10px; font-size: 13px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                                        <i class="fas fa-dollar-sign"></i> Cobrar
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; border-top: 1px solid #f1f1f1; padding-top: 15px; margin-top: auto;">
+                    <button class="btn btn-danger" onclick="SalidasController.backToRepuestosStep()" style="padding: 12px 25px; font-weight: bold; display: flex; align-items: center; gap: 8px; cursor: pointer; border: 1px solid #cbd5e0; background: #e2e8f0; border-radius: 6px; color: #4a5568;">
+                        <i class="fas fa-arrow-left"></i> Atrás: Repuestos
+                    </button>
+                    <button class="btn btn-success" onclick="SalidasController.goToBillingStep()" style="padding: 12px 30px; font-weight: bold; display: flex; align-items: center; gap: 8px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                        Siguiente: Precios de Repuestos <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tarjeta para el Paso 3: Confirmación de Precios (Oculta por defecto) -->
+            <div id="card-facturacion-precios" class="salidas-card" style="display: none; grid-column: 1 / span 3;">
+                <h2 style="font-size: 1.2rem; border-bottom: 1px solid #f1f1f1; padding-bottom: 12px; margin-bottom: 15px; color: #2c3e50; display: flex; align-items: center; gap: 8px; margin-top: 0;">
+                    <i class="fas fa-file-invoice" style="color: #27ae60;"></i> Paso 3: Confirmación de Precios y Ganancias
+                </h2>
+
+                <div id="invoice-prices-section" style="flex: 1; display: grid; grid-template-columns: 320px 1fr; grid-template-rows: minmax(0, 1fr); gap: 25px; align-items: stretch; min-height: 0; box-sizing: border-box;">
+                    <!-- COLUMNA IZQUIERDA: RESÚMENES Y GANANCIAS -->
+                    <div style="display: flex; flex-direction: column; gap: 20px; min-height: 0; overflow-y: auto;">
+                        <!-- Bloque 1: Ganancia Factura Actual -->
+                        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); overflow: hidden;">
+                            <div style="background: #e6fffa; padding: 12px 15px; font-weight: bold; color: #234e52; border-bottom: 1px solid #b2f5ea; display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-hand-holding-usd" style="color: #27ae60;"></i> Ganancia Esta Factura
+                            </div>
+                            <div style="padding: 15px; display: flex; flex-direction: column; gap: 12px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #edf2f7; padding-bottom: 8px;">
+                                    <span style="font-size: 0.9rem; color: #718096;">Total Factura:</span>
+                                    <strong style="color: #2c3e50; font-size: 1.15rem;">$<span id="invoice-grand-total">0.00</span></strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #edf2f7; padding-bottom: 8px;">
+                                    <span style="font-size: 0.9rem; color: #718096;">Ganancia Productos:</span>
+                                    <strong style="color: #27ae60; font-size: 1.15rem;">$<span id="invoice-ganancia-productos">0.00</span></strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-size: 0.9rem; color: #718096;">Mano de Obra / Servicios:</span>
+                                    <strong style="color: #3498db; font-size: 1.15rem;">$<span id="invoice-mano-obra">0.00</span></strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bloque 2: Resumen Acumulado del Mes -->
+                        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); overflow: hidden;">
+                            <div style="background: #edf2f7; padding: 12px 15px; font-weight: bold; color: #2d3748; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+                                <span><i class="fas fa-calendar-alt" style="color: #3498db; margin-right: 8px;"></i> Mes (<span id="resumen-mes-nombre">Actual</span>)</span>
+                                <button class="btn btn-sm" onclick="RegistrosApp.loadMonthlyProfitsSummary()" style="padding: 4px 8px; font-size: 11px; background: white; border: 1px solid #cbd5e0; border-radius: 4px; cursor: pointer;">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                            <div style="padding: 15px; display: flex; flex-direction: column; gap: 12px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #edf2f7; padding-bottom: 8px;">
+                                    <span style="font-size: 0.9rem; color: #718096;">Total Facturado Mes:</span>
+                                    <strong style="color: #2c3e50; font-size: 1.15rem;">$<span id="mes-total-facturado">0.00</span></strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #edf2f7; padding-bottom: 8px;">
+                                    <span style="font-size: 0.9rem; color: #718096;">Ganancia Productos Mes:</span>
+                                    <strong style="color: #27ae60; font-size: 1.15rem;">$<span id="mes-ganancia-productos">0.00</span></strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-size: 0.9rem; color: #718096;">Mano de Obra / Servicios Mes:</span>
+                                    <strong style="color: #3498db; font-size: 1.15rem;">$<span id="mes-mano-obra">0.00</span></strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- COLUMNA DERECHA: TABLA DE LA FACTURA Y BOTONES -->
+                    <div style="display: flex; flex-direction: column; min-width: 0; min-height: 0; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); padding: 20px; box-sizing: border-box;">
+                        <div class="table-responsive-scroll" style="margin-bottom: 25px; flex: 1; min-height: 0; max-height: 45vh; overflow-y: auto;">
+                            <table class="inventario-table" style="width: 100%; border-collapse: collapse; margin: 0;">
+                                <thead>
+                                    <tr style="background: #f8f9fa;">
+                                        <th style="width: 50px; text-align: center; border: 1px solid #ddd;">Cant.</th>
+                                        <th style="border: 1px solid #ddd;">Producto / Servicio</th>
+                                        <th style="width: 180px; border: 1px solid #ddd;">Vínculo Inventario</th>
+                                        <th style="width: 100px; text-align: right; border: 1px solid #ddd;">Costo Unit. ($)</th>
+                                        <th style="width: 110px; text-align: right; border: 1px solid #ddd;">Precio Unit. ($)</th>
+                                        <th style="width: 110px; text-align: right; border: 1px solid #ddd;">Ganancia ($)</th>
+                                        <th style="width: 110px; text-align: right; border: 1px solid #ddd;">Total ($)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="invoice-prices-tbody">
+                                    <!-- JS llenará esto -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div style="display: flex; justify-content: space-between; border-top: 1px solid #f1f1f1; padding-top: 20px; margin-top: auto;">
+                            <button class="btn" onclick="SalidasController.backToServicesStep()" style="padding: 12px 25px; font-weight: bold; background: #718096; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-arrow-left"></i> Atrás: Mano de Obra
+                            </button>
+                            <button class="btn btn-success" onclick="RegistrosApp.finalizeInvoice()" style="padding: 12px 35px; font-size: 1.1rem; font-weight: bold; display: flex; align-items: center; gap: 8px; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer; box-shadow: 0 4px 6px rgba(39,174,96,0.2);">
+                                <i class="fas fa-check-circle"></i> Finalizar y Guardar Factura
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    </div><!-- /facturacion-section -->
+
+    <!-- SECCIÓN HISTORIAL -->
+    <div id="historial-section" style="display:none; padding:20px; flex: 1; min-height: 0; box-sizing:border-box; overflow-y:auto;">
+      <div style="background:white; border-radius:10px; box-shadow:0 4px 15px rgba(0,0,0,0.05); padding:25px; height:100%; display:flex; flex-direction:column; box-sizing:border-box;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+            <h2 style="margin:0; font-size:1.3rem; display:flex; align-items:center; gap:10px; color:#2c3e50;">
+                <i class="fas fa-history" style="color:#3498db;"></i> Historial e Importador de Facturas
+            </h2>
+            <div style="display: flex; gap: 15px; font-size: 0.95rem;">
+                <div style="background: #e8f4f8; border: 1px solid #bce1ec; padding: 8px 14px; border-radius: 8px; color: #2b6cb0;">
+                    <span style="font-weight: 600;"><i class="fas fa-box-open"></i> Ganancia Productos (Mes):</span> $<span id="historial-ganancia-productos">0.00</span>
+                </div>
+                <div style="background: #e6fffa; border: 1px solid #b2f5ea; padding: 8px 14px; border-radius: 8px; color: #00796b;">
+                    <span style="font-weight: 600;"><i class="fas fa-tools"></i> Ganancia Mano Obra (Mes):</span> $<span id="historial-mano-obra">0.00</span>
+                </div>
+                <div style="background: #edf2f7; border: 1px solid #cbd5e0; padding: 8px 14px; border-radius: 8px; color: #2d3748;">
+                    <span style="font-weight: 600;"><i class="fas fa-chart-line"></i> Total Facturado (Mes):</span> $<span id="historial-total-facturado">0.00</span>
+                </div>
+            </div>
+        </div>
+        <div style="display:flex; border-bottom:2px solid #e2e8f0; margin-bottom:20px; gap:15px;">
+                <button id="tab-historial-list" class="btn" style="background: none; border: none; border-bottom: 3px solid #3498db; border-radius: 0; color: #3498db; padding: 10px 20px; font-weight: bold; font-size: 1rem; cursor: pointer;" onclick="SalidasController.switchHistorialTab('list')">
+                    <i class="fas fa-file-invoice"></i> Facturas Emitidas
+                </button>
+                <button id="tab-historial-import" class="btn" style="background: none; border: none; border-bottom: 3px solid transparent; border-radius: 0; color: #718096; padding: 10px 20px; font-weight: bold; font-size: 1rem; cursor: pointer;" onclick="SalidasController.switchHistorialTab('import')">
+                    <i class="fas fa-file-upload"></i> Cargar Facturas de Excel
+                </button>
+                <button id="tab-historial-audit" class="btn" style="background: none; border: none; border-bottom: 3px solid transparent; border-radius: 0; color: #718096; padding: 10px 20px; font-weight: bold; font-size: 1rem; cursor: pointer;" onclick="SalidasController.switchHistorialTab('audit')">
+                    <i class="fas fa-shield-alt"></i> Auditoría de Desfases
+                </button>
+            </div>
+
+            <!-- TAB 1: LISTADO DE FACTURAS -->
+            <div id="historial-tab-list-content">
+                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                    <input type="text" id="historial-search" class="large-input" placeholder="Buscar por cliente, N° factura..." style="flex: 1;" oninput="RegistrosApp.filterInvoicesHistory()">
+                </div>
+
+                <div style="border: 1px solid #ddd; border-radius: 8px; flex: 1; min-height: 0; overflow-y: auto; background: white;">
+                    <table class="inventario-table" style="width: 100%; border-collapse: collapse; margin: 0;">
+                        <thead>
+                            <tr style="background: #f8f9fa;">
+                                <th style="border: 1px solid #ddd; padding: 8px; text-align: center; width: 50px;">✔</th>
+                                <th style="border: 1px solid #ddd; padding: 12px;">Fecha</th>
+                                <th style="border: 1px solid #ddd; padding: 12px;">Cliente / Cuenta</th>
+                                <th style="border: 1px solid #ddd; padding: 12px; text-align: center; width: 130px;">N° Factura</th>
+                                <th style="border: 1px solid #ddd; padding: 12px; text-align: center; width: 120px;">Tipo</th>
+                                <th style="border: 1px solid #ddd; padding: 12px; text-align: right; width: 130px;">Total</th>
+                                <th style="border: 1px solid #ddd; padding: 12px; text-align: center; width: 140px;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historial-invoices-tbody">
+                            <!-- JS llenará esto -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 2: IMPORTADOR DE EXCEL -->
+            <div id="historial-tab-import-content" style="display: none;">
+                <div style="background: #ebf8ff; color: #2b6cb0; padding: 15px; border-radius: 8px; border: 1px solid #bee3f8; margin-bottom: 20px; font-size: 0.9rem;">
+                    <p style="margin: 0 0 8px 0; font-weight: bold;"><i class="fas fa-info-circle"></i> Instrucciones para Importar Facturas Históricas:</p>
+                    <p style="margin: 0; line-height: 1.4;">
+                        Sube un archivo Excel (.xlsx o .xls) que contenga columnas llamadas precisamente o similares a: <br>
+                        <strong>Fecha</strong> (ej: 2026-05-11), <strong>Cliente</strong>, <strong>Factura</strong> (Número), <strong>Producto</strong> (Descripción), <strong>Cantidad</strong> y <strong>Precio</strong>.<br>
+                        El importador consolidará automáticamente todas las filas con la misma fecha, factura y cliente en un solo documento para mantener el orden.
+                    </p>
+                </div>
+
+                <!-- Drag & Drop Zone -->
+                <div style="border: 3px dashed #cbd5e0; padding: 40px 20px; text-align: center; border-radius: 10px; cursor: pointer; transition: all 0.2s; background: #f7fafc;" 
+                    onclick="document.getElementById('excel-historical-file').click()"
+                    onmouseover="this.style.borderColor='#3182ce'; this.style.backgroundColor='#edf2f7';"
+                    onmouseout="this.style.borderColor='#cbd5e0'; this.style.backgroundColor='#f7fafc';">
+                    <i class="fas fa-cloud-upload-alt" style="font-size: 50px; color: #a0aec0; margin-bottom: 15px;"></i>
+                    <h3 style="margin: 0 0 8px 0; color: #4a5568;">Seleccionar o arrastrar archivo Excel</h3>
+                    <p style="margin: 0; font-size: 0.85rem; color: #718096;">Soporta formatos .xlsx y .xls</p>
+                    <input type="file" id="excel-historical-file" style="display: none;" accept=".xlsx, .xls" onchange="RegistrosApp.handleHistoricalExcelUpload(event)">
+                </div>
+
+                <!-- Status / Log de Carga -->
+                <div id="import-historical-status" style="display: none; margin-top: 25px; border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px; background: white;">
+                    <h3 id="import-historical-summary-title" style="margin-top: 0; color: #2d3748; font-size: 1.1rem; border-bottom: 1px solid #edf2f7; padding-bottom: 10px;">Excel Cargado con Éxito</h3>
+                    <div style="display: flex; gap: 30px; margin-bottom: 15px;">
+                        <div>
+                            <span style="font-size: 0.85rem; color: #718096; display: block;">Filas leídas:</span>
+                            <strong id="import-historical-rows-count" style="font-size: 1.2rem; color: #2d3748;">0</strong>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.85rem; color: #718096; display: block;">Facturas agrupadas a subir:</span>
+                            <strong id="import-historical-invoices-count" style="font-size: 1.2rem; color: #2b6cb0;">0</strong>
+                        </div>
+                    </div>
+                    
+                    <button class="btn" style="background: #2b6cb0; color: white; padding: 12px 25px; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 1rem;" onclick="RegistrosApp.finalizeHistoricalExcelImport()">
+                        <i class="fas fa-cloud-upload"></i> Subir a Firebase
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB 3: AUDITORÍA DE DESFASES -->
+            <div id="historial-tab-audit-content" style="display: none;">
+                <div style="background: #ebf8ff; color: #2b6cb0; padding: 15px; border-radius: 8px; border: 1px solid #bee3f8; margin-bottom: 20px; font-size: 0.9rem;">
+                    <p style="margin: 0 0 8px 0; font-weight: bold;"><i class="fas fa-info-circle"></i> Auditoría de Desfases de Ventas:</p>
+                    <p style="margin: 0; line-height: 1.4;">
+                        Esta herramienta compara las cantidades de repuestos en tus facturas reales contra los ingresos diarios registrados en ese mes.
+                        Si una factura excede la cantidad ingresada, se marcará indicando exactamente en qué factura comenzó el exceso.
+                    </p>
+                </div>
+
+                <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; flex-wrap: wrap;">
+                    <span style="font-weight: bold; color: #2d3748;"><i class="fas fa-calendar-alt"></i> Seleccionar Mes:</span>
+                    <input type="month" id="audit-month-input" style="padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.95rem; font-family: inherit;">
+                    <button class="btn" style="padding: 10px 20px; font-weight: bold; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;" onclick="RegistrosApp.runBillingAudit()">
+                        <i class="fas fa-search"></i> Analizar Mes
+                    </button>
+                </div>
+
+                <div id="audit-results-container">
+                    <div style="text-align: center; padding: 40px; color: #aaa; background: white; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        <i class="fas fa-shield-alt" style="font-size: 40px; margin-bottom: 10px;"></i>
+                        <p>Selecciona un mes y haz clic en "Analizar Mes" para comenzar la auditoría.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DETALLE DE FACTURA -->
+    <div id="modal-detalle-factura" class="modal-overlay" style="display: none; z-index: 2050; align-items: flex-start; overflow-y: auto; padding: 50px 0;">
+        <div class="modal-content" style="max-width: 700px; padding: 25px; width: 90%; border-radius: 10px; margin: 0 auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 12px;">
+                <h2 style="margin: 0; font-size: 1.25rem; display: flex; align-items: center; gap: 8px; color: #2d3748;">
+                    <i class="fas fa-file-invoice"></i> Detalle de Factura
+                </h2>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button id="btn-prev-invoice" class="btn" style="background: #edf2f7; color: #4a5568; padding: 6px 12px; font-weight: bold; border-radius: 6px; border: 1px solid #cbd5e0; cursor: pointer; display: flex; align-items: center; gap: 5px;" onclick="RegistrosApp.prevInvoiceDetail()" title="Factura Anterior">
+                        <i class="fas fa-chevron-left"></i> Anterior
+                    </button>
+                    <button id="btn-next-invoice" class="btn" style="background: #edf2f7; color: #4a5568; padding: 6px 12px; font-weight: bold; border-radius: 6px; border: 1px solid #cbd5e0; cursor: pointer; display: flex; align-items: center; gap: 5px;" onclick="RegistrosApp.nextInvoiceDetail()" title="Siguiente Factura">
+                        Siguiente <i class="fas fa-chevron-right"></i>
+                    </button>
+                    <span style="font-size: 24px; cursor: pointer; color: #888; margin-left: 10px;" onclick="document.getElementById('modal-detalle-factura').style.display='none'">&times;</span>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #3498db;">
+                <div>
+                    <span style="font-size: 0.85rem; color: #718096; display: block;">Cliente / Cuenta:</span>
+                    <strong id="detail-invoice-client" style="color: #2d3748;">-</strong>
+                </div>
+                <div>
+                    <span style="font-size: 0.85rem; color: #718096; display: block;">N° Factura:</span>
+                    <strong id="detail-invoice-number" style="color: #2d3748;">-</strong>
+                </div>
+                <div>
+                    <span style="font-size: 0.85rem; color: #718096; display: block;">Fecha:</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span id="detail-invoice-date" style="font-weight: 500;">-</span>
+                        <button class="btn" style="background: none; border: none; color: #3498db; cursor: pointer; padding: 0 5px;" onclick="RegistrosApp.editInvoiceDate()" title="Editar Fecha">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <span style="font-size: 0.85rem; color: #718096; display: block;">Tipo:</span>
+                    <span id="detail-invoice-type" class="status-badge" style="font-weight: 500;">-</span>
+                </div>
+            </div>
+
+            <div id="detail-invoice-alert-container"></div>
+
+            <div style="border: 1px solid #ddd; border-radius: 6px; overflow: hidden; margin-bottom: 20px;">
+                <table class="inventario-table" style="width: 100%; margin: 0;">
+                    <thead>
+                        <tr style="background: #f8f9fa;">
+                            <th style="width: 60px; text-align: center; border: 1px solid #ddd; padding: 8px;">Cant.</th>
+                            <th style="border: 1px solid #ddd; padding: 8px;">Descripción / Repuesto</th>
+                            <th style="width: 100px; border: 1px solid #ddd; padding: 8px;">Cuenta</th>
+                            <th style="width: 100px; text-align: right; border: 1px solid #ddd; padding: 8px;">P. Unit.</th>
+                            <th style="width: 110px; text-align: right; border: 1px solid #ddd; padding: 8px;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detail-invoice-tbody">
+                        <!-- JS fill -->
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" style="text-align: right; font-weight: bold; background: #f8f9fa; padding: 10px;">TOTAL:</td>
+                            <td id="detail-invoice-total" style="font-weight: bold; text-align: right; background: #f8f9fa; padding: 10px; color: #27ae60;">$0.00</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- NOTAS DE REVISIÓN POR FACTURA -->
+            <div style="margin-top: 18px; margin-bottom: 10px;">
+                <label style="font-weight: bold; color: #4a5568; font-size: 0.9rem; display: block; margin-bottom: 6px;">
+                    <i class="fas fa-sticky-note" style="color: #d69e2e; margin-right: 5px;"></i> Notas de revisión
+                </label>
+                <textarea id="invoice-notes-textarea"
+                    placeholder="Ej: El artículo X ya fue agregado en la factura 735, no agregar aquí..."
+                    style="width: 100%; min-height: 80px; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.9rem; font-family: inherit; resize: vertical; box-sizing: border-box; color: #2d3748;"
+                    oninput="RegistrosApp.saveInvoiceNote()">
+                </textarea>
+                <span id="invoice-note-saved-msg" style="display:none; font-size: 0.8rem; color: #38a169; margin-top: 4px; display: block;"></span>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <button id="btn-anular-factura" class="btn" style="background: #e53e3e; color: white; padding: 10px 20px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-trash-alt"></i> Anular Factura
+                </button>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn" style="background: #3182ce; color: white; padding: 10px 20px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;" onclick="RegistrosApp.printInvoiceDetail()">
+                        <i class="fas fa-print"></i> Imprimir
+                    </button>
+                    <button class="btn" style="background: #718096; color: white; padding: 10px 20px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer;" onclick="document.getElementById('modal-detalle-factura').style.display='none'">
+                        Cerrar Detalle
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS DE FIREBASE SDK (V8 COMPAT) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <!-- INICIALIZACIÓN E IMPORTACIÓN DE PRODUCTOS PARA CACHÉ -->
+    <script>
+        // Configuración de Firebase igual que en inventario.html
+        const firebaseConfig = {
+            apiKey: "AIzaSyCaZdPPYddeMPTiNm5cCdFL6m9b9swX0-c",
+            authDomain: "williantaller-1426b.firebaseapp.com",
+            projectId: "williantaller-1426b",
+            storageBucket: "williantaller-1426b.firebasestorage.app",
+            messagingSenderId: "757966587061",
+            appId: "1:757966587061:web:6c700e862317119d64aafc"
+        };
+        firebase.initializeApp(firebaseConfig);
+        window.db = firebase.firestore();
+
+        function toggleFullScreen() {
+            const doc = window.document;
+            const docEl = doc.documentElement;
+
+            const requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+            const cancelFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+
+            if (!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
+                if (requestFullScreen) {
+                    // Try to use a promise if supported, otherwise just call it
+                    try {
+                        const promise = requestFullScreen.call(docEl);
+                        if (promise) {
+                            promise.catch(err => {
+                                console.error("Error al iniciar pantalla completa:", err);
+                            });
+                        }
+                    } catch (e) {
+                        console.error("Error fallback al iniciar pantalla completa:", e);
+                    }
+                } else {
+                    alert("La opción de pantalla completa no es soportada por este navegador/dispositivo.");
+                }
+            } else {
+                if (cancelFullScreen) {
+                    try {
+                        cancelFullScreen.call(doc);
+                    } catch (e) {
+                        console.error("Error al salir de pantalla completa:", e);
+                    }
+                }
+            }
+        }
+
+        // Actualizar el texto del botón cuando cambie el estado de la pantalla completa, incluso si se usa ESC
+        const handleFullscreenChange = () => {
+            const isFullscreen = document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+            const btnText = document.getElementById('fs-btn-text');
+            if (btnText) {
+                btnText.innerText = isFullscreen ? "Salir Pantalla Completa" : "Pantalla Completa";
+            }
+        };
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+        document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+        // Carga en segundo plano de la base de datos de productos para el escáner
+        window.app = { cache: [] };
+
+        async function preloadProductCache() {
+            try {
+                // 1. Obtener resumen de salidas (ventas)
+                const resumenSalidasSnapshot = await window.db.collection('RESUMEN_SALIDAS_MES').get();
+                const salidasMap = {};
+                resumenSalidasSnapshot.forEach(doc => {
+                    salidasMap[doc.id] = doc.data().cantidadFacturada || 0;
+                });
+
+                // 2. Obtener resumen de entradas (compras)
+                const resumenEntradasSnapshot = await window.db.collection('RESUMEN_ENTRADAS_MES').get();
+                const entradasMap = {};
+                resumenEntradasSnapshot.forEach(doc => {
+                    entradasMap[doc.id] = doc.data().cantidadEntrada || 0;
+                });
+
+                // 3. Obtener todo el inventario
+                const snapshot = await window.db.collection('INVENTARIO').get();
+                const products = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const soldQty = salidasMap[doc.id] || 0;
+                    const addedQty = entradasMap[doc.id] || 0;
+                    const stockSimulado = (data.existencia || 0) + addedQty - soldQty;
+
+                    products.push({
+                        id: doc.id,
+                        codigo: data.codigo || "",
+                        descripcion: data.descripcion || "",
+                        aliases: data.busqueda || [],
+                        codigosProveedor: data.codigosProveedor || [],
+                        costo: data.costo || 0,
+                        precio: data.precio || 0,
+                        existencia: stockSimulado
+                    });
+                });
+                window.app.cache = products;
+                console.log("Caché de productos inicializada en salidas con existencias simuladas:", products.length, "ítems.");
+                
+                // Ocultar pantalla de carga
+                document.getElementById('salidas-loading').style.display = 'none';
+                
+            } catch (error) {
+                console.error("Error al cargar la caché de productos para salidas:", error);
+                document.getElementById('salidas-loading').style.display = 'none';
+                alert("Error crítico al cargar productos: " + error.message + "\nPor favor recarga la página.");
+            }
+        }
+
+        // Ejecutar precarga al cargar la página
+        document.addEventListener('DOMContentLoaded', preloadProductCache);
+
+        window.switchMainTab = function(tab) {
+            const secFact = document.getElementById('facturacion-section');
+            const secHist = document.getElementById('historial-section');
+            const btnFact = document.getElementById('main-tab-btn-facturacion');
+            const btnHist = document.getElementById('main-tab-btn-historial');
+            if (tab === 'historial') {
+                secFact.style.display = 'none';
+                secHist.style.display = 'flex';
+                btnFact.classList.remove('active');
+                btnHist.classList.add('active');
+                RegistrosApp.loadInvoicesHistory();
+            } else {
+                secFact.style.display = 'flex';
+                secHist.style.display = 'none';
+                btnFact.classList.add('active');
+                btnHist.classList.remove('active');
+            }
+        };
+
+        // Función para alternar el tamaño de las tarjetas en la pestaña de Salidas
+        // (Desactivado temporalmente a petición del usuario para que no se contraigan)
+        window.toggleSalidasCard = function (activeCardNum) {
+            return;
+            /*
+            const card1 = document.getElementById('card-listado');
+            const card2 = document.getElementById('card-resumen');
+            
+            // Si ninguna está colapsada (estado inicial) y se hace clic en una, colapsar la otra
+            const isInitialState = !card1.classList.contains('collapsed') && !card2.classList.contains('collapsed');
+            
+            if (!isInitialState) {
+                // Si ya está expandida, no hacer nada para evitar parpadeos
+                if (activeCardNum === 1 && !card1.classList.contains('collapsed')) return;
+                if (activeCardNum === 2 && !card2.classList.contains('collapsed')) return;
+            }
+            
+            const grid = document.getElementById('salidas-grid');
+            if (activeCardNum === 1) {
+                grid.classList.add('active-col1');
+                grid.classList.remove('active-col2');
+                card1.classList.remove('collapsed');
+                card2.classList.add('collapsed');
+            } else {
+                grid.classList.add('active-col2');
+                grid.classList.remove('active-col1');
+                card1.classList.add('collapsed');
+                card2.classList.remove('collapsed');
+            }
+            */
+        };
+    </script>
+
+    <!-- Modal: Vincular Producto -->
+    <div id="modalLinkProduct" class="modal-overlay" style="display: none; z-index: 2100;">
+        <div class="modal-content" style="max-width: 800px; padding: 25px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 12px;">
+                <h2 style="margin: 0; border: none; padding: 0; font-size: 1.3rem; display: flex; align-items: center; gap: 8px;"><i class="fas fa-link"></i> Vincular Producto</h2>
+                <span style="font-size: 24px; cursor: pointer; color: #888;" onclick="document.getElementById('modalLinkProduct').style.display='none'">&times;</span>
+            </div>
+            <div>
+                <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #217346;">
+                    <p style="margin:0; font-weight:bold; color:#555; font-size: 0.9rem;">Item en Excel:</p>
+                    <h3 id="link-excel-name" style="margin:5px 0 0 0; color:#333; font-size: 1.1rem;">...</h3>
+                </div>
+
+                <div class="search-bar" style="margin-bottom: 15px;">
+                    <input type="text" id="link-search-input" class="large-input" placeholder="Escribe para buscar en inventario...">
+                </div>
+
+                <div style="height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 15px; background: white;">
+                    <table class="inventario-table" style="width: 100%; border-collapse: collapse; margin: 0;">
+                        <thead>
+                            <tr style="background: #f8f9fa;">
+                                <th style="border: 1px solid #ddd; padding: 10px;">Código</th>
+                                <th style="border: 1px solid #ddd; padding: 10px;">Descripción</th>
+                                <th style="border: 1px solid #ddd; padding: 10px; width: 70px; text-align: center;">Stock</th>
+                                <th style="border: 1px solid #ddd; padding: 10px; width: 80px; text-align: right;">Precio</th>
+                                <th style="border: 1px solid #ddd; padding: 10px; width: 100px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="link-results-body">
+                            <!-- Results here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="background: #fff3cd; color: #856404; padding: 12px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 20px; line-height: 1.4; border: 1px solid #ffeeba;">
+                    <i class="fas fa-info-circle"></i> Si este ítem es un servicio (Mano de Obra) o no afecta inventario, usa el botón "Omitir".
+                </div>
+            </div>
+            <div style="display:flex; justify-content:space-between; gap: 10px;">
+                <button class="btn" style="background-color: #7f8c8d; color: white; padding: 10px 18px; font-weight: bold; border-radius: 6px; border: none; cursor: pointer;" onclick="RegistrosApp.skipLinkItem()">
+                    <i class="fas fa-forward"></i> Omitir / Marcar Servicio
+                </button>
+                <button class="btn btn-danger" style="padding: 10px 18px; font-weight: bold; border-radius: 6px;" onclick="document.getElementById('modalLinkProduct').style.display='none'">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SWEETALERT2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- UTILS Y SERVICIOS DE IMPRESIÓN -->
+    <script src="js/DateUtils.js?v=2.0.3"></script>
+    <script src="js/PrintingService.js?v=2.0.3"></script>
+    <!-- CARGAR SERVICIOS CORE -->
+    <script src="js/core/FirebaseService.js"></script>
+    <script src="js/core/InventoryLogic.js"></script>
+    
+    <!-- CONTROLADORES MODULARES -->
+    <script src="js/salidas/SalidasController.js"></script>
+
+    <!-- CARGAR SCRIPT DE REGISTROS -->
+    <script src="js/RegistrosApp.js?v=2.0.7"></script>
+
+</body>
+
+</html>
+
+
+

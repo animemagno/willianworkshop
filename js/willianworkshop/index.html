@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taller Wilian - Sistema de Ventas</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/menu.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="logo">
+            <div class="logo-icon">
+                <i class="fas fa-tools"></i>
+            </div>
+            <h1>Taller Wilian</h1>
+            <p>Sistema de Ventas</p>
+        </div>
+
+        <div class="menu-grid">
+            <a href="venta.html" class="menu-card card-venta">
+                <i class="fas fa-cash-register"></i>
+                <h3>Nueva Venta</h3>
+                <p>Registrar nueva venta o factura pendiente</p>
+            </a>
+
+            <a href="facturas.html" class="menu-card card-facturas">
+                <i class="fas fa-file-invoice-dollar"></i>
+                <h3>Facturas Pendientes</h3>
+                <p>Gestionar facturas y grupos pendientes</p>
+            </a>
+
+            <a href="historial.html" class="menu-card card-historial">
+                <i class="fas fa-history"></i>
+                <h3>Historial de Ventas</h3>
+                <p>Consultar historial completo de movimientos</p>
+            </a>
+
+            <a href="inventario.html" class="menu-card card-inventario">
+                <i class="fas fa-boxes"></i>
+                <h3>Inventario</h3>
+                <p>Gestionar productos y stock disponible</p>
+            </a>
+
+            <a href="servicios.html" class="menu-card card-servicios">
+                <i class="fas fa-tools"></i>
+                <h3>Servicios</h3>
+                <p>Administrar servicios y reparaciones</p>
+            </a>
+
+            <a href="entregas.html" class="menu-card card-entregas">
+                <i class="fas fa-truck"></i>
+                <h3>Entregas</h3>
+                <p>Gestionar entregas y seguimiento</p>
+            </a>
+
+            <a href="cuentas.html" class="menu-card card-memos-cuentas">
+                <i class="fas fa-sticky-note"></i>
+                <h3>Memos y Cuentas</h3>
+                <p>Notas internas y control financiero</p>
+            </a>
+
+            <a href="configuracion.html" class="menu-card card-configuracion">
+                <i class="fas fa-cog"></i>
+                <h3>Configuración</h3>
+                <p>Configurar sistema y preferencias</p>
+            </a>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Sistema desarrollado para Taller Wilian</p>
+        <p>© 2024 - Todos los derechos reservados</p>
+    </div>
+
+    <script>
+        if (!localStorage.getItem('usuarioLogueado')) {
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+
+</html>

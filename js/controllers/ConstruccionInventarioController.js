@@ -5,6 +5,17 @@
 
 class ConstruccionInventarioController {
     constructor() {
+        if (typeof firebase !== 'undefined' && (!firebase.apps || !firebase.apps.length)) {
+            const firebaseConfig = window.firebaseConfig || {
+                apiKey: "AIzaSyCaZdPPYddeMPTiNm5cCdFL6m9b9swX0-c",
+                authDomain: "williantaller-1426b.firebaseapp.com",
+                projectId: "williantaller-1426b",
+                storageBucket: "williantaller-1426b.firebasestorage.app",
+                messagingSenderId: "757966587061",
+                appId: "1:757966587061:web:6c700e862317119d64aafc"
+            };
+            firebase.initializeApp(firebaseConfig);
+        }
         this.db = firebase.firestore();
         this.svc = window.InventoryService ? new window.InventoryService() : null;
         
@@ -15,6 +26,15 @@ class ConstruccionInventarioController {
         this.pendingMap = {};
         this.reconciliationData = [];
         this.activeProviders = [];
+
+        // Local Draft State
+        this.draftInventario = JSON.parse(localStorage.getItem('draft_inventario_' + this.selectedMonth) || '[]');
+        this.draftEntradas = JSON.parse(localStorage.getItem('draft_entradas_' + this.selectedMonth) || '[]');
+        this.draftSalidas = JSON.parse(localStorage.getItem('draft_salidas_' + this.selectedMonth) || '[]');
+
+        // Multi-Sheet Supplier Batch State (Paso 3)
+        this.pendingEntradasBatch = [];
+        this.pendingSheetsList = [];
 
         // Excel Engine State
         this.workbook = null;
@@ -29,6 +49,8 @@ class ConstruccionInventarioController {
         this.exposeGlobal();
         this.bindEvents();
         this.syncMonthUI();
+        this.renderDraftTable();
+        this.renderDraftEntradasTable();
         await this.loadMonthData();
     }
 
@@ -75,49 +97,31 @@ class ConstruccionInventarioController {
             });
         }
 
-        // Drop Area for Excel / Inventory Import
-        const excelDrop = document.getElementById('construccion-excel-drop-area');
-        const excelFileInput = document.getElementById('construccion-excel-file-input');
-
-        if (excelDrop && excelFileInput) {
-            excelDrop.addEventListener('click', (e) => {
-                if (e.target !== excelFileInput) {
-                    excelFileInput.click();
-                }
-            });
+        // Drag & Drop for Excel Import
+        const excelDrop = document.getElementById('construccion-excel-step-1');
+        if (excelDrop) {
             excelDrop.addEventListener('dragover', (e) => { e.preventDefault(); excelDrop.style.borderColor = '#10b981'; });
             excelDrop.addEventListener('dragleave', () => { excelDrop.style.borderColor = '#cbd5e1'; });
             excelDrop.addEventListener('drop', (e) => {
                 e.preventDefault();
                 excelDrop.style.borderColor = '#cbd5e1';
-                if (e.dataTransfer.files.length > 0) this.handleExcelFileUpload(e.dataTransfer.files[0]);
-            });
-
-            excelFileInput.addEventListener('change', (e) => {
-                if (e.target.files.length > 0) this.handleExcelFileUpload(e.target.files[0]);
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    this.handleExcelFileUpload(e.dataTransfer.files[0]);
+                }
             });
         }
 
-        // Drop Area for Sales FEL Report
+        // Drag & Drop for Sales FEL Report
         const salesDrop = document.getElementById('sales-drop-area');
-        const salesFileInput = document.getElementById('sales-file-input');
-
-        if (salesDrop && salesFileInput) {
-            salesDrop.addEventListener('click', (e) => {
-                if (e.target !== salesFileInput) {
-                    salesFileInput.click();
-                }
-            });
+        if (salesDrop) {
             salesDrop.addEventListener('dragover', (e) => { e.preventDefault(); salesDrop.style.borderColor = '#2563eb'; });
             salesDrop.addEventListener('dragleave', () => { salesDrop.style.borderColor = '#cbd5e1'; });
             salesDrop.addEventListener('drop', (e) => {
                 e.preventDefault();
                 salesDrop.style.borderColor = '#cbd5e1';
-                if (e.dataTransfer.files.length > 0) this.handleSalesFile(e.dataTransfer.files[0]);
-            });
-
-            salesFileInput.addEventListener('change', (e) => {
-                if (e.target.files.length > 0) this.handleSalesFile(e.target.files[0]);
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    this.handleSalesFile(e.dataTransfer.files[0]);
+                }
             });
         }
 
@@ -128,16 +132,40 @@ class ConstruccionInventarioController {
         }
     }
 
-    handleFileInputChange(input) {
-        if (input && input.files && input.files.length > 0) {
-            this.handleExcelFileUpload(input.files[0]);
+    onFileSelected(input) {
+        if (!input || !input.files || input.files.length === 0) return;
+        const file = input.files[0];
+        console.log("📂 Archivo Excel seleccionado:", file.name, file.size, "bytes");
+
+        const label = document.getElementById('construccion-excel-filename');
+        if (label) {
+            label.innerText = `📄 Archivo Seleccionado: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+            label.style.display = 'inline-block';
         }
+
+        const sheetsContainer = document.getElementById('construccion-sheets-container');
+        if (sheetsContainer) {
+            sheetsContainer.style.display = 'block';
+            setTimeout(() => {
+                sheetsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+        }
+
+        this.handleExcelFileUpload(file);
     }
 
-    handleSalesInputChange(input) {
-        if (input && input.files && input.files.length > 0) {
-            this.handleSalesFile(input.files[0]);
+    onSalesFileSelected(input) {
+        if (!input || !input.files || input.files.length === 0) return;
+        const file = input.files[0];
+        console.log("📄 Reporte FEL seleccionado:", file.name, file.size, "bytes");
+
+        const label = document.getElementById('sales-filename');
+        if (label) {
+            label.innerText = `📄 Reporte FEL Seleccionado: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+            label.style.display = 'inline-block';
         }
+
+        this.handleSalesFile(file);
     }
 
     // =========================================
@@ -145,13 +173,16 @@ class ConstruccionInventarioController {
     // =========================================
     handleExcelFileUpload(file) {
         if (!file) return;
-        console.log("📂 Archivo Excel seleccionado:", file.name, file.size, "bytes");
-
-        const fileName = file.name.toLowerCase();
-        const isTextOrMd = fileName.endsWith('.md') || fileName.endsWith('.markdown') || fileName.endsWith('.txt') || fileName.endsWith('.csv');
+        console.log("📂 Archivo Excel a procesar:", file.name, file.size, "bytes");
 
         const label = document.getElementById('construccion-excel-filename');
-        if (label) label.innerText = `📄 ${file.name}`;
+        if (label) {
+            label.innerText = `📄 Archivo Seleccionado: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+            label.style.display = 'inline-block';
+        }
+
+        const ext = (file.name || '').split('.').pop().toLowerCase();
+        const isTextOrMd = ['md', 'markdown', 'txt', 'csv'].includes(ext);
 
         if (isTextOrMd) {
             const reader = new FileReader();
@@ -203,21 +234,22 @@ class ConstruccionInventarioController {
                     const data = new Uint8Array(e.target.result);
                     this.workbook = XLSX.read(data, { type: 'array' });
 
-                    const sheetSelect = document.getElementById('construccion-sheet-select');
-                    if (sheetSelect) {
-                        sheetSelect.innerHTML = '';
+                    const sheetSelects = document.querySelectorAll('#construccion-sheet-select, #construccion-entradas-sheet-select');
+                    sheetSelects.forEach(select => {
+                        select.innerHTML = '';
                         this.workbook.SheetNames.forEach((sheetName) => {
                             const opt = document.createElement('option');
                             opt.value = sheetName;
                             opt.text = sheetName;
-                            sheetSelect.add(opt);
+                            select.add(opt);
                         });
-                    }
+                    });
 
                     const sheetsContainer = document.getElementById('construccion-sheets-container');
                     if (sheetsContainer) sheetsContainer.style.display = 'block';
 
                     this.analyzeSelectedSheet();
+                    this.analyzeEntradasSheet();
                 } catch (err) {
                     console.error("Error al leer archivo Excel:", err);
                     alert("Error al leer archivo Excel: " + err.message);
@@ -235,23 +267,28 @@ class ConstruccionInventarioController {
 
         if (!worksheet) return alert("No se pudo leer la hoja seleccionada.");
 
-        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
         if (!rows || rows.length === 0) return alert("La hoja '" + selectedSheetName + "' no contiene datos.");
 
         let headerRowIndex = 0;
-        for (let i = 0; i < Math.min(rows.length, 20); i++) {
+        let maxColsCount = 0;
+        for (let i = 0; i < Math.min(rows.length, 25); i++) {
             const row = rows[i];
-            if (row && row.filter(c => c !== null && c !== undefined && String(c).trim() !== '').length >= 1) {
-                headerRowIndex = i;
-                break;
+            if (row && Array.isArray(row)) {
+                const filledCols = row.filter(c => c !== null && c !== undefined && String(c).trim() !== '').length;
+                if (filledCols > maxColsCount) {
+                    maxColsCount = filledCols;
+                    headerRowIndex = i;
+                }
             }
         }
 
-        this.excelHeaders = (rows[headerRowIndex] || []).map((h, i) => (h !== null && h !== undefined && String(h).trim() !== '') ? String(h).trim() : `Columna ${i + 1}`);
+        const headerRow = rows[headerRowIndex] || [];
+        this.excelHeaders = headerRow.map((h, i) => (h !== null && h !== undefined && String(h).trim() !== '') ? String(h).trim() : `Columna ${i + 1}`);
         this.excelData = rows.slice(headerRowIndex + 1).filter(r => r && r.length > 0 && r.some(c => c !== null && c !== undefined && String(c).trim() !== ''));
 
         if (this.excelData.length === 0) {
-            return alert("No se encontraron filas con datos después de la cabecera en la hoja '" + selectedSheetName + "'.");
+            this.excelData = rows.slice(headerRowIndex);
         }
 
         this.setupColumnMapper();
@@ -271,15 +308,24 @@ class ConstruccionInventarioController {
                 opt.text = `${header} (Columna ${idx + 1})`;
                 select.add(opt);
             });
+
+            select.onchange = () => this.renderExcelPreview();
         });
 
         this.autoMapColumns();
         this.renderExcelPreview();
 
-        const step1 = document.getElementById('construccion-excel-step-1');
         const step2 = document.getElementById('construccion-excel-step-2');
-        if (step1) step1.style.display = 'none';
-        if (step2) step2.style.display = 'block';
+        if (step2) {
+            step2.style.display = 'block';
+            step2.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        const sheetsContainer = document.getElementById('construccion-sheets-container');
+        if (sheetsContainer) sheetsContainer.style.display = 'block';
+
+        const modal = document.getElementById('modalMapeoColumnas');
+        if (modal) modal.style.display = 'flex';
     }
 
     autoMapColumns() {
@@ -314,24 +360,55 @@ class ConstruccionInventarioController {
         thead.innerHTML = '';
         tbody.innerHTML = '';
 
+        const getVal = (id) => {
+            const el = document.getElementById(id);
+            return (el && el.value !== '') ? parseInt(el.value) : -1;
+        };
+
+        const mapCodigoIdx = getVal('c-map-codigo');
+        const mapDescIdx = getVal('c-map-descripcion');
+        const mapCostoIdx = getVal('c-map-costo');
+        const mapPrecioIdx = getVal('c-map-precio');
+        const mapStockIdx = getVal('c-map-existencia');
+
+        const getColumnBadge = (colIdx) => {
+            const badges = [];
+            if (colIdx === mapCodigoIdx) badges.push('<span style="background:#dbeafe; color:#1d4ed8; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:800; margin-right:4px;">📌 Código</span>');
+            if (colIdx === mapDescIdx) badges.push('<span style="background:#dcfce7; color:#15803d; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:800; margin-right:4px;">📌 Descripción</span>');
+            if (colIdx === mapCostoIdx) badges.push('<span style="background:#fef3c7; color:#b45309; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:800; margin-right:4px;">📌 Costo</span>');
+            if (colIdx === mapPrecioIdx) badges.push('<span style="background:#f3e8ff; color:#6b21a8; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:800; margin-right:4px;">📌 Precio</span>');
+            if (colIdx === mapStockIdx) badges.push('<span style="background:#ffe4e6; color:#be123c; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:800; margin-right:4px;">📌 Stock</span>');
+            return badges.join('');
+        };
+
         let trHeader = document.createElement('tr');
-        this.excelHeaders.forEach(h => {
+        this.excelHeaders.forEach((h, idx) => {
             let th = document.createElement('th');
-            th.textContent = h;
-            th.style.padding = '8px';
+            const badgeHtml = getColumnBadge(idx);
+            th.innerHTML = `${badgeHtml}<div style="margin-top:2px;">${h} <small style="color:#64748b; font-weight:500;">(Col ${idx + 1})</small></div>`;
+            th.style.padding = '10px 12px';
             th.style.textAlign = 'left';
-            th.style.fontWeight = '600';
+            th.style.fontWeight = '700';
+            th.style.fontSize = '0.85rem';
+            th.style.background = badgeHtml ? '#eff6ff' : '#f8fafc';
+            th.style.borderBottom = badgeHtml ? '2px solid #2563eb' : '1px solid #cbd5e1';
             trHeader.appendChild(th);
         });
         thead.appendChild(trHeader);
 
-        this.excelData.slice(0, 5).forEach(row => {
+        this.excelData.slice(0, 5).forEach((row, rIdx) => {
             let tr = document.createElement('tr');
-            this.excelHeaders.forEach((_, i) => {
+            tr.style.background = rIdx % 2 === 0 ? '#ffffff' : '#f8fafc';
+            this.excelHeaders.forEach((_, cIdx) => {
                 let td = document.createElement('td');
-                td.textContent = row[i] !== undefined ? row[i] : '';
-                td.style.padding = '8px';
-                td.style.borderTop = '1px solid #eee';
+                td.textContent = row[cIdx] !== undefined ? row[cIdx] : '';
+                td.style.padding = '8px 12px';
+                td.style.borderTop = '1px solid #e2e8f0';
+                td.style.fontSize = '0.85rem';
+                if (cIdx === mapCodigoIdx || cIdx === mapDescIdx || cIdx === mapCostoIdx || cIdx === mapPrecioIdx || cIdx === mapStockIdx) {
+                    td.style.fontWeight = '700';
+                    td.style.background = 'rgba(239, 246, 255, 0.5)';
+                }
                 tr.appendChild(td);
             });
             tbody.appendChild(tr);
@@ -346,12 +423,96 @@ class ConstruccionInventarioController {
         const fileInput = document.getElementById('construccion-excel-file-input');
         if (fileInput) fileInput.value = '';
 
-        document.getElementById('construccion-sheets-container').style.display = 'none';
-        document.getElementById('construccion-excel-step-2').style.display = 'none';
-        document.getElementById('construccion-excel-step-1').style.display = 'block';
+        const filenameLabel = document.getElementById('construccion-excel-filename');
+        if (filenameLabel) {
+            filenameLabel.innerText = '';
+            filenameLabel.style.display = 'none';
+        }
+
+        const sheetsContainer = document.getElementById('construccion-sheets-container');
+        if (sheetsContainer) sheetsContainer.style.display = 'none';
+
+        const step2 = document.getElementById('construccion-excel-step-2');
+        if (step2) step2.style.display = 'none';
+
+        const step1 = document.getElementById('construccion-excel-step-1');
+        if (step1) step1.style.display = 'block';
     }
 
-    async importMappedExcelData() {
+    async clearInventoryProducts() {
+        if (!confirm("⚠️ ¿Estás seguro de que deseas ELIMINAR todos los productos cargados en el INVENTARIO?\n\nLas VENTAS FACTURADAS NO se borrarán y se conservarán intactas.")) return;
+
+        try {
+            const snapshot = await this.db.collection('INVENTARIO').get();
+            if (snapshot.empty) {
+                return alert("No hay productos en la base de datos de Inventario para eliminar.");
+            }
+
+            let batch = this.db.batch();
+            let count = 0;
+
+            for (const doc of snapshot.docs) {
+                batch.delete(doc.ref);
+                count++;
+                if (count % 400 === 0) {
+                    await batch.commit();
+                    batch = this.db.batch();
+                }
+            }
+
+            if (count % 400 !== 0) {
+                await batch.commit();
+            }
+
+            alert(`¡Se eliminaron ${count} productos del Inventario con éxito!\nLas ventas registradas se mantuvieron intactas.`);
+            await this.loadMonthData();
+
+        } catch (err) {
+            console.error("Error al borrar productos del inventario:", err);
+            alert("Error al borrar inventario: " + err.message);
+        }
+    }
+
+    async clearMonthData(type = 'ventas') {
+        if (type === 'inventario') {
+            return await this.clearInventoryProducts();
+        }
+
+        const monthLabel = this.selectedMonth || '2026-07';
+        
+        let confirmMsg = type === 'ventas' ?
+            `¿Estás seguro de que deseas ELIMINAR todas las VENTAS cargadas para el mes de ${monthLabel}? El inventario base se conservará intacto.` :
+            `⚠️ ATENCIÓN: Se ELIMINARÁN las ventas registradas para el período ${monthLabel}.\n\n¿Deseas continuar?`;
+
+        if (!confirm(confirmMsg)) return;
+
+        try {
+            let batch = this.db.batch();
+            let count = 0;
+
+            if (type === 'ventas' || type === 'todo') {
+                const salidasSnapshot = await this.db.collection('INVENTARIO_SALIDAS').get();
+                salidasSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.periodo === monthLabel || (data.fecha && data.fecha.startsWith(monthLabel))) {
+                        batch.delete(doc.ref);
+                        count++;
+                    }
+                });
+            }
+
+            if (count > 0) await batch.commit();
+
+            alert(`¡Se eliminaron ${count} registros de ventas del período ${monthLabel}!`);
+            await this.loadMonthData();
+
+        } catch (err) {
+            console.error("Error borrando datos del mes:", err);
+            alert("Error al borrar datos: " + err.message);
+        }
+    }
+
+    importMappedExcelData() {
         const idxCodigo = document.getElementById('c-map-codigo').value;
         const idxDesc = document.getElementById('c-map-descripcion').value;
         const idxCosto = document.getElementById('c-map-costo').value;
@@ -362,77 +523,577 @@ class ConstruccionInventarioController {
             return alert("Por favor selecciona al menos la columna de Descripción.");
         }
 
-        const confirmMsg = `¿Deseas procesar e importar ${this.excelData.length} productos a la base de datos para el mes de ${this.selectedMonth}?`;
+        const draftList = [];
+        let totalProcessed = 0;
+
+        for (const row of this.excelData) {
+            const codigoRaw = idxCodigo !== '' && row[idxCodigo] ? String(row[idxCodigo]).trim() : '';
+            const descRaw = idxDesc !== '' && row[idxDesc] ? String(row[idxDesc]).trim() : '';
+
+            if (!descRaw && !codigoRaw) continue;
+
+            const costoVal = idxCosto !== '' && row[idxCosto] ? parseFloat(String(row[idxCosto]).replace(/[^0-9.]/g, '')) || 0 : 0;
+            const precioVal = idxPrecio !== '' && row[idxPrecio] ? parseFloat(String(row[idxPrecio]).replace(/[^0-9.]/g, '')) || 0 : 0;
+            const existenciaVal = idxExistencia !== '' && row[idxExistencia] ? parseFloat(String(row[idxExistencia]).replace(/[^0-9.-]/g, '')) || 0 : 0;
+
+            const codigoFinal = codigoRaw || 'PROD-' + Math.floor(100000 + Math.random() * 900000);
+
+            draftList.push({
+                codigo: codigoFinal,
+                descripcion: descRaw || 'PRODUCTO SIN NOMBRE',
+                costo: costoVal,
+                costoSinIva: costoVal > 0 ? Number((costoVal / 1.13).toFixed(2)) : 0,
+                precioVenta: precioVal,
+                stockInicial: existenciaVal,
+                existencia: existenciaVal,
+                totalCosto: Number((existenciaVal * costoVal).toFixed(2))
+            });
+
+            totalProcessed++;
+        }
+
+        this.draftInventario = draftList;
+        localStorage.setItem('draft_inventario_' + this.selectedMonth, JSON.stringify(draftList));
+
+        const metricProd = document.getElementById('metric-total-prod');
+        if (metricProd) metricProd.innerText = draftList.length;
+
+        const draftStatus = document.getElementById('draft-status-badge');
+        if (draftStatus) {
+            draftStatus.innerHTML = `
+                <div style="background: #ecfdf5; border: 1px solid #6ee7b7; padding: 14px 18px; border-radius: 8px; margin-top: 15px; text-align: left;">
+                    <div style="font-weight: 800; color: #047857; font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-check-circle" style="color: #059669; font-size: 1.1rem;"></i> 
+                        ✅ PASO 1 COMPLETADO (BORRADOR LOCAL): ${totalProcessed} productos cargados localmente.
+                    </div>
+                    <p style="margin: 6px 0 0 0; font-size: 0.85rem; color: #065f46;">
+                        Avanzando a <strong>Paso 2</strong> para visualizar la tabla del inventario y organizar el orden de las columnas.
+                    </p>
+                </div>
+            `;
+            draftStatus.style.display = 'block';
+        }
+
+        this.renderDraftTable();
+
+        setTimeout(() => {
+            const paso2 = document.getElementById('construccion-paso-2-container');
+            if (paso2) paso2.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 200);
+
+        alert(`¡Paso 1 Completado!\n\nSe procesaron ${totalProcessed} productos localmente.\nAvanzando a Paso 2 para revisar la tabla y organizar tus columnas.`);
+    }
+
+    async commitLocalDraftToFirebase() {
+        const countProd = this.draftInventario ? this.draftInventario.length : 0;
+        const countEntradas = this.draftEntradas ? this.draftEntradas.length : 0;
+        const countSalidas = this.draftSalidas ? this.draftSalidas.length : 0;
+        const totalItems = countProd + countEntradas + countSalidas;
+
+        if (totalItems === 0) {
+            return alert("No hay datos cargados en el borrador local para subir a la nube.");
+        }
+
+        const confirmMsg = `⚠️ ATENCIÓN: Se subirán a la Nube (Firebase) todos los datos consolidados del mes de ${this.selectedMonth}:\n\n` +
+                           `• Inventario Base: ${countProd} productos\n` +
+                           `• Entradas / Compras: ${countEntradas} registros\n` +
+                           `• Salidas / Ventas FEL: ${countSalidas} registros\n\n` +
+                           `¿Confirmas que deseas aplicar y guardar definitivamente estos datos en la Nube?`;
+
         if (!confirm(confirmMsg)) return;
 
         try {
-            let batch = this.db.batch();
-            let count = 0;
-            let totalProcessed = 0;
-
-            for (const row of this.excelData) {
-                const codigoRaw = idxCodigo !== '' && row[idxCodigo] ? String(row[idxCodigo]).trim() : '';
-                const descRaw = idxDesc !== '' && row[idxDesc] ? String(row[idxDesc]).trim() : '';
-
-                if (!descRaw && !codigoRaw) continue;
-
-                const costoVal = idxCosto !== '' && row[idxCosto] ? parseFloat(String(row[idxCosto]).replace(/[^0-9.]/g, '')) || 0 : 0;
-                const precioVal = idxPrecio !== '' && row[idxPrecio] ? parseFloat(String(row[idxPrecio]).replace(/[^0-9.]/g, '')) || 0 : 0;
-                const existenciaVal = idxExistencia !== '' && row[idxExistencia] ? parseFloat(String(row[idxExistencia]).replace(/[^0-9.-]/g, '')) || 0 : 0;
-
-                const codigoFinal = codigoRaw || 'PROD-' + Math.floor(100000 + Math.random() * 900000);
-
-                // Buscar si existe en cache por código o descripción
-                const existing = this.productsCache.find(p => 
-                    (p.codigo && p.codigo.toLowerCase() === codigoFinal.toLowerCase()) ||
-                    (p.descripcion && p.descripcion.toLowerCase().trim() === descRaw.toLowerCase())
-                );
-
-                if (existing) {
-                    const ref = this.db.collection('INVENTARIO').doc(existing.id);
-                    batch.update(ref, {
-                        descripcion: descRaw || existing.descripcion,
-                        costo: costoVal > 0 ? costoVal : (existing.costo || 0),
-                        precioVenta: precioVal > 0 ? precioVal : (existing.precioVenta || 0),
-                        stockInicial: existenciaVal >= 0 ? existenciaVal : (existing.stockInicial || 0),
-                        existencia: existenciaVal >= 0 ? existenciaVal : (existing.existencia || 0)
-                    });
-                } else {
-                    const newRef = this.db.collection('INVENTARIO').doc();
-                    batch.set(newRef, {
-                        codigo: codigoFinal,
-                        descripcion: descRaw || 'PRODUCTO SIN NOMBRE',
-                        costo: costoVal,
-                        costoSinIva: costoVal > 0 ? costoVal / 1.13 : 0,
-                        precioVenta: precioVal,
-                        stockInicial: existenciaVal,
-                        existencia: existenciaVal,
-                        stockMinimo: 5,
-                        creditoFiscal: true,
-                        aliases: [],
+            // 1. Guardar Inventario Base
+            if (countProd > 0) {
+                let batch = this.db.batch();
+                let count = 0;
+                for (const item of this.draftInventario) {
+                    const docRef = this.db.collection('INVENTARIO').doc();
+                    batch.set(docRef, {
+                        ...item,
                         timestamp: firebase.firestore.FieldValue.serverTimestamp()
                     });
+                    count++;
+                    if (count >= 400) {
+                        await batch.commit();
+                        batch = this.db.batch();
+                        count = 0;
+                    }
                 }
-
-                count++;
-                totalProcessed++;
-
-                if (count >= 400) {
-                    await batch.commit();
-                    batch = this.db.batch();
-                    count = 0;
-                }
+                if (count > 0) await batch.commit();
             }
 
-            if (count > 0) await batch.commit();
+            // 2. Guardar Entradas
+            if (countEntradas > 0) {
+                let batch = this.db.batch();
+                let count = 0;
+                for (const entry of this.draftEntradas) {
+                    const docRef = this.db.collection('INVENTARIO_ENTRADAS').doc();
+                    batch.set(docRef, {
+                        ...entry,
+                        periodo: this.selectedMonth,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    count++;
+                    if (count >= 400) {
+                        await batch.commit();
+                        batch = this.db.batch();
+                        count = 0;
+                    }
+                }
+                if (count > 0) await batch.commit();
+            }
 
-            alert(`¡Importación masiva completada! Se procesaron ${totalProcessed} productos.`);
-            this.resetExcelInterface();
+            // 3. Guardar Salidas
+            if (countSalidas > 0) {
+                let batch = this.db.batch();
+                let count = 0;
+                for (const sale of this.draftSalidas) {
+                    const docRef = this.db.collection('INVENTARIO_SALIDAS').doc();
+                    batch.set(docRef, {
+                        ...sale,
+                        periodo: this.selectedMonth,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    count++;
+                    if (count >= 400) {
+                        await batch.commit();
+                        batch = this.db.batch();
+                        count = 0;
+                    }
+                }
+                if (count > 0) await batch.commit();
+            }
+
+            alert(`🎉 ¡PROCESO COMPLETADO EXITOSAMENTE!\n\nSe consolidaron y guardaron en la nube todos los datos de ${this.selectedMonth}.`);
+            this.clearLocalDraft();
             await this.loadMonthData();
 
         } catch (err) {
-            console.error("Error importando Excel:", err);
-            alert("Error durante la importación: " + err.message);
+            console.error("Error al subir borrador a Firebase:", err);
+            alert("Error durante el guardado en la nube: " + err.message);
+        }
+    }
+
+    clearLocalDraft() {
+        this.draftInventario = [];
+        this.draftEntradas = [];
+        this.draftSalidas = [];
+        localStorage.removeItem('draft_inventario_' + this.selectedMonth);
+        localStorage.removeItem('draft_entradas_' + this.selectedMonth);
+        localStorage.removeItem('draft_salidas_' + this.selectedMonth);
+
+        const draftStatus = document.getElementById('draft-status-badge');
+        if (draftStatus) draftStatus.style.display = 'none';
+
+        const metricProd = document.getElementById('metric-total-prod');
+        if (metricProd) metricProd.innerText = '0';
+
+        this.renderDraftTable();
+    }
+
+    renderDraftTable() {
+        const paso2Container = document.getElementById('construccion-paso-2-container');
+        if (!this.draftInventario || this.draftInventario.length === 0) {
+            if (paso2Container) paso2Container.style.display = 'none';
+            return;
+        }
+
+        if (paso2Container) paso2Container.style.display = 'block';
+
+        const countLabel = document.getElementById('paso2-count-label');
+        if (countLabel) countLabel.innerText = this.draftInventario.length;
+
+        const showCodigo = document.getElementById('col-toggle-codigo')?.checked ?? true;
+        const showDesc = document.getElementById('col-toggle-descripcion')?.checked ?? true;
+        const showCosto = document.getElementById('col-toggle-costo')?.checked ?? true;
+        const showPrecio = document.getElementById('col-toggle-precio')?.checked ?? true;
+        const showExistencia = document.getElementById('col-toggle-existencia')?.checked ?? true;
+        const showCostoTotal = document.getElementById('col-toggle-costototal')?.checked ?? true;
+
+        const searchTerm = (document.getElementById('draft-search-input')?.value || '').toLowerCase().trim();
+
+        const filtered = this.draftInventario.filter(p => 
+            !searchTerm || 
+            (p.codigo && p.codigo.toLowerCase().includes(searchTerm)) ||
+            (p.descripcion && p.descripcion.toLowerCase().includes(searchTerm))
+        );
+
+        // Encabezado dinamico segun columnas activas
+        const thead = document.getElementById('tbl-draft-header');
+        if (thead) {
+            let html = '<tr>';
+            html += '<th style="padding: 10px 14px; text-align: center; border-bottom: 2px solid #cbd5e1; color: #475569;">#</th>';
+            if (showCodigo) html += '<th style="padding: 10px 14px; text-align: left; border-bottom: 2px solid #cbd5e1; color: #475569;">Código</th>';
+            if (showDesc) html += '<th style="padding: 10px 14px; text-align: left; border-bottom: 2px solid #cbd5e1; color: #475569;">Descripción Taller</th>';
+            if (showCosto) html += '<th style="padding: 10px 14px; text-align: right; border-bottom: 2px solid #cbd5e1; color: #475569;">Costo c/IVA</th>';
+            if (showPrecio) html += '<th style="padding: 10px 14px; text-align: right; border-bottom: 2px solid #cbd5e1; color: #475569;">Precio Venta</th>';
+            if (showExistencia) html += '<th style="padding: 10px 14px; text-align: right; border-bottom: 2px solid #cbd5e1; color: #475569;">Stock Inicial</th>';
+            if (showCostoTotal) html += '<th style="padding: 10px 14px; text-align: right; border-bottom: 2px solid #cbd5e1; color: #475569;">Valor Total</th>';
+            html += '</tr>';
+            thead.innerHTML = html;
+        }
+
+        // Cuerpo de la tabla
+        const tbody = document.getElementById('tbl-draft-body');
+        if (tbody) {
+            tbody.innerHTML = '';
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #64748b;">No se encontraron productos coincidentes en el borrador.</td></tr>';
+                return;
+            }
+
+            filtered.forEach((p, idx) => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid #e2e8f0';
+
+                let rowHtml = `<td style="padding: 8px 12px; text-align: center; color: #64748b;">${idx + 1}</td>`;
+                if (showCodigo) rowHtml += `<td style="padding: 8px 12px; font-weight: 700; color: #2563eb;">${p.codigo}</td>`;
+                if (showDesc) rowHtml += `<td style="padding: 8px 12px; color: #1e293b;">${p.descripcion}</td>`;
+                if (showCosto) rowHtml += `<td style="padding: 8px 12px; text-align: right; color: #475569;">$${(p.costo || 0).toFixed(2)}</td>`;
+                if (showPrecio) rowHtml += `<td style="padding: 8px 12px; text-align: right; font-weight: 700; color: #059669;">$${(p.precioVenta || 0).toFixed(2)}</td>`;
+                if (showExistencia) rowHtml += `<td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #0f172a;">${p.stockInicial || 0}</td>`;
+                if (showCostoTotal) rowHtml += `<td style="padding: 8px 12px; text-align: right; font-weight: 700; color: #6366f1;">$${((p.stockInicial || 0) * (p.costo || 0)).toFixed(2)}</td>`;
+
+                tr.innerHTML = rowHtml;
+                tbody.appendChild(tr);
+            });
+        }
+    }
+
+    saveLocalProgress() {
+        localStorage.setItem('draft_inventario_' + this.selectedMonth, JSON.stringify(this.draftInventario || []));
+        localStorage.setItem('draft_entradas_' + this.selectedMonth, JSON.stringify(this.draftEntradas || []));
+        localStorage.setItem('draft_salidas_' + this.selectedMonth, JSON.stringify(this.draftSalidas || []));
+
+        alert(`💾 ¡Avance Guardado Exitosamente!\n\nSe han respaldado tus progresos del mes de ${this.selectedMonth} en la memoria local de tu equipo.`);
+    }
+
+    // =========================================
+    // PASO 3: ENTRADAS / COMPRAS LOGIC
+    // =========================================
+    analyzeEntradasSheet() {
+        if (!this.workbook || !this.workbook.SheetNames || this.workbook.SheetNames.length === 0) return;
+        const sheetSelect = document.getElementById('construccion-entradas-sheet-select');
+        const selectedSheetName = (sheetSelect && sheetSelect.value) ? sheetSelect.value : this.workbook.SheetNames[0];
+        const worksheet = this.workbook.Sheets[selectedSheetName];
+
+        if (!worksheet) return alert("No se pudo leer la hoja seleccionada.");
+
+        // Autocompletar nombre del proveedor con el nombre de la hoja
+        const provInput = document.getElementById('e-input-proveedor-nombre');
+        if (provInput) provInput.value = selectedSheetName;
+
+        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+        if (!rows || rows.length === 0) return alert("La hoja '" + selectedSheetName + "' no contiene datos.");
+
+        let headerRowIndex = 0;
+        let maxColsCount = 0;
+        for (let i = 0; i < Math.min(rows.length, 25); i++) {
+            const row = rows[i];
+            if (row && Array.isArray(row)) {
+                const filledCols = row.filter(c => c !== null && c !== undefined && String(c).trim() !== '').length;
+                if (filledCols > maxColsCount) {
+                    maxColsCount = filledCols;
+                    headerRowIndex = i;
+                }
+            }
+        }
+
+        const headerRow = rows[headerRowIndex] || [];
+        this.entradasHeaders = headerRow.map((h, i) => (h !== null && h !== undefined && String(h).trim() !== '') ? String(h).trim() : `Columna ${i + 1}`);
+        this.entradasData = rows.slice(headerRowIndex + 1).filter(r => r && r.length > 0 && r.some(c => c !== null && c !== undefined && String(c).trim() !== ''));
+
+        if (this.entradasData.length === 0) {
+            this.entradasData = rows.slice(headerRowIndex);
+        }
+
+        this.setupEntradasColumnMapper();
+    }
+
+    setupEntradasColumnMapper() {
+        const mappers = ['e-map-codigo', 'e-map-descripcion', 'e-map-cantidad', 'e-map-costo'];
+        
+        mappers.forEach(id => {
+            const select = document.getElementById(id);
+            if (!select) return;
+            select.innerHTML = '<option value="">-- No incluir / Omitir --</option>';
+
+            (this.entradasHeaders || []).forEach((header, idx) => {
+                const opt = document.createElement('option');
+                opt.value = idx;
+                opt.text = `${header} (Columna ${idx + 1})`;
+                select.add(opt);
+            });
+
+            select.onchange = () => this.renderEntradasPreview();
+        });
+
+        this.autoMapEntradasColumns();
+        this.renderEntradasPreview();
+
+        const step2 = document.getElementById('construccion-entradas-step-2');
+        if (step2) step2.style.display = 'block';
+    }
+
+    autoMapEntradasColumns() {
+        const headersLower = (this.entradasHeaders || []).map(h => h.toLowerCase().trim());
+
+        const mapField = (selectId, keywords) => {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            for (let i = 0; i < headersLower.length; i++) {
+                const h = headersLower[i];
+                if (keywords.some(k => h.includes(k))) {
+                    select.value = i;
+                    break;
+                }
+            }
+        };
+
+        mapField('e-map-codigo', ['código', 'codigo', 'cod', 'sku', 'part']);
+        mapField('e-map-descripcion', ['desc', 'producto', 'artículo', 'articulo', 'nombre']);
+        mapField('e-map-cantidad', ['cant', 'cantidad', 'entradas', 'entrada', 'unidades', 'compras']);
+        mapField('e-map-costo', ['costo', 'precio', 'monto', 'unitario', 'valor']);
+    }
+
+    renderEntradasPreview() {
+        const thead = document.getElementById('e-preview-header');
+        const tbody = document.getElementById('e-preview-body');
+
+        if (!thead || !tbody) return;
+
+        const idxCodigo = document.getElementById('e-map-codigo')?.value;
+        const idxDesc = document.getElementById('e-map-descripcion')?.value;
+        const idxCant = document.getElementById('e-map-cantidad')?.value;
+        const idxCosto = document.getElementById('e-map-costo')?.value;
+
+        const mapCodigoIdx = idxCodigo !== undefined && idxCodigo !== '' ? parseInt(idxCodigo) : -1;
+        const mapDescIdx = idxDesc !== undefined && idxDesc !== '' ? parseInt(idxDesc) : -1;
+        const mapCantIdx = idxCant !== undefined && idxCant !== '' ? parseInt(idxCant) : -1;
+        const mapCostoIdx = idxCosto !== undefined && idxCosto !== '' ? parseInt(idxCosto) : -1;
+
+        thead.innerHTML = '';
+        tbody.innerHTML = '';
+
+        if (!this.entradasHeaders || this.entradasHeaders.length === 0) return;
+
+        let trHead = document.createElement('tr');
+        this.entradasHeaders.forEach((h, idx) => {
+            let th = document.createElement('th');
+            th.style.padding = '8px 12px';
+            th.style.textAlign = 'left';
+            th.style.borderBottom = '2px solid #cbd5e1';
+            th.style.color = '#475569';
+
+            let badges = [];
+            if (idx === mapCodigoIdx) badges.push('<span class="badge" style="background:#2563eb; color:#fff; font-size:0.68rem; margin-right:4px; padding:2px 6px; border-radius:4px;">📌 Código</span>');
+            if (idx === mapDescIdx) badges.push('<span class="badge" style="background:#0284c7; color:#fff; font-size:0.68rem; margin-right:4px; padding:2px 6px; border-radius:4px;">📌 Desc</span>');
+            if (idx === mapCantIdx) badges.push('<span class="badge" style="background:#059669; color:#fff; font-size:0.68rem; margin-right:4px; padding:2px 6px; border-radius:4px;">📌 Cant</span>');
+            if (idx === mapCostoIdx) badges.push('<span class="badge" style="background:#7c3aed; color:#fff; font-size:0.68rem; margin-right:4px; padding:2px 6px; border-radius:4px;">Costo</span>');
+
+            th.innerHTML = badges.join('') + h;
+            trHead.appendChild(th);
+        });
+        thead.appendChild(trHead);
+
+        const sampleRows = (this.entradasData || []).slice(0, 5);
+        sampleRows.forEach(row => {
+            let tr = document.createElement('tr');
+            this.entradasHeaders.forEach((_, cIdx) => {
+                let td = document.createElement('td');
+                td.textContent = row[cIdx] !== undefined ? row[cIdx] : '';
+                td.style.padding = '6px 12px';
+                td.style.borderTop = '1px solid #e2e8f0';
+                if (cIdx === mapCodigoIdx || cIdx === mapDescIdx || cIdx === mapCantIdx || cIdx === mapCostoIdx) {
+                    td.style.fontWeight = '700';
+                    td.style.background = 'rgba(236, 253, 245, 0.5)';
+                }
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+    }
+
+    addCurrentEntradasSheetToBatch() {
+        const sheetSelect = document.getElementById('construccion-entradas-sheet-select');
+        const sheetName = sheetSelect ? sheetSelect.value : 'Hoja';
+        const provName = (document.getElementById('e-input-proveedor-nombre')?.value || sheetName).trim();
+        const ivaModo = document.getElementById('e-select-iva-modo')?.value || 'INCLUYE_IVA';
+
+        const idxCodigo = document.getElementById('e-map-codigo')?.value;
+        const idxDesc = document.getElementById('e-map-descripcion')?.value;
+        const idxCant = document.getElementById('e-map-cantidad')?.value;
+        const idxCosto = document.getElementById('e-map-costo')?.value;
+
+        if ((!idxCant && idxCant !== 0) || (idxDesc === '' && idxCodigo === '')) {
+            return alert("Por favor selecciona al menos la columna de Cantidad Entrante y al menos Código o Descripción.");
+        }
+
+        const sheetEntries = [];
+        let rowCount = 0;
+
+        for (const row of (this.entradasData || [])) {
+            const codigoRaw = idxCodigo !== '' && row[idxCodigo] ? String(row[idxCodigo]).trim() : '';
+            const descRaw = idxDesc !== '' && row[idxDesc] ? String(row[idxDesc]).trim() : '';
+            const cantVal = idxCant !== '' && row[idxCant] ? parseFloat(String(row[idxCant]).replace(/[^0-9.-]/g, '')) || 0 : 0;
+            let costoVal = idxCosto !== '' && row[idxCosto] ? parseFloat(String(row[idxCosto]).replace(/[^0-9.]/g, '')) || 0 : 0;
+
+            if (cantVal <= 0) continue;
+
+            const codigoFinal = codigoRaw || (descRaw ? 'PROD-' + Math.floor(100000 + Math.random() * 900000) : '');
+            if (!codigoFinal && !descRaw) continue;
+
+            // Calcular costos segun IVA
+            let costoSinIva = costoVal;
+            let costoConIva = costoVal;
+
+            if (ivaModo === 'INCLUYE_IVA') {
+                costoConIva = costoVal;
+                costoSinIva = costoVal > 0 ? Number((costoVal / 1.13).toFixed(2)) : 0;
+            } else if (ivaModo === 'MAS_IVA') {
+                costoSinIva = costoVal;
+                costoConIva = Number((costoVal * 1.13).toFixed(2));
+            }
+
+            sheetEntries.push({
+                codigo: codigoFinal,
+                descripcion: descRaw || 'PRODUCTO ENTRADA',
+                cantidad: cantVal,
+                costoUnitario: costoConIva,
+                costoSinIva: costoSinIva,
+                montoTotal: Number((cantVal * costoConIva).toFixed(2)),
+                proveedor: provName,
+                hojaOrigen: sheetName,
+                ivaModoLabel: ivaModo === 'INCLUYE_IVA' ? 'Precios con IVA' : 'Precios + IVA (13%)'
+            });
+
+            rowCount++;
+        }
+
+        if (rowCount === 0) {
+            return alert(`No se encontraron registros de entradas válidos en la hoja '${sheetName}'.`);
+        }
+
+        // Agregar al lote pendiente
+        this.pendingEntradasBatch.push(...sheetEntries);
+        this.pendingSheetsList.push({
+            sheetName: sheetName,
+            proveedor: provName,
+            rowCount: rowCount,
+            ivaModoLabel: ivaModo === 'INCLUYE_IVA' ? 'Precios con IVA' : 'Precios + IVA (13%)',
+            entries: sheetEntries
+        });
+
+        this.renderPendingSheetsTable();
+
+        alert(`✅ Hoja "${sheetName}" (${provName}) agregada al lote.\n\nSe agregaron ${rowCount} entradas de compras.\nPuedes seleccionar otra hoja de proveedor o procesar el lote acumulado.`);
+    }
+
+    removeSheetFromEntradasBatch(index) {
+        if (index < 0 || index >= this.pendingSheetsList.length) return;
+        const removed = this.pendingSheetsList.splice(index, 1)[0];
+        if (removed && removed.entries) {
+            this.pendingEntradasBatch = this.pendingEntradasBatch.filter(e => e.hojaOrigen !== removed.sheetName || e.proveedor !== removed.proveedor);
+        }
+        this.renderPendingSheetsTable();
+    }
+
+    renderPendingSheetsTable() {
+        const container = document.getElementById('lote-entradas-summary-container');
+        const tbody = document.getElementById('tbl-lote-sheets-body');
+
+        if (!container || !tbody) return;
+
+        if (!this.pendingSheetsList || this.pendingSheetsList.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+
+        container.style.display = 'block';
+
+        tbody.innerHTML = '';
+        let totalItems = 0;
+
+        this.pendingSheetsList.forEach((item, idx) => {
+            totalItems += item.rowCount;
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = '1px solid #cbd5e1';
+
+            tr.innerHTML = `
+                <td style="padding: 8px 12px; font-weight: 700; color: #059669;">${item.sheetName}</td>
+                <td style="padding: 8px 12px; font-weight: 700; color: #1e293b;">${item.proveedor}</td>
+                <td style="padding: 8px 12px; text-align: center;"><span class="badge" style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:4px; font-weight:700;">${item.ivaModoLabel}</span></td>
+                <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #059669;">+${item.rowCount} artículos</td>
+                <td style="padding: 8px 12px; text-align: center;">
+                    <button type="button" class="btn btn-sm btn-danger" onclick="appConstruccion.removeSheetFromEntradasBatch(${idx})" style="padding: 4px 10px; font-size: 0.75rem; cursor: pointer;">
+                        <i class="fas fa-trash"></i> Quitar
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        const countBadge = document.getElementById('lote-total-items-badge');
+        if (countBadge) countBadge.innerText = `${totalItems} entradas acumuladas de ${this.pendingSheetsList.length} proveedor(es)`;
+    }
+
+    commitEntradasBatchToDraft() {
+        if (!this.pendingEntradasBatch || this.pendingEntradasBatch.length === 0) {
+            return alert("No hay hojas de proveedores agregadas al lote.");
+        }
+
+        const totalEntries = this.pendingEntradasBatch.length;
+        const totalSheets = this.pendingSheetsList.length;
+
+        this.draftEntradas = [...(this.draftEntradas || []), ...this.pendingEntradasBatch];
+        localStorage.setItem('draft_entradas_' + this.selectedMonth, JSON.stringify(this.draftEntradas));
+
+        // Limpiar lote pendiente
+        this.pendingEntradasBatch = [];
+        this.pendingSheetsList = [];
+        this.renderPendingSheetsTable();
+
+        // Actualizar tabla y métricas
+        this.renderDraftEntradasTable();
+
+        alert(`🎉 ¡LOTE DE COMPRAS CONSOLIDADO EN BORRADOR LOCAL!\n\nSe integraron ${totalEntries} compras de ${totalSheets} proveedor(es) al borrador local.`);
+    }
+
+    renderDraftEntradasTable() {
+        const tableContainer = document.getElementById('draft-entradas-table-container');
+        const countLabel = document.getElementById('paso3-count-label');
+
+        if (countLabel) countLabel.innerText = this.draftEntradas ? this.draftEntradas.length : 0;
+
+        const metricEntradas = document.getElementById('metric-total-entradas');
+        if (metricEntradas) metricEntradas.innerText = this.draftEntradas ? this.draftEntradas.length : 0;
+
+        if (!this.draftEntradas || this.draftEntradas.length === 0) {
+            if (tableContainer) tableContainer.style.display = 'none';
+            return;
+        }
+
+        if (tableContainer) tableContainer.style.display = 'block';
+
+        const tbody = document.getElementById('tbl-draft-entradas-body');
+        if (tbody) {
+            tbody.innerHTML = '';
+            this.draftEntradas.forEach((e, idx) => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid #e2e8f0';
+
+                tr.innerHTML = `
+                    <td style="padding: 8px 12px; text-align: center; color: #64748b;">${idx + 1}</td>
+                    <td style="padding: 8px 12px; font-weight: 700; color: #2563eb;">${e.codigo}</td>
+                    <td style="padding: 8px 12px; color: #1e293b;">${e.descripcion}</td>
+                    <td style="padding: 8px 12px; text-align: right; font-weight: 800; color: #059669;">+${e.cantidad}</td>
+                    <td style="padding: 8px 12px; text-align: right; color: #475569;">$${(e.costoUnitario || 0).toFixed(2)}</td>
+                    <td style="padding: 8px 12px; text-align: right; font-weight: 700; color: #6366f1;">$${(e.montoTotal || 0).toFixed(2)}</td>
+                    <td style="padding: 8px 12px; color: #64748b;">${e.proveedor || '-'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
         }
     }
 

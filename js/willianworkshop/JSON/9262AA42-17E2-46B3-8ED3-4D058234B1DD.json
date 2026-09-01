@@ -1,0 +1,365 @@
+{
+    "identificacion": {
+        "version": 3,
+        "ambiente": "01",
+        "tipoDte": "03",
+        "numeroControl": "DTE-03-M001P001-000000000004532",
+        "codigoGeneracion": "9262AA42-17E2-46B3-8ED3-4D058234B1DD",
+        "tipoModelo": 1,
+        "tipoOperacion": 1,
+        "tipoContingencia": null,
+        "motivoContin": null,
+        "fecEmi": "2026-05-06",
+        "horEmi": "11:43:15",
+        "tipoMoneda": "USD"
+    },
+    "documentoRelacionado": null,
+    "emisor": {
+        "nit": "002147337",
+        "nrc": "1976057",
+        "nombre": "AVALOS RIVAS, SALVADOR MAURICIO (REPUESTOS CHEKEN)",
+        "codActividad": "45301",
+        "descActividad": "Venta de partes, piezas y accesorios nuevos para veh\u00edculos automotores",
+        "nombreComercial": "AVALOS RIVAS, SALVADOR MAURICIO (REPUESTOS CHEKEN)",
+        "tipoEstablecimiento": "02",
+        "direccion": {
+            "departamento": "02",
+            "municipio": "15",
+            "complemento": "SANTA ANA, SAN SEBASTIAN SALITRILLO, CIUDAD REAL, SEVILLA 1 POL. B CASA #19"
+        },
+        "telefono": "79875365",
+        "correo": "facturacion@trexo.solutions",
+        "codEstable": null,
+        "codPuntoVenta": null,
+        "codEstableMH": null,
+        "codPuntoVentaMH": null
+    },
+    "receptor": {
+        "nit": "035000954",
+        "nrc": "3586535",
+        "nombre": "JOSE WILLIAM PREZA TORRES",
+        "codActividad": "45201",
+        "descActividad": "Reparaci\u00f3n mec\u00e1nica de veh\u00edculos automotores",
+        "nombreComercial": null,
+        "direccion": {
+            "departamento": "09",
+            "municipio": "10",
+            "complemento": "AV. CARLOS BONILLA SUR, PENAL DE ILOBASCO"
+        },
+        "telefono": "7587-6928",
+        "correo": "williangabriel102086@gmail.com"
+    },
+    "otrosDocumentos": null,
+    "ventaTercero": null,
+    "cuerpoDocumento": [
+        {
+            "numItem": 1,
+            "tipoItem": 2,
+            "numeroDocumento": null,
+            "cantidad": 4,
+            "codigo": null,
+            "codTributo": null,
+            "uniMedida": 99,
+            "descripcion": "BALANCIN BAJAJ ",
+            "precioUni": 3.9823,
+            "montoDescu": 0,
+            "ventaNoSuj": 0,
+            "ventaExenta": 0,
+            "ventaGravada": 15.9292,
+            "tributos": [
+                "20"
+            ],
+            "psv": 0,
+            "noGravado": 0
+        },
+        {
+            "numItem": 2,
+            "tipoItem": 2,
+            "numeroDocumento": null,
+            "cantidad": 10,
+            "codigo": null,
+            "codTributo": null,
+            "uniMedida": 99,
+            "descripcion": "CABLE DE FRENO DE MANO 2022 BAJAJ ",
+            "precioUni": 10.6195,
+            "montoDescu": 0,
+            "ventaNoSuj": 0,
+            "ventaExenta": 0,
+            "ventaGravada": 106.1947,
+            "tributos": [
+                "20"
+            ],
+            "psv": 0,
+            "noGravado": 0
+        },
+        {
+            "numItem": 3,
+            "tipoItem": 2,
+            "numeroDocumento": null,
+            "cantidad": 20,
+            "codigo": null,
+            "codTributo": null,
+            "uniMedida": 99,
+            "descripcion": "CONECTOR DE BUJIA CON CABLE BCB ",
+            "precioUni": 2.2124,
+            "montoDescu": 0,
+            "ventaNoSuj": 0,
+            "ventaExenta": 0,
+            "ventaGravada": 44.2478,
+            "tributos": [
+                "20"
+            ],
+            "psv": 0,
+            "noGravado": 0
+        },
+        {
+            "numItem": 4,
+            "tipoItem": 2,
+            "numeroDocumento": null,
+            "cantidad": 2,
+            "codigo": null,
+            "codTributo": null,
+            "uniMedida": 99,
+            "descripcion": "EJE DE ELEVAS BAJAJ ",
+            "precioUni": 15.0442,
+            "montoDescu": 0,
+            "ventaNoSuj": 0,
+            "ventaExenta": 0,
+            "ventaGravada": 30.0885,
+            "tributos": [
+                "20"
+            ],
+            "psv": 0,
+            "noGravado": 0
+        },
+        {
+            "numItem": 5,
+            "tipoItem": 2,
+            "numeroDocumento": null,
+            "cantidad": 20,
+            "codigo": null,
+            "codTributo": null,
+            "uniMedida": 99,
+            "descripcion": "EMPAQUE DE CULATA 205 BAJAJ ",
+            "precioUni": 2.2124,
+            "montoDescu": 0,
+            "ventaNoSuj": 0,
+            "ventaExenta": 0,
+            "ventaGravada": 44.2478,
+            "tributos": [
+                "20"
+            ],
+            "psv": 0,
+            "noGravado": 0
+        },
+        {
+            "numItem": 6,
+            "tipoItem": 2,
+            "numeroDocumento": null,
+            "cantidad": 3,
+            "codigo": null,
+            "codTributo": null,
+            "uniMedida": 99,
+            "descripcion": "ENGRANAJE DE 2\u00b0 BAJAJ ",
+            "precioUni": 11.5044,
+            "montoDescu": 0,
+            "ventaNoSuj": 0,
+            "ventaExenta": 0,
+            "ventaGravada": 34.5133,
+            "tributos": [
+                "20"
+            ],
+            "psv": 0,
+            "noGravado": 0
+        },
+        {
+            "numItem": 7,
+            "tipoItem": 2,
+            "numeroDocumento": null,
+            "cantidad": 2,
+            "codigo": null,
+            "codTributo": null,
+            "uniMedida": 99,
+            "descripcion": "ENGRANAJE DE 4\u00b0 BAJAJ ",
+            "precioUni": 8.8496,
+            "montoDescu": 0,
+            "ventaNoSuj": 0,
+            "ventaExenta": 0,
+            "ventaGravada": 17.6991,
+            "tributos": [
+                "20"
+            ],
+            "psv": 0,
+            "noGravado": 0
+        },
+        {
+            "numItem": 8,
+            "tipoItem": 2,
+            "numeroDocumento": null,
+            "cantidad": 2,
+            "codigo": null,
+            "codTributo": null,
+            "uniMedida": 99,
+            "descripcion": "PLATOS PARA AROS CROMADOS DE PLASTICO SHAKTI CENTRO ROJO BCB ",
+            "precioUni": 13.2743,
+            "montoDescu": 0,
+            "ventaNoSuj": 0,
+            "ventaExenta": 0,
+            "ventaGravada": 26.5487,
+            "tributos": [
+                "20"
+            ],
+            "psv": 0,
+            "noGravado": 0
+        },
+        {
+            "numItem": 9,
+            "tipoItem": 2,
+            "numeroDocumento": null,
+            "cantidad": 2,
+            "codigo": null,
+            "codTributo": null,
+            "uniMedida": 99,
+            "descripcion": "PUERTA DE MOTOR 2022 BAJAJ ",
+            "precioUni": 39.823,
+            "montoDescu": 0,
+            "ventaNoSuj": 0,
+            "ventaExenta": 0,
+            "ventaGravada": 79.646,
+            "tributos": [
+                "20"
+            ],
+            "psv": 0,
+            "noGravado": 0
+        },
+        {
+            "numItem": 10,
+            "tipoItem": 2,
+            "numeroDocumento": null,
+            "cantidad": 3,
+            "codigo": null,
+            "codTributo": null,
+            "uniMedida": 99,
+            "descripcion": "PUNTA DE FLECHA SATELITE VARROC ",
+            "precioUni": 7.9646,
+            "montoDescu": 0,
+            "ventaNoSuj": 0,
+            "ventaExenta": 0,
+            "ventaGravada": 23.8938,
+            "tributos": [
+                "20"
+            ],
+            "psv": 0,
+            "noGravado": 0
+        },
+        {
+            "numItem": 11,
+            "tipoItem": 2,
+            "numeroDocumento": null,
+            "cantidad": 30,
+            "codigo": null,
+            "codTributo": null,
+            "uniMedida": 99,
+            "descripcion": "SWITCH DE NEUTRO COMPACT BAJAJ ",
+            "precioUni": 2.6549,
+            "montoDescu": 0,
+            "ventaNoSuj": 0,
+            "ventaExenta": 0,
+            "ventaGravada": 79.646,
+            "tributos": [
+                "20"
+            ],
+            "psv": 0,
+            "noGravado": 0
+        },
+        {
+            "numItem": 12,
+            "tipoItem": 2,
+            "numeroDocumento": null,
+            "cantidad": 2,
+            "codigo": null,
+            "codTributo": null,
+            "uniMedida": 99,
+            "descripcion": "TAPADERA DE VENTILADOR GDE BAJAJ ",
+            "precioUni": 5.7522,
+            "montoDescu": 0,
+            "ventaNoSuj": 0,
+            "ventaExenta": 0,
+            "ventaGravada": 11.5044,
+            "tributos": [
+                "20"
+            ],
+            "psv": 0,
+            "noGravado": 0
+        },
+        {
+            "numItem": 13,
+            "tipoItem": 2,
+            "numeroDocumento": null,
+            "cantidad": 5,
+            "codigo": null,
+            "codTributo": null,
+            "uniMedida": 99,
+            "descripcion": "TAPADERA DE VENTILADOR P\u00d1A BAJAJ ",
+            "precioUni": 3.5398,
+            "montoDescu": 0,
+            "ventaNoSuj": 0,
+            "ventaExenta": 0,
+            "ventaGravada": 17.6991,
+            "tributos": [
+                "20"
+            ],
+            "psv": 0,
+            "noGravado": 0
+        }
+    ],
+    "resumen": {
+        "totalNoSuj": 0,
+        "totalExenta": 0,
+        "totalGravada": 531.86,
+        "subTotalVentas": 531.86,
+        "descuNoSuj": 0,
+        "descuExenta": 0,
+        "descuGravada": 107.96,
+        "porcentajeDescuento": 0,
+        "totalDescu": 107.96,
+        "tributos": [
+            {
+                "codigo": "20",
+                "descripcion": "Impuesto al Valor Agregado 13%",
+                "valor": 55.1
+            }
+        ],
+        "subTotal": 423.9,
+        "ivaPerci1": 0,
+        "ivaRete1": 0,
+        "reteRenta": 0,
+        "montoTotalOperacion": 479,
+        "totalNoGravado": 0,
+        "totalPagar": 479,
+        "totalLetras": "CUATROCIENTOS SETENTA Y NUEVE CON 00\/100 D\u00d3LARES",
+        "saldoFavor": 0,
+        "condicionOperacion": 1,
+        "pagos": [
+            {
+                "codigo": "01",
+                "montoPago": 479,
+                "plazo": null,
+                "periodo": null,
+                "referencia": null
+            }
+        ],
+        "numPagoElectronico": null
+    },
+    "extension": {
+        "nombEntrega": "Brayan Avalos",
+        "docuEntrega": null,
+        "nombRecibe": null,
+        "docuRecibe": null,
+        "observaciones": null,
+        "placaVehiculo": null
+    },
+    "apendice": null,
+    "firmaElectronica": "eyJhbGciOiJSUzUxMiJ9.ewogICJpZGVudGlmaWNhY2lvbiIgOiB7CiAgICAidmVyc2lvbiIgOiAzLAogICAgImFtYmllbnRlIiA6ICIwMSIsCiAgICAidGlwb0R0ZSIgOiAiMDMiLAogICAgIm51bWVyb0NvbnRyb2wiIDogIkRURS0wMy1NMDAxUDAwMS0wMDAwMDAwMDAwMDQ1MzIiLAogICAgImNvZGlnb0dlbmVyYWNpb24iIDogIjkyNjJBQTQyLTE3RTItNDZCMy04RUQzLTREMDU4MjM0QjFERCIsCiAgICAidGlwb01vZGVsbyIgOiAxLAogICAgInRpcG9PcGVyYWNpb24iIDogMSwKICAgICJ0aXBvQ29udGluZ2VuY2lhIiA6IG51bGwsCiAgICAibW90aXZvQ29udGluIiA6IG51bGwsCiAgICAiZmVjRW1pIiA6ICIyMDI2LTA1LTA2IiwKICAgICJob3JFbWkiIDogIjExOjQzOjE1IiwKICAgICJ0aXBvTW9uZWRhIiA6ICJVU0QiCiAgfSwKICAiZG9jdW1lbnRvUmVsYWNpb25hZG8iIDogbnVsbCwKICAiZW1pc29yIiA6IHsKICAgICJuaXQiIDogIjAwMjE0NzMzNyIsCiAgICAibnJjIiA6ICIxOTc2MDU3IiwKICAgICJub21icmUiIDogIkFWQUxPUyBSSVZBUywgU0FMVkFET1IgTUFVUklDSU8gKFJFUFVFU1RPUyBDSEVLRU4pIiwKICAgICJjb2RBY3RpdmlkYWQiIDogIjQ1MzAxIiwKICAgICJkZXNjQWN0aXZpZGFkIiA6ICJWZW50YSBkZSBwYXJ0ZXMsIHBpZXphcyB5IGFjY2Vzb3Jpb3MgbnVldm9zIHBhcmEgdmVow61jdWxvcyBhdXRvbW90b3JlcyIsCiAgICAibm9tYnJlQ29tZXJjaWFsIiA6ICJBVkFMT1MgUklWQVMsIFNBTFZBRE9SIE1BVVJJQ0lPIChSRVBVRVNUT1MgQ0hFS0VOKSIsCiAgICAidGlwb0VzdGFibGVjaW1pZW50byIgOiAiMDIiLAogICAgImRpcmVjY2lvbiIgOiB7CiAgICAgICJkZXBhcnRhbWVudG8iIDogIjAyIiwKICAgICAgIm11bmljaXBpbyIgOiAiMTUiLAogICAgICAiY29tcGxlbWVudG8iIDogIlNBTlRBIEFOQSwgU0FOIFNFQkFTVElBTiBTQUxJVFJJTExPLCBDSVVEQUQgUkVBTCwgU0VWSUxMQSAxIFBPTC4gQiBDQVNBICMxOSIKICAgIH0sCiAgICAidGVsZWZvbm8iIDogIjc5ODc1MzY1IiwKICAgICJjb3JyZW8iIDogImZhY3R1cmFjaW9uQHRyZXhvLnNvbHV0aW9ucyIsCiAgICAiY29kRXN0YWJsZSIgOiBudWxsLAogICAgImNvZFB1bnRvVmVudGEiIDogbnVsbCwKICAgICJjb2RFc3RhYmxlTUgiIDogbnVsbCwKICAgICJjb2RQdW50b1ZlbnRhTUgiIDogbnVsbAogIH0sCiAgInJlY2VwdG9yIiA6IHsKICAgICJuaXQiIDogIjAzNTAwMDk1NCIsCiAgICAibnJjIiA6ICIzNTg2NTM1IiwKICAgICJub21icmUiIDogIkpPU0UgV0lMTElBTSBQUkVaQSBUT1JSRVMiLAogICAgImNvZEFjdGl2aWRhZCIgOiAiNDUyMDEiLAogICAgImRlc2NBY3RpdmlkYWQiIDogIlJlcGFyYWNpw7NuIG1lY8OhbmljYSBkZSB2ZWjDrWN1bG9zIGF1dG9tb3RvcmVzIiwKICAgICJub21icmVDb21lcmNpYWwiIDogbnVsbCwKICAgICJkaXJlY2Npb24iIDogewogICAgICAiZGVwYXJ0YW1lbnRvIiA6ICIwOSIsCiAgICAgICJtdW5pY2lwaW8iIDogIjEwIiwKICAgICAgImNvbXBsZW1lbnRvIiA6ICJBVi4gQ0FSTE9TIEJPTklMTEEgU1VSLCBQRU5BTCBERSBJTE9CQVNDTyIKICAgIH0sCiAgICAidGVsZWZvbm8iIDogIjc1ODctNjkyOCIsCiAgICAiY29ycmVvIiA6ICJ3aWxsaWFuZ2FicmllbDEwMjA4NkBnbWFpbC5jb20iCiAgfSwKICAib3Ryb3NEb2N1bWVudG9zIiA6IG51bGwsCiAgInZlbnRhVGVyY2VybyIgOiBudWxsLAogICJjdWVycG9Eb2N1bWVudG8iIDogWyB7CiAgICAibnVtSXRlbSIgOiAxLAogICAgInRpcG9JdGVtIiA6IDIsCiAgICAibnVtZXJvRG9jdW1lbnRvIiA6IG51bGwsCiAgICAiY2FudGlkYWQiIDogNCwKICAgICJjb2RpZ28iIDogbnVsbCwKICAgICJjb2RUcmlidXRvIiA6IG51bGwsCiAgICAidW5pTWVkaWRhIiA6IDk5LAogICAgImRlc2NyaXBjaW9uIiA6ICJCQUxBTkNJTiBCQUpBSiAiLAogICAgInByZWNpb1VuaSIgOiAzLjk4MjMsCiAgICAibW9udG9EZXNjdSIgOiAwLAogICAgInZlbnRhTm9TdWoiIDogMCwKICAgICJ2ZW50YUV4ZW50YSIgOiAwLAogICAgInZlbnRhR3JhdmFkYSIgOiAxNS45MjkyLAogICAgInRyaWJ1dG9zIiA6IFsgIjIwIiBdLAogICAgInBzdiIgOiAwLAogICAgIm5vR3JhdmFkbyIgOiAwCiAgfSwgewogICAgIm51bUl0ZW0iIDogMiwKICAgICJ0aXBvSXRlbSIgOiAyLAogICAgIm51bWVyb0RvY3VtZW50byIgOiBudWxsLAogICAgImNhbnRpZGFkIiA6IDEwLAogICAgImNvZGlnbyIgOiBudWxsLAogICAgImNvZFRyaWJ1dG8iIDogbnVsbCwKICAgICJ1bmlNZWRpZGEiIDogOTksCiAgICAiZGVzY3JpcGNpb24iIDogIkNBQkxFIERFIEZSRU5PIERFIE1BTk8gMjAyMiBCQUpBSiAiLAogICAgInByZWNpb1VuaSIgOiAxMC42MTk1LAogICAgIm1vbnRvRGVzY3UiIDogMCwKICAgICJ2ZW50YU5vU3VqIiA6IDAsCiAgICAidmVudGFFeGVudGEiIDogMCwKICAgICJ2ZW50YUdyYXZhZGEiIDogMTA2LjE5NDcsCiAgICAidHJpYnV0b3MiIDogWyAiMjAiIF0sCiAgICAicHN2IiA6IDAsCiAgICAibm9HcmF2YWRvIiA6IDAKICB9LCB7CiAgICAibnVtSXRlbSIgOiAzLAogICAgInRpcG9JdGVtIiA6IDIsCiAgICAibnVtZXJvRG9jdW1lbnRvIiA6IG51bGwsCiAgICAiY2FudGlkYWQiIDogMjAsCiAgICAiY29kaWdvIiA6IG51bGwsCiAgICAiY29kVHJpYnV0byIgOiBudWxsLAogICAgInVuaU1lZGlkYSIgOiA5OSwKICAgICJkZXNjcmlwY2lvbiIgOiAiQ09ORUNUT1IgREUgQlVKSUEgQ09OIENBQkxFIEJDQiAiLAogICAgInByZWNpb1VuaSIgOiAyLjIxMjQsCiAgICAibW9udG9EZXNjdSIgOiAwLAogICAgInZlbnRhTm9TdWoiIDogMCwKICAgICJ2ZW50YUV4ZW50YSIgOiAwLAogICAgInZlbnRhR3JhdmFkYSIgOiA0NC4yNDc4LAogICAgInRyaWJ1dG9zIiA6IFsgIjIwIiBdLAogICAgInBzdiIgOiAwLAogICAgIm5vR3JhdmFkbyIgOiAwCiAgfSwgewogICAgIm51bUl0ZW0iIDogNCwKICAgICJ0aXBvSXRlbSIgOiAyLAogICAgIm51bWVyb0RvY3VtZW50byIgOiBudWxsLAogICAgImNhbnRpZGFkIiA6IDIsCiAgICAiY29kaWdvIiA6IG51bGwsCiAgICAiY29kVHJpYnV0byIgOiBudWxsLAogICAgInVuaU1lZGlkYSIgOiA5OSwKICAgICJkZXNjcmlwY2lvbiIgOiAiRUpFIERFIEVMRVZBUyBCQUpBSiAiLAogICAgInByZWNpb1VuaSIgOiAxNS4wNDQyLAogICAgIm1vbnRvRGVzY3UiIDogMCwKICAgICJ2ZW50YU5vU3VqIiA6IDAsCiAgICAidmVudGFFeGVudGEiIDogMCwKICAgICJ2ZW50YUdyYXZhZGEiIDogMzAuMDg4NSwKICAgICJ0cmlidXRvcyIgOiBbICIyMCIgXSwKICAgICJwc3YiIDogMCwKICAgICJub0dyYXZhZG8iIDogMAogIH0sIHsKICAgICJudW1JdGVtIiA6IDUsCiAgICAidGlwb0l0ZW0iIDogMiwKICAgICJudW1lcm9Eb2N1bWVudG8iIDogbnVsbCwKICAgICJjYW50aWRhZCIgOiAyMCwKICAgICJjb2RpZ28iIDogbnVsbCwKICAgICJjb2RUcmlidXRvIiA6IG51bGwsCiAgICAidW5pTWVkaWRhIiA6IDk5LAogICAgImRlc2NyaXBjaW9uIiA6ICJFTVBBUVVFIERFIENVTEFUQSAyMDUgQkFKQUogIiwKICAgICJwcmVjaW9VbmkiIDogMi4yMTI0LAogICAgIm1vbnRvRGVzY3UiIDogMCwKICAgICJ2ZW50YU5vU3VqIiA6IDAsCiAgICAidmVudGFFeGVudGEiIDogMCwKICAgICJ2ZW50YUdyYXZhZGEiIDogNDQuMjQ3OCwKICAgICJ0cmlidXRvcyIgOiBbICIyMCIgXSwKICAgICJwc3YiIDogMCwKICAgICJub0dyYXZhZG8iIDogMAogIH0sIHsKICAgICJudW1JdGVtIiA6IDYsCiAgICAidGlwb0l0ZW0iIDogMiwKICAgICJudW1lcm9Eb2N1bWVudG8iIDogbnVsbCwKICAgICJjYW50aWRhZCIgOiAzLAogICAgImNvZGlnbyIgOiBudWxsLAogICAgImNvZFRyaWJ1dG8iIDogbnVsbCwKICAgICJ1bmlNZWRpZGEiIDogOTksCiAgICAiZGVzY3JpcGNpb24iIDogIkVOR1JBTkFKRSBERSAywrAgQkFKQUogIiwKICAgICJwcmVjaW9VbmkiIDogMTEuNTA0NCwKICAgICJtb250b0Rlc2N1IiA6IDAsCiAgICAidmVudGFOb1N1aiIgOiAwLAogICAgInZlbnRhRXhlbnRhIiA6IDAsCiAgICAidmVudGFHcmF2YWRhIiA6IDM0LjUxMzMsCiAgICAidHJpYnV0b3MiIDogWyAiMjAiIF0sCiAgICAicHN2IiA6IDAsCiAgICAibm9HcmF2YWRvIiA6IDAKICB9LCB7CiAgICAibnVtSXRlbSIgOiA3LAogICAgInRpcG9JdGVtIiA6IDIsCiAgICAibnVtZXJvRG9jdW1lbnRvIiA6IG51bGwsCiAgICAiY2FudGlkYWQiIDogMiwKICAgICJjb2RpZ28iIDogbnVsbCwKICAgICJjb2RUcmlidXRvIiA6IG51bGwsCiAgICAidW5pTWVkaWRhIiA6IDk5LAogICAgImRlc2NyaXBjaW9uIiA6ICJFTkdSQU5BSkUgREUgNMKwIEJBSkFKICIsCiAgICAicHJlY2lvVW5pIiA6IDguODQ5NiwKICAgICJtb250b0Rlc2N1IiA6IDAsCiAgICAidmVudGFOb1N1aiIgOiAwLAogICAgInZlbnRhRXhlbnRhIiA6IDAsCiAgICAidmVudGFHcmF2YWRhIiA6IDE3LjY5OTEsCiAgICAidHJpYnV0b3MiIDogWyAiMjAiIF0sCiAgICAicHN2IiA6IDAsCiAgICAibm9HcmF2YWRvIiA6IDAKICB9LCB7CiAgICAibnVtSXRlbSIgOiA4LAogICAgInRpcG9JdGVtIiA6IDIsCiAgICAibnVtZXJvRG9jdW1lbnRvIiA6IG51bGwsCiAgICAiY2FudGlkYWQiIDogMiwKICAgICJjb2RpZ28iIDogbnVsbCwKICAgICJjb2RUcmlidXRvIiA6IG51bGwsCiAgICAidW5pTWVkaWRhIiA6IDk5LAogICAgImRlc2NyaXBjaW9uIiA6ICJQTEFUT1MgUEFSQSBBUk9TIENST01BRE9TIERFIFBMQVNUSUNPIFNIQUtUSSBDRU5UUk8gUk9KTyBCQ0IgIiwKICAgICJwcmVjaW9VbmkiIDogMTMuMjc0MywKICAgICJtb250b0Rlc2N1IiA6IDAsCiAgICAidmVudGFOb1N1aiIgOiAwLAogICAgInZlbnRhRXhlbnRhIiA6IDAsCiAgICAidmVudGFHcmF2YWRhIiA6IDI2LjU0ODcsCiAgICAidHJpYnV0b3MiIDogWyAiMjAiIF0sCiAgICAicHN2IiA6IDAsCiAgICAibm9HcmF2YWRvIiA6IDAKICB9LCB7CiAgICAibnVtSXRlbSIgOiA5LAogICAgInRpcG9JdGVtIiA6IDIsCiAgICAibnVtZXJvRG9jdW1lbnRvIiA6IG51bGwsCiAgICAiY2FudGlkYWQiIDogMiwKICAgICJjb2RpZ28iIDogbnVsbCwKICAgICJjb2RUcmlidXRvIiA6IG51bGwsCiAgICAidW5pTWVkaWRhIiA6IDk5LAogICAgImRlc2NyaXBjaW9uIiA6ICJQVUVSVEEgREUgTU9UT1IgMjAyMiBCQUpBSiAiLAogICAgInByZWNpb1VuaSIgOiAzOS44MjMsCiAgICAibW9udG9EZXNjdSIgOiAwLAogICAgInZlbnRhTm9TdWoiIDogMCwKICAgICJ2ZW50YUV4ZW50YSIgOiAwLAogICAgInZlbnRhR3JhdmFkYSIgOiA3OS42NDYsCiAgICAidHJpYnV0b3MiIDogWyAiMjAiIF0sCiAgICAicHN2IiA6IDAsCiAgICAibm9HcmF2YWRvIiA6IDAKICB9LCB7CiAgICAibnVtSXRlbSIgOiAxMCwKICAgICJ0aXBvSXRlbSIgOiAyLAogICAgIm51bWVyb0RvY3VtZW50byIgOiBudWxsLAogICAgImNhbnRpZGFkIiA6IDMsCiAgICAiY29kaWdvIiA6IG51bGwsCiAgICAiY29kVHJpYnV0byIgOiBudWxsLAogICAgInVuaU1lZGlkYSIgOiA5OSwKICAgICJkZXNjcmlwY2lvbiIgOiAiUFVOVEEgREUgRkxFQ0hBIFNBVEVMSVRFIFZBUlJPQyAiLAogICAgInByZWNpb1VuaSIgOiA3Ljk2NDYsCiAgICAibW9udG9EZXNjdSIgOiAwLAogICAgInZlbnRhTm9TdWoiIDogMCwKICAgICJ2ZW50YUV4ZW50YSIgOiAwLAogICAgInZlbnRhR3JhdmFkYSIgOiAyMy44OTM4LAogICAgInRyaWJ1dG9zIiA6IFsgIjIwIiBdLAogICAgInBzdiIgOiAwLAogICAgIm5vR3JhdmFkbyIgOiAwCiAgfSwgewogICAgIm51bUl0ZW0iIDogMTEsCiAgICAidGlwb0l0ZW0iIDogMiwKICAgICJudW1lcm9Eb2N1bWVudG8iIDogbnVsbCwKICAgICJjYW50aWRhZCIgOiAzMCwKICAgICJjb2RpZ28iIDogbnVsbCwKICAgICJjb2RUcmlidXRvIiA6IG51bGwsCiAgICAidW5pTWVkaWRhIiA6IDk5LAogICAgImRlc2NyaXBjaW9uIiA6ICJTV0lUQ0ggREUgTkVVVFJPIENPTVBBQ1QgQkFKQUogIiwKICAgICJwcmVjaW9VbmkiIDogMi42NTQ5LAogICAgIm1vbnRvRGVzY3UiIDogMCwKICAgICJ2ZW50YU5vU3VqIiA6IDAsCiAgICAidmVudGFFeGVudGEiIDogMCwKICAgICJ2ZW50YUdyYXZhZGEiIDogNzkuNjQ2LAogICAgInRyaWJ1dG9zIiA6IFsgIjIwIiBdLAogICAgInBzdiIgOiAwLAogICAgIm5vR3JhdmFkbyIgOiAwCiAgfSwgewogICAgIm51bUl0ZW0iIDogMTIsCiAgICAidGlwb0l0ZW0iIDogMiwKICAgICJudW1lcm9Eb2N1bWVudG8iIDogbnVsbCwKICAgICJjYW50aWRhZCIgOiAyLAogICAgImNvZGlnbyIgOiBudWxsLAogICAgImNvZFRyaWJ1dG8iIDogbnVsbCwKICAgICJ1bmlNZWRpZGEiIDogOTksCiAgICAiZGVzY3JpcGNpb24iIDogIlRBUEFERVJBIERFIFZFTlRJTEFET1IgR0RFIEJBSkFKICIsCiAgICAicHJlY2lvVW5pIiA6IDUuNzUyMiwKICAgICJtb250b0Rlc2N1IiA6IDAsCiAgICAidmVudGFOb1N1aiIgOiAwLAogICAgInZlbnRhRXhlbnRhIiA6IDAsCiAgICAidmVudGFHcmF2YWRhIiA6IDExLjUwNDQsCiAgICAidHJpYnV0b3MiIDogWyAiMjAiIF0sCiAgICAicHN2IiA6IDAsCiAgICAibm9HcmF2YWRvIiA6IDAKICB9LCB7CiAgICAibnVtSXRlbSIgOiAxMywKICAgICJ0aXBvSXRlbSIgOiAyLAogICAgIm51bWVyb0RvY3VtZW50byIgOiBudWxsLAogICAgImNhbnRpZGFkIiA6IDUsCiAgICAiY29kaWdvIiA6IG51bGwsCiAgICAiY29kVHJpYnV0byIgOiBudWxsLAogICAgInVuaU1lZGlkYSIgOiA5OSwKICAgICJkZXNjcmlwY2lvbiIgOiAiVEFQQURFUkEgREUgVkVOVElMQURPUiBQw5FBIEJBSkFKICIsCiAgICAicHJlY2lvVW5pIiA6IDMuNTM5OCwKICAgICJtb250b0Rlc2N1IiA6IDAsCiAgICAidmVudGFOb1N1aiIgOiAwLAogICAgInZlbnRhRXhlbnRhIiA6IDAsCiAgICAidmVudGFHcmF2YWRhIiA6IDE3LjY5OTEsCiAgICAidHJpYnV0b3MiIDogWyAiMjAiIF0sCiAgICAicHN2IiA6IDAsCiAgICAibm9HcmF2YWRvIiA6IDAKICB9IF0sCiAgInJlc3VtZW4iIDogewogICAgInRvdGFsTm9TdWoiIDogMCwKICAgICJ0b3RhbEV4ZW50YSIgOiAwLAogICAgInRvdGFsR3JhdmFkYSIgOiA1MzEuODYsCiAgICAic3ViVG90YWxWZW50YXMiIDogNTMxLjg2LAogICAgImRlc2N1Tm9TdWoiIDogMCwKICAgICJkZXNjdUV4ZW50YSIgOiAwLAogICAgImRlc2N1R3JhdmFkYSIgOiAxMDcuOTYsCiAgICAicG9yY2VudGFqZURlc2N1ZW50byIgOiAwLAogICAgInRvdGFsRGVzY3UiIDogMTA3Ljk2LAogICAgInRyaWJ1dG9zIiA6IFsgewogICAgICAiY29kaWdvIiA6ICIyMCIsCiAgICAgICJkZXNjcmlwY2lvbiIgOiAiSW1wdWVzdG8gYWwgVmFsb3IgQWdyZWdhZG8gMTMlIiwKICAgICAgInZhbG9yIiA6IDU1LjEKICAgIH0gXSwKICAgICJzdWJUb3RhbCIgOiA0MjMuOSwKICAgICJpdmFQZXJjaTEiIDogMCwKICAgICJpdmFSZXRlMSIgOiAwLAogICAgInJldGVSZW50YSIgOiAwLAogICAgIm1vbnRvVG90YWxPcGVyYWNpb24iIDogNDc5LAogICAgInRvdGFsTm9HcmF2YWRvIiA6IDAsCiAgICAidG90YWxQYWdhciIgOiA0NzksCiAgICAidG90YWxMZXRyYXMiIDogIkNVQVRST0NJRU5UT1MgU0VURU5UQSBZIE5VRVZFIENPTiAwMC8xMDAgRMOTTEFSRVMiLAogICAgInNhbGRvRmF2b3IiIDogMCwKICAgICJjb25kaWNpb25PcGVyYWNpb24iIDogMSwKICAgICJwYWdvcyIgOiBbIHsKICAgICAgImNvZGlnbyIgOiAiMDEiLAogICAgICAibW9udG9QYWdvIiA6IDQ3OSwKICAgICAgInBsYXpvIiA6IG51bGwsCiAgICAgICJwZXJpb2RvIiA6IG51bGwsCiAgICAgICJyZWZlcmVuY2lhIiA6IG51bGwKICAgIH0gXSwKICAgICJudW1QYWdvRWxlY3Ryb25pY28iIDogbnVsbAogIH0sCiAgImV4dGVuc2lvbiIgOiB7CiAgICAibm9tYkVudHJlZ2EiIDogIkJyYXlhbiBBdmFsb3MiLAogICAgImRvY3VFbnRyZWdhIiA6IG51bGwsCiAgICAibm9tYlJlY2liZSIgOiBudWxsLAogICAgImRvY3VSZWNpYmUiIDogbnVsbCwKICAgICJvYnNlcnZhY2lvbmVzIiA6IG51bGwsCiAgICAicGxhY2FWZWhpY3VsbyIgOiBudWxsCiAgfSwKICAiYXBlbmRpY2UiIDogbnVsbAp9.TwacLYN-RNTMgeNWpghKu7jGjfmYImeXXte6ey_OiE3z5MuXUMVflHoLiwbZk5UF016bC8b6fPeEim1pyeV5jzAbPvczT8tgVu8cbIuIiXiKtYg0Rac7BukLMvUhLHxKjHHeS3VJKrm4w0fOcbyPa30GtrhcG981auyuCEdFP03OxeKP5MvqGrm6DrzjJnZGBBjn2TtalGaSpI2YhiiRQr8_nedODwAoFvuQhdU8tnmSAH_Yg3joPr1O_jzmCQ_MGdq1-OflfPItmuUck1wCcOQE9UKFxwxc251CsqwN7oHYlwMBdD6YZGzb6ASl7861qHHHQqkwGa0RUNfUHCWgTg",
+    "selloRecibido": "2026A42D9DBBA04442B1825AA5C7D60111AFZIAV"
+}

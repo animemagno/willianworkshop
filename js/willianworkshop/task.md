@@ -16,11 +16,6 @@ Este archivo contiene el resumen de lo que ya está listo y lo que sigue, para m
     *   Al confirmar, descuenta definitivamente las unidades en la base de datos y reinicia el mes de forma limpia.
 4.  **Límite de Visualización Ampliado:**
     *   Se aumentó la capacidad para mostrar hasta **300 artículos** simultáneos en la lista del inventario.
-5.  **Cierre de Mes en Registro (registro.html):**
-    *   La ventana de cierre ahora toma directamente el mes activo en trabajo (ej. Agosto 2026).
-    *   Conteo exacto de artículos físicos facturados a archivar y pendientes de facturar.
-    *   Guardado seguro en base de datos para archivar sin errores de documentos faltantes.
-    *   Tabla detallada mostrando únicamente los registros pendientes a trasladar como "MES ANTERIOR".
 
 ## 📋 PRÓXIMOS PASOS (Por si deseas continuar)
 *   Seguir con cualquier mejora de diseño, reportes adicionales o nuevas funciones en las pantallas que necesites.

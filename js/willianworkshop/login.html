@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Iniciar Sesión - Taller Wilian</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <style>
+    html,body{height:100%;margin:0;padding:0}
+    body{background:linear-gradient(135deg,#3498db,#2c3e50);font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;display:flex;align-items:center;justify-content:center}
+    .login-box{background:white;padding:30px 25px;border-radius:10px;box-shadow:0 10px 25px rgba(0,0,0,.2);width:100%;max-width:400px;text-align:center;margin:10px}
+    .login-box h2{margin-bottom:10px;color:#2c3e50}
+    .login-box p{color:#7f8c8d;font-size:.9rem;margin-bottom:20px}
+    .form-group{margin-bottom:15px;text-align:left}
+    .form-group label{font-weight:600;color:#333;font-size:.9rem;margin-left:8px}
+    .form-group input{width:calc(100% - 16px);padding:10px;margin:0 8px;border:1px solid #ddd;border-radius:6px;font-size:1rem;background:#fafafa}
+    .form-group input:focus{outline:none;border-color:#3498db;background:#fff}
+    .btn{width:calc(100% - 16px);padding:10px;margin:0 8px;border:none;border-radius:6px;font-weight:600;cursor:pointer;transition:background .3s;font-size:1rem}
+    .btn-primary{background:#3498db;color:white}
+    .btn-primary:hover{background:#2980b9}
+    .btn-success{background:#27ae60;color:white}
+    .btn-success:hover{background:#219a52}
+    .btn-link{background:none;border:none;color:#3498db;cursor:pointer;font-size:.85rem;margin-top:10px}
+    .btn-link:hover{text-decoration:underline}
+    .error{color:#e74c3c;font-size:.85rem;margin-top:10px}
+    .hidden{display:none}
+    .checkbox-group{display:flex;align-items:center;margin:10px 8px 0;font-size:.85rem;color:#555}
+    .checkbox-group input{margin-right:6px}
+    .logo-icon{font-size:3.5rem;color:#3498db;margin-bottom:10px}
+  </style>
+</head>
+<body>
+<div class="login-box">
+  <i class="fas fa-tools logo-icon"></i>
+  <h2>Taller Wilian</h2>
+  <p>Sistema de Ventas</p>
+
+  <form id="loginForm">
+    <div class="form-group">
+      <label>Número de Celular</label>
+      <input type="tel" id="celular" placeholder="1234-5678" maxlength="9" required>
+    </div>
+
+    <div class="form-group hidden" id="codigoGroup">
+      <label>Código de verificación</label>
+      <input type="text" id="codigo" placeholder="Código" maxlength="20">
+    </div>
+
+    <div class="checkbox-group">
+      <input type="checkbox" id="recordar">
+      <label for="recordar">Recordarme en este dispositivo</label>
+    </div>
+
+    <button type="submit" class="btn btn-primary" id="submitBtn">Enviar código</button>
+    <button type="button" class="btn btn-link" id="recuperarBtn">¿Olvidaste tu contraseña?</button>
+  </form>
+
+  <div class="error" id="errorMsg"></div>
+</div>
+
+<script>
+// ---------- CONFIGURACIÓN ----------
+const CODIGO_VERIFICACION = '1234'; // <-- Puedes cambiarlo aquí
+// -----------------------------------
+
+const form=document.getElementById('loginForm');
+const celularInput=document.getElementById('celular');
+const codigoInput=document.getElementById('codigo');
+const codigoGroup=document.getElementById('codigoGroup');
+const submitBtn=document.getElementById('submitBtn');
+const recuperarBtn=document.getElementById('recuperarBtn');
+const recordarCheckbox=document.getElementById('recordar');
+const errorMsg=document.getElementById('errorMsg');
+
+let paso=1;
+
+// Auto-formato: 1234-5678
+celularInput.addEventListener('input',(e)=>{
+  let valor=e.target.value.replace(/\D/g,'');
+  if(valor.length>=5){
+    valor=valor.slice(0,4)+'-'+valor.slice(4,8);
+  }
+  e.target.value=valor;
+});
+
+// Si existe sesión guardada, saltar login
+if(localStorage.getItem('usuarioLogueado') && localStorage.getItem('recordar')==='true'){
+  window.location.href='index.html';
+}
+
+form.addEventListener('submit',function(e){
+  e.preventDefault();
+  errorMsg.textContent='';
+
+  if(paso===1){
+    const celular=celularInput.value.replace(/\D/g,'');
+    if(celular.length!==8){
+      errorMsg.textContent='Ingresa un número válido de 8 dígitos.';
+      return;
+    }
+    codigoGroup.classList.remove('hidden');
+    submitBtn.textContent='Ingresar';
+    celularInput.disabled=true;
+    paso=2;
+  }else if(paso===2){
+    const codigo=codigoInput.value.trim();
+    if(codigo===CODIGO_VERIFICACION){
+      // Guardar sesión y preferencia de recordar
+      localStorage.setItem('usuarioLogueado',celularInput.value.replace(/\D/g,''));
+      localStorage.setItem('tipoUsuario','admin'); // admin, empleado, lectura
+      if(recordarCheckbox.checked){
+        localStorage.setItem('recordar','true');
+      }
+      window.location.href='index.html';
+    }else{
+      errorMsg.textContent='Código incorrecto.';
+    }
+  }
+});
+
+// Botón "Olvidé mi contraseña"
+recuperarBtn.addEventListener('click',()=>{
+  const celular=celularInput.value.replace(/\D/g,'');
+  if(celular.length!==8){
+    errorMsg.textContent='Primero ingresa tu número de celular.';
+    return;
+  }
+  alert(`Tu código de recuperación es: ${CODIGO_VERIFICACION}\nIngrésalo en el campo de código.`);
+  codigoGroup.classList.remove('hidden');
+  submitBtn.textContent='Ingresar';
+  celularInput.disabled=true;
+  paso=2;
+});
+</script>
+</body>
+</html>

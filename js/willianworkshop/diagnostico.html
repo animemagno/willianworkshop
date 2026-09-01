@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Diagnóstico de Firebase</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f7fafc; padding: 20px; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { color: #2d3748; }
+        button { background: #3182ce; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-size: 16px; margin-right: 10px; }
+        button:hover { background: #2b6cb0; }
+        #log { margin-top: 20px; padding: 15px; background: #2d3748; color: #48bb78; border-radius: 5px; font-family: monospace; white-space: pre-wrap; display: none; }
+    </style>
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Diagnóstico y Extracción de Datos</h1>
+        <p>Utiliza esta herramienta para descargar el registro crudo de Firebase y comprobar manualmente el estado de las facturas frente a los registros.</p>
+        
+        <div style="margin-top: 20px;">
+            <button onclick="descargarRegistros()">1. Descargar REGISTROS (Entradas al taller)</button>
+            <button onclick="descargarFacturas()">2. Descargar FACTURAS (Salidas Facturadas)</button>
+        </div>
+
+        <div id="log">Iniciando Firebase...</div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCaZdPPYddeMPTiNm5cCdFL6m9b9swX0-c",
+            authDomain: "williantaller-1426b.firebaseapp.com",
+            projectId: "williantaller-1426b",
+            storageBucket: "williantaller-1426b.firebasestorage.app",
+            messagingSenderId: "757966587061",
+            appId: "1:757966587061:web:6c700e862317119d64aafc"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        document.getElementById('log').innerText = "✅ Firebase conectado y listo.";
+        document.getElementById('log').style.display = "block";
+
+        function mostrarLog(msg) {
+            const logDiv = document.getElementById('log');
+            logDiv.innerText = msg;
+        }
+
+        async function descargarRegistros() {
+            mostrarLog("Descargando REGISTROS_SALIDA desde Firebase...");
+            try {
+                const snap = await db.collection('REGISTROS_SALIDA').get();
+                let csv = 'ID Documento,Fecha,Producto,Cantidad,Estado,FacturaID_Vinculada,ProductId\n';
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    const nombre = (data.producto || '').replace(/,/g, ' '); // Evitar comas en CSV
+                    csv += `${doc.id},${data.fecha || ''},${nombre},${data.cantidad || 0},${data.estado || ''},${data.facturaId || ''},${data.productId || data.vinculoId || ''}\n`;
+                });
+                descargarArchivo('registros_db.csv', csv);
+                mostrarLog("¡REGISTROS_SALIDA descargados con éxito! Revisa tus descargas.");
+            } catch (error) {
+                mostrarLog("Error: " + error.message);
+            }
+        }
+
+        async function descargarFacturas() {
+            mostrarLog("Descargando INVENTARIO_SALIDAS (Facturas) desde Firebase...");
+            try {
+                const snap = await db.collection('INVENTARIO_SALIDAS').get();
+                let csv = 'ID Factura,Numero Factura,Fecha Factura,Cliente,Item Producto,Item Cantidad,Item ProductID\n';
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    const items = data.items || [];
+                    const cliente = (data.CLIENTE || '').replace(/,/g, ' ');
+                    items.forEach(item => {
+                        const nombreItem = (item.descripcionPapel || item.producto || '').replace(/,/g, ' ');
+                        csv += `${doc.id},${data.numeroFactura || ''},${data.fecha || ''},${cliente},${nombreItem},${item.cantidad || 0},${item.productId || item.vinculoId || ''}\n`;
+                    });
+                });
+                descargarArchivo('facturas_db.csv', csv);
+                mostrarLog("¡INVENTARIO_SALIDAS descargadas con éxito! Revisa tus descargas.");
+            } catch (error) {
+                mostrarLog("Error: " + error.message);
+            }
+        }
+
+        function descargarArchivo(nombre, contenido) {
+            const blob = new Blob(['\ufeff' + contenido], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", nombre);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>

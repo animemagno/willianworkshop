@@ -20,6 +20,19 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <style>
+        html, body {
+            height: auto !important;
+            min-height: 100% !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+        }
+
+        .container {
+            height: auto !important;
+            min-height: calc(100vh - 60px) !important;
+            overflow: visible !important;
+        }
+
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -36,6 +49,25 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+        }
+
+        .mapper-select {
+            width: 100% !important;
+            background: #ffffff !important;
+            color: #0f172a !important;
+            border: 2px solid #2563eb !important;
+            border-radius: 8px !important;
+            padding: 10px 12px !important;
+            font-size: 0.9rem !important;
+            font-weight: 700 !important;
+            cursor: pointer !important;
+            box-shadow: 0 2px 4px rgba(37,99,235,0.08) !important;
+        }
+
+        .mapper-select:focus {
+            outline: none !important;
+            border-color: #1d4ed8 !important;
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.2) !important;
         }
 
         .stat-card .info h4 {
@@ -135,7 +167,7 @@
                     Carga archivos Excel eligiendo hoja y columnas, importa ventas FEL e inicializa el inventario base.
                 </p>
             </div>
-            <div style="display: flex; gap: 10px;">
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                 <button class="btn btn-primary" onclick="appConstruccion.autoFixAllNegativeStocks()" style="font-size: 0.85rem; padding: 10px 16px;">
                     <i class="fas fa-magic"></i> Auto-Nivelar Saldos Negativos
                 </button>
@@ -146,7 +178,7 @@
         </div>
 
         <!-- TARJETAS DE MÉTRICAS -->
-        <div class="stats-grid">
+        <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">
             <div class="stat-card">
                 <div class="info">
                     <h4>Productos Registrados</h4>
@@ -166,26 +198,6 @@
                     <i class="fas fa-truck-loading"></i>
                 </div>
             </div>
-
-            <div class="stat-card">
-                <div class="info">
-                    <h4>Ventas Facturadas</h4>
-                    <div class="number" id="metric-total-ventas" style="color: #dc2626;">0</div>
-                </div>
-                <div class="icon-box" style="background: #fef2f2; color: #dc2626;">
-                    <i class="fas fa-cash-register"></i>
-                </div>
-            </div>
-
-            <div class="stat-card">
-                <div class="info">
-                    <h4>Inconsistencias / Negativos</h4>
-                    <div class="number" id="metric-inconsistencias" style="color: #d97706;">0</div>
-                </div>
-                <div class="icon-box" style="background: #fffbeb; color: #d97706;">
-                    <i class="fas fa-exclamation-triangle"></i>
-                </div>
-            </div>
         </div>
 
         <!-- MOTOR DE IMPORTACIÓN DE EXCEL (CON HOJAS Y MAPEO) -->
@@ -197,155 +209,346 @@
                 <span style="font-size:0.8rem; color:#64748b; font-weight:600;">Selección de Hoja + Mapeo de Columnas</span>
             </div>
 
-            <!-- PASO 1: ARRASTRAR ARCHIVO Y SELECCIONAR HOJA -->
+            <!-- PASO 1: SELECCIONAR ARCHIVO Y HOJA -->
             <div id="construccion-excel-step-1">
-                <div class="drop-zone-card" id="construccion-excel-drop-area" onclick="document.getElementById('construccion-excel-file-input').click()">
-                    <i class="fas fa-file-excel" style="font-size: 2.5rem; color: #10b981; margin-bottom: 10px;"></i>
-                    <h4 style="margin: 0 0 6px 0; font-size: 1.05rem; font-weight: 700; color: #1e293b;">
-                        Arrastra aquí tu archivo Excel o haz clic para seleccionarlo
+                <div style="text-align: center; padding: 24px; background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 8px;">
+                    <i class="fas fa-file-excel" style="font-size: 3rem; color: #10b981; margin-bottom: 12px;"></i>
+                    <h4 style="margin: 0 0 6px 0; font-size: 1.1rem; font-weight: 700; color: #1e293b;">
+                        Selecciona tu archivo de Inventario Excel o CSV
                     </h4>
-                    <p style="margin: 0 0 12px 0; font-size: 0.85rem; color: #64748b;">
+                    <p style="margin: 0 0 16px 0; font-size: 0.85rem; color: #64748b;">
                         Soporta archivos de varias hojas (.xlsx, .xls, .csv, .md)
                     </p>
-                    <button type="button" class="btn btn-success" style="font-size:0.85rem; padding:8px 18px; pointer-events:none;">
-                        <i class="fas fa-folder-open"></i> Seleccionar Archivo Excel
+                    <input type="file" id="construccion-excel-file-input" accept=".xlsx, .xls, .csv, .md, .markdown, .txt" style="display: none;" onchange="window.appConstruccion && window.appConstruccion.onFileSelected(this)">
+                    
+                    <button type="button" class="btn btn-success" onclick="document.getElementById('construccion-excel-file-input').click()" style="padding: 10px 24px; font-size: 0.95rem; font-weight: 700; cursor: pointer;">
+                        <i class="fas fa-folder-open"></i> 1. Seleccionar Archivo (.xlsx / .csv / .md)
                     </button>
-                    <div id="construccion-excel-filename" style="margin-top: 10px; font-weight: 700; color: #10b981; font-size: 0.9rem;"></div>
+                    <br>
+                    <div id="construccion-excel-filename" style="margin-top: 14px; font-weight: 800; color: #059669; font-size: 0.95rem; background: #ecfdf5; padding: 8px 14px; border-radius: 6px; display: inline-block; display: none;"></div>
                 </div>
-                <input type="file" id="construccion-excel-file-input" accept=".xlsx, .xls, .csv, .md, .markdown, .txt" style="display: none;" onchange="window.appConstruccion && window.appConstruccion.handleFileInputChange(this)">
 
-                <!-- SELECTOR DE HOJA DE EXCEL -->
-                <div id="construccion-sheets-container" style="display: none; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 15px;">
-                    <label style="font-weight: 700; font-size: 0.9rem; color: #1e293b; display: block; margin-bottom: 8px;">
-                        <i class="fas fa-layer-group" style="color: #2563eb;"></i> Selecciona la Hoja de Excel a procesar:
+                <!-- CONTENEDOR EN LÍNEA DE MAPEO DE COLUMNAS Y VISTA PREVIA -->
+                <div id="construccion-sheets-container" style="display: none; margin-top: 18px;">
+                    
+                    <div style="background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #cbd5e1; margin-bottom: 16px;">
+                        <label style="font-weight: 700; font-size: 0.95rem; color: #1e293b; display: block; margin-bottom: 8px;">
+                            <i class="fas fa-layer-group" style="color: #2563eb;"></i> Selecciona la Hoja de Excel a Procesar:
+                        </label>
+                        <select id="construccion-sheet-select" class="mapper-select" onchange="appConstruccion.analyzeSelectedSheet()"></select>
+                    </div>
+
+                    <div id="construccion-excel-step-2" style="background: #ffffff; padding: 20px; border-radius: 8px; border: 1px solid #cbd5e1; box-shadow: var(--shadow-sm);">
+                        <h4 style="margin: 0 0 8px 0; font-size: 1.05rem; font-weight: 700; color: #1e293b;">
+                            <i class="fas fa-columns" style="color: #2563eb;"></i> Seleccionar Columnas a Utilizar
+                        </h4>
+                        <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 16px;">
+                            Asigna cada campo del sistema a la columna correspondiente de tu archivo de Excel.
+                        </p>
+
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px;">
+                            <div>
+                                <label style="font-weight: 700; font-size: 0.85rem; color: #1e293b; display: block; margin-bottom: 4px;">📌 Código (Siempre Visible)</label>
+                                <select id="c-map-codigo" class="mapper-select"></select>
+                            </div>
+                            <div>
+                                <label style="font-weight: 700; font-size: 0.85rem; color: #1e293b; display: block; margin-bottom: 4px;">📌 Descripción Taller * (Siempre Visible)</label>
+                                <select id="c-map-descripcion" class="mapper-select"></select>
+                            </div>
+                            <div>
+                                <label style="font-weight: 700; font-size: 0.85rem; color: #1e293b; display: block; margin-bottom: 4px;">Costo c/IVA</label>
+                                <select id="c-map-costo" class="mapper-select"></select>
+                            </div>
+                            <div>
+                                <label style="font-weight: 700; font-size: 0.85rem; color: #1e293b; display: block; margin-bottom: 4px;">Precio de Venta</label>
+                                <select id="c-map-precio" class="mapper-select"></select>
+                            </div>
+                            <div>
+                                <label style="font-weight: 700; font-size: 0.85rem; color: #1e293b; display: block; margin-bottom: 4px;">Stock Inicial / Existencia</label>
+                                <select id="c-map-existencia" class="mapper-select"></select>
+                            </div>
+                        </div>
+
+                        <!-- VISTA PREVIA (PRIMERAS 5 FILAS) -->
+                        <div style="margin-bottom: 20px;">
+                            <h5 style="margin: 0 0 8px 0; font-size: 0.85rem; font-weight: 700; color: #475569;">Vista Previa de las Columnas Seleccionadas (5 filas):</h5>
+                            <div style="max-height: 180px; overflow: auto; border: 1px solid #cbd5e1; border-radius: 6px; background: #ffffff;">
+                                <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+                                    <thead id="c-preview-header" style="background: #f1f5f9; position: sticky; top: 0;"></thead>
+                                    <tbody id="c-preview-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <button type="button" class="btn btn-secondary" onclick="appConstruccion.resetExcelInterface()" style="font-size: 0.85rem;">
+                                <i class="fas fa-undo"></i> Seleccionar Otro Archivo
+                            </button>
+                            <button type="button" class="btn btn-success" onclick="appConstruccion.importMappedExcelData()" style="padding: 12px 26px; font-size: 0.95rem; font-weight: 800; box-shadow: 0 4px 12px rgba(16,185,129,0.3);">
+                                <i class="fas fa-save"></i> 🚀 Procesar e Guardar en Borrador Local (<span class="label-mes-actual">Julio 2026</span>)
+                            </button>
+                        </div>
+                        <div id="draft-status-badge" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PASO 2: VISUALIZACIÓN Y ORGANIZACIÓN DEL INVENTARIO CARGADO -->
+        <div id="construccion-paso-2-container" style="display: none; background: #ffffff; border: 1px solid #cbd5e1; border-radius: var(--radius-md); padding: 24px; margin-top: 24px; box-shadow: var(--shadow-sm);">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 14px; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <h3 style="margin: 0 0 4px 0; font-size: 1.15rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-list-check" style="color: #2563eb;"></i> Paso 2: Inventario Cargado en Borrador Local
+                    </h3>
+                    <p style="margin: 0; font-size: 0.85rem; color: #64748b;">
+                        Revisa los productos procesados y organiza el orden y visibilidad de las columnas.
+                    </p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <span style="background: #ecfdf5; color: #059669; font-size: 0.85rem; font-weight: 800; padding: 6px 14px; border-radius: 20px; border: 1px solid #a7f3d0;">
+                        <i class="fas fa-boxes"></i> <span id="paso2-count-label">0</span> Productos en Borrador
+                    </span>
+                    <button type="button" class="btn btn-primary" onclick="appConstruccion.saveLocalProgress()" style="padding: 8px 16px; font-weight: 800; font-size: 0.85rem; background: #2563eb; border: none; border-radius: 6px; box-shadow: 0 2px 6px rgba(37,99,235,0.25); cursor: pointer;">
+                        <i class="fas fa-save"></i> 💾 Guardar Avance Local
+                    </button>
+                </div>
+            </div>
+
+            <!-- REORGANIZADOR DE ORDEN DE COLUMNAS -->
+            <div style="background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+                <label style="font-weight: 700; font-size: 0.88rem; color: #1e293b; display: block; margin-bottom: 10px;">
+                    <i class="fas fa-eye" style="color: #2563eb;"></i> Selecciona las Columnas a Mostrar en la Tabla:
+                </label>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                    <label style="font-size: 0.85rem; font-weight: 600; color: #334155; display: flex; align-items: center; gap: 6px; cursor: pointer; background: #ffffff; padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                        <input type="checkbox" id="col-toggle-codigo" checked onchange="appConstruccion.renderDraftTable()"> 📌 Código
                     </label>
-                    <div style="display: flex; gap: 12px; align-items: center;">
-                        <select id="construccion-sheet-select" style="flex: 1; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-weight: 600; font-size: 0.9rem; color: #0f172a;"></select>
-                        <button class="btn btn-primary" onclick="appConstruccion.analyzeSelectedSheet()" style="padding: 8px 16px; font-size: 0.875rem;">
-                            <i class="fas fa-search"></i> Analizar Hoja
-                        </button>
-                    </div>
+                    <label style="font-size: 0.85rem; font-weight: 600; color: #334155; display: flex; align-items: center; gap: 6px; cursor: pointer; background: #ffffff; padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                        <input type="checkbox" id="col-toggle-descripcion" checked onchange="appConstruccion.renderDraftTable()"> 📌 Descripción
+                    </label>
+                    <label style="font-size: 0.85rem; font-weight: 600; color: #334155; display: flex; align-items: center; gap: 6px; cursor: pointer; background: #ffffff; padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                        <input type="checkbox" id="col-toggle-costo" checked onchange="appConstruccion.renderDraftTable()"> Costo c/IVA
+                    </label>
+                    <label style="font-size: 0.85rem; font-weight: 600; color: #334155; display: flex; align-items: center; gap: 6px; cursor: pointer; background: #ffffff; padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                        <input type="checkbox" id="col-toggle-precio" checked onchange="appConstruccion.renderDraftTable()"> Precio Venta
+                    </label>
+                    <label style="font-size: 0.85rem; font-weight: 600; color: #334155; display: flex; align-items: center; gap: 6px; cursor: pointer; background: #ffffff; padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                        <input type="checkbox" id="col-toggle-existencia" checked onchange="appConstruccion.renderDraftTable()"> Stock Inicial
+                    </label>
+                    <label style="font-size: 0.85rem; font-weight: 600; color: #334155; display: flex; align-items: center; gap: 6px; cursor: pointer; background: #ffffff; padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                        <input type="checkbox" id="col-toggle-costototal" checked onchange="appConstruccion.renderDraftTable()"> Valor Total Totalizado
+                    </label>
                 </div>
             </div>
 
-            <!-- PASO 2: MAPEO DE COLUMNAS Y VISTA PREVIA -->
-            <div id="construccion-excel-step-2" style="display: none; background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                <h4 style="margin-top:0; color:#1e293b; font-size:1rem; font-weight:700;">
-                    <i class="fas fa-exchange-alt" style="color: #2563eb;"></i> Mapear Columnas de la Hoja Seleccionada
-                </h4>
-                <p style="font-size:0.85rem; color:#64748b; margin-bottom:16px;">
-                    Asigna qué campo del sistema corresponde a cada columna de la hoja seleccionada.
-                </p>
-
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px;">
-                    <div>
-                        <label style="font-weight:600; font-size:0.85rem; display:block; margin-bottom:4px; color:#334155;">Código</label>
-                        <select id="c-map-codigo" style="width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.85rem;"></select>
-                    </div>
-                    <div>
-                        <label style="font-weight:600; font-size:0.85rem; display:block; margin-bottom:4px; color:#334155;">Descripción Taller *</label>
-                        <select id="c-map-descripcion" style="width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.85rem;"></select>
-                    </div>
-                    <div>
-                        <label style="font-weight:600; font-size:0.85rem; display:block; margin-bottom:4px; color:#334155;">Costo c/IVA</label>
-                        <select id="c-map-costo" style="width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.85rem;"></select>
-                    </div>
-                    <div>
-                        <label style="font-weight:600; font-size:0.85rem; display:block; margin-bottom:4px; color:#334155;">Precio de Venta</label>
-                        <select id="c-map-precio" style="width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.85rem;"></select>
-                    </div>
-                    <div>
-                        <label style="font-weight:600; font-size:0.85rem; display:block; margin-bottom:4px; color:#334155;">Stock Inicial / Existencia</label>
-                        <select id="c-map-existencia" style="width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.85rem;"></select>
-                    </div>
-                </div>
-
-                <!-- VISTA PREVIA -->
-                <div style="margin-bottom: 20px;">
-                    <h5 style="margin:0 0 8px 0; font-size:0.85rem; font-weight:700; color:#475569;">Vista Previa (Primeras 5 filas):</h5>
-                    <div style="max-height:160px; overflow:auto; border:1px solid #cbd5e1; border-radius:6px; background:#ffffff;">
-                        <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
-                            <thead id="c-preview-header" style="background:#f1f5f9; position:sticky; top:0;"></thead>
-                            <tbody id="c-preview-body"></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-                    <button class="btn btn-secondary" onclick="appConstruccion.resetExcelInterface()" style="font-size:0.85rem;">
-                        <i class="fas fa-arrow-left"></i> Cambiar Archivo / Hoja
-                    </button>
-                    <button class="btn btn-success" onclick="appConstruccion.importMappedExcelData()" style="font-size:0.85rem;">
-                        <i class="fas fa-file-import"></i> Procesar e Importar a <span class="label-mes-actual">Julio 2026</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- CARGA DE VENTAS FEL (.md / .csv / .txt) -->
-        <div style="background:#ffffff; border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:20px; margin-bottom:20px; box-shadow:var(--shadow-sm);">
-            <h3 style="margin:0 0 12px 0; font-size:1.05rem; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:8px;">
-                <i class="fas fa-file-invoice-dollar" style="color:#2563eb;"></i> Cargar Reporte de Ventas FEL del Mes (.md, .csv, .txt)
-            </h3>
-            <div class="drop-zone-card" id="sales-drop-area" style="margin-bottom:0; background:#f0f9ff; border-color:#93c5fd;" onclick="document.getElementById('sales-file-input').click()">
-                <i class="fas fa-cloud-upload-alt" style="font-size: 2.2rem; color: #2563eb; margin-bottom: 8px;"></i>
-                <h4 style="margin: 0 0 6px 0; font-size: 1rem; font-weight: 700; color: #1e293b;">
-                    Arrastra o haz clic para cargar el Reporte de Ventas FEL (.md, .csv, .txt)
-                </h4>
-                <p style="margin: 0 0 12px 0; font-size: 0.85rem; color: #64748b;">
-                    El sistema extraerá automáticamente cantidades, facturas y descripciones para el período <span class="label-mes-actual">Julio 2026</span>.
-                </p>
-                <button type="button" class="btn" style="background:#2563eb; color:white; font-size:0.85rem; padding:8px 18px; pointer-events:none;">
-                    <i class="fas fa-folder-open"></i> Seleccionar Reporte FEL
-                </button>
-            </div>
-            <input type="file" id="sales-file-input" accept=".md,.markdown,.csv,.txt,.xlsx,.xls" style="display: none;" onchange="window.appConstruccion && window.appConstruccion.handleSalesInputChange(this)">
-        </div>
-
-        <!-- TABLA DE RECONSTRUCCIÓN -->
-        <div class="tab-content active" style="display: flex; flex-direction: column; flex: 1;">
-            <div style="padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; flex-wrap:wrap; gap:10px;">
-                <h3 style="margin: 0; font-size: 1rem; font-weight: 700; color: #1e293b;">
-                    📋 Reconciliación de Stock por Producto - <span class="label-mes-actual">Julio 2026</span>
-                </h3>
-                <div class="search-box">
-                    <input type="text" id="search-construccion" placeholder="Filtrar por código o nombre..." style="width: 280px; padding: 6px 12px 6px 36px; font-size: 0.85rem;">
-                </div>
+            <!-- BUSCADOR EN EL BORRADOR -->
+            <div style="margin-bottom: 16px;">
+                <input type="text" id="draft-search-input" placeholder="🔍 Buscar producto en el borrador (por código o descripción)..." oninput="appConstruccion.renderDraftTable()" style="width: 100%; padding: 10px 14px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 0.9rem;">
             </div>
 
-            <div class="table-responsive" style="flex: 1; overflow: auto;">
-                <table class="inventario-table">
-                    <thead>
-                        <tr>
-                            <th>Código</th>
-                            <th>Descripción Taller</th>
-                            <th style="text-align:right;">Costo c/IVA</th>
-                            <th style="text-align:right;">P. Venta</th>
-                            <th style="text-align:center;">Stock Inicial</th>
-                            <th style="text-align:center;">+ Entradas</th>
-                            <th style="text-align:center;">- Ventas</th>
-                            <th style="text-align:center;">Stock Resultante</th>
-                            <th style="text-align:center;">Estado</th>
-                            <th style="text-align:center;">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tabla-construccion-body">
-                        <tr>
-                            <td colspan="10" style="text-align:center; padding: 20px;">Cargando productos...</td>
-                        </tr>
-                    </tbody>
+            <!-- TABLA DEL INVENTARIO CARGADO -->
+            <div style="max-height: 380px; overflow: auto; border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                    <thead id="tbl-draft-header" style="background: #f1f5f9; position: sticky; top: 0; z-index: 10;"></thead>
+                    <tbody id="tbl-draft-body"></tbody>
                 </table>
             </div>
         </div>
 
+        <!-- PASO 3: CARGAR Y MAPEAR ENTRADAS / COMPRAS DEL MES -->
+        <div id="construccion-paso-3-container" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: var(--radius-md); padding: 24px; margin-top: 24px; box-shadow: var(--shadow-sm);">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 14px; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <h3 style="margin: 0 0 4px 0; font-size: 1.15rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-truck-loading" style="color: #059669;"></i> Paso 3: Cargar Entradas / Compras del Mes
+                    </h3>
+                    <p style="margin: 0; font-size: 0.85rem; color: #64748b;">
+                        Selecciona la hoja de compras/entradas de tu Excel y mapea las columnas correspondientes.
+                    </p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="background: #ecfdf5; color: #059669; font-size: 0.85rem; font-weight: 800; padding: 6px 14px; border-radius: 20px; border: 1px solid #a7f3d0;">
+                        <i class="fas fa-file-invoice-dollar"></i> <span id="paso3-count-label">0</span> Entradas en Borrador
+                    </span>
+                </div>
+            </div>
+
+            <!-- SELECCIÓN DE HOJA DE PROVEEDOR Y CONFIGURACIÓN DE IVA -->
+            <div style="background: #f8fafc; padding: 18px; border-radius: 8px; border: 1px solid #cbd5e1; margin-bottom: 20px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+                    <div>
+                        <label style="font-weight: 700; font-size: 0.9rem; color: #1e293b; display: block; margin-bottom: 6px;">
+                            <i class="fas fa-layer-group" style="color: #059669;"></i> 1. Selecciona la Hoja del Proveedor:
+                        </label>
+                        <select id="construccion-entradas-sheet-select" class="mapper-select" onchange="appConstruccion.analyzeEntradasSheet()"></select>
+                    </div>
+
+                    <div>
+                        <label style="font-weight: 700; font-size: 0.9rem; color: #1e293b; display: block; margin-bottom: 6px;">
+                            <i class="fas fa-store" style="color: #059669;"></i> 2. Nombre del Proveedor / Referencia:
+                        </label>
+                        <input type="text" id="e-input-proveedor-nombre" class="mapper-select" placeholder="Ej: PROVEEDOR A" style="background: #ffffff; width: 100%; box-sizing: border-box;">
+                    </div>
+
+                    <div>
+                        <label style="font-weight: 700; font-size: 0.9rem; color: #1e293b; display: block; margin-bottom: 6px;">
+                            <i class="fas fa-receipt" style="color: #059669;"></i> 3. Tratamiento de Impuesto (IVA):
+                        </label>
+                        <select id="e-select-iva-modo" class="mapper-select" style="background: #ffffff;">
+                            <option value="INCLUYE_IVA">Precios ya INCLUYEN IVA (Dividir entre 1.13)</option>
+                            <option value="MAS_IVA">Precios NO incluyen IVA (Agregar 13% IVA)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MAPEO DE COLUMNAS DE ENTRADAS -->
+            <div id="construccion-entradas-step-2" style="background: #ffffff; padding: 20px; border-radius: 8px; border: 1px solid #cbd5e1; margin-bottom: 20px;">
+                <h4 style="margin: 0 0 12px 0; font-size: 0.95rem; font-weight: 700; color: #1e293b;">
+                    <i class="fas fa-columns" style="color: #059669;"></i> Mapear Columnas para la Hoja Seleccionada:
+                </h4>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px;">
+                    <div>
+                        <label style="font-weight: 700; font-size: 0.85rem; color: #1e293b; display: block; margin-bottom: 4px;">📌 Código / Producto *</label>
+                        <select id="e-map-codigo" class="mapper-select"></select>
+                    </div>
+                    <div>
+                        <label style="font-weight: 700; font-size: 0.85rem; color: #1e293b; display: block; margin-bottom: 4px;">📌 Descripción Producto</label>
+                        <select id="e-map-descripcion" class="mapper-select"></select>
+                    </div>
+                    <div>
+                        <label style="font-weight: 700; font-size: 0.85rem; color: #1e293b; display: block; margin-bottom: 4px;">📌 Cantidad Entrante *</label>
+                        <select id="e-map-cantidad" class="mapper-select"></select>
+                    </div>
+                    <div>
+                        <label style="font-weight: 700; font-size: 0.85rem; color: #1e293b; display: block; margin-bottom: 4px;">Costo Unitario ($)</label>
+                        <select id="e-map-costo" class="mapper-select"></select>
+                    </div>
+                </div>
+
+                <!-- VISTA PREVIA DE ENTRADAS (5 FILAS) -->
+                <div style="margin-bottom: 20px;">
+                    <h5 style="margin: 0 0 8px 0; font-size: 0.85rem; font-weight: 700; color: #475569;">Vista Previa de la Hoja Seleccionada (5 filas):</h5>
+                    <div style="max-height: 160px; overflow: auto; border: 1px solid #cbd5e1; border-radius: 6px; background: #ffffff;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+                            <thead id="e-preview-header" style="background: #f1f5f9; position: sticky; top: 0;"></thead>
+                            <tbody id="e-preview-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; align-items: center;">
+                    <button type="button" class="btn btn-primary" onclick="appConstruccion.addCurrentEntradasSheetToBatch()" style="padding: 12px 24px; font-size: 0.95rem; font-weight: 800; background: #0284c7; border: none; border-radius: 6px; box-shadow: 0 4px 12px rgba(2,132,199,0.3); cursor: pointer;">
+                        <i class="fas fa-plus-circle"></i> ➕ Agregar esta Hoja al Lote de Proveedores
+                    </button>
+                </div>
+            </div>
+
+            <!-- TABLA DE HOJAS ACUMULADAS EN EL LOTE PENDIENTE -->
+            <div id="lote-entradas-summary-container" style="display: none; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 18px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h4 style="margin: 0; font-size: 0.95rem; font-weight: 800; color: #065f46;">
+                        <i class="fas fa-layer-group"></i> Hojas de Proveedores Agregadas al Lote Pendiente:
+                    </h4>
+                    <span id="lote-total-items-badge" style="font-weight: 800; font-size: 0.85rem; color: #047857;"></span>
+                </div>
+                <div style="border: 1px solid #6ee7b7; border-radius: 6px; overflow: hidden; background: #ffffff; margin-bottom: 16px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                        <thead style="background: #e0f2fe;">
+                            <tr>
+                                <th style="padding: 8px 12px; text-align: left;">Hoja Excel</th>
+                                <th style="padding: 8px 12px; text-align: left;">Proveedor</th>
+                                <th style="padding: 8px 12px; text-align: center;">Tratamiento IVA</th>
+                                <th style="padding: 8px 12px; text-align: right;">Cantidad Entradas</th>
+                                <th style="padding: 8px 12px; text-align: center;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbl-lote-sheets-body"></tbody>
+                    </table>
+                </div>
+                <div style="display: flex; justify-content: flex-end;">
+                    <button type="button" class="btn btn-success" onclick="appConstruccion.commitEntradasBatchToDraft()" style="padding: 12px 28px; font-size: 1rem; font-weight: 800; background: #059669; border: none; border-radius: 6px; box-shadow: 0 4px 14px rgba(5,150,105,0.35); cursor: pointer;">
+                        <i class="fas fa-check-circle"></i> 📥 Consolidar e Guardar Lote Completo en Borrador Local
+                    </button>
+                </div>
+            </div>
+
+            <!-- TABLA DE ENTRADAS EN BORRADOR CARGADAS -->
+            <div id="draft-entradas-table-container" style="display: none; margin-top: 20px;">
+                <h4 style="margin: 0 0 10px 0; font-size: 0.95rem; font-weight: 700; color: #1e293b;">
+                    Lista de Entradas / Compras del Mes Registradas en Borrador Local:
+                </h4>
+                <div style="max-height: 300px; overflow: auto; border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                        <thead style="background: #f1f5f9; position: sticky; top: 0; z-index: 10;">
+                            <tr>
+                                <th style="padding: 10px 14px; text-align: center; border-bottom: 2px solid #cbd5e1;">#</th>
+                                <th style="padding: 10px 14px; text-align: left; border-bottom: 2px solid #cbd5e1;">Código</th>
+                                <th style="padding: 10px 14px; text-align: left; border-bottom: 2px solid #cbd5e1;">Descripción</th>
+                                <th style="padding: 10px 14px; text-align: right; border-bottom: 2px solid #cbd5e1;">Cantidad Entrante</th>
+                                <th style="padding: 10px 14px; text-align: right; border-bottom: 2px solid #cbd5e1;">Costo Unit. ($)</th>
+                                <th style="padding: 10px 14px; text-align: right; border-bottom: 2px solid #cbd5e1;">Monto Total ($)</th>
+                                <th style="padding: 10px 14px; text-align: left; border-bottom: 2px solid #cbd5e1;">Proveedor/Factura</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbl-draft-entradas-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- PIE DE PAGINA: TARJETA DE CONSOLIDACIÓN Y GUARDADO FINAL EN LA NUBE (OCULTA HASTA COMPLETAR TODOS LOS PASOS) -->
+        <div id="construccion-final-cloud-card" style="display: none; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: var(--radius-md); padding: 26px; color: #ffffff; margin-top: 32px; margin-bottom: 24px; box-shadow: 0 10px 25px rgba(15,23,42,0.2); border: 1px solid #334155;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+                <div>
+                    <div style="font-size: 0.75rem; font-weight: 800; text-transform: uppercase; tracking: 1px; color: #38bdf8; margin-bottom: 4px;">
+                        Paso Final — Consolidación del Mes
+                    </div>
+                    <h3 style="margin: 0 0 6px 0; font-size: 1.2rem; font-weight: 800; color: #ffffff; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-cloud-upload-alt" style="color: #38bdf8; font-size: 1.4rem;"></i> Guardado Definitivo en la Nube (Firebase)
+                    </h3>
+                    <p style="margin: 0; font-size: 0.88rem; color: #94a3b8; max-width: 680px;">
+                        Únicamente cuando hayas completado el procesamiento local del <strong>Inventario Base</strong>, las <strong>Entradas</strong> y las <strong>Ventas FEL</strong> de <strong class="label-mes-actual" style="color: #f1f5f9;">Julio 2026</strong>, presiona este botón para consolidar y subir todo a la Nube.
+                    </p>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-primary" onclick="appConstruccion.commitLocalDraftToFirebase()" style="padding: 14px 28px; font-size: 1rem; font-weight: 800; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border: none; border-radius: 8px; box-shadow: 0 4px 14px rgba(37,99,235,0.4); cursor: pointer;">
+                        <i class="fas fa-cloud-upload-alt"></i> ☁️ APLICAR Y GUARDAR TODO EN LA NUBE
+                    </button>
+                </div>
+            </div>
+        </div>
+
     </div>
+
+    </div>
+
+    <!-- CONFIGURACIÓN DE FIREBASE E INICIALIZACIÓN -->
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCaZdPPYddeMPTiNm5cCdFL6m9b9swX0-c",
+            authDomain: "williantaller-1426b.firebaseapp.com",
+            projectId: "williantaller-1426b",
+            storageBucket: "williantaller-1426b.firebasestorage.app",
+            messagingSenderId: "757966587061",
+            appId: "1:757966587061:web:6c700e862317119d64aafc"
+        };
+        if (typeof firebase !== 'undefined' && (!firebase.apps || !firebase.apps.length)) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        window.db = firebase.firestore();
+    </script>
 
     <!-- SCRIPTS CORE Y CONTROLLER -->
     <script src="js/core/FirebaseService.js"></script>
     <script src="js/core/InventoryLogic.js"></script>
     <script src="js/services/InventoryService.js"></script>
     <script src="js/registro/RegistroController.js"></script>
-    <script src="js/controllers/ConstruccionInventarioController.js"></script>
+    <script src="js/controllers/ConstruccionInventarioController.js?v=5.0.0"></script>
 
 </body>
 

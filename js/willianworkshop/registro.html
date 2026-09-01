@@ -430,21 +430,21 @@
                     </form>
                 </div>
 
-                <!-- 2. Importación desde Archivo (Excel / Markdown) -->
+                <!-- 2. Importación desde Excel -->
                 <div class="registro-card" style="border-top: 4px solid #27ae60;">
-                    <h2 style="color: #27ae60;"><i class="fas fa-file-import"></i> Importar Registros</h2>
+                    <h2 style="color: #27ae60;"><i class="fas fa-file-excel"></i> Importar desde Excel</h2>
                     <p style="font-size: 0.9rem; color: #4a5568; margin-top: 0; margin-bottom: 20px; line-height: 1.4;">
-                        Carga masiva de registros del mes mediante un archivo Markdown (.md), Excel (.xlsx) o CSV.
+                        Carga masiva de registros del mes mediante un archivo Excel (.xlsx, .xls).
                     </p>
 
                     <button type="button" class="btn-submit-large"
                         style="background-color: #27ae60; box-shadow: 0 4px 6px rgba(39, 174, 96, 0.2); margin-top: 0;"
                         onclick="document.getElementById('fast-excel-file').click()">
-                        <i class="fas fa-file-upload"></i> Seleccionar Archivo (.md / .xlsx / .csv)
+                        <i class="fas fa-file-excel"></i> Seleccionar Archivo Excel
                     </button>
-                    <input type="file" id="fast-excel-file" accept=".md, .markdown, .txt, .csv, .xlsx, .xls" style="display: none;">
+                    <input type="file" id="fast-excel-file" accept=".xlsx, .xls" style="display: none;">
                     <span id="fast-excel-filename-display"
-                        style="margin-top: 12px; font-size: 0.9rem; font-weight: bold; color: #27ae60; text-align: center; display: block;"></span>
+                        style="margin-top: 12px; font-size: 0.9rem; font-weight: bold; color: #4a5568; text-align: center; display: block;"></span>
 
                     <!-- Selector de Hojas de Excel -->
                     <div id="fast-excel-sheets-container"
@@ -468,7 +468,7 @@
                     <!-- Selector de pestañas internas -->
                     <div class="tab-menu-inner">
                         <button id="tab-btn-lista" class="tab-btn-inner active" onclick="switchInnerTab('lista')">
-                            <i class="fas fa-list-ul"></i> Registros Pendientes <span id="badge-pendientes-count" style="background:#e67e22; color:white; padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; font-weight: bold; margin-left: 5px;">0 Libres</span>
+                            <i class="fas fa-list-ul"></i> Registros Pendientes
                         </button>
                         <button id="tab-btn-resumen" class="tab-btn-inner" onclick="switchInnerTab('resumen')">
                             <i class="fas fa-chart-pie"></i> Resumen Dinámico
@@ -485,7 +485,7 @@
                         <button class="btn"
                             style="background-color: #27ae60; color: white; padding: 10px 16px; font-size: 0.9rem; font-weight: bold; border-radius: 6px; display: flex; align-items: center; gap: 8px; border: none; cursor: pointer; transition: background 0.2s;"
                             onclick="RegistrosApp.cerrarMes()">
-                            <i class="fas fa-box-archive"></i> Cerrar Mes <span id="badge-btn-cierre-count" style="background:rgba(255,255,255,0.3); color:white; padding:1px 7px; border-radius:10px; font-size:0.8rem;">0</span>
+                            <i class="fas fa-box-archive"></i> Cerrar Mes
                         </button>
                         <button class="btn"
                             style="background-color: #e74c3c; color: white; padding: 10px 16px; font-size: 0.9rem; font-weight: bold; border-radius: 6px; display: flex; align-items: center; gap: 8px; border: none; cursor: pointer; transition: background 0.2s;"
@@ -851,39 +851,26 @@
     <div id="modalConsolidacionFlotantes"
         style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center;">
         <div style="background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 800px; box-shadow: 0 10px 25px rgba(0,0,0,0.3);">
-            <h2 style="margin-top: 0; color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
-                <span id="cierre-mes-modal-titulo"><i class="fas fa-box-archive" style="color: #27ae60;"></i> Cierre de Mes: Resumen de Registros</span>
+            <h2 style="margin-top: 0; color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+                <i class="fas fa-box-archive"></i> Cierre de Mes: Consolidación de Flotantes
             </h2>
-            <p style="color: #666; font-size: 14px; margin-bottom: 15px; line-height: 1.5;">
-                Al confirmar el cierre de mes, los registros ya <strong>facturados</strong> se archivarán. Todos los registros <strong>pendientes sin facturar</strong> pasarán automáticamente al <strong>día 1 del nuevo mes</strong> con la etiqueta <strong>"MES ANTERIOR"</strong> para mantener tu control exacto.
+            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+                Agrupamos todos tus registros <strong>pendientes</strong> dispersos (flotantes). Define cuántas unidades de cada producto quieres que "sobrevivan" y pasen al nuevo mes. Al confirmar, eliminaremos los registros regados y crearemos <strong>un único registro consolidado</strong> con fecha del primer día del nuevo mes. Escribe "0" para no pasar ninguna unidad.
             </p>
             
-            <!-- TARJETAS DE CONTEO COMPARATIVO -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-                <div style="background: #e6fffa; border: 1px solid #b2f5ea; padding: 15px; border-radius: 8px; text-align: center;">
-                    <span style="font-size: 0.85rem; color: #00796b; font-weight: bold; display: block; margin-bottom: 4px;">Facturados a Archivar</span>
-                    <strong id="cierre-count-archivados" style="font-size: 1.6rem; color: #004d40;">0</strong>
-                    <span style="display: block; font-size: 0.75rem; color: #00796b; margin-top: 2px;">(Se guardan en el Historial)</span>
-                </div>
-                <div style="background: #fffaf0; border: 1px solid #feebc8; padding: 15px; border-radius: 8px; text-align: center;">
-                    <span style="font-size: 0.85rem; color: #dd6b20; font-weight: bold; display: block; margin-bottom: 4px;">Pendientes de Facturar</span>
-                    <strong id="cierre-count-pendientes" style="font-size: 1.6rem; color: #c05621;">0</strong>
-                    <span style="display: block; font-size: 0.75rem; color: #dd6b20; margin-top: 2px;">(Pasarán al nuevo mes como "MES ANTERIOR")</span>
-                </div>
-            </div>
-
             <div id="cierre-mes-loading" style="text-align: center; padding: 20px; display: none;">
                 <i class="fas fa-spinner fa-spin fa-2x" style="color: #3498db;"></i>
-                <p>Cargando datos de cierre...</p>
+                <p>Cargando registros pendientes...</p>
             </div>
 
-            <div class="table-responsive" style="border: 1px solid #ddd; border-radius: 6px; margin-bottom: 20px; max-height: 280px; overflow-y: auto;">
-                <table class="inventario-table" style="width: 100%; border-collapse: collapse; margin: 0;">
+            <div class="table-responsive" style="border: 1px solid #ddd; border-radius: 4px; margin-bottom: 20px; max-height: 350px; overflow-y: auto;">
+                <table class="inventario-table" style="width: 100%; border-collapse: collapse;">
                     <thead>
                         <tr style="background: #f8f9fa;">
-                            <th style="padding: 10px; border-bottom: 1px solid #ddd;">Producto / Registro Pendiente</th>
-                            <th style="padding: 10px; border-bottom: 1px solid #ddd; text-align: center; width: 140px;">Registros</th>
-                            <th style="padding: 10px; border-bottom: 1px solid #ddd; text-align: right; width: 140px;">Total Unidades</th>
+                            <th style="padding: 10px; border-bottom: 1px solid #ddd;">Producto</th>
+                            <th style="padding: 10px; border-bottom: 1px solid #ddd; text-align: center; width: 150px;">Registros Dispersos</th>
+                            <th style="padding: 10px; border-bottom: 1px solid #ddd; text-align: center; width: 150px;">Unidades Actuales</th>
+                            <th style="padding: 10px; border-bottom: 1px solid #ddd; text-align: center; width: 150px;">Dejar para Nuevo Mes</th>
                         </tr>
                     </thead>
                     <tbody id="cierre-flotantes-body">
@@ -894,11 +881,11 @@
 
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div style="font-size: 13px; color: #7f8c8d;">
-                    * Al confirmar, tu lista quedará sincronizada para el nuevo mes.
+                    * Además, los registros facturados se archivarán.
                 </div>
                 <div style="display: flex; gap: 10px;">
-                    <button class="btn btn-danger" style="padding: 10px 20px; border-radius: 6px; font-weight: bold;" onclick="document.getElementById('modalConsolidacionFlotantes').style.display='none'">Cancelar</button>
-                    <button class="btn btn-success" id="btn-confirmar-cierre-mes" style="padding: 10px 20px; border-radius: 6px; font-weight: bold; background: #27ae60; border: none;" onclick="RegistrosApp.confirmarCierreMes()"><i class="fas fa-check"></i> Confirmar Cierre de Mes</button>
+                    <button class="btn btn-danger" style="padding: 10px 20px; border-radius: 6px;" onclick="document.getElementById('modalConsolidacionFlotantes').style.display='none'">Cancelar</button>
+                    <button class="btn btn-success" id="btn-confirmar-cierre-mes" style="padding: 10px 20px; border-radius: 6px;" onclick="RegistrosApp.confirmarCierreMes()"><i class="fas fa-check"></i> Confirmar Cierre de Mes</button>
                 </div>
             </div>
         </div>
@@ -948,7 +935,7 @@
     <script src="js/registro/RegistroController.js"></script>
 
     <!-- CARGAR SCRIPT DE REGISTROS -->
-    <script src="js/RegistrosApp.js?v=2.1.3"></script>
+    <script src="js/RegistrosApp.js?v=2.0.4"></script>
     <script src="js/migrateDB.js"></script>
 
 </body>

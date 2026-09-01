@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sincronizador de Inventarios | WillianWorkshop -> TallerWilliam</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <!-- Fuetes e Iconos -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #34495e;
+            --accent: #3498db;
+            --success: #27ae60;
+            --warning: #f39c12;
+            --danger: #c0392b;
+            --light: #ecf0f1;
+            --dark: #2c3e50;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f4f6f7;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 20px;
+        }
+
+        h1 {
+            color: var(--primary);
+            margin: 0;
+        }
+
+        p.subtitle {
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+
+        .sync-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #eaf2f8;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #d6eaf8;
+        }
+
+        .db-card {
+            flex: 1;
+            text-align: center;
+            padding: 15px;
+            background: white;
+            border-radius: 6px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .arrow-divider {
+            padding: 0 20px;
+            font-size: 2rem;
+            color: var(--accent);
+        }
+
+        .btn {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-success {
+            background-color: var(--success);
+        }
+
+        .status-area {
+            margin-top: 20px;
+            text-align: center;
+            font-weight: bold;
+            min-height: 24px;
+        }
+
+        /* Tabla de Diferencias */
+        .diff-container {
+            margin-top: 30px;
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: var(--primary);
+            color: white;
+            position: sticky;
+            top: 0;
+        }
+
+        tr.new-item {
+            background-color: #e8f8f5;
+        }
+
+        /* Verde claro */
+        tr.update-item {
+            background-color: #fef9e7;
+        }
+
+        /* Amarillo claro */
+        tr.error-item {
+            background-color: #fdedec;
+        }
+
+        /* Rojo claro */
+        tr.ok-item {
+            color: #aaa;
+            font-style: italic;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: white;
+        }
+
+        .bg-new {
+            background-color: var(--success);
+        }
+
+        .bg-update {
+            background-color: var(--warning);
+        }
+
+        .bg-ok {
+            background-color: #95a5a6;
+        }
+
+        .log-console {
+            background: #2c3e50;
+            color: #2ecc71;
+            font-family: monospace;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-sync-alt"></i> Sincronizador de Inventario</h1>
+            <p class="subtitle">WillianWorkshop (Origen) <i class="fas fa-arrow-right"></i> TallerWilliam (Destino)</p>
+        </header>
+
+        <div class="sync-panel">
+            <div class="db-card">
+                <h3><i class="fas fa-database"></i> Origen</h3>
+                <p>WillianWorkshop</p>
+                <small id="source-status">Conectando...</small>
+            </div>
+            <div class="arrow-divider"><i class="fas fa-angle-double-right"></i></div>
+            <div class="db-card">
+                <h3><i class="fas fa-server"></i> Destino</h3>
+                <p>TallerWilliam</p>
+                <small id="dest-status">Conectando...</small>
+            </div>
+            <div style="margin-left: 20px;">
+                <button id="btn-analyze" class="btn" onclick="app.analyzeSync()">
+                    <i class="fas fa-search"></i> Analizar Diferencias
+                </button>
+            </div>
+        </div>
+
+        <div id="status-msg" class="status-area">Listo para analizar.</div>
+
+        <div class="diff-container">
+            <table id="diff-table">
+                <thead>
+                    <tr>
+                        <th>Estado</th>
+                        <th>Código</th>
+                        <th>Descripción</th>
+                        <th>Stock (Origen/Destino)</th>
+                        <th>Precio (Origen/Destino)</th>
+                    </tr>
+                </thead>
+                <tbody id="diff-body">
+                    <tr>
+                        <td colspan="5" style="text-align:center; color:#999;">Haz clic en Analizar para ver
+                            resultados...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div style="margin-top: 20px; text-align: right;">
+            <span id="summary-text" style="font-weight:bold; margin-right:20px;"></span>
+            <button id="btn-execute" class="btn btn-success" disabled onclick="app.executeSync()">
+                <i class="fas fa-cloud-upload-alt"></i> EJECUTAR SINCRONIZACIÓN
+            </button>
+        </div>
+
+        <div class="log-console" id="console-log">
+            > Sistema inicializado.
+        </div>
+    </div>
+
+    <script>
+        // CONFIGURACIÓN DE ORIGEN (WillianWorkshop)
+        const firebaseConfigOrigen = {
+            apiKey: "AIzaSyCaZdPPYddeMPTiNm5cCdFL6m9b9swX0-c",
+            authDomain: "williantaller-1426b.firebaseapp.com",
+            projectId: "williantaller-1426b",
+            storageBucket: "williantaller-1426b.firebasestorage.app",
+            messagingSenderId: "757966587061",
+            appId: "1:757966587061:web:6c700e862317119d64aafc"
+        };
+
+        // CONFIGURACIÓN DE DESTINO (TallerWilliam)
+        const firebaseConfigDestino = {
+            apiKey: "AIzaSyDh074AarXaYCc-Htw-lsCeIc_95QQNSnY",
+            authDomain: "tallerwilliam-732b3.firebaseapp.com",
+            projectId: "tallerwilliam-732b3",
+            storageBucket: "tallerwilliam-732b3.firebasestorage.app",
+            messagingSenderId: "822262666247",
+            appId: "1:822262666247:web:6680487bbf1108006b86a2"
+        };
+
+        class SyncApp {
+            constructor() {
+                this.appOrigen = firebase.initializeApp(firebaseConfigOrigen, "Origen");
+                this.appDestino = firebase.initializeApp(firebaseConfigDestino, "Destino");
+
+                this.dbOrigen = this.appOrigen.firestore();
+                this.dbDestino = this.appDestino.firestore();
+
+                this.diffList = [];
+
+                this.initUI();
+            }
+
+            initUI() {
+                document.getElementById('source-status').innerText = "Conectado";
+                document.getElementById('source-status').style.color = "green";
+                document.getElementById('dest-status').innerText = "Conectado";
+                document.getElementById('dest-status').style.color = "green";
+                this.log("Conectado a ambas bases de datos.");
+            }
+
+            log(msg) {
+                const c = document.getElementById('console-log');
+                c.innerHTML += `<div>> ${msg}</div>`;
+                c.scrollTop = c.scrollHeight;
+            }
+
+            async analyzeSync() {
+                const btn = document.getElementById('btn-analyze');
+                btn.disabled = true;
+                btn.innerText = "Analizando...";
+                this.diffList = [];
+                const tbody = document.getElementById('diff-body');
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Leyendo bases de datos...</td></tr>';
+
+                try {
+                    // 1. Leer Origen
+                    this.log("Leyendo inventario de Origen...");
+                    const snapOrigen = await this.dbOrigen.collection('INVENTARIO').get();
+                    const productsOrigen = snapOrigen.docs.map(d => ({ ...d.data(), id: d.id }));
+                    this.log(`Origen leido: ${productsOrigen.length} productos.`);
+
+                    // 2. Leer Destino
+                    this.log("Leyendo inventario de Destino...");
+                    const snapDestino = await this.dbDestino.collection('INVENTARIO').get();
+                    const productsDestino = snapDestino.docs.map(d => ({ ...d.data(), id: d.id }));
+                    this.log(`Destino leido: ${productsDestino.length} productos.`);
+
+                    // 3. Comparar
+                    this.log("Comparando...");
+                    tbody.innerHTML = '';
+
+                    // Mapa de destino por CODIGO para busqueda rapida
+                    const mapDestino = {};
+                    productsDestino.forEach(p => {
+                        if (p.codigo) mapDestino[p.codigo.trim().toUpperCase()] = p;
+                    });
+
+                    let countNew = 0;
+                    let countUpdate = 0;
+
+                    productsOrigen.forEach(po => {
+                        if (!po.codigo) return; // Ignorar sin codigo
+
+                        const code = po.codigo.trim().toUpperCase();
+                        const pd = mapDestino[code];
+
+                        if (!pd) {
+                            // NO EXISTE EN DESTINO -> NUEVO
+                            this.diffList.push({ type: 'NEW', source: po, destId: null });
+                            this.renderRow('bg-new', 'NUEVO', po, null, null, 'new-item');
+                            countNew++;
+                        } else {
+                            // EXISTE -> VERIFICAR CAMBIOS
+                            // Comparamos Cantidad y Precio (puedes agregar mas campos si quieres)
+                            const stockDiff = po.cantidad !== pd.cantidad;
+                            const priceDiff = po.precio !== pd.precio || po.costo !== pd.costo;
+                            const descDiff = po.descripcion !== pd.descripcion;
+
+                            if (stockDiff || priceDiff || descDiff) {
+                                this.diffList.push({ type: 'UPDATE', source: po, destId: pd.id });
+                                this.renderRow('bg-update', 'ACTUALIZAR', po, pd.cantidad, pd.precio, 'update-item');
+                                countUpdate++;
+                            } else {
+                                // IGUAL (No mostrar o mostrar gris)
+                                // this.renderRow('bg-ok', 'IGUAL', po, pd.cantidad, pd.precio, 'ok-item');
+                            }
+                        }
+                    });
+
+                    document.getElementById('status-msg').innerText = `Análisis completado: ${countNew} Nuevos, ${countUpdate} Actualizaciones.`;
+                    document.getElementById('summary-text').innerText = `${this.diffList.length} Cambios pendientes`;
+
+                    const execBtn = document.getElementById('btn-execute');
+                    if (this.diffList.length > 0) {
+                        execBtn.disabled = false;
+                    } else {
+                        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Todo sincronizado. No hay cambios necesarios.</td></tr>';
+                        execBtn.disabled = true;
+                    }
+
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-search"></i> Analizar Diferencias';
+
+                } catch (e) {
+                    console.error(e);
+                    this.log("ERROR CRÍTICO: " + e.message);
+                    btn.disabled = false;
+                    btn.innerText = "Reintentar";
+                }
+            }
+
+            renderRow(badgeClass, badgeText, po, destStock, destPrice, rowClass) {
+                const tbody = document.getElementById('diff-body');
+                const tr = document.createElement('tr');
+                tr.className = rowClass;
+
+                const stockStr = destStock !== null ? `${po.cantidad} <span style='color:#999'>(vs ${destStock})</span>` : po.cantidad;
+                const priceStr = destPrice !== null ? `$${po.precio} <span style='color:#999'>(vs $${destPrice})</span>` : `$${po.precio}`;
+
+                tr.innerHTML = `
+                <td><span class="badge ${badgeClass}">${badgeText}</span></td>
+                <td>${po.codigo}</td>
+                <td>${po.descripcion}</td>
+                <td>${stockStr}</td>
+                <td>${priceStr}</td>
+            `;
+                tbody.appendChild(tr);
+            }
+
+            async executeSync() {
+                if (!confirm(`¿Seguro que deseas aplicar ${this.diffList.length} cambios en TallerWilliam? Esta acción no se puede deshacer.`)) return;
+
+                const btn = document.getElementById('btn-execute');
+                btn.disabled = true;
+                btn.innerText = "Sincronizando...";
+
+                this.log("Iniciando sincronización...");
+
+                let processed = 0;
+                let errors = 0;
+
+                // Procesar en lotes de 500 (Batch commit)
+                const batchSize = 400; // Margen seguridad
+                let batches = [];
+                let currentBatch = this.dbDestino.batch();
+                let batchCount = 0;
+
+                for (const item of this.diffList) {
+                    const dataToSave = {
+                        codigo: item.source.codigo,
+                        descripcion: item.source.descripcion,
+                        descripcionTaller: item.source.descripcionTaller || '',
+                        cantidad: item.source.cantidad || 0,
+                        precio: item.source.precio || 0,
+                        costo: item.source.costo || 0,
+                        minStock: item.source.minStock || 5,
+                        aliases: item.source.aliases || [],
+                        creditoFiscal: item.source.creditoFiscal || false,
+                        // Mantener timestamps si es posible, o crear nuevos
+                        ultimaActualizacion: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+
+                    if (item.type === 'NEW') {
+                        // Crear nuevo doc con ID automático o generado
+                        const newRef = this.dbDestino.collection('INVENTARIO').doc();
+                        currentBatch.set(newRef, {
+                            ...dataToSave,
+                            fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    } else if (item.type === 'UPDATE') {
+                        // Actualizar existente
+                        const ref = this.dbDestino.collection('INVENTARIO').doc(item.destId);
+                        currentBatch.update(ref, dataToSave);
+                    }
+
+                    batchCount++;
+                    processed++;
+
+                    if (batchCount >= batchSize) {
+                        await currentBatch.commit();
+                        this.log(`Lote guardado: ${processed} items...`);
+                        currentBatch = this.dbDestino.batch();
+                        batchCount = 0;
+                    }
+                }
+
+                if (batchCount > 0) {
+                    await currentBatch.commit();
+                }
+
+                this.log(`¡Sincronización Finalizada! ${processed} cambios aplicados.`);
+                alert("Sincronización completada con éxito.");
+
+                // Reset UI
+                btn.innerText = "Sincronizado";
+                document.getElementById('diff-body').innerHTML = '<tr><td colspan="5" style="text-align:center; color:green;">Sincronización exitosa. Vuelve a analizar para verificar.</td></tr>';
+                this.diffList = [];
+            }
+        }
+
+        const app = new SyncApp();
+
+    </script>
+
+</body>
+
+</html>
