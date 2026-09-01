@@ -3157,7 +3157,7 @@ const RegistrosApp = {
             const cliente = elCliente ? (elCliente.value || 'Cliente General') : 'Cliente General';
             const numero = elNumero ? (elNumero.value || '') : '';
 
-            // Pasar registros pendientes a facturado (FIFO) - Limitado al mes de la factura
+            // Pasar registros pendientes a facturado (FIFO con prioridad por cuenta y registro específico)
             const targetMonth = fechaFactura.substring(0, 7);
             let pendientesParaFacturar = this.allRegistros.filter(r => 
                 (r.estado === 'pendiente' || !r.estado) && 
@@ -3171,53 +3171,84 @@ const RegistrosApp = {
                 let cantidadFaltante = item.cantidadFacturar;
                 
                 const safeItemName = item.producto.toLowerCase().trim();
+                const itemKey = this.getGroupingKey(item.producto, item.vinculoId);
+                const itemCuenta = (item.cuenta || '').toLowerCase().trim();
+                const clienteLower = (cliente || '').toLowerCase().trim();
 
-                for (let i = 0; i < pendientesParaFacturar.length; i++) {
-                    let reg = pendientesParaFacturar[i];
+                const tryConsume = (reg) => {
+                    if (cantidadFaltante <= 0) return;
                     const regKey = this.getGroupingKey(reg);
-                    const itemKey = this.getGroupingKey(item.producto, item.vinculoId);
                     const safeRegName = this.getOfficialProductName(reg).toLowerCase().trim();
 
                     const matchByKey = (regKey === itemKey);
                     const matchByName = (safeRegName === safeItemName);
 
-                    if (reg.producto && item.producto && (matchByKey || matchByName) && cantidadFaltante > 0) {
-                        const cantDisponibleReal = reg.cantidad - (reg.cantidadUsada || 0);
-                        if (cantDisponibleReal <= 0) continue;
+                    if (!matchByKey && !matchByName) return;
 
-                        let regRef = this.registrosRef.doc(reg.id);
-                        let qtyToConsume = Math.min(cantDisponibleReal, cantidadFaltante);
-                        
-                        // Agrupar actualización de registros pendientes
-                        if (!registrosUpdates.has(reg.id)) {
-                            registrosUpdates.set(reg.id, {
-                                ref: regRef,
-                                regBaseData: reg,
-                                cantidadUsada: qtyToConsume,
-                                facturas: [{
-                                    facturaId: facturaId,
-                                    numeroFactura: numero,
-                                    clienteFactura: cliente,
-                                    precioFacturado: item.precioUnitario,
-                                    costoFacturado: item.costoUnitario || 0,
-                                    cantidad: qtyToConsume
-                                }]
-                            });
-                        } else {
-                            const existing = registrosUpdates.get(reg.id);
-                            existing.cantidadUsada += qtyToConsume;
-                            existing.facturas.push({
+                    const cantDisponibleReal = reg.cantidad - (reg.cantidadUsada || 0);
+                    if (cantDisponibleReal <= 0) return;
+
+                    let regRef = this.registrosRef.doc(reg.id);
+                    let qtyToConsume = Math.min(cantDisponibleReal, cantidadFaltante);
+                    
+                    // Agrupar actualización de registros pendientes
+                    if (!registrosUpdates.has(reg.id)) {
+                        registrosUpdates.set(reg.id, {
+                            ref: regRef,
+                            regBaseData: reg,
+                            cantidadUsada: qtyToConsume,
+                            facturas: [{
                                 facturaId: facturaId,
                                 numeroFactura: numero,
                                 clienteFactura: cliente,
                                 precioFacturado: item.precioUnitario,
                                 costoFacturado: item.costoUnitario || 0,
                                 cantidad: qtyToConsume
-                            });
+                            }]
+                        });
+                    } else {
+                        const existing = registrosUpdates.get(reg.id);
+                        existing.cantidadUsada += qtyToConsume;
+                        existing.facturas.push({
+                            facturaId: facturaId,
+                            numeroFactura: numero,
+                            clienteFactura: cliente,
+                            precioFacturado: item.precioUnitario,
+                            costoFacturado: item.costoUnitario || 0,
+                            cantidad: qtyToConsume
+                        });
+                    }
+                    
+                    cantidadFaltante -= qtyToConsume;
+                    reg.cantidadUsada = (reg.cantidadUsada || 0) + qtyToConsume; // En memoria para el siguiente loop
+                };
+
+                // Prioridad 1: Registro específico de origen (si fue arrastrado/agregado desde una fila concreta)
+                if (item.originalId) {
+                    const exactReg = pendientesParaFacturar.find(r => r.id === item.originalId);
+                    if (exactReg) {
+                        tryConsume(exactReg);
+                    }
+                }
+
+                // Prioridad 2: Registros que coincidan con la cuenta del ítem o el cliente de la factura
+                if (cantidadFaltante > 0) {
+                    for (let i = 0; i < pendientesParaFacturar.length; i++) {
+                        let reg = pendientesParaFacturar[i];
+                        const regCuenta = (reg.cuenta || '').toLowerCase().trim();
+                        if (regCuenta && (regCuenta === itemCuenta || (clienteLower && regCuenta === clienteLower))) {
+                            tryConsume(reg);
+                            if (cantidadFaltante <= 0) break;
                         }
-                        
-                        cantidadFaltante -= qtyToConsume;
-                        reg.cantidadUsada = (reg.cantidadUsada || 0) + qtyToConsume; // En memoria para el siguiente loop
+                    }
+                }
+
+                // Prioridad 3: Registros generales o en orden cronológico estándar (FIFO)
+                if (cantidadFaltante > 0) {
+                    for (let i = 0; i < pendientesParaFacturar.length; i++) {
+                        let reg = pendientesParaFacturar[i];
+                        tryConsume(reg);
+                        if (cantidadFaltante <= 0) break;
                     }
                 }
             });

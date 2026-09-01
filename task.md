@@ -21,6 +21,9 @@ Este archivo contiene el resumen de lo que ya está listo y lo que sigue, para m
     *   Conteo exacto de artículos físicos facturados a archivar y pendientes de facturar.
     *   Guardado seguro en base de datos para archivar sin errores de documentos faltantes.
     *   Tabla detallada mostrando únicamente los registros pendientes a trasladar como "MES ANTERIOR".
+6.  **Facturación por Cuenta en Salidas (salidas.html):**
+    *   Prioridad estricta al descontar registros al facturar (prioriza registro de origen y nombre de cuenta).
+    *   Evita que productos con cuenta consuman registros generales del inicio de mes o reboten al Paso 1.
 
 ## 📋 PRÓXIMOS PASOS (Por si deseas continuar)
 *   Seguir con cualquier mejora de diseño, reportes adicionales o nuevas funciones en las pantallas que necesites.
