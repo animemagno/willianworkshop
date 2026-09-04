@@ -767,10 +767,16 @@ const RegistrosApp = {
         this.allRegistros.forEach(r => {
             if (r.archivado) return;
             if (r.fecha && this.getRecordMonthStr(r.fecha) !== displayMonth) return;
-            const fifoBilled = computedBilledMap[r.id] || 0;
-            const clones = this.allClonesMap[r.id] || [];
-            const cloneBilled = clones.reduce((sum, c) => c.estado === 'facturado' ? sum + c.cantidad : sum, 0);
-            const pending = Math.max(0, r.cantidad - (fifoBilled + cloneBilled));
+            let billed = 0;
+            if (r.cantidadUsada !== undefined && r.cantidadUsada !== null) {
+                billed = r.cantidadUsada;
+            } else {
+                const fifoBilled = computedBilledMap[r.id] || 0;
+                const clones = this.allClonesMap[r.id] || [];
+                const cloneBilled = clones.reduce((sum, c) => c.estado === 'facturado' ? sum + c.cantidad : sum, 0);
+                billed = fifoBilled + cloneBilled;
+            }
+            const pending = Math.max(0, r.cantidad - billed);
             totalUnbilledUnits += pending;
         });
         const badgeTab = document.getElementById('badge-pendientes-count');
@@ -884,11 +890,14 @@ const RegistrosApp = {
 
                 // Obtener clones y calcular estado de facturación y acumulados
                 const clones = this.allClonesMap[reg.id] || [];
-                const fifoBilled = computedBilledMap[reg.id] || 0;
-                
-                const explicitBilledClones = clones.filter(c => c.estado === 'facturado').reduce((sum, c) => sum + c.cantidad, 0);
-                
-                let totalBilled = (fifoBilled + explicitBilledClones);
+                let totalBilled = 0;
+                if (reg.cantidadUsada !== undefined && reg.cantidadUsada !== null) {
+                    totalBilled = reg.cantidadUsada;
+                } else {
+                    const fifoBilled = computedBilledMap[reg.id] || 0;
+                    const explicitBilledClones = clones.filter(c => c.estado === 'facturado').reduce((sum, c) => sum + c.cantidad, 0);
+                    totalBilled = (fifoBilled + explicitBilledClones);
+                }
                 
                 const totalPending = Math.max(0, reg.cantidad - totalBilled);
 
@@ -1673,7 +1682,11 @@ const RegistrosApp = {
             });
         }
         
-        const todosLosRegistrosMes = this._cachedRegistrosOrdenadosAsc;
+        const todosLosRegistrosMes = this._cachedRegistrosOrdenadosAsc.filter(reg => {
+            if (!reg.fecha) return false;
+            const mesReg = this.getRecordMonthStr(reg.fecha);
+            return mesReg === mesFacturaActual;
+        });
 
         let cacheMap = null;
         if (window.app && window.app.cache) {
@@ -1739,11 +1752,16 @@ const RegistrosApp = {
             const key = this.getGroupingKey(reg);
             const officialName = this.getOfficialProductName(reg);
             
-            // Calcular facturado histórico (igual que en renderFastEntryTable y _calculateRealRemaining)
-            const fifoBilled = computedBilledMap[reg.id] || 0;
-            const clones = this.allClonesMap[reg.id] || [];
-            const explicitBilledClones = clones.filter(c => c.estado === 'facturado').reduce((sum, c) => sum + c.cantidad, 0);
-            const totalBilledHist = (fifoBilled + explicitBilledClones);
+            // Calcular facturado según el registro real en base de datos
+            let totalBilledHist = 0;
+            if (reg.cantidadUsada !== undefined && reg.cantidadUsada !== null) {
+                totalBilledHist = reg.cantidadUsada;
+            } else {
+                const fifoBilled = computedBilledMap[reg.id] || 0;
+                const clones = this.allClonesMap[reg.id] || [];
+                const explicitBilledClones = clones.filter(c => c.estado === 'facturado').reduce((sum, c) => sum + c.cantidad, 0);
+                totalBilledHist = (fifoBilled + explicitBilledClones);
+            }
             
             // Determinar cantidad ya cargada explicitamente (type single) en la factura actual
             const factItem = this.facturaItems.find(fi => fi.type === 'single' && fi.originalId === reg.id);
@@ -2040,16 +2058,26 @@ const RegistrosApp = {
         let totalRestante = 0;
         let restanteParaRegistroEspecifico = 0;
 
+        const dateInput = document.getElementById('factura-fecha');
+        const dateInputVal = dateInput ? dateInput.value : '';
+        const mesFacturaActual = dateInputVal ? dateInputVal.substring(0, 7) : new Date().toISOString().substring(0, 7);
+
         registrosOrdenados.forEach(reg => {
             if (!reg.producto) return;
+            if (reg.fecha && this.getRecordMonthStr(reg.fecha) !== mesFacturaActual) return;
             const key = this.getGroupingKey(reg);
             if (key !== productKey) return;
 
-            // Calcular facturado histórico (igual que en renderFastEntryTable)
-            const fifoBilled = computedBilledMap[reg.id] || 0;
-            const clones = this.allClonesMap[reg.id] || [];
-            const explicitBilledClones = clones.filter(c => c.estado === 'facturado').reduce((sum, c) => sum + c.cantidad, 0);
-            const totalBilledHist = (fifoBilled + explicitBilledClones);
+            // Calcular facturado según el registro real en base de datos
+            let totalBilledHist = 0;
+            if (reg.cantidadUsada !== undefined && reg.cantidadUsada !== null) {
+                totalBilledHist = reg.cantidadUsada;
+            } else {
+                const fifoBilled = computedBilledMap[reg.id] || 0;
+                const clones = this.allClonesMap[reg.id] || [];
+                const explicitBilledClones = clones.filter(c => c.estado === 'facturado').reduce((sum, c) => sum + c.cantidad, 0);
+                totalBilledHist = (fifoBilled + explicitBilledClones);
+            }
 
             // Descontar items single de la factura actual
             const factItem = this.facturaItems.find(fi => fi.type === 'single' && fi.originalId === reg.id);
@@ -3069,10 +3097,10 @@ const RegistrosApp = {
 
                     // Revertir registros diarios a estado 'pendiente' y desvincularlos (Unified DB)
                     const registrosLocales = this.allRegistros.filter(r => r.facturas && r.facturas.some(f => f.facturaId === this.editingInvoiceId));
-                    const uniqueRegIds = [...new Set(registrosLocales.map(r => r.respaldoId || r.id))];
+                    const uniqueRegIds = [...new Set(registrosLocales.map(r => r.id))];
                     
                     for (let id of uniqueRegIds) {
-                        const originalReg = this.allRegistros.find(r => (r.respaldoId || r.id) === id && !(r.id || '').startsWith('simul_'));
+                        const originalReg = this.allRegistros.find(r => r.id === id && !(r.id || '').startsWith('simul_'));
                         if (!originalReg) continue;
                         
                         const facturasToKeep = (originalReg.facturas || []).filter(f => f.facturaId !== this.editingInvoiceId);
