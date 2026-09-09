@@ -1243,8 +1243,37 @@ const RegistrosApp = {
         const registrosDelMes = this.allRegistros.filter(r => r.archivado && r.fecha && this.getRecordMonthStr(r.fecha) === mesKey);
         
         registrosDelMes.sort((a, b) => {
-            const diff = this.parseDateToMillis(b.fecha) - this.parseDateToMillis(a.fecha);
-            return diff !== 0 ? diff : (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0);
+            const millisA = this.parseDateToMillis(a.fecha);
+            const millisB = this.parseDateToMillis(b.fecha);
+            
+            if (millisA !== millisB) {
+                return millisA - millisB; // Ascendente (del día 1 al 31)
+            }
+            
+            const hasFilaA = a.filaExcel !== undefined && a.filaExcel !== null;
+            const hasFilaB = b.filaExcel !== undefined && b.filaExcel !== null;
+            
+            if (hasFilaA && hasFilaB) {
+                return a.filaExcel - b.filaExcel; // Fila Excel ascendente
+            } else if (hasFilaA) {
+                return -1;
+            } else if (hasFilaB) {
+                return 1;
+            }
+            
+            let tA = 0;
+            if (a.timestamp) {
+                if (typeof a.timestamp.toMillis === 'function') tA = a.timestamp.toMillis();
+                else if (a.timestamp instanceof Date) tA = a.timestamp.getTime();
+                else if (typeof a.timestamp === 'number') tA = a.timestamp;
+            }
+            let tB = 0;
+            if (b.timestamp) {
+                if (typeof b.timestamp.toMillis === 'function') tB = b.timestamp.toMillis();
+                else if (b.timestamp instanceof Date) tB = b.timestamp.getTime();
+                else if (typeof b.timestamp === 'number') tB = b.timestamp;
+            }
+            return tA - tB;
         });
 
         if (registrosDelMes.length === 0) {
