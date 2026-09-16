@@ -169,6 +169,20 @@ const RegistrosApp = {
         }
     },
 
+    getNextInvoiceNumber() {
+        let maxNum = 0;
+        if (this.allHistoricalInvoices && this.allHistoricalInvoices.length > 0) {
+            this.allHistoricalInvoices.forEach(inv => {
+                const numStr = String(inv.numeroFactura || '').replace(/\D/g, '');
+                const n = parseInt(numStr, 10);
+                if (!isNaN(n) && n > maxNum) {
+                    maxNum = n;
+                }
+            });
+        }
+        return maxNum > 0 ? (maxNum + 1) : 1;
+    },
+
     saveFacturaDraft() {
         try {
             const draft = {
@@ -193,8 +207,17 @@ const RegistrosApp = {
                         if (draft.cliente && document.getElementById('factura-cliente')) {
                             document.getElementById('factura-cliente').value = draft.cliente;
                         }
-                        if (draft.numero && document.getElementById('factura-numero')) {
-                            document.getElementById('factura-numero').value = draft.numero;
+                        const inputNum = document.getElementById('factura-numero');
+                        if (inputNum && !this.editingInvoiceId) {
+                            const draftNum = draft.numero ? String(draft.numero).trim() : '';
+                            const isUsed = draftNum && this.allHistoricalInvoices && this.allHistoricalInvoices.some(
+                                inv => String(inv.numeroFactura || '').trim() === draftNum
+                            );
+                            if (!draftNum || isUsed) {
+                                inputNum.value = this.getNextInvoiceNumber();
+                            } else {
+                                inputNum.value = draftNum;
+                            }
                         }
                         this.renderFactura();
                         this.renderFacturacionData();
@@ -482,6 +505,22 @@ const RegistrosApp = {
                 this.renderFacturacionData();
             });
         }
+
+        // Detección de reactivación de pantalla/pestaña en tablets o reposo
+        window.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && !this.editingInvoiceId) {
+                if (typeof this.loadInvoicesHistory === 'function') {
+                    this.loadInvoicesHistory();
+                }
+            }
+        });
+        window.addEventListener('focus', () => {
+            if (!this.editingInvoiceId) {
+                if (typeof this.loadInvoicesHistory === 'function') {
+                    this.loadInvoicesHistory();
+                }
+            }
+        });
         
         this.setupAutocomplete();
     },
@@ -3212,7 +3251,42 @@ const RegistrosApp = {
             const elCliente = document.getElementById('factura-cliente');
             const elNumero = document.getElementById('factura-numero');
             const cliente = elCliente ? (elCliente.value || 'Cliente General') : 'Cliente General';
-            const numero = elNumero ? (elNumero.value || '') : '';
+            let numero = elNumero ? String(elNumero.value || '').trim() : '';
+
+            // Validar que el número no esté duplicado si es una nueva factura (o asignarlo si está vacío)
+            if (!this.editingInvoiceId) {
+                if (!numero) {
+                    numero = String(this.getNextInvoiceNumber());
+                    if (elNumero) elNumero.value = numero;
+                }
+
+                // Verificación en tiempo real contra Firestore
+                let isDuplicate = false;
+                try {
+                    const dupSnap = await this.db.collection('INVENTARIO_SALIDAS')
+                        .where('numeroFactura', '==', numero)
+                        .get();
+                    if (!dupSnap.empty) isDuplicate = true;
+                } catch (dupErr) {
+                    console.warn("Fallo verificación en Firestore, revisando en memoria local:", dupErr);
+                    isDuplicate = this.allHistoricalInvoices.some(inv => String(inv.numeroFactura || '').trim() === numero);
+                }
+
+                if (isDuplicate) {
+                    const freshNextNum = this.getNextInvoiceNumber();
+                    console.warn(`[DUPLICADO EVITADO] El número ${numero} ya existe. Reasignado a ${freshNextNum}.`);
+                    if (typeof Swal !== 'undefined') {
+                        await Swal.fire({
+                            icon: 'warning',
+                            title: 'Número ya utilizado',
+                            text: `El número de factura #${numero} ya fue emitido previamente. Se asignó automáticamente el siguiente correlativo libre: #${freshNextNum}.`,
+                            confirmButtonColor: '#27ae60'
+                        });
+                    }
+                    numero = String(freshNextNum);
+                    if (elNumero) elNumero.value = numero;
+                }
+            }
 
             // Pasar registros pendientes a facturado (FIFO con prioridad por cuenta y registro específico)
             const targetMonth = fechaFactura.substring(0, 7);
@@ -3471,11 +3545,17 @@ const RegistrosApp = {
             // Limpiar factura DESPUÉS de actualizar la UI
             // Esto evita que los repintados locales vacíen la información antes de tiempo.
             this.facturaItems = [];
+            const inputCliente = document.getElementById('factura-cliente');
+            const inputNum = document.getElementById('factura-numero');
+            if (inputCliente) inputCliente.value = '';
+            if (inputNum) inputNum.value = '';
             this.saveFacturaDraft();
             this.renderFactura();
-            document.getElementById('factura-cliente').value = '';
-            document.getElementById('factura-numero').value = '';
             
+            // Asignar inmediatamente el nuevo número correlativo para la siguiente factura
+            const nextCorrelativo = this.getNextInvoiceNumber();
+            if (inputNum) inputNum.value = nextCorrelativo;
+
             // Repintar las tablas (Tarjetas 1 y 2) con el inventario actualizado
             this.renderFacturacionData();
 
@@ -4156,13 +4236,19 @@ const RegistrosApp = {
             this.renderFacturacionData();
 
             if (this.allHistoricalInvoices.length > 0) {
-                const lastInvoice = this.allHistoricalInvoices[0];
-                const lastNumStr = String(lastInvoice.numeroFactura || '').replace(/\D/g, '');
-                const lastNum = parseInt(lastNumStr, 10) || 0;
-                const nextNum = lastNum > 0 ? lastNum + 1 : '';
+                const nextNum = this.getNextInvoiceNumber();
                 const inputNum = document.getElementById('factura-numero');
-                if (inputNum && (!inputNum.value || String(inputNum.value).trim() === '')) {
-                    inputNum.value = nextNum;
+                if (inputNum && !this.editingInvoiceId) {
+                    const currentVal = String(inputNum.value || '').trim();
+                    const isAlreadyUsed = currentVal && this.allHistoricalInvoices.some(
+                        inv => String(inv.numeroFactura || '').trim() === currentVal
+                    );
+                    if (!currentVal || isAlreadyUsed) {
+                        inputNum.value = nextNum;
+                        if (this.facturaItems && this.facturaItems.length > 0) {
+                            this.saveFacturaDraft();
+                        }
+                    }
                 }
             }
         } catch (error) {
@@ -4180,6 +4266,15 @@ const RegistrosApp = {
             return;
         }
 
+        // Conteo de facturas repetidas por número para alertar visualmente
+        const dupCounts = {};
+        invoices.forEach(inv => {
+            const num = String(inv.numeroFactura || '').trim();
+            if (num) {
+                dupCounts[num] = (dupCounts[num] || 0) + 1;
+            }
+        });
+
         invoices.forEach(inv => {
             const dateFormatted = this.formatDate(inv.fecha);
             const totalVal = typeof inv.total === 'number' ? inv.total : 0;
@@ -4190,10 +4285,16 @@ const RegistrosApp = {
                 ? `<span style="display:inline-flex;align-items:center;gap:3px;background:#fed7d7;color:#c53030;border:1px solid #fc8181;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:bold;margin-left:6px;"><i class='fas fa-exclamation-triangle'></i> Sin vincular</span>`
                 : '';
 
+            const numClean = String(inv.numeroFactura || '').trim();
+            const isRepeated = numClean && dupCounts[numClean] > 1;
+            const dupBadge = isRepeated
+                ? `<span title="Factura con número duplicado" style="display:inline-flex;align-items:center;gap:3px;background:#fed7d7;color:#c53030;border:1px solid #fc8181;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:bold;margin-left:4px;"><i class='fas fa-exclamation-circle'></i> Repetida</span>`
+                : '';
+
             const isChecked = localStorage.getItem(`invoiceChecked_${inv.id}`) === 'true';
             const hasNote = !!localStorage.getItem(`invoiceNote_${inv.id}`);
             const checkIcon = isChecked ? '<i class="fas fa-check-circle" style="font-size:18px; color:#38a169;"></i>' : '<i class="fas fa-circle" style="font-size:18px; color:#cbd5e0;"></i>';
-            const rowBg = isChecked ? '#f0fff4' : '';
+            const rowBg = isChecked ? '#f0fff4' : (isRepeated ? '#fffaf0' : '');
             const noteIcon = hasNote ? ' <i class="fas fa-sticky-note" title="Tiene nota" style="color: #d69e2e; font-size: 0.9rem; margin-left: 5px;"></i>' : '';
 
             const tr = document.createElement('tr');
@@ -4203,7 +4304,7 @@ const RegistrosApp = {
                 <td style="padding: 12px; border: 1px solid #edf2f7; text-align: center; cursor: pointer;" onclick="RegistrosApp.toggleInvoiceChecked('${inv.id}', this)">${checkIcon}</td>
                 <td style="padding: 12px; border: 1px solid #edf2f7; font-weight: 500;">${dateFormatted}</td>
                 <td style="padding: 12px; border: 1px solid #edf2f7; font-weight: 600; color: #2d3748;">${inv.CLIENTE || 'Cliente General'}${alertaBadge}</td>
-                <td style="padding: 12px; border: 1px solid #edf2f7; text-align: center; font-family: monospace; font-size: 0.95rem;">${inv.numeroFactura || '<span style="color:#cbd5e0;">-</span>'}${noteIcon}</td>
+                <td style="padding: 12px; border: 1px solid #edf2f7; text-align: center; font-family: monospace; font-size: 0.95rem;">${inv.numeroFactura || '<span style="color:#cbd5e0;">-</span>'}${dupBadge}${noteIcon}</td>
                 <td style="padding: 12px; border: 1px solid #edf2f7; text-align: center;"><span class="status-badge ${typeClass}">${typeText}</span></td>
                 <td style="padding: 12px; border: 1px solid #edf2f7; text-align: right; font-weight: bold; color: #2b6cb0;">$${totalVal.toFixed(2)}</td>
                 <td style="padding: 12px; border: 1px solid #edf2f7; text-align: center;">
@@ -4334,6 +4435,304 @@ const RegistrosApp = {
         } catch (e) {
             console.error("Error al actualizar la fecha:", e);
             alert("Error al actualizar la fecha: " + e.message);
+        } finally {
+            this.showLoading(false);
+        }
+    },
+
+    async editInvoiceNumber() {
+        const id = this.currentViewedInvoiceId;
+        if (!id) return;
+        const inv = this.allHistoricalInvoices.find(i => i.id === id);
+        if (!inv) return;
+
+        let currentNum = inv.numeroFactura || '';
+
+        if (typeof Swal !== 'undefined') {
+            const { value: newNum } = await Swal.fire({
+                title: 'Editar Número de Factura',
+                input: 'text',
+                inputValue: currentNum,
+                text: 'Ingresa el nuevo número correlativo para esta factura:',
+                showCancelButton: true,
+                confirmButtonColor: '#3498db',
+                cancelButtonColor: '#7f8c8d',
+                confirmButtonText: 'Guardar',
+                cancelButtonText: 'Cancelar'
+            });
+
+            if (newNum && String(newNum).trim() !== String(currentNum).trim()) {
+                await this.updateInvoiceNumber(id, String(newNum).trim());
+            }
+        } else {
+            const newNum = prompt("Ingrese el nuevo número de factura:", currentNum);
+            if (newNum && String(newNum).trim() !== String(currentNum).trim()) {
+                await this.updateInvoiceNumber(id, String(newNum).trim());
+            }
+        }
+    },
+
+    async updateInvoiceNumber(id, newNum) {
+        this.showLoading(true);
+        try {
+            // Verificar si el nuevo número ya está siendo usado por OTRA factura
+            const checkSnap = await this.db.collection('INVENTARIO_SALIDAS')
+                .where('numeroFactura', '==', newNum)
+                .get();
+            const existsOther = checkSnap.docs.some(d => d.id !== id);
+            if (existsOther) {
+                alert(`⚠️ El número de factura #${newNum} ya está siendo utilizado por otra factura. Por favor, elige un número diferente.`);
+                this.showLoading(false);
+                return;
+            }
+
+            const batch = this.db.batch();
+
+            // Actualizar la factura en INVENTARIO_SALIDAS
+            batch.update(this.db.collection('INVENTARIO_SALIDAS').doc(id), {
+                numeroFactura: newNum
+            });
+
+            // Actualizar en registros diarios vinculados
+            const registrosLocales = this.allRegistros.filter(r => r.facturas && r.facturas.some(f => f.facturaId === id));
+            for (let reg of registrosLocales) {
+                const updatedFacturas = (reg.facturas || []).map(f => {
+                    if (f.facturaId === id) {
+                        return { ...f, numeroFactura: newNum };
+                    }
+                    return f;
+                });
+                batch.update(this.registrosRef.doc(reg.id), {
+                    facturas: updatedFacturas
+                });
+                reg.facturas = updatedFacturas;
+            }
+
+            await batch.commit();
+
+            // Actualizar en memoria local
+            const localInv = this.allHistoricalInvoices.find(i => i.id === id);
+            if (localInv) localInv.numeroFactura = newNum;
+
+            alert("✅ Número de factura actualizado correctamente.");
+
+            await this.loadInvoicesHistory();
+            this.viewInvoiceDetail(id);
+
+        } catch (e) {
+            console.error("Error al actualizar número de factura:", e);
+            alert("Error al actualizar el número: " + e.message);
+        } finally {
+            this.showLoading(false);
+        }
+    },
+
+    openAutoRenumberFromCurrent() {
+        const id = this.currentViewedInvoiceId;
+        const inv = this.allHistoricalInvoices.find(i => i.id === id);
+        const num = inv ? inv.numeroFactura : null;
+        const detailModal = document.getElementById('modal-detalle-factura');
+        if (detailModal) detailModal.style.display = 'none';
+        this.openAutoRenumberModal(num);
+    },
+
+    openAutoRenumberModal(fromNumber = null) {
+        const modal = document.getElementById('modalAutoRenumber');
+        if (!modal) return;
+
+        let detectedStart = null;
+        if (fromNumber) {
+            detectedStart = parseInt(String(fromNumber).replace(/\D/g, ''), 10);
+        } else {
+            // Contar frecuencias para encontrar automáticamente el primer número repetido
+            const counts = {};
+            const chronSorted = [...this.allHistoricalInvoices].sort((a, b) => {
+                const dateComp = (a.fecha || '').localeCompare(b.fecha || '');
+                if (dateComp !== 0) return dateComp;
+                const timeA = a.timestamp ? (a.timestamp.toMillis ? a.timestamp.toMillis() : (a.timestamp.seconds || 0) * 1000) : 0;
+                const timeB = b.timestamp ? (b.timestamp.toMillis ? b.timestamp.toMillis() : (b.timestamp.seconds || 0) * 1000) : 0;
+                if (timeA !== timeB) return timeA - timeB;
+                const numA = parseInt(String(a.numeroFactura || '').replace(/\D/g, ''), 10) || 0;
+                const numB = parseInt(String(b.numeroFactura || '').replace(/\D/g, ''), 10) || 0;
+                return numA - numB;
+            });
+
+            for (let inv of chronSorted) {
+                const n = parseInt(String(inv.numeroFactura || '').replace(/\D/g, ''), 10);
+                if (n) {
+                    counts[n] = (counts[n] || 0) + 1;
+                    if (counts[n] > 1 && detectedStart === null) {
+                        detectedStart = n;
+                    }
+                }
+            }
+        }
+
+        const input = document.getElementById('renumber-start-num');
+        if (input) {
+            input.value = detectedStart || 960;
+        }
+
+        modal.style.display = 'flex';
+        this.previewAutoRenumber();
+    },
+
+    previewAutoRenumber() {
+        const input = document.getElementById('renumber-start-num');
+        const tbody = document.getElementById('renumber-preview-tbody');
+        const countEl = document.getElementById('renumber-affected-count');
+        const btnConfirm = document.getElementById('btn-confirm-auto-renumber');
+        if (!input || !tbody) return;
+
+        const startNum = parseInt(input.value, 10);
+        if (isNaN(startNum) || startNum <= 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#e53e3e;">Ingresa un número válido para iniciar.</td></tr>';
+            if (countEl) countEl.innerText = '0 facturas a reordenar';
+            if (btnConfirm) btnConfirm.disabled = true;
+            return;
+        }
+
+        // Ordenar cronológicamente (más antiguo a más reciente)
+        const chronSorted = [...this.allHistoricalInvoices].sort((a, b) => {
+            const dateComp = (a.fecha || '').localeCompare(b.fecha || '');
+            if (dateComp !== 0) return dateComp;
+            const timeA = a.timestamp ? (a.timestamp.toMillis ? a.timestamp.toMillis() : (a.timestamp.seconds || 0) * 1000) : 0;
+            const timeB = b.timestamp ? (b.timestamp.toMillis ? b.timestamp.toMillis() : (b.timestamp.seconds || 0) * 1000) : 0;
+            if (timeA !== timeB) return timeA - timeB;
+            const numA = parseInt(String(a.numeroFactura || '').replace(/\D/g, ''), 10) || 0;
+            const numB = parseInt(String(b.numeroFactura || '').replace(/\D/g, ''), 10) || 0;
+            return numA - numB;
+        });
+
+        // Encontrar el primer índice donde coincida o comience el número seleccionado
+        let startIndex = chronSorted.findIndex(inv => {
+            const n = parseInt(String(inv.numeroFactura || '').replace(/\D/g, ''), 10);
+            return n >= startNum;
+        });
+
+        if (startIndex === -1) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#718096;">No hay facturas con número igual o mayor a ' + startNum + '.</td></tr>';
+            if (countEl) countEl.innerText = '0 facturas';
+            if (btnConfirm) btnConfirm.disabled = true;
+            return;
+        }
+
+        this._pendingRenumberList = [];
+        let seq = startNum;
+        tbody.innerHTML = '';
+
+        for (let i = startIndex; i < chronSorted.length; i++) {
+            const inv = chronSorted[i];
+            const oldNum = String(inv.numeroFactura || '').trim();
+            const newNum = String(seq++);
+            const isChanged = oldNum !== newNum;
+
+            this._pendingRenumberList.push({
+                id: inv.id,
+                fecha: inv.fecha,
+                cliente: inv.CLIENTE || 'Cliente General',
+                total: inv.total || 0,
+                oldNum: oldNum,
+                newNum: newNum,
+                isChanged: isChanged
+            });
+
+            const tr = document.createElement('tr');
+            if (isChanged) {
+                tr.style.backgroundColor = '#fffaf0';
+            }
+            tr.innerHTML = `
+                <td style="padding: 8px 10px; border: 1px solid #edf2f7; font-size: 0.9rem;">${this.formatDate(inv.fecha)}</td>
+                <td style="padding: 8px 10px; border: 1px solid #edf2f7; font-size: 0.9rem; font-weight: 500;">${inv.CLIENTE || 'Cliente General'}</td>
+                <td style="padding: 8px 10px; border: 1px solid #edf2f7; text-align: center; font-family: monospace; font-weight: bold; color: ${isChanged ? '#c53030' : '#4a5568'};">#${oldNum || '-'}</td>
+                <td style="padding: 8px 10px; border: 1px solid #edf2f7; text-align: center; font-family: monospace; font-weight: bold; color: #27ae60;">
+                    #${newNum} ${isChanged ? '<span style="color:#dd6b20; font-size:10px; margin-left:3px;">(Nuevo)</span>' : ''}
+                </td>
+                <td style="padding: 8px 10px; border: 1px solid #edf2f7; text-align: right; font-weight: bold; color: #2b6cb0;">$${(inv.total || 0).toFixed(2)}</td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        const totalAffected = this._pendingRenumberList.filter(x => x.isChanged).length;
+        if (countEl) {
+            countEl.innerText = `${this._pendingRenumberList.length} facturas en secuencia (${totalAffected} cambiarán de número)`;
+        }
+        if (btnConfirm) btnConfirm.disabled = (totalAffected === 0);
+    },
+
+    async executeAutoRenumber() {
+        if (!this._pendingRenumberList || this._pendingRenumberList.length === 0) return;
+
+        const changes = this._pendingRenumberList.filter(x => x.isChanged);
+        if (changes.length === 0) {
+            alert("No hay cambios pendientes por aplicar.");
+            return;
+        }
+
+        const result = await Swal.fire({
+            title: '¿Confirmar Renumeración?',
+            text: `Se actualizarán ${changes.length} facturas para que queden en estricto orden consecutivo (1 a 1). Esta acción actualizará la base de datos de inmediato.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#27ae60',
+            cancelButtonColor: '#718096',
+            confirmButtonText: 'Sí, Renumerar en Cascada',
+            cancelButtonText: 'Cancelar'
+        });
+
+        if (!result.isConfirmed) return;
+
+        this.showLoading(true);
+
+        try {
+            const operations = [];
+
+            changes.forEach(item => {
+                // 1. Actualizar INVENTARIO_SALIDAS
+                const factRef = this.db.collection('INVENTARIO_SALIDAS').doc(item.id);
+                operations.push(b => b.update(factRef, { numeroFactura: item.newNum }));
+
+                // 2. Actualizar REGISTROS vinculados
+                const regs = this.allRegistros.filter(r => r.facturas && r.facturas.some(f => f.facturaId === item.id));
+                regs.forEach(reg => {
+                    const updatedFacturas = (reg.facturas || []).map(f => {
+                        if (f.facturaId === item.id) {
+                            return { ...f, numeroFactura: item.newNum };
+                        }
+                        return f;
+                    });
+                    operations.push(b => b.update(this.registrosRef.doc(reg.id), { facturas: updatedFacturas }));
+                    reg.facturas = updatedFacturas;
+                });
+
+                // Actualizar en memoria local
+                const local = this.allHistoricalInvoices.find(i => i.id === item.id);
+                if (local) local.numeroFactura = item.newNum;
+            });
+
+            // Ejecutar en bloques de hasta 400 operaciones (límite de Firestore es 500)
+            const CHUNK_SIZE = 400;
+            for (let i = 0; i < operations.length; i += CHUNK_SIZE) {
+                const chunk = operations.slice(i, i + CHUNK_SIZE);
+                const batch = this.db.batch();
+                chunk.forEach(op => op(batch));
+                await batch.commit();
+            }
+
+            document.getElementById('modalAutoRenumber').style.display = 'none';
+
+            await Swal.fire({
+                icon: 'success',
+                title: '¡Secuencia Corregida con Éxito!',
+                text: `Se renumeraron ${changes.length} facturas correctamente. Todas las facturas quedaron en perfecto orden correlativo.`,
+                confirmButtonColor: '#27ae60'
+            });
+
+            await this.loadInvoicesHistory();
+
+        } catch (error) {
+            console.error("Error al ejecutar renumeración automática:", error);
+            alert("Error al renumerar: " + error.message);
         } finally {
             this.showLoading(false);
         }

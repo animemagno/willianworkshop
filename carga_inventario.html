@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carga de Inventario por Mes - Taller Willian</title>
+    <!-- CSS & Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/inventario.css?v=2.4.0">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Firebase SDK (v8 compat) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <style>
+        body {
+            background-color: #f1f5f9;
+            height: auto;
+            min-height: 100vh;
+            overflow-y: auto;
+        }
+
+        .header-container {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: white;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: var(--shadow-md);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .header-title h1 {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #ffffff;
+            margin: 0;
+            letter-spacing: -0.02em;
+        }
+
+        .month-selector-badge {
+            background: #ffffff;
+            border: 2px solid #3b82f6;
+            border-radius: 10px;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.15);
+        }
+
+        .month-selector-badge label {
+            font-size: 0.82rem;
+            font-weight: 800;
+            color: #1e3a8a;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            margin: 0;
+        }
+
+        .month-selector-badge select {
+            background: #f8fafc;
+            color: #0f172a;
+            border: 1.5px solid #94a3b8;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 800;
+            padding: 6px 14px;
+            outline: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .month-selector-badge select:hover,
+        .month-selector-badge select:focus {
+            border-color: #2563eb;
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+        }
+
+        .month-selector-badge select option {
+            color: #0f172a;
+            background: white;
+            font-weight: 700;
+            padding: 6px;
+        }
+
+        .main-content {
+            max-width: 1440px;
+            margin: 24px auto;
+            padding: 0 20px 60px 20px;
+        }
+
+        .card-box {
+            background: #ffffff;
+            border-radius: 14px;
+            border: 1px solid var(--border-subtle);
+            padding: 24px;
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 24px;
+        }
+
+        .card-header-clean {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px;
+            border-bottom: 1px solid var(--border-subtle);
+            padding-bottom: 14px;
+        }
+
+        .card-header-clean h2 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0;
+        }
+
+        /* Column pill guides */
+        .column-guides-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .column-pill {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            color: #334155;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 600;
+        }
+
+        .column-pill .pill-num {
+            background: #2563eb;
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 800;
+        }
+
+        .paste-textarea {
+            width: 100%;
+            height: 160px;
+            padding: 16px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.85rem;
+            border: 2px dashed #cbd5e1;
+            border-radius: 10px;
+            background: #fcfdfd;
+            resize: vertical;
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+            color: #1e293b;
+            line-height: 1.4;
+        }
+
+        .paste-textarea:focus {
+            outline: none;
+            border-color: #2563eb;
+            background: #ffffff;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+        }
+
+        /* Metric cards */
+        .stats-grid-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card-clean {
+            background: #ffffff;
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .stat-card-clean .stat-label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .stat-card-clean .stat-value {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        .stat-card-clean.card-discrepancy {
+            background: #fff1f2;
+            border-color: #fecdd3;
+        }
+
+        .stat-card-clean.card-discrepancy .stat-value {
+            color: #e11d48;
+        }
+
+        .stat-card-clean.card-ok {
+            background: #ecfdf5;
+            border-color: #a7f3d0;
+        }
+
+        .stat-card-clean.card-ok .stat-value {
+            color: #059669;
+        }
+
+        /* Table styles */
+        .table-responsive-box {
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            overflow-x: auto;
+            max-height: 600px;
+            background: white;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+
+        .data-table thead {
+            position: sticky;
+            top: 0;
+            background: #f8fafc;
+            z-index: 10;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .data-table th {
+            padding: 12px 14px;
+            text-align: left;
+            font-weight: 700;
+            color: #475569;
+            border-bottom: 1px solid #e2e8f0;
+            white-space: nowrap;
+        }
+
+        .data-table td {
+            padding: 10px 14px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #1e293b;
+            vertical-align: middle;
+        }
+
+        .data-table tbody tr:hover {
+            background-color: #f8fafc;
+        }
+
+        .data-table tr.row-discrepancy {
+            background-color: #fff1f2 !important;
+        }
+
+        .data-table tr.row-discrepancy:hover {
+            background-color: #ffe4e6 !important;
+        }
+
+        .badge-code {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            color: #334155;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.78rem;
+            font-family: monospace;
+            font-weight: 700;
+            display: inline-block;
+            margin: 2px 2px;
+        }
+
+        .badge-fel {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1d4ed8;
+            padding: 2px 7px;
+            border-radius: 4px;
+            font-size: 0.78rem;
+            font-family: monospace;
+            font-weight: 800;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .status-ok {
+            background: #ecfdf5;
+            color: #047857;
+            border: 1px solid #a7f3d0;
+        }
+
+        .status-error {
+            background: #ffe4e6;
+            color: #be123c;
+            border: 1px solid #fecdd3;
+        }
+
+        .status-neutral {
+            background: #f1f5f9;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+        }
+
+        .btn-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-action:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-action-primary {
+            background: #2563eb;
+            color: white;
+        }
+
+        .btn-action-primary:hover {
+            background: #1d4ed8;
+        }
+
+        .btn-action-success {
+            background: #059669;
+            color: white;
+        }
+
+        .btn-action-success:hover {
+            background: #047857;
+        }
+
+        .btn-action-secondary {
+            background: #f1f5f9;
+            color: #334155;
+            border: 1px solid #cbd5e1;
+        }
+
+        .btn-action-secondary:hover {
+            background: #e2e8f0;
+        }
+
+        .filter-tab-btn {
+            background: none;
+            border: none;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #64748b;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .filter-tab-btn.active {
+            background: #2563eb;
+            color: white;
+        }
+
+        .filter-tab-btn:hover:not(.active) {
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- CABECERA -->
+    <header class="header-container">
+        <div class="header-title">
+            <a href="inventario.html" class="btn-action btn-action-secondary" style="padding: 6px 12px; font-size: 0.85rem; background: rgba(255,255,255,0.15); color: white; border-color: rgba(255,255,255,0.25);">
+                <i class="fas fa-arrow-left"></i> Volver a Inventario
+            </a>
+            <h1><i class="fas fa-paste" style="color: #60a5fa;"></i> Carga de Inventario por Mes</h1>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 14px;">
+            <!-- Selector de Mes de Trabajo -->
+            <div class="month-selector-badge">
+                <label for="select-mes-carga">
+                    <i class="fas fa-calendar-check" style="color: #2563eb; font-size: 1.15rem;"></i>
+                    <span>Mes a Ingresar:</span>
+                </label>
+                <select id="select-mes-carga" onchange="CargaInventarioApp.cambiarMes(this.value)">
+                    <option value="2026-09" selected>Septiembre 2026</option>
+                    <option value="2026-08">Agosto 2026</option>
+                    <option value="2026-07">Julio 2026</option>
+                    <option value="2026-06">Junio 2026</option>
+                    <option value="2026-05">Mayo 2026</option>
+                    <option value="2026-04">Abril 2026</option>
+                    <option value="2026-03">Marzo 2026</option>
+                    <option value="2026-02">Febrero 2026</option>
+                    <option value="2026-01">Enero 2026</option>
+                </select>
+            </div>
+
+            <!-- Botón para ver historial de meses guardados -->
+            <button class="btn-action btn-action-secondary" style="padding: 7px 14px; font-size: 0.85rem; background: rgba(255,255,255,0.15); color: white; border-color: rgba(255,255,255,0.25);" onclick="CargaInventarioApp.abrirHistorialMeses()">
+                <i class="fas fa-database"></i> Ver Meses Guardados
+            </button>
+        </div>
+    </header>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="main-content">
+
+        <!-- PASO 1: ÁREA DE PEGADO DE DATOS -->
+        <section class="card-box">
+            <div class="card-header-clean">
+                <h2>
+                    <span style="background: #2563eb; color: white; width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.9rem;">1</span>
+                    Pegar Datos de Excel para:
+                    <select id="select-mes-paso1" onchange="CargaInventarioApp.cambiarMes(this.value)" style="margin-left: 8px; font-size: 1.05rem; font-weight: 800; color: #1e3a8a; background: #eff6ff; border: 2px solid #3b82f6; border-radius: 8px; padding: 4px 12px; cursor: pointer;">
+                        <option value="2026-09" selected>Septiembre 2026</option>
+                        <option value="2026-08">Agosto 2026</option>
+                        <option value="2026-07">Julio 2026</option>
+                        <option value="2026-06">Junio 2026</option>
+                        <option value="2026-05">Mayo 2026</option>
+                        <option value="2026-04">Abril 2026</option>
+                        <option value="2026-03">Marzo 2026</option>
+                        <option value="2026-02">Febrero 2026</option>
+                        <option value="2026-01">Enero 2026</option>
+                    </select>
+                </h2>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-action btn-action-secondary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="CargaInventarioApp.limpiarPegado()">
+                        <i class="fas fa-trash-alt"></i> Limpiar
+                    </button>
+                    <button class="btn-action btn-action-primary" style="padding: 6px 14px; font-size: 0.85rem;" onclick="CargaInventarioApp.procesarPegado()">
+                        <i class="fas fa-play"></i> Procesar Datos
+                    </button>
+                </div>
+            </div>
+
+            <!-- Guía visual del orden de columnas esperado -->
+            <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 10px;">
+                Copia las celdas directamente desde tu Excel (<code>Ctrl + C</code>) y pégalas aquí (<code>Ctrl + V</code>). Orden de columnas en tu hoja:
+            </p>
+            <div class="column-guides-container">
+                <span class="column-pill"><span class="pill-num">1</span> CODIGO FEL</span>
+                <span class="column-pill"><span class="pill-num">2</span> CODIGO(S)</span>
+                <span class="column-pill"><span class="pill-num">3</span> DESCRIPCION INVENTARIO</span>
+                <span class="column-pill"><span class="pill-num">4</span> DESC. FACTURA</span>
+                <span class="column-pill"><span class="pill-num">5</span> COSTO S/IVA</span>
+                <span class="column-pill"><span class="pill-num">6</span> COSTO C/IVA</span>
+                <span class="column-pill"><span class="pill-num">7</span> PRECIO VENTA</span>
+                <span class="column-pill"><span class="pill-num">8</span> TOTAL INVENTARIO</span>
+                <span class="column-pill" style="background: #eff6ff; border-color: #bfdbfe; color: #1e40af;"><span class="pill-num" style="background: #2563eb;">9</span> STOCK FINAL MES</span>
+                <span class="column-pill" style="background: #fef2f2; border-color: #fecdd3; color: #991b1b;"><span class="pill-num" style="background: #dc2626;">10</span> VENTAS MES</span>
+                <span class="column-pill" style="background: #ecfdf5; border-color: #a7f3d0; color: #065f46;"><span class="pill-num" style="background: #059669;">11+</span> PROVEEDORES (Compras)</span>
+                <span class="column-pill" style="background: #fffbeb; border-color: #fde68a; color: #92400e;"><span class="pill-num" style="background: #d97706;">FIN</span> STOCK MES PASADO</span>
+            </div>
+
+            <!-- Selector de Cantidad de Proveedores en la hoja -->
+            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 12px 18px; margin-bottom: 14px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-truck-loading" style="color: #2563eb; font-size: 1.3rem;"></i>
+                    <div>
+                        <strong style="font-size: 0.95rem; color: #1e293b;">Cantidad de Columnas de Proveedores en tu Excel:</strong>
+                        <span style="display: block; font-size: 0.8rem; color: #64748b;">Indica cuántos proveedores vienen en tu hoja entre "Ventas" y "Stock Mes Pasado"</span>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <button type="button" class="btn-action btn-action-secondary" style="padding: 6px 14px; font-size: 1.1rem; font-weight: 800;" onclick="CargaInventarioApp.ajustarProveedores(-1)">-</button>
+                    <select id="select-num-proveedores" onchange="CargaInventarioApp.setNumProveedores(this.value)" style="font-size: 1rem; font-weight: 800; color: #1d4ed8; background: white; border: 2px solid #3b82f6; border-radius: 8px; padding: 6px 14px; cursor: pointer;">
+                        <option value="0">0 proveedores</option>
+                        <option value="1" selected>1 proveedor</option>
+                        <option value="2">2 proveedores</option>
+                        <option value="3">3 proveedores</option>
+                        <option value="4">4 proveedores</option>
+                        <option value="5">5 proveedores</option>
+                        <option value="6">6 proveedores</option>
+                        <option value="7">7 proveedores</option>
+                        <option value="8">8 proveedores</option>
+                        <option value="9">9 proveedores</option>
+                        <option value="10">10 proveedores</option>
+                    </select>
+                    <button type="button" class="btn-action btn-action-secondary" style="padding: 6px 14px; font-size: 1.1rem; font-weight: 800;" onclick="CargaInventarioApp.ajustarProveedores(1)">+</button>
+                </div>
+            </div>
+
+            <!-- Cuadro de texto para pegar -->
+            <textarea id="txt-excel-paste" class="paste-textarea" placeholder="Haz clic aquí y presiona Ctrl + V para pegar tus filas copiadas desde Excel..."></textarea>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                <span id="txt-status-info" style="font-size: 0.82rem; color: #64748b;">
+                    <i class="fas fa-info-circle"></i> Puedes incluir o no la fila de encabezados; el sistema la reconocerá sola.
+                </span>
+                <button class="btn-action btn-action-primary" onclick="CargaInventarioApp.procesarPegado()">
+                    <i class="fas fa-bolt"></i> Procesar y Ver Vista Previa
+                </button>
+            </div>
+        </section>
+
+        <!-- PASO 2: VISTA PREVIA Y COMPARACIÓN CON OTROS MESES -->
+        <section id="section-preview" class="card-box" style="display: none;">
+            <div class="card-header-clean">
+                <h2>
+                    <span style="background: #059669; color: white; width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.85rem;">2</span>
+                    Vista Previa y Auditoría: <span id="label-mes-preview" style="color: #059669;">Septiembre 2026</span>
+                </h2>
+                
+                <!-- Botón de guardado definitivo -->
+                <button id="btn-guardar-mes" class="btn-action btn-action-success" onclick="CargaInventarioApp.guardarEnBaseDeDatos()">
+                    <i class="fas fa-save"></i> Guardar Mes en la Base de Datos
+                </button>
+            </div>
+
+            <!-- Banner Informativo de Comparación con Mes Siguiente/Anterior -->
+            <div id="banner-comparacion" style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 12px 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 14px;">
+                <i class="fas fa-balance-scale" style="font-size: 1.6rem; color: #2563eb;"></i>
+                <div style="flex: 1;">
+                    <strong style="color: #1e3a8a; font-size: 0.95rem;" id="titulo-comparacion">Comparando con el mes siguiente...</strong>
+                    <p style="margin: 2px 0 0 0; font-size: 0.85rem; color: #3b82f6;" id="detalle-comparacion">
+                        Revisando si las cantidades de stock cuadran entre meses consecutivos.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Tarjetas de métricas -->
+            <div class="stats-grid-preview">
+                <div class="stat-card-clean">
+                    <div>
+                        <div class="stat-label">Total Productos</div>
+                        <div class="stat-value" id="stat-total-items">0</div>
+                    </div>
+                    <i class="fas fa-boxes" style="font-size: 1.8rem; color: #94a3b8;"></i>
+                </div>
+
+                <div class="stat-card-clean">
+                    <div>
+                        <div class="stat-label">Stock Total Unidades</div>
+                        <div class="stat-value" id="stat-total-stock">0</div>
+                    </div>
+                    <i class="fas fa-cubes" style="font-size: 1.8rem; color: #3b82f6;"></i>
+                </div>
+
+                <div class="stat-card-clean">
+                    <div>
+                        <div class="stat-label">Valor Total ($)</div>
+                        <div class="stat-value" id="stat-total-valor">$0.00</div>
+                    </div>
+                    <i class="fas fa-dollar-sign" style="font-size: 1.8rem; color: #10b981;"></i>
+                </div>
+
+                <div class="stat-card-clean card-discrepancy">
+                    <div>
+                        <div class="stat-label" style="color: #e11d48;">Discrepancias / Errores</div>
+                        <div class="stat-value" id="stat-total-discrepancias">0</div>
+                    </div>
+                    <i class="fas fa-exclamation-triangle" style="font-size: 1.8rem; color: #f43f5e;"></i>
+                </div>
+
+                <div class="stat-card-clean card-ok">
+                    <div>
+                        <div class="stat-label" style="color: #059669;">Cuadran Exacto</div>
+                        <div class="stat-value" id="stat-total-cuadran">0</div>
+                    </div>
+                    <i class="fas fa-check-circle" style="font-size: 1.8rem; color: #10b981;"></i>
+                </div>
+            </div>
+
+            <!-- Controles de filtrado y búsqueda -->
+            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px;">
+                <div style="display: flex; gap: 6px; background: #f8fafc; padding: 4px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                    <button class="filter-tab-btn active" id="filter-btn-todos" onclick="CargaInventarioApp.setFiltro('todos')">
+                        Todos (<span id="count-todos">0</span>)
+                    </button>
+                    <button class="filter-tab-btn" id="filter-btn-discrepancias" onclick="CargaInventarioApp.setFiltro('discrepancias')">
+                        <i class="fas fa-exclamation-circle" style="color: #e11d48;"></i> Con Discrepancias (<span id="count-discrepancias">0</span>)
+                    </button>
+                    <button class="filter-tab-btn" id="filter-btn-cuadran" onclick="CargaInventarioApp.setFiltro('cuadran')">
+                        <i class="fas fa-check-circle" style="color: #059669;"></i> Cuadran (<span id="count-cuadran">0</span>)
+                    </button>
+                </div>
+
+                <div style="position: relative; width: 320px;">
+                    <i class="fas fa-search" style="position: absolute; left: 12px; top: 12px; color: #94a3b8;"></i>
+                    <input type="text" id="input-buscar-preview" placeholder="Buscar por código o descripción..." 
+                           style="width: 100%; padding: 9px 12px 9px 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;"
+                           oninput="CargaInventarioApp.renderizarTablaPreview()">
+                </div>
+            </div>
+
+            <!-- Tabla de datos -->
+            <div class="table-responsive-box">
+                <table class="data-table">
+                    <thead id="preview-table-thead">
+                        <tr id="preview-table-header-row">
+                            <!-- Encabezados dinámicos generados por JS según los proveedores -->
+                        </tr>
+                    </thead>
+                    <tbody id="preview-table-body">
+                        <!-- JS llenará esta tabla -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Barra inferior para guardar -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 16px; border-top: 1px solid #e2e8f0;">
+                <span style="font-size: 0.85rem; color: #64748b;">
+                    Revisa las discrepancias antes de guardar. Puedes corregir filas en Excel y volver a pegar cuando quieras.
+                </span>
+                <button class="btn-action btn-action-success" style="padding: 12px 28px; font-size: 1rem;" onclick="CargaInventarioApp.guardarEnBaseDeDatos()">
+                    <i class="fas fa-save"></i> Confirmar y Guardar Mes
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MODAL DE HISTORIAL DE MESES GUARDADOS -->
+    <div id="modal-historial-meses" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; justify-content: center; align-items: center;">
+        <div class="card-box" style="width: 90%; max-width: 850px; max-height: 85vh; display: flex; flex-direction: column; margin: 0; padding: 24px;">
+            <div class="card-header-clean">
+                <h2><i class="fas fa-database" style="color: #2563eb;"></i> Meses de Inventario Guardados</h2>
+                <span style="font-size: 1.5rem; cursor: pointer; color: #94a3b8;" onclick="document.getElementById('modal-historial-meses').style.display='none'">&times;</span>
+            </div>
+
+            <div style="flex: 1; overflow-y: auto; margin-bottom: 20px;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Mes</th>
+                            <th style="text-align: center;">Productos</th>
+                            <th style="text-align: right;">Total Valor</th>
+                            <th>Última Actualización</th>
+                            <th style="text-align: center;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historial-meses-tbody">
+                        <tr><td colspan="5" style="text-align: center; color: #94a3b8;">Cargando historial...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end;">
+                <button class="btn-action btn-action-secondary" onclick="document.getElementById('modal-historial-meses').style.display='none'">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT CONTROLADOR DE CARGA -->
+    <script src="js/carga_inventario.js?v=1.0.0"></script>
+
+</body>
+
+</html>

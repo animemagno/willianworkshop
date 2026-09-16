@@ -29,5 +29,14 @@ Este archivo contiene el resumen de lo que ya está listo y lo que sigue, para m
     *   Al liberar productos de facturas, regresan exactamente con su fecha y cuenta original.
     *   Filtro estricto por mes actual en `salidas.html` para evitar que se muestren registros residuales de meses anteriores.
 
+8.  **Control y Prevención de Facturas Duplicadas (salidas.html):**
+    *   Cálculo centralizado del siguiente número correlativo (`getNextInvoiceNumber`).
+    *   Los borradores ya no congelan números viejos de días anteriores al restaurarse.
+    *   Validación en tiempo real contra Firestore en `finalizeInvoice` que impide guardar números repetidos y reasigna automáticamente el número correlativo siguiente.
+    *   Detección de reactivación de pantalla/pestaña para actualizar el número si la tablet estuvo en reposo.
+    *   Identificación visual de facturas repetidas en el historial (etiqueta "Repetida").
+    *   Botón para editar el número de factura directamente desde la ventana de detalle de factura para corregir cualquier duplicado histórico.
+    *   **Herramienta de Renumeración en Cascada:** Botón "Corregir Secuencia en Cascada" en el historial y en el detalle de factura que reasigna de forma consecutiva (1 a 1) desde el número elegido (ej: 960) hasta el final con vista previa visual antes de aplicar.
+
 ## 📋 PRÓXIMOS PASOS (Por si deseas continuar)
 *   Seguir con cualquier mejora de diseño, reportes adicionales o nuevas funciones en las pantallas que necesites.
