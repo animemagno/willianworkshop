@@ -6,19 +6,9 @@
  */
 window.SalidasController = {
     avanzarDiaFactura() {
-        const app = window.RegistrosApp;
-        if (!app) return;
-        
-        const fechaInput = document.getElementById('factura-fecha');
-        if (!fechaInput || !fechaInput.value) return;
-
-        const dateObj = new Date(fechaInput.value + 'T00:00:00Z');
-        dateObj.setUTCDate(dateObj.getUTCDate() + 1);
-
-        const y = dateObj.getUTCFullYear();
-        const m = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
-        const d = String(dateObj.getUTCDate()).padStart(2, '0');
-        fechaInput.value = `${y}-${m}-${d}`;
+        if (window.RegistrosApp && typeof window.RegistrosApp.avanzarDiaFactura === 'function') {
+            window.RegistrosApp.avanzarDiaFactura();
+        }
     },
 
     nextStep() {

@@ -126,37 +126,47 @@ const RegistrosApp = {
 
     // autoMigrateRegistros removed.,
 
+    getValidWorkingDate(dateStr) {
+        if (!dateStr) dateStr = this.getLocalISODate();
+        let d = new Date(dateStr + 'T12:00:00');
+        if (isNaN(d.getTime())) {
+            d = new Date();
+        }
+        // Si cae en Domingo (0), avanzar automáticamente al Lunes (+1 día)
+        if (d.getDay() === 0) {
+            d.setDate(d.getDate() + 1);
+        }
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    },
+
     async initFacturaDate() {
         const inputFecha = document.getElementById('factura-fecha');
         if (!inputFecha) return;
 
         try {
+            // Buscar la última factura para seguir el correlativo de fechas
             const snap = await this.db.collection('INVENTARIO_SALIDAS')
-                .orderBy('timestamp', 'desc')
+                .orderBy('fecha', 'desc')
                 .limit(1)
                 .get();
 
             const currentISODate = this.getLocalISODate();
             const currentMonthStr = currentISODate.substring(0, 7);
             
-            // Determinar el primer día laborable del mes actual (Lunes a Sábado)
-            const firstDayOfMonth = new Date(currentMonthStr + '-01T12:00:00Z');
-            let firstWorkingDayStr = currentMonthStr + '-01';
-            if (firstDayOfMonth.getUTCDay() === 0) { // Si es Domingo
-                firstWorkingDayStr = currentMonthStr + '-02';
-            }
-
-            let targetDateStr = firstWorkingDayStr;
+            // Primer día hábil del mes actual (evitando domingos)
+            let targetDateStr = this.getValidWorkingDate(currentMonthStr + '-01');
 
             if (!snap.empty) {
                 const data = snap.docs[0].data();
                 if (data.fecha) {
                     const lastInvoiceMonthStr = data.fecha.substring(0, 7);
                     if (lastInvoiceMonthStr === currentMonthStr) {
-                        // Es del mes actual, continuamos la secuencia
-                        targetDateStr = data.fecha;
+                        // Es del mes actual, continuamos la secuencia de fecha (garantizando no domingo)
+                        targetDateStr = this.getValidWorkingDate(data.fecha);
                     }
-                    // Si es de un mes anterior, se mantiene targetDateStr = firstWorkingDayStr
                 }
             }
 
@@ -164,8 +174,8 @@ const RegistrosApp = {
             this.mesFacturable = targetDateStr.substring(0, 7); 
         } catch (e) {
             console.error("Error obteniendo fecha de última factura:", e);
-            inputFecha.value = this.getLocalISODate();
-            this.mesFacturable = this.getLocalISODate().substring(0, 7);
+            inputFecha.value = this.getValidWorkingDate(this.getLocalISODate());
+            this.mesFacturable = inputFecha.value.substring(0, 7);
         }
     },
 
@@ -188,7 +198,8 @@ const RegistrosApp = {
             const draft = {
                 items: this.facturaItems,
                 cliente: document.getElementById('factura-cliente') ? document.getElementById('factura-cliente').value : '',
-                numero: document.getElementById('factura-numero') ? document.getElementById('factura-numero').value : ''
+                numero: document.getElementById('factura-numero') ? document.getElementById('factura-numero').value : '',
+                fecha: document.getElementById('factura-fecha') ? document.getElementById('factura-fecha').value : ''
             };
             localStorage.setItem('facturaDraft_v1', JSON.stringify(draft));
         } catch(e) {
@@ -206,6 +217,9 @@ const RegistrosApp = {
                     setTimeout(() => {
                         if (draft.cliente && document.getElementById('factura-cliente')) {
                             document.getElementById('factura-cliente').value = draft.cliente;
+                        }
+                        if (draft.fecha && document.getElementById('factura-fecha')) {
+                            document.getElementById('factura-fecha').value = this.getValidWorkingDate(draft.fecha);
                         }
                         const inputNum = document.getElementById('factura-numero');
                         if (inputNum && !this.editingInvoiceId) {
@@ -236,12 +250,18 @@ const RegistrosApp = {
         let dateObj = new Date(inputFecha.value + 'T12:00:00');
         dateObj.setDate(dateObj.getDate() + 1);
 
+        // Si cae en Domingo (0), avanzar al Lunes (+1 día más)
         if (dateObj.getDay() === 0) {
             dateObj.setDate(dateObj.getDate() + 1);
         }
 
-        const newDateStr = dateObj.toISOString().split('T')[0];
+        const y = dateObj.getFullYear();
+        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const d = String(dateObj.getDate()).padStart(2, '0');
+        const newDateStr = `${y}-${m}-${d}`;
+        
         inputFecha.value = newDateStr;
+        this.mesFacturable = newDateStr.substring(0, 7);
         this.saveFacturaDraft();
         this.renderFacturacionData();
     },
@@ -501,6 +521,14 @@ const RegistrosApp = {
         const fechaInput = document.getElementById('factura-fecha');
         if (fechaInput) {
             fechaInput.addEventListener('change', () => {
+                if (fechaInput.value) {
+                    const validDate = this.getValidWorkingDate(fechaInput.value);
+                    if (validDate !== fechaInput.value) {
+                        alert('Los domingos no son días laborables para facturación. La fecha se ajustó automáticamente al lunes.');
+                        fechaInput.value = validDate;
+                    }
+                    this.mesFacturable = fechaInput.value.substring(0, 7);
+                }
                 this.saveFacturaDraft();
                 this.renderFacturacionData();
             });
@@ -3112,7 +3140,9 @@ const RegistrosApp = {
             this.showLoading(true);
 
             const inputFecha = document.getElementById('factura-fecha');
-            const fechaFactura = inputFecha && inputFecha.value ? inputFecha.value : this.getLocalISODate();
+            let rawFecha = inputFecha && inputFecha.value ? inputFecha.value : this.getLocalISODate();
+            const fechaFactura = this.getValidWorkingDate(rawFecha);
+            if (inputFecha) inputFecha.value = fechaFactura;
 
             const dObj = new Date(fechaFactura + 'T12:00:00');
             if (dObj.getDay() === 0) {

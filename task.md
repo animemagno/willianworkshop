@@ -35,6 +35,9 @@ Este archivo contiene el resumen de lo que ya está listo y lo que sigue, para m
     *   Validación en tiempo real contra Firestore en `finalizeInvoice` que impide guardar números repetidos y reasigna automáticamente el número correlativo siguiente.
     *   **Cero Lecturas Innecesarias:** Se eliminó cualquier recarga automática al cambiar de pestaña o foco. La base de datos solo se consulta al iniciar la página, cuando se finaliza/guarda una factura, cuando se modifica una factura existente o cuando el usuario pulsa manualmente el botón "Actualizar".
     *   **Herramienta de Renumeración en Cascada:** Botón "Corregir Secuencia en Cascada" en el historial y en el detalle de factura que reasigna de forma consecutiva (1 a 1) desde el número elegido (ej: 960) hasta el final con vista previa visual antes de aplicar.
+9.  **Correlativo de Fecha y Omisión de Domingos (salidas.html):**
+    *   La fecha de facturación revisa la última fecha utilizada para seguir el correlativo de forma continua.
+    *   Regla estricta contra Domingos: tanto al cargar, al avanzar el día con el botón `+1 Día`, al seleccionar la fecha manualmente o al guardar la factura, cualquier domingo se salta automáticamente al lunes.
 
 ## 📋 PRÓXIMOS PASOS (Por si deseas continuar)
 *   Seguir con cualquier mejora de diseño, reportes adicionales o nuevas funciones en las pantallas que necesites.
