@@ -505,22 +505,6 @@ const RegistrosApp = {
                 this.renderFacturacionData();
             });
         }
-
-        // Detección de reactivación de pantalla/pestaña en tablets o reposo
-        window.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && !this.editingInvoiceId) {
-                if (typeof this.loadInvoicesHistory === 'function') {
-                    this.loadInvoicesHistory();
-                }
-            }
-        });
-        window.addEventListener('focus', () => {
-            if (!this.editingInvoiceId) {
-                if (typeof this.loadInvoicesHistory === 'function') {
-                    this.loadInvoicesHistory();
-                }
-            }
-        });
         
         this.setupAutocomplete();
     },

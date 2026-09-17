@@ -33,9 +33,7 @@ Este archivo contiene el resumen de lo que ya está listo y lo que sigue, para m
     *   Cálculo centralizado del siguiente número correlativo (`getNextInvoiceNumber`).
     *   Los borradores ya no congelan números viejos de días anteriores al restaurarse.
     *   Validación en tiempo real contra Firestore en `finalizeInvoice` que impide guardar números repetidos y reasigna automáticamente el número correlativo siguiente.
-    *   Detección de reactivación de pantalla/pestaña para actualizar el número si la tablet estuvo en reposo.
-    *   Identificación visual de facturas repetidas en el historial (etiqueta "Repetida").
-    *   Botón para editar el número de factura directamente desde la ventana de detalle de factura para corregir cualquier duplicado histórico.
+    *   **Cero Lecturas Innecesarias:** Se eliminó cualquier recarga automática al cambiar de pestaña o foco. La base de datos solo se consulta al iniciar la página, cuando se finaliza/guarda una factura, cuando se modifica una factura existente o cuando el usuario pulsa manualmente el botón "Actualizar".
     *   **Herramienta de Renumeración en Cascada:** Botón "Corregir Secuencia en Cascada" en el historial y en el detalle de factura que reasigna de forma consecutiva (1 a 1) desde el número elegido (ej: 960) hasta el final con vista previa visual antes de aplicar.
 
 ## 📋 PRÓXIMOS PASOS (Por si deseas continuar)

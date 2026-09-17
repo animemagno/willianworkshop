@@ -735,6 +735,9 @@
             <div id="historial-tab-list-content">
                 <div style="display: flex; gap: 12px; margin-bottom: 15px; align-items: center; flex-wrap: wrap;">
                     <input type="text" id="historial-search" class="large-input" placeholder="Buscar por cliente, N° factura..." style="flex: 1; min-width: 220px;" oninput="RegistrosApp.filterInvoicesHistory()">
+                    <button class="btn" style="background: white; border: 1.5px solid #cbd5e0; color: #4a5568; padding: 10px 14px; border-radius: 6px; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem;" onclick="RegistrosApp.loadInvoicesHistory()" title="Actualizar lista de facturas">
+                        <i class="fas fa-sync-alt"></i> Actualizar
+                    </button>
                     <button id="btn-auto-renumber" class="btn" style="background: #2b6cb0; color: white; padding: 10px 16px; border-radius: 6px; font-weight: bold; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 0.9rem; box-shadow: 0 2px 4px rgba(43,108,176,0.2);" onclick="RegistrosApp.openAutoRenumberModal()">
                         <i class="fas fa-sort-numeric-down"></i> Corregir Secuencia en Cascada
                     </button>
@@ -1227,7 +1230,7 @@
     <script src="js/salidas/SalidasController.js"></script>
 
     <!-- CARGAR SCRIPT DE REGISTROS -->
-    <script src="js/RegistrosApp.js?v=2.1.8"></script>
+    <script src="js/RegistrosApp.js?v=2.1.9"></script>
 
 </body>
 
