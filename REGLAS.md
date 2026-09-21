@@ -15,6 +15,7 @@ Para entender el estado real del proyecto, **SIEMPRE** debes leer estos archivos
 
 ## 2. Flujo de Desarrollo
 *   **Consulta Previa:** Siempre preguntar o comentar "cómo se puede mejorar algo" ANTES de aplicar cambios. No asumir ni actuar por cuenta propia fuera de lo solicitado.
+*   **Pruebas a Cargo del Usuario:** Las pruebas las realiza exclusivamente el usuario una vez modificado el código. El Agente NO debe abrir el navegador ni realizar pruebas automatizadas por su cuenta.
 *   **Commit Controlado:** NUNCA hacer un commit sin preguntar antes. El usuario debe autorizar explícitamente cada guardado en el historial.
 *   **Guardado Completo:** Al proceder con un guardado (commit), siempre se deben incluir **todos** los archivos modificados del proyecto en el repositorio.
 *   **⚠️ IMPORTANTE - Guardado en GitHub:** 

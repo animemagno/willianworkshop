@@ -415,6 +415,89 @@
             background: #f1f5f9;
             color: #0f172a;
         }
+
+        /* Panel de Mapeo de Columnas */
+        .mapper-box {
+            background: #ffffff;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-top: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+
+        .mapper-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+            gap: 12px 16px;
+            margin-top: 14px;
+        }
+
+        .mapper-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .mapper-field label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #334155;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .mapper-field select {
+            width: 100%;
+            padding: 7px 10px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #1e293b;
+            background: #f8fafc;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 8px;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .mapper-field select:focus {
+            border-color: #2563eb;
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+
+        .mini-preview-wrap {
+            margin-top: 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow-x: auto;
+            background: #ffffff;
+        }
+
+        .mini-preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.78rem;
+            text-align: left;
+        }
+
+        .mini-preview-table th {
+            background: #eff6ff;
+            color: #1e3a8a;
+            padding: 7px 10px;
+            font-weight: 700;
+            border-bottom: 1.5px solid #bfdbfe;
+            white-space: nowrap;
+        }
+
+        .mini-preview-table td {
+            padding: 6px 10px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #334155;
+            white-space: nowrap;
+        }
     </style>
 </head>
 
@@ -430,22 +513,35 @@
         </div>
 
         <div style="display: flex; align-items: center; gap: 14px;">
-            <!-- Selector de Mes de Trabajo -->
-            <div class="month-selector-badge">
-                <label for="select-mes-carga">
-                    <i class="fas fa-calendar-check" style="color: #2563eb; font-size: 1.15rem;"></i>
-                    <span>Mes a Ingresar:</span>
+            <!-- Selector de Mes y Año de Trabajo -->
+            <div class="month-selector-badge" style="display: flex; align-items: center; gap: 8px;">
+                <label style="display: flex; align-items: center; gap: 6px; cursor: default;">
+                    <i class="fas fa-calendar-alt" style="color: #2563eb; font-size: 1.15rem;"></i>
+                    <span style="font-weight: 700; color: #1e3a8a;">Período:</span>
                 </label>
-                <select id="select-mes-carga" onchange="CargaInventarioApp.cambiarMes(this.value)">
-                    <option value="2026-09" selected>Septiembre 2026</option>
-                    <option value="2026-08">Agosto 2026</option>
-                    <option value="2026-07">Julio 2026</option>
-                    <option value="2026-06">Junio 2026</option>
-                    <option value="2026-05">Mayo 2026</option>
-                    <option value="2026-04">Abril 2026</option>
-                    <option value="2026-03">Marzo 2026</option>
-                    <option value="2026-02">Febrero 2026</option>
-                    <option value="2026-01">Enero 2026</option>
+                <select id="select-mes-nombre" onchange="CargaInventarioApp.onCambioMesAnio()" style="font-size: 0.95rem; font-weight: 700; color: #1e3a8a; background: #eff6ff; border: 2px solid #3b82f6; border-radius: 8px; padding: 4px 8px; cursor: pointer;">
+                    <option value="01">Enero</option>
+                    <option value="02">Febrero</option>
+                    <option value="03">Marzo</option>
+                    <option value="04">Abril</option>
+                    <option value="05">Mayo</option>
+                    <option value="06">Junio</option>
+                    <option value="07">Julio</option>
+                    <option value="08">Agosto</option>
+                    <option value="09" selected>Septiembre</option>
+                    <option value="10">Octubre</option>
+                    <option value="11">Noviembre</option>
+                    <option value="12">Diciembre</option>
+                </select>
+                <select id="select-anio" onchange="CargaInventarioApp.onCambioMesAnio()" style="font-size: 0.95rem; font-weight: 700; color: #1e3a8a; background: #eff6ff; border: 2px solid #3b82f6; border-radius: 8px; padding: 4px 8px; cursor: pointer;">
+                    <option value="2023">2023</option>
+                    <option value="2024">2024</option>
+                    <option value="2025">2025</option>
+                    <option value="2026" selected>2026</option>
+                    <option value="2027">2027</option>
+                    <option value="2028">2028</option>
+                    <option value="2029">2029</option>
+                    <option value="2030">2030</option>
                 </select>
             </div>
 
@@ -464,18 +560,7 @@
             <div class="card-header-clean">
                 <h2>
                     <span style="background: #2563eb; color: white; width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.9rem;">1</span>
-                    Pegar Datos de Excel para:
-                    <select id="select-mes-paso1" onchange="CargaInventarioApp.cambiarMes(this.value)" style="margin-left: 8px; font-size: 1.05rem; font-weight: 800; color: #1e3a8a; background: #eff6ff; border: 2px solid #3b82f6; border-radius: 8px; padding: 4px 12px; cursor: pointer;">
-                        <option value="2026-09" selected>Septiembre 2026</option>
-                        <option value="2026-08">Agosto 2026</option>
-                        <option value="2026-07">Julio 2026</option>
-                        <option value="2026-06">Junio 2026</option>
-                        <option value="2026-05">Mayo 2026</option>
-                        <option value="2026-04">Abril 2026</option>
-                        <option value="2026-03">Marzo 2026</option>
-                        <option value="2026-02">Febrero 2026</option>
-                        <option value="2026-01">Enero 2026</option>
-                    </select>
+                    Pegar Datos de Excel para: <span id="label-mes-paso1" style="color: #2563eb; font-weight: 800; margin-left: 6px;">Septiembre 2026</span>
                 </h2>
                 <div style="display: flex; gap: 8px;">
                     <button class="btn-action btn-action-secondary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="CargaInventarioApp.limpiarPegado()">
@@ -487,63 +572,166 @@
                 </div>
             </div>
 
-            <!-- Guía visual del orden de columnas esperado -->
+            <!-- Instrucción sencilla -->
             <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 10px;">
-                Copia las celdas directamente desde tu Excel (<code>Ctrl + C</code>) y pégalas aquí (<code>Ctrl + V</code>). Orden de columnas en tu hoja:
+                Copia las celdas directamente desde tu Excel (<code>Ctrl + C</code>) y pégalas en el cuadro blanco de abajo (<code>Ctrl + V</code>).
             </p>
-            <div class="column-guides-container">
-                <span class="column-pill"><span class="pill-num">1</span> CODIGO FEL</span>
-                <span class="column-pill"><span class="pill-num">2</span> CODIGO(S)</span>
-                <span class="column-pill"><span class="pill-num">3</span> DESCRIPCION INVENTARIO</span>
-                <span class="column-pill"><span class="pill-num">4</span> DESC. FACTURA</span>
-                <span class="column-pill"><span class="pill-num">5</span> COSTO S/IVA</span>
-                <span class="column-pill"><span class="pill-num">6</span> COSTO C/IVA</span>
-                <span class="column-pill"><span class="pill-num">7</span> PRECIO VENTA</span>
-                <span class="column-pill"><span class="pill-num">8</span> TOTAL INVENTARIO</span>
-                <span class="column-pill" style="background: #eff6ff; border-color: #bfdbfe; color: #1e40af;"><span class="pill-num" style="background: #2563eb;">9</span> STOCK FINAL MES</span>
-                <span class="column-pill" style="background: #fef2f2; border-color: #fecdd3; color: #991b1b;"><span class="pill-num" style="background: #dc2626;">10</span> VENTAS MES</span>
-                <span class="column-pill" style="background: #ecfdf5; border-color: #a7f3d0; color: #065f46;"><span class="pill-num" style="background: #059669;">11+</span> PROVEEDORES (Compras)</span>
-                <span class="column-pill" style="background: #fffbeb; border-color: #fde68a; color: #92400e;"><span class="pill-num" style="background: #d97706;">FIN</span> STOCK MES PASADO</span>
-            </div>
-
-            <!-- Selector de Cantidad de Proveedores en la hoja -->
-            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 12px 18px; margin-bottom: 14px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <i class="fas fa-truck-loading" style="color: #2563eb; font-size: 1.3rem;"></i>
-                    <div>
-                        <strong style="font-size: 0.95rem; color: #1e293b;">Cantidad de Columnas de Proveedores en tu Excel:</strong>
-                        <span style="display: block; font-size: 0.8rem; color: #64748b;">Indica cuántos proveedores vienen en tu hoja entre "Ventas" y "Stock Mes Pasado"</span>
-                    </div>
-                </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <button type="button" class="btn-action btn-action-secondary" style="padding: 6px 14px; font-size: 1.1rem; font-weight: 800;" onclick="CargaInventarioApp.ajustarProveedores(-1)">-</button>
-                    <select id="select-num-proveedores" onchange="CargaInventarioApp.setNumProveedores(this.value)" style="font-size: 1rem; font-weight: 800; color: #1d4ed8; background: white; border: 2px solid #3b82f6; border-radius: 8px; padding: 6px 14px; cursor: pointer;">
-                        <option value="0">0 proveedores</option>
-                        <option value="1" selected>1 proveedor</option>
-                        <option value="2">2 proveedores</option>
-                        <option value="3">3 proveedores</option>
-                        <option value="4">4 proveedores</option>
-                        <option value="5">5 proveedores</option>
-                        <option value="6">6 proveedores</option>
-                        <option value="7">7 proveedores</option>
-                        <option value="8">8 proveedores</option>
-                        <option value="9">9 proveedores</option>
-                        <option value="10">10 proveedores</option>
-                    </select>
-                    <button type="button" class="btn-action btn-action-secondary" style="padding: 6px 14px; font-size: 1.1rem; font-weight: 800;" onclick="CargaInventarioApp.ajustarProveedores(1)">+</button>
-                </div>
-            </div>
 
             <!-- Cuadro de texto para pegar -->
-            <textarea id="txt-excel-paste" class="paste-textarea" placeholder="Haz clic aquí y presiona Ctrl + V para pegar tus filas copiadas desde Excel..."></textarea>
+            <textarea id="txt-excel-paste" class="paste-textarea" placeholder="Haz clic aquí y presiona Ctrl + V para pegar tus filas copiadas desde Excel..." oninput="CargaInventarioApp.onPegadoCambiado()"></textarea>
             
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
                 <span id="txt-status-info" style="font-size: 0.82rem; color: #64748b;">
-                    <i class="fas fa-info-circle"></i> Puedes incluir o no la fila de encabezados; el sistema la reconocerá sola.
+                    <i class="fas fa-info-circle"></i> Al pegar tus datos, podrás verificar o elegir qué columna corresponde a cada dato.
                 </span>
                 <button class="btn-action btn-action-primary" onclick="CargaInventarioApp.procesarPegado()">
                     <i class="fas fa-bolt"></i> Procesar y Ver Vista Previa
                 </button>
+            </div>
+
+            <!-- PANEL DE MAPEO Y SELECCIÓN DE COLUMNAS -->
+            <div id="panel-mapeo-columnas" class="mapper-box" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+                    <div>
+                        <h3 style="margin: 0; font-size: 0.98rem; font-weight: 800; color: #1e3a8a; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-columns" style="color: #2563eb;"></i> Seleccionar Columnas de tu Excel
+                        </h3>
+                        <p style="margin: 2px 0 0 0; font-size: 0.8rem; color: #64748b;">
+                            El sistema preseleccionó las columnas automáticamente. Si alguna no coincide, cámbiala en su lista:
+                        </p>
+                    </div>
+                    <span id="badge-total-columnas" style="background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; font-size: 0.78rem; font-weight: 700; padding: 4px 10px; border-radius: 20px;">
+                        0 columnas detectadas
+                    </span>
+                </div>
+
+                <div class="mapper-grid">
+                    <!-- 1. CÓDIGO -->
+                    <div class="mapper-field">
+                        <label for="map-col-codigo"><i class="fas fa-barcode" style="color: #2563eb;"></i> Código Principal:</label>
+                        <select id="map-col-codigo" onchange="CargaInventarioApp.onCambioMapeoColumna()"></select>
+                    </div>
+
+                    <!-- 2. CÓDIGO FEL / AUXILIAR -->
+                    <div class="mapper-field">
+                        <label for="map-col-codigo-fel"><i class="fas fa-tag" style="color: #64748b;"></i> Código FEL:</label>
+                        <select id="map-col-codigo-fel" onchange="CargaInventarioApp.onCambioMapeoColumna()"></select>
+                    </div>
+
+                    <!-- 3. DESCRIPCIÓN INVENTARIO -->
+                    <div class="mapper-field">
+                        <label for="map-col-descripcion"><i class="fas fa-file-alt" style="color: #2563eb;"></i> Descripción Taller:</label>
+                        <select id="map-col-descripcion" onchange="CargaInventarioApp.onCambioMapeoColumna()"></select>
+                    </div>
+
+                    <!-- 4. DESCRIPCIÓN FACTURA -->
+                    <div class="mapper-field">
+                        <label for="map-col-descripcion-factura"><i class="fas fa-file-invoice" style="color: #64748b;"></i> Desc. Factura:</label>
+                        <select id="map-col-descripcion-factura" onchange="CargaInventarioApp.onCambioMapeoColumna()"></select>
+                    </div>
+
+                    <!-- 5. COSTO SIN IVA -->
+                    <div class="mapper-field">
+                        <label for="map-col-costo-sin-iva"><i class="fas fa-dollar-sign" style="color: #059669;"></i> Costo sin IVA:</label>
+                        <select id="map-col-costo-sin-iva" onchange="CargaInventarioApp.onCambioMapeoColumna()"></select>
+                    </div>
+
+                    <!-- 6. COSTO CON IVA -->
+                    <div class="mapper-field">
+                        <label for="map-col-costo-con-iva"><i class="fas fa-dollar-sign" style="color: #059669;"></i> Costo con IVA:</label>
+                        <select id="map-col-costo-con-iva" onchange="CargaInventarioApp.onCambioMapeoColumna()"></select>
+                    </div>
+
+                    <!-- 7. PRECIO VENTA -->
+                    <div class="mapper-field">
+                        <label for="map-col-precio-venta"><i class="fas fa-tag" style="color: #10b981;"></i> Precio de Venta:</label>
+                        <select id="map-col-precio-venta" onchange="CargaInventarioApp.onCambioMapeoColumna()"></select>
+                    </div>
+
+                    <!-- 8. INVENTARIO INICIAL (MES PASADO) -->
+                    <div class="mapper-field">
+                        <label for="map-col-stock-inicial"><i class="fas fa-history" style="color: #d97706;"></i> Inv. Inicial (Mes Pasado):</label>
+                        <select id="map-col-stock-inicial" onchange="CargaInventarioApp.onCambioMapeoColumna()"></select>
+                    </div>
+
+                    <!-- 9. INVENTARIO FINAL (ESTE MES) -->
+                    <div class="mapper-field">
+                        <label for="map-col-stock-final"><i class="fas fa-cubes" style="color: #2563eb;"></i> Inv. Final (Este Mes):</label>
+                        <select id="map-col-stock-final" onchange="CargaInventarioApp.onCambioMapeoColumna()"></select>
+                    </div>
+
+                    <!-- 10. VENTA DEL MES -->
+                    <div class="mapper-field">
+                        <label for="map-col-ventas"><i class="fas fa-shopping-cart" style="color: #dc2626;"></i> Venta del Mes:</label>
+                        <select id="map-col-ventas" onchange="CargaInventarioApp.onCambioMapeoColumna()"></select>
+                    </div>
+
+                    <!-- 11. CANTIDAD DE PROVEEDORES (COMPRAS) -->
+                    <div class="mapper-field">
+                        <label for="select-num-proveedores"><i class="fas fa-truck-loading" style="color: #059669;"></i> Proveedores (Compras):</label>
+                        <div style="display: flex; gap: 4px;">
+                            <button type="button" class="btn-action btn-action-secondary" style="padding: 4px 10px; font-size: 0.9rem;" onclick="CargaInventarioApp.ajustarProveedores(-1)">-</button>
+                            <select id="select-num-proveedores" onchange="CargaInventarioApp.setNumProveedores(this.value)" style="flex: 1;">
+                                <option value="0" selected>0 (No lleva proveedores)</option>
+                                <option value="1">1 proveedor</option>
+                                <option value="2">2 proveedores</option>
+                                <option value="3">3 proveedores</option>
+                                <option value="4">4 proveedores</option>
+                                <option value="5">5 proveedores</option>
+                                <option value="6">6 proveedores</option>
+                                <option value="7">7 proveedores</option>
+                                <option value="8">8 proveedores</option>
+                                <option value="9">9 proveedores</option>
+                                <option value="10">10 proveedores</option>
+                            </select>
+                            <button type="button" class="btn-action btn-action-secondary" style="padding: 4px 10px; font-size: 0.9rem;" onclick="CargaInventarioApp.ajustarProveedores(1)">+</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN DETALLADA DE COLUMNAS DE PROVEEDORES -->
+                <div id="container-proveedores-mapeo" style="margin-top: 14px; padding-top: 14px; border-top: 1.5px dashed #cbd5e1; display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="font-size: 0.85rem; font-weight: 800; color: #166534; display: flex; align-items: center; gap: 6px;">
+                            <i class="fas fa-truck-loading"></i> Columnas y Nombres de Proveedores en tu Excel:
+                        </span>
+                        <span style="font-size: 0.75rem; color: #64748b;">
+                            Se toma automáticamente el título de cada columna de tu Excel
+                        </span>
+                    </div>
+                    <div id="grid-proveedores-columnas" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px;">
+                        <!-- JS llenará esto cuando la cantidad de proveedores sea mayor a 0 -->
+                    </div>
+                </div>
+
+                <!-- MINI VISTA PREVIA INMEDIATA (Primeras 4 filas) -->
+                <div style="margin-top: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 0.8rem; font-weight: 700; color: #475569;">
+                            <i class="fas fa-eye"></i> Muestra de lectura con las columnas seleccionadas (primeras filas):
+                        </span>
+                        <span style="font-size: 0.75rem; color: #94a3b8;">Verifica que cada dato caiga en su columna</span>
+                    </div>
+                    <div class="mini-preview-wrap">
+                        <table class="mini-preview-table">
+                            <thead>
+                                <tr id="mini-preview-thead-tr">
+                                    <th>#</th>
+                                    <th>Código</th>
+                                    <th>Descripción</th>
+                                    <th style="text-align: right;">Costo c/IVA</th>
+                                    <th style="text-align: right;">Precio</th>
+                                    <th style="text-align: center;">Inv. Inicial</th>
+                                    <th style="text-align: center;">Ventas</th>
+                                    <th style="text-align: center;">Inv. Final</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mini-preview-tbody">
+                                <tr><td colspan="8" style="text-align: center; color: #94a3b8;">Pega datos para ver la muestra</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -561,13 +749,13 @@
                 </button>
             </div>
 
-            <!-- Banner Informativo de Comparación con Mes Siguiente/Anterior -->
+            <!-- Banner Informativo de Comprobación de Datos Ingresados -->
             <div id="banner-comparacion" style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 12px 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 14px;">
-                <i class="fas fa-balance-scale" style="font-size: 1.6rem; color: #2563eb;"></i>
+                <i class="fas fa-calculator" style="font-size: 1.6rem; color: #2563eb;"></i>
                 <div style="flex: 1;">
-                    <strong style="color: #1e3a8a; font-size: 0.95rem;" id="titulo-comparacion">Comparando con el mes siguiente...</strong>
+                    <strong style="color: #1e3a8a; font-size: 0.95rem;" id="titulo-comparacion">Comprobación de Datos Ingresados</strong>
                     <p style="margin: 2px 0 0 0; font-size: 0.85rem; color: #3b82f6;" id="detalle-comparacion">
-                        Revisando si las cantidades de stock cuadran entre meses consecutivos.
+                        Verificando cuadratura interna: Inventario Inicial + Entradas (Proveedores) - Ventas = Stock Final del Mes.
                     </p>
                 </div>
             </div>
@@ -580,14 +768,6 @@
                         <div class="stat-value" id="stat-total-items">0</div>
                     </div>
                     <i class="fas fa-boxes" style="font-size: 1.8rem; color: #94a3b8;"></i>
-                </div>
-
-                <div class="stat-card-clean">
-                    <div>
-                        <div class="stat-label">Stock Total Unidades</div>
-                        <div class="stat-value" id="stat-total-stock">0</div>
-                    </div>
-                    <i class="fas fa-cubes" style="font-size: 1.8rem; color: #3b82f6;"></i>
                 </div>
 
                 <div class="stat-card-clean">

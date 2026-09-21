@@ -17,8 +17,11 @@ const CargaInventarioApp = {
     
     db: null,
     mesActual: '2026-09',
-    numProveedores: 1, // Cantidad de columnas de proveedores configurada por el usuario
-    nombresProveedores: ['Proveedor 1'], // Nombres extraídos del Excel o por defecto
+    numProveedores: 0, // Cantidad de columnas de proveedores (por defecto 0 si no se usan)
+    nombresProveedores: [], // Nombres extraídos del Excel o configurados
+    columnasProveedores: [], // Índices de columnas de cada proveedor en el Excel
+    headersExcelDetectados: [], // Encabezados extraídos de la primera fila
+    opcionesColsDetectadas: [], // Lista de opciones de columnas para los selectores
     datosPegados: [],
     datosComparacion: null, // Datos del mes de referencia (ej. Septiembre si cargamos Agosto)
     mesReferencia: null,
@@ -27,17 +30,7 @@ const CargaInventarioApp = {
     cacheMesesGuardados: {}, // Cache local en memoria de meses guardados
 
     // Nombres legibles para meses
-    mesesNombres: {
-        '2026-09': 'Septiembre 2026',
-        '2026-08': 'Agosto 2026',
-        '2026-07': 'Julio 2026',
-        '2026-06': 'Junio 2026',
-        '2026-05': 'Mayo 2026',
-        '2026-04': 'Abril 2026',
-        '2026-03': 'Marzo 2026',
-        '2026-02': 'Febrero 2026',
-        '2026-01': 'Enero 2026'
-    },
+    mesesNombresLista: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
 
     init: async function() {
         console.log("Iniciando Módulo de Carga de Inventario por Mes...");
@@ -48,16 +41,33 @@ const CargaInventarioApp = {
         }
         this.db = firebase.firestore();
 
-        // Cargar mes seleccionado desde el selector
-        const selectMes = document.getElementById('select-mes-carga');
-        if (selectMes) {
-            this.mesActual = selectMes.value || '2026-09';
+        // Cargar mes y año seleccionados desde los selectores
+        const selMes = document.getElementById('select-mes-nombre');
+        const selAnio = document.getElementById('select-anio');
+        if (selMes && selAnio) {
+            this.mesActual = `${selAnio.value}-${selMes.value}`;
         }
 
         // Cargar cantidad de proveedores guardada para este mes si existe
         const provGuardados = localStorage.getItem(`num_prov_${this.mesActual}`);
         if (provGuardados !== null) {
-            this.numProveedores = parseInt(provGuardados) || 1;
+            this.numProveedores = parseInt(provGuardados) || 0;
+        } else {
+            this.numProveedores = 0;
+        }
+
+        const colProvGuardadas = localStorage.getItem(`col_prov_${this.mesActual}`);
+        if (colProvGuardadas) {
+            try { this.columnasProveedores = JSON.parse(colProvGuardadas); } catch (e) {}
+        } else {
+            this.columnasProveedores = [];
+        }
+
+        const nomProvGuardados = localStorage.getItem(`nom_prov_${this.mesActual}`);
+        if (nomProvGuardados) {
+            try { this.nombresProveedores = JSON.parse(nomProvGuardados); } catch (e) {}
+        } else {
+            this.nombresProveedores = [];
         }
 
         this.actualizarSelectorProveedoresUI();
@@ -81,11 +91,12 @@ const CargaInventarioApp = {
         this.numProveedores = num;
         localStorage.setItem(`num_prov_${this.mesActual}`, num);
         this.actualizarSelectorProveedoresUI();
+        this.renderizarSelectoresProveedores();
 
-        // Si ya hay texto pegado, volver a procesar para reorganizar columnas al instante
-        const txt = document.getElementById('txt-excel-paste');
-        if (txt && txt.value.trim().length > 0) {
-            this.procesarPegado();
+        // Si hay panel de mapeo abierto, actualizar mini preview
+        const panel = document.getElementById('panel-mapeo-columnas');
+        if (panel && panel.style.display !== 'none') {
+            this.renderizarMiniPreview();
         }
     },
 
@@ -96,23 +107,186 @@ const CargaInventarioApp = {
         }
     },
 
-    // Obtener nombre formateado del mes
+    // Renderizar tarjetas de mapeo y nombres de proveedores
+    renderizarSelectoresProveedores: function() {
+        const container = document.getElementById('container-proveedores-mapeo');
+        const grid = document.getElementById('grid-proveedores-columnas');
+        if (!container || !grid) return;
+
+        const num = this.numProveedores;
+        if (num <= 0) {
+            container.style.display = 'none';
+            grid.innerHTML = '';
+            return;
+        }
+
+        container.style.display = 'block';
+
+        const totalCols = this.opcionesColsDetectadas ? this.opcionesColsDetectadas.length : 0;
+        const headers = this.headersExcelDetectados || [];
+
+        // Identificar columnas ya ocupadas por campos fijos
+        const colCod = parseInt(document.getElementById('map-col-codigo')?.value) ?? -1;
+        const colDesc = parseInt(document.getElementById('map-col-descripcion')?.value) ?? -1;
+        const colCosto = parseInt(document.getElementById('map-col-costo-con-iva')?.value) ?? -1;
+        const colPrecio = parseInt(document.getElementById('map-col-precio-venta')?.value) ?? -1;
+        const colStockIni = parseInt(document.getElementById('map-col-stock-inicial')?.value) ?? -1;
+        const colStockFin = parseInt(document.getElementById('map-col-stock-final')?.value) ?? -1;
+        const colVentas = parseInt(document.getElementById('map-col-ventas')?.value) ?? -1;
+        const colsFijasOcupadas = new Set([colCod, colDesc, colCosto, colPrecio, colStockIni, colStockFin, colVentas].filter(c => c >= 0));
+
+        // Ajustar tamaño de arrays
+        while (this.columnasProveedores.length < num) {
+            this.columnasProveedores.push(-1);
+        }
+        while (this.nombresProveedores.length < num) {
+            this.nombresProveedores.push('');
+        }
+
+        // Autoasignar columnas para proveedores que aún no tengan asignación
+        for (let p = 0; p < num; p++) {
+            if (this.columnasProveedores[p] === -1 || this.columnasProveedores[p] === undefined || (totalCols > 0 && this.columnasProveedores[p] >= totalCols)) {
+                const yaAsignadas = new Set(this.columnasProveedores.filter(c => c >= 0));
+                for (let c = 0; c < totalCols; c++) {
+                    if (!colsFijasOcupadas.has(c) && !yaAsignadas.has(c)) {
+                        this.columnasProveedores[p] = c;
+                        break;
+                    }
+                }
+            }
+
+            // Tomar el título de la columna del Excel
+            const cIdx = this.columnasProveedores[p];
+            if (cIdx >= 0 && headers[cIdx] && headers[cIdx].trim()) {
+                if (!this.nombresProveedores[p] || this.nombresProveedores[p].startsWith('Proveedor ')) {
+                    this.nombresProveedores[p] = headers[cIdx].trim();
+                }
+            } else if (!this.nombresProveedores[p]) {
+                this.nombresProveedores[p] = `Proveedor ${p + 1}`;
+            }
+        }
+
+        let html = '';
+        for (let p = 0; p < num; p++) {
+            const colActual = this.columnasProveedores[p] !== undefined ? this.columnasProveedores[p] : -1;
+            const nomActual = this.nombresProveedores[p] || (colActual >= 0 && headers[colActual] ? headers[colActual].trim() : `Proveedor ${p + 1}`);
+
+            let opcionesHtml = '<option value="-1">(Ninguno / No aplica)</option>';
+            if (this.opcionesColsDetectadas && this.opcionesColsDetectadas.length > 0) {
+                this.opcionesColsDetectadas.forEach(op => {
+                    const sel = (op.index === colActual) ? 'selected' : '';
+                    opcionesHtml += `<option value="${op.index}" ${sel}>${op.label}</option>`;
+                });
+            }
+
+            html += `
+                <div style="background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 6px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 0.8rem; font-weight: 800; color: #166534; display: flex; align-items: center; gap: 5px;">
+                            <i class="fas fa-truck"></i> Proveedor ${p + 1}:
+                        </span>
+                        <span style="font-size: 0.72rem; color: #15803d; font-weight: 600; background: #dcfce7; padding: 1px 6px; border-radius: 4px;">
+                            ${colActual >= 0 ? `Columna ${colActual + 1}` : 'Sin asignar'}
+                        </span>
+                    </div>
+                    <div>
+                        <label style="font-size: 0.72rem; font-weight: 700; color: #374151; margin-bottom: 2px; display: block;">
+                            Columna en tu Excel:
+                        </label>
+                        <select id="map-col-prov-${p}" onchange="CargaInventarioApp.onCambioColumnaProveedor(${p})" style="width: 100%; font-size: 0.8rem; padding: 5px 8px; border: 1px solid #86efac; border-radius: 6px; background: #ffffff; color: #1e293b;">
+                            ${opcionesHtml}
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size: 0.72rem; font-weight: 700; color: #374151; margin-bottom: 2px; display: block;">
+                            Nombre / Título detectado:
+                        </label>
+                        <input type="text" id="input-nombre-prov-${p}" value="${nomActual.replace(/"/g, '&quot;')}" oninput="CargaInventarioApp.onCambioNombreProveedor(${p}, this.value)" placeholder="Título o nombre del proveedor" style="width: 100%; font-size: 0.8rem; padding: 5px 8px; border: 1px solid #86efac; border-radius: 6px; background: #ffffff; color: #065f46; font-weight: 700;">
+                    </div>
+                </div>
+            `;
+        }
+
+        grid.innerHTML = html;
+        this.guardarConfigProveedoresLocal();
+    },
+
+    onCambioColumnaProveedor: function(pIndex) {
+        const select = document.getElementById(`map-col-prov-${pIndex}`);
+        if (!select) return;
+        const colIdx = parseInt(select.value);
+        this.columnasProveedores[pIndex] = colIdx;
+
+        // Tomar automáticamente el título del Excel si la columna seleccionada tiene encabezado
+        const headers = this.headersExcelDetectados || [];
+        if (colIdx >= 0 && headers[colIdx] && headers[colIdx].trim()) {
+            const nuevoNom = headers[colIdx].trim();
+            this.nombresProveedores[pIndex] = nuevoNom;
+            const inputNom = document.getElementById(`input-nombre-prov-${pIndex}`);
+            if (inputNom) {
+                inputNom.value = nuevoNom;
+            }
+        }
+
+        this.guardarConfigProveedoresLocal();
+        this.renderizarMiniPreview();
+    },
+
+    onCambioNombreProveedor: function(pIndex, nuevoNombre) {
+        this.nombresProveedores[pIndex] = (nuevoNombre || '').trim();
+        this.guardarConfigProveedoresLocal();
+        this.renderizarMiniPreview();
+    },
+
+    guardarConfigProveedoresLocal: function() {
+        localStorage.setItem(`col_prov_${this.mesActual}`, JSON.stringify(this.columnasProveedores));
+        localStorage.setItem(`nom_prov_${this.mesActual}`, JSON.stringify(this.nombresProveedores));
+    },
+
+    // Obtener nombre formateado del mes (dinámico para cualquier año y mes)
     getNombreMes: function(mesKey) {
-        return this.mesesNombres[mesKey] || mesKey;
+        if (!mesKey || typeof mesKey !== 'string') return '';
+        const parts = mesKey.split('-');
+        if (parts.length === 2) {
+            const y = parts[0];
+            const m = parseInt(parts[1], 10);
+            if (m >= 1 && m <= 12) {
+                return `${this.mesesNombresLista[m - 1]} ${y}`;
+            }
+        }
+        return mesKey;
+    },
+
+    // Evento disparado al cambiar Mes o Año en los selectores
+    onCambioMesAnio: function() {
+        const selMes = document.getElementById('select-mes-nombre');
+        const selAnio = document.getElementById('select-anio');
+        if (selMes && selAnio) {
+            const nuevoMes = `${selAnio.value}-${selMes.value}`;
+            this.cambiarMes(nuevoMes);
+        }
     },
 
     // Actualizar etiquetas en la interfaz
     actualizarEtiquetasMes: function() {
         const nombre = this.getNombreMes(this.mesActual);
         const lblActual = document.getElementById('label-mes-actual');
+        const lblPaso1 = document.getElementById('label-mes-paso1');
         const lblPreview = document.getElementById('label-mes-preview');
-        const selCarga = document.getElementById('select-mes-carga');
-        const selPaso1 = document.getElementById('select-mes-paso1');
+        const selMes = document.getElementById('select-mes-nombre');
+        const selAnio = document.getElementById('select-anio');
         
         if (lblActual) lblActual.textContent = nombre;
+        if (lblPaso1) lblPaso1.textContent = nombre;
         if (lblPreview) lblPreview.textContent = nombre;
-        if (selCarga && selCarga.value !== this.mesActual) selCarga.value = this.mesActual;
-        if (selPaso1 && selPaso1.value !== this.mesActual) selPaso1.value = this.mesActual;
+
+        if (this.mesActual) {
+            const parts = this.mesActual.split('-');
+            if (parts.length === 2) {
+                if (selAnio && selAnio.value !== parts[0]) selAnio.value = parts[0];
+                if (selMes && selMes.value !== parts[1]) selMes.value = parts[1];
+            }
+        }
     },
 
     // Cambiar de mes de trabajo
@@ -123,9 +297,24 @@ const CargaInventarioApp = {
         // Cargar proveedores del mes si tenía configurado
         const provGuardados = localStorage.getItem(`num_prov_${this.mesActual}`);
         if (provGuardados !== null) {
-            this.numProveedores = parseInt(provGuardados) || 1;
-            this.actualizarSelectorProveedoresUI();
+            this.numProveedores = parseInt(provGuardados) || 0;
+        } else {
+            this.numProveedores = 0;
         }
+        const colProvGuardadas = localStorage.getItem(`col_prov_${this.mesActual}`);
+        if (colProvGuardadas) {
+            try { this.columnasProveedores = JSON.parse(colProvGuardadas); } catch (e) {}
+        } else {
+            this.columnasProveedores = [];
+        }
+        const nomProvGuardados = localStorage.getItem(`nom_prov_${this.mesActual}`);
+        if (nomProvGuardados) {
+            try { this.nombresProveedores = JSON.parse(nomProvGuardados); } catch (e) {}
+        } else {
+            this.nombresProveedores = [];
+        }
+        this.actualizarSelectorProveedoresUI();
+        this.renderizarSelectoresProveedores();
 
         // Guardar borrador actual si existe y cargar borrador del nuevo mes si tiene
         this.recuperarBorradorLocal();
@@ -140,59 +329,16 @@ const CargaInventarioApp = {
         }
     },
 
-    // Detectar automáticamente el mes con el cual comparar
-    // Como el usuario va de Septiembre hacia atrás (Agosto, Julio, etc.):
-    // - Si existe el mes siguiente (ej. Septiembre cuando se carga Agosto): compara con el siguiente.
-    // - Si existe el mes anterior (ej. Agosto cuando se carga Septiembre): compara con el anterior.
+    // Configurar auditoría interna de los datos del mes
     detectarMesReferencia: async function() {
-        const [yearStr, monthStr] = this.mesActual.split('-');
-        let year = parseInt(yearStr);
-        let month = parseInt(monthStr);
-
-        // 1. Probar primero si existe el mes SIGUIENTE (M + 1)
-        let nextMonth = month + 1;
-        let nextYear = year;
-        if (nextMonth > 12) {
-            nextMonth = 1;
-            nextYear++;
-        }
-        const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
-        let refData = await this.obtenerProductosDeMes(nextMonthKey);
-        
-        if (refData && refData.length > 0) {
-            this.mesReferencia = nextMonthKey;
-            this.tipoReferencia = 'siguiente';
-            this.datosComparacion = refData;
-            this.actualizarBannerComparacion(`Comparando contra ${this.getNombreMes(nextMonthKey)} (Mes Siguiente)`,
-                `Tu Stock Final de este mes debe ser el Stock Inicial con el que arrancó ${this.getNombreMes(nextMonthKey)}.`);
-            return;
-        }
-
-        // 2. Probar si existe el mes ANTERIOR (M - 1)
-        let prevMonth = month - 1;
-        let prevYear = year;
-        if (prevMonth < 1) {
-            prevMonth = 12;
-            prevYear--;
-        }
-        const prevMonthKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
-        refData = await this.obtenerProductosDeMes(prevMonthKey);
-
-        if (refData && refData.length > 0) {
-            this.mesReferencia = prevMonthKey;
-            this.tipoReferencia = 'anterior';
-            this.datosComparacion = refData;
-            this.actualizarBannerComparacion(`Comparando contra ${this.getNombreMes(prevMonthKey)} (Mes Anterior)`,
-                `El Stock del Mes Pasado de tu hoja debe coincidir exactamente con el Stock Final de ${this.getNombreMes(prevMonthKey)}.`);
-            return;
-        }
-
-        // Si no hay ninguno guardado
         this.mesReferencia = null;
         this.tipoReferencia = null;
         this.datosComparacion = null;
-        this.actualizarBannerComparacion(`Mes Base Inicial: ${this.getNombreMes(this.mesActual)}`,
-            `No hay otros meses guardados para comparar aún. Este mes servirá como punto de partida para auditar los meses anteriores que cargues después.`);
+        const nombre = this.getNombreMes(this.mesActual);
+        this.actualizarBannerComparacion(
+            `Comprobación de Datos Ingresados: ${nombre}`,
+            `Auditando cuadratura interna: Inventario Inicial + Entradas (Proveedores) - Ventas = Stock Final del Mes.`
+        );
     },
 
     actualizarBannerComparacion: function(titulo, detalle) {
@@ -252,6 +398,12 @@ const CargaInventarioApp = {
         const previewSec = document.getElementById('section-preview');
         if (previewSec) previewSec.style.display = 'none';
         
+        const panelMapeo = document.getElementById('panel-mapeo-columnas');
+        if (panelMapeo) panelMapeo.style.display = 'none';
+
+        const miniTbody = document.getElementById('mini-preview-tbody');
+        if (miniTbody) miniTbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #94a3b8;">Pega datos para ver la muestra</td></tr>';
+
         const statusInfo = document.getElementById('txt-status-info');
         if (statusInfo) {
             statusInfo.innerHTML = '<i class="fas fa-info-circle"></i> Cuadro limpio. Puedes pegar nuevos datos.';
@@ -264,7 +416,8 @@ const CargaInventarioApp = {
             localStorage.setItem(`draft_carga_inventario_${this.mesActual}`, JSON.stringify(this.datosPegados));
             localStorage.setItem(`draft_prov_${this.mesActual}`, JSON.stringify({
                 num: this.numProveedores,
-                nombres: this.nombresProveedores
+                nombres: this.nombresProveedores,
+                columnas: this.columnasProveedores
             }));
         }
     },
@@ -279,7 +432,9 @@ const CargaInventarioApp = {
                 const pInfo = JSON.parse(draftProv);
                 if (pInfo.num !== undefined) this.numProveedores = pInfo.num;
                 if (pInfo.nombres) this.nombresProveedores = pInfo.nombres;
+                if (pInfo.columnas) this.columnasProveedores = pInfo.columnas;
                 this.actualizarSelectorProveedoresUI();
+                this.renderizarSelectoresProveedores();
             } catch (e) {}
         }
 
@@ -298,6 +453,267 @@ const CargaInventarioApp = {
                 console.error("Error recuperando borrador:", e);
             }
         }
+
+        // Si ya hay texto en el cuadro al iniciar, analizar mapeo
+        const txt = document.getElementById('txt-excel-paste');
+        if (txt && txt.value.trim().length > 0) {
+            this.onPegadoCambiado();
+        }
+    },
+
+    // Extraer celdas de una línea respetando tabulaciones
+    extraerCeldasLinea: function(linea) {
+        if (!linea) return [];
+        linea = linea.replace(/\r$/, '');
+        let celdas = linea.split('\t');
+        if (celdas.length < 3) {
+            if (linea.includes(';')) celdas = linea.split(';');
+            else if (linea.includes(',')) celdas = linea.split(',');
+        }
+        return celdas.map(c => c.trim());
+    },
+
+    // Disparado en cada cambio de texto en el textarea
+    onPegadoCambiado: function() {
+        const txtInput = document.getElementById('txt-excel-paste');
+        const rawText = txtInput ? txtInput.value.trim() : '';
+        const panel = document.getElementById('panel-mapeo-columnas');
+
+        if (!rawText) {
+            if (panel) panel.style.display = 'none';
+            return;
+        }
+
+        this.analizarYRenderizarMapeo(rawText);
+    },
+
+    // Analizar encabezados y columnas del texto pegado
+    analizarYRenderizarMapeo: function(rawText) {
+        const panel = document.getElementById('panel-mapeo-columnas');
+        if (!panel) return;
+
+        const lineas = rawText.split(/\r\n|\n|\r/).filter(l => l && l.trim().length > 0);
+        if (lineas.length === 0) {
+            panel.style.display = 'none';
+            return;
+        }
+
+        const fila0 = this.extraerCeldasLinea(lineas[0]);
+        const fila1 = lineas.length > 1 ? this.extraerCeldasLinea(lineas[1]) : [];
+
+        // Detectar si la primera fila es encabezado
+        const textoFila0 = fila0.join(' ').toUpperCase();
+        const tieneEncabezados = textoFila0.includes('CODIGO') || 
+                                 textoFila0.includes('DESC') || 
+                                 textoFila0.includes('COSTO') || 
+                                 textoFila0.includes('PRECIO') || 
+                                 textoFila0.includes('STOCK') || 
+                                 textoFila0.includes('VENTA') ||
+                                 textoFila0.includes('EXISTENCIA');
+
+        const headers = tieneEncabezados ? fila0 : [];
+        const muestra = tieneEncabezados ? (fila1.length > 0 ? fila1 : fila0) : fila0;
+        const totalCols = Math.max(fila0.length, fila1.length);
+
+        if (totalCols === 0) {
+            panel.style.display = 'none';
+            return;
+        }
+
+        const badge = document.getElementById('badge-total-columnas');
+        if (badge) {
+            badge.textContent = `${totalCols} columnas detectadas`;
+        }
+
+        // Construir opciones
+        const opcionesCols = [];
+        for (let i = 0; i < totalCols; i++) {
+            const h = headers[i] || `Columna ${i + 1}`;
+            const s = (muestra[i] !== undefined && muestra[i] !== '') ? ` ("${muestra[i].substring(0, 16)}")` : '';
+            opcionesCols.push({ index: i, label: `Col. ${i + 1}: ${h}${s}`, headerClean: (headers[i] || '').toUpperCase() });
+        }
+
+        // Guardar encabezados y opciones detectadas en la app
+        this.headersExcelDetectados = headers;
+        this.opcionesColsDetectadas = opcionesCols;
+
+        // Leer mapeo previo guardado si coincide en columnas
+        const mapeoGuardado = localStorage.getItem('mapeo_columnas_carga');
+        let mapeo = null;
+        if (mapeoGuardado) {
+            try { mapeo = JSON.parse(mapeoGuardado); } catch (e) {}
+        }
+
+        const autodetectar = (regexList, fallbackIndex, allowNone = false) => {
+            if (tieneEncabezados) {
+                for (const col of opcionesCols) {
+                    for (const rx of regexList) {
+                        if (rx.test(col.headerClean)) {
+                            return col.index;
+                        }
+                    }
+                }
+            }
+            if (fallbackIndex !== undefined && fallbackIndex < totalCols && fallbackIndex >= 0) {
+                return fallbackIndex;
+            }
+            return allowNone ? -1 : 0;
+        };
+
+        const configCampos = [
+            { id: 'map-col-codigo', clave: 'codigo', regex: [/CODIGO.*(BARRA|PRODUCTO|INTERNO)?$/i, /COD(IGO)?$/i, /ITEM/i, /REFERENCIA/i, /ARTICULO/i], fallback: totalCols >= 11 ? 1 : 0, required: true },
+            { id: 'map-col-codigo-fel', clave: 'codigoFel', regex: [/FEL/i], fallback: totalCols >= 11 ? 0 : -1, required: false },
+            { id: 'map-col-descripcion', clave: 'descripcion', regex: [/DESCRIPCION.*(INVENTARIO|TALLER|PRODUCTO)?$/i, /DESC(RIPCION)?$/i, /PRODUCTO/i, /NOMBRE/i], fallback: totalCols >= 11 ? 2 : (totalCols > 1 ? 1 : 0), required: true },
+            { id: 'map-col-descripcion-factura', clave: 'descripcionFactura', regex: [/FACTURA/i, /DESC.*FAC/i], fallback: totalCols >= 11 ? 3 : -1, required: false },
+            { id: 'map-col-costo-sin-iva', clave: 'costoSinIva', regex: [/SIN.*IVA/i, /S\/IVA/i, /NETO/i], fallback: totalCols >= 11 ? 4 : -1, required: false },
+            { id: 'map-col-costo-con-iva', clave: 'costoConIva', regex: [/CON.*IVA/i, /C\/IVA/i, /COSTO/i], fallback: totalCols >= 11 ? 5 : (totalCols > 2 ? 2 : 0), required: true },
+            { id: 'map-col-precio-venta', clave: 'precioVenta', regex: [/VENTA/i, /PRECIO/i, /PVP/i], fallback: totalCols >= 11 ? 6 : (totalCols > 3 ? 3 : -1), required: false },
+            { id: 'map-col-stock-inicial', clave: 'stockInicial', regex: [/INICIAL/i, /PASADO/i, /ANTERIOR/i], fallback: totalCols >= 11 ? (totalCols - 1) : -1, required: true },
+            { id: 'map-col-stock-final', clave: 'stockFinal', regex: [/FINAL/i, /EXISTENCIA/i, /ACTUAL/i, /STOCK/i], fallback: totalCols >= 11 ? 8 : (totalCols > 4 ? 4 : 0), required: true },
+            { id: 'map-col-ventas', clave: 'ventas', regex: [/VENTA(S)?/i, /SALIDA(S)?/i], fallback: totalCols >= 11 ? 9 : -1, required: true }
+        ];
+
+        configCampos.forEach(campo => {
+            const selectEl = document.getElementById(campo.id);
+            if (!selectEl) return;
+
+            // Todas las columnas tienen la opción Ninguno / No aplica
+            let html = '<option value="-1">(Ninguno / No aplica)</option>';
+
+            opcionesCols.forEach(op => {
+                html += `<option value="${op.index}">${op.label}</option>`;
+            });
+            selectEl.innerHTML = html;
+
+            let valSeleccionado;
+            if (mapeo && mapeo[campo.clave] !== undefined && mapeo[campo.clave] < totalCols) {
+                valSeleccionado = mapeo[campo.clave];
+            } else {
+                valSeleccionado = autodetectar(campo.regex, campo.fallback, true);
+            }
+            selectEl.value = String(valSeleccionado);
+        });
+
+        panel.style.display = 'block';
+        this.renderizarSelectoresProveedores();
+        this.renderizarMiniPreview(lineas, tieneEncabezados);
+    },
+
+    // Disparado cuando el usuario cambia manualmente una columna en el selector
+    onCambioMapeoColumna: function() {
+        const mapeo = {
+            codigo: parseInt(document.getElementById('map-col-codigo')?.value) ?? 1,
+            codigoFel: parseInt(document.getElementById('map-col-codigo-fel')?.value) ?? -1,
+            descripcion: parseInt(document.getElementById('map-col-descripcion')?.value) ?? 2,
+            descripcionFactura: parseInt(document.getElementById('map-col-descripcion-factura')?.value) ?? -1,
+            costoSinIva: parseInt(document.getElementById('map-col-costo-sin-iva')?.value) ?? -1,
+            costoConIva: parseInt(document.getElementById('map-col-costo-con-iva')?.value) ?? 5,
+            precioVenta: parseInt(document.getElementById('map-col-precio-venta')?.value) ?? 6,
+            stockInicial: parseInt(document.getElementById('map-col-stock-inicial')?.value) ?? -1,
+            stockFinal: parseInt(document.getElementById('map-col-stock-final')?.value) ?? 8,
+            ventas: parseInt(document.getElementById('map-col-ventas')?.value) ?? 9
+        };
+        localStorage.setItem('mapeo_columnas_carga', JSON.stringify(mapeo));
+        this.renderizarSelectoresProveedores();
+        this.renderizarMiniPreview();
+    },
+
+    // Renderizar la muestra inmediata de las primeras filas con las columnas seleccionadas
+    renderizarMiniPreview: function(lineas, tieneEncabezados) {
+        const tbody = document.getElementById('mini-preview-tbody');
+        if (!tbody) return;
+
+        if (!lineas) {
+            const txt = document.getElementById('txt-excel-paste');
+            const raw = txt ? txt.value.trim() : '';
+            lineas = raw.split(/\r\n|\n|\r/).filter(l => l && l.trim().length > 0);
+            if (lineas.length === 0) return;
+            const fila0 = this.extraerCeldasLinea(lineas[0]);
+            const textoFila0 = fila0.join(' ').toUpperCase();
+            tieneEncabezados = textoFila0.includes('CODIGO') || textoFila0.includes('DESC') || textoFila0.includes('STOCK') || textoFila0.includes('VENTA');
+        }
+
+        const startIdx = tieneEncabezados ? 1 : 0;
+        const filasMuestra = lineas.slice(startIdx, startIdx + 4);
+
+        const colCod = parseInt(document.getElementById('map-col-codigo')?.value) ?? 1;
+        const colDesc = parseInt(document.getElementById('map-col-descripcion')?.value) ?? 2;
+        const colCostoCiva = parseInt(document.getElementById('map-col-costo-con-iva')?.value) ?? 5;
+        const colPrecio = parseInt(document.getElementById('map-col-precio-venta')?.value) ?? 6;
+        const colStockIni = parseInt(document.getElementById('map-col-stock-inicial')?.value) ?? -1;
+        const colVentas = parseInt(document.getElementById('map-col-ventas')?.value) ?? 9;
+        const colStockFin = parseInt(document.getElementById('map-col-stock-final')?.value) ?? 8;
+
+        // Renderizar encabezados dinámicos del mini-preview
+        const trHeader = document.getElementById('mini-preview-thead-tr');
+        if (trHeader) {
+            let ths = `<th style="width: 35px; text-align: center;">#</th>`;
+            if (colCod >= 0) ths += `<th>Código</th>`;
+            if (colDesc >= 0) ths += `<th>Descripción</th>`;
+            if (colCostoCiva >= 0) ths += `<th style="text-align: right;">Costo c/IVA</th>`;
+            if (colPrecio >= 0) ths += `<th style="text-align: right;">Precio</th>`;
+            if (colStockIni >= 0) ths += `<th style="text-align: center; background: #fffbeb; color: #92400e;">Inv. Inicial</th>`;
+
+            // Una sola columna consolidada de Entradas (suma de proveedores)
+            ths += `<th style="text-align: center; background: #d1fae5; color: #065f46; font-weight: 800;">Entradas</th>`;
+            ths += `<th style="text-align: center; background: #fef3c7; color: #92400e; font-weight: 800;">Inicio + Entradas</th>`;
+
+            if (colVentas >= 0) ths += `<th style="text-align: center; background: #fef2f2; color: #991b1b;">Ventas</th>`;
+            if (colStockFin >= 0) ths += `<th style="text-align: center; background: #eff6ff; color: #1e40af;">Inv. Final</th>`;
+            trHeader.innerHTML = ths;
+        }
+
+        let totalColumnasActivas = 3; // # + Entradas + Inicio+Entradas
+        if (colCod >= 0) totalColumnasActivas++;
+        if (colDesc >= 0) totalColumnasActivas++;
+        if (colCostoCiva >= 0) totalColumnasActivas++;
+        if (colPrecio >= 0) totalColumnasActivas++;
+        if (colStockIni >= 0) totalColumnasActivas++;
+        if (colVentas >= 0) totalColumnasActivas++;
+        if (colStockFin >= 0) totalColumnasActivas++;
+
+        if (filasMuestra.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="${totalColumnasActivas}" style="text-align:center; color:#94a3b8;">Sin filas de datos</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        filasMuestra.forEach((lin, i) => {
+            const celdas = this.extraerCeldasLinea(lin);
+            const cod = (colCod >= 0 && celdas[colCod]) ? celdas[colCod] : '-';
+            const desc = (colDesc >= 0 && celdas[colDesc]) ? celdas[colDesc] : '-';
+            const costo = colCostoCiva >= 0 ? this.parseNumero(celdas[colCostoCiva]) : 0;
+            const precio = colPrecio >= 0 ? this.parseNumero(celdas[colPrecio]) : 0;
+            const ini = colStockIni >= 0 ? this.parseNumero(celdas[colStockIni]) : 0;
+            const ventas = colVentas >= 0 ? this.parseNumero(celdas[colVentas]) : 0;
+            const fin = colStockFin >= 0 ? this.parseNumero(celdas[colStockFin]) : 0;
+
+            let filaHtml = `<tr><td style="font-weight:bold; color:#64748b; text-align: center;">${i + 1}</td>`;
+            if (colCod >= 0) filaHtml += `<td style="font-weight:700; color:#1e293b;">${cod}</td>`;
+            if (colDesc >= 0) filaHtml += `<td style="color:#334155;">${desc}</td>`;
+            if (colCostoCiva >= 0) filaHtml += `<td style="text-align:right; font-family:monospace; color:#059669;">$${costo.toFixed(2)}</td>`;
+            if (colPrecio >= 0) filaHtml += `<td style="text-align:right; font-family:monospace; color:#2563eb;">$${precio.toFixed(2)}</td>`;
+            if (colStockIni >= 0) filaHtml += `<td style="text-align:center; font-weight:700; color:#d97706; background:#fffbeb;">${ini}</td>`;
+
+            let totalComprasFila = 0;
+            for (let p = 0; p < this.numProveedores; p++) {
+                const colP = this.columnasProveedores[p] !== undefined ? this.columnasProveedores[p] : -1;
+                const cantP = (colP >= 0 && colP < celdas.length) ? this.parseNumero(celdas[colP]) : 0;
+                totalComprasFila += cantP;
+            }
+
+            // Una sola columna de Entradas e Inicio + Entradas
+            filaHtml += `<td style="text-align:center; font-weight:800; color:#065f46; background:#d1fae5;">${totalComprasFila}</td>`;
+            filaHtml += `<td style="text-align:center; font-weight:800; color:#92400e; background:#fef3c7;">${ini + totalComprasFila}</td>`;
+
+            if (colVentas >= 0) filaHtml += `<td style="text-align:center; font-weight:700; color:#dc2626; background:#fef2f2;">${ventas}</td>`;
+            if (colStockFin >= 0) filaHtml += `<td style="text-align:center; font-weight:700; color:#059669; background:#eff6ff;">${fin}</td>`;
+            filaHtml += `</tr>`;
+
+            html += filaHtml;
+        });
+
+        tbody.innerHTML = html;
     },
 
     // PROCESAR EL TEXTO PEGADO DESDE EXCEL
@@ -315,134 +731,130 @@ const CargaInventarioApp = {
             return;
         }
 
+        // Si el panel de mapeo no estaba visible, inicializarlo
+        const panel = document.getElementById('panel-mapeo-columnas');
+        if (!panel || panel.style.display === 'none') {
+            this.analizarYRenderizarMapeo(rawText);
+        }
+
+        // Leer mapeo configurado por el usuario
+        const colCodigo = parseInt(document.getElementById('map-col-codigo')?.value) ?? 1;
+        const colCodigoFel = parseInt(document.getElementById('map-col-codigo-fel')?.value) ?? -1;
+        const colDescripcion = parseInt(document.getElementById('map-col-descripcion')?.value) ?? 2;
+        const colDescripcionFactura = parseInt(document.getElementById('map-col-descripcion-factura')?.value) ?? -1;
+        const colCostoSinIva = parseInt(document.getElementById('map-col-costo-sin-iva')?.value) ?? -1;
+        const colCostoConIva = parseInt(document.getElementById('map-col-costo-con-iva')?.value) ?? 5;
+        const colPrecioVenta = parseInt(document.getElementById('map-col-precio-venta')?.value) ?? -1;
+        const colStockInicial = parseInt(document.getElementById('map-col-stock-inicial')?.value) ?? -1;
+        const colStockFinal = parseInt(document.getElementById('map-col-stock-final')?.value) ?? 8;
+        const colVentas = parseInt(document.getElementById('map-col-ventas')?.value) ?? 9;
+
         // Separar por filas
         const lineas = rawText.split(/\r\n|\n|\r/);
         const filasProcesadas = [];
         let filaEncabezadoOmitida = false;
         const numProv = this.numProveedores;
 
-        // Reset de nombres de proveedores
-        this.nombresProveedores = [];
+        // Leer configuración de proveedores desde los selectores e inputs
+        const columnasProv = [];
+        const nombresProv = [];
         for (let p = 0; p < numProv; p++) {
-            this.nombresProveedores.push(`Proveedor ${p + 1}`);
+            const selectP = document.getElementById(`map-col-prov-${p}`);
+            const inputP = document.getElementById(`input-nombre-prov-${p}`);
+            const colIdx = selectP ? parseInt(selectP.value) : (this.columnasProveedores[p] ?? -1);
+            let nom = inputP ? inputP.value.trim() : (this.nombresProveedores[p] || '');
+            columnasProv.push(colIdx);
+            nombresProv.push(nom);
         }
+        this.columnasProveedores = columnasProv;
+        this.nombresProveedores = nombresProv;
 
         for (let i = 0; i < lineas.length; i++) {
             let linea = lineas[i];
-            if (!linea || !linea.trim()) continue; // Omitir líneas vacías
+            if (!linea || !linea.trim()) continue;
 
-            // IMPORTANTE: Quitar solo el retorno de carro (\r) al final, NO usar .trim() al inicio
-            // porque .trim() borra las tabulaciones iniciales (\t) que indican que el Código FEL está vacío
-            linea = linea.replace(/\r$/, '');
-
-            // Separar por tabulaciones (copiar estándar de Excel)
-            let celdas = linea.split('\t');
-            if (celdas.length < 3) {
-                if (linea.includes(';')) celdas = linea.split(';');
-                else if (linea.includes(',')) celdas = linea.split(',');
-            }
-
-            celdas = celdas.map(c => c.trim());
+            const celdas = this.extraerCeldasLinea(linea);
 
             // Detección inteligente de fila de encabezados
             if (i === 0 || (!filaEncabezadoOmitida && i < 2)) {
                 const lineaUpper = linea.toUpperCase();
-                if (lineaUpper.includes('CODIGO') || lineaUpper.includes('DESCRIPCION') || lineaUpper.includes('STOCK') || lineaUpper.includes('COSTO')) {
+                if (lineaUpper.includes('CODIGO') || lineaUpper.includes('DESCRIPCION') || lineaUpper.includes('STOCK') || lineaUpper.includes('COSTO') || lineaUpper.includes('VENTA')) {
                     filaEncabezadoOmitida = true;
+                    // Asignar nombres de columnas de proveedores si aún no tienen o si tienen el por defecto
                     for (let p = 0; p < numProv; p++) {
-                        const idxProv = 10 + p;
-                        if (celdas[idxProv] && celdas[idxProv].length > 0) {
-                            this.nombresProveedores[p] = celdas[idxProv];
+                        const colIdx = this.columnasProveedores[p];
+                        if (colIdx >= 0 && celdas[colIdx] && celdas[colIdx].trim()) {
+                            if (!this.nombresProveedores[p] || this.nombresProveedores[p].startsWith('Proveedor ')) {
+                                this.nombresProveedores[p] = celdas[colIdx].trim();
+                            }
+                        }
+                        if (!this.nombresProveedores[p]) {
+                            this.nombresProveedores[p] = `Proveedor ${p + 1}`;
                         }
                     }
-                    continue; // Saltar la fila de títulos
+                    continue;
                 }
             }
 
-            // CORRECCIÓN AUTOMÁTICA DE DESPLAZAMIENTO:
-            // Si una fila no tiene Código FEL y por algún motivo no trajo la tabulación inicial,
-            // le faltará exactamente 1 columna respecto a las demás. Lo corregimos insertando Código FEL vacío al inicio.
-            const colsEsperadas = 11 + numProv;
-            if (celdas.length === colsEsperadas - 1) {
-                celdas.unshift(''); // Inserta el Código FEL vacío en el índice 0 para que no se corran los datos
+            // Extraer campos según la selección del usuario
+            const codigoRaw = (colCodigo >= 0 && celdas[colCodigo] !== undefined) ? celdas[colCodigo] : '';
+            const codigoFel = (colCodigoFel >= 0 && celdas[colCodigoFel] !== undefined) ? celdas[colCodigoFel] : '';
+            const descripcion = (colDescripcion >= 0 && celdas[colDescripcion] !== undefined) ? celdas[colDescripcion] : '';
+            const descripcionFactura = (colDescripcionFactura >= 0 && celdas[colDescripcionFactura] !== undefined) ? celdas[colDescripcionFactura] : '';
+
+            // Si la fila está completamente en blanco, ignorarla
+            const tieneContenido = celdas.some(c => c && c.length > 0);
+            if (!tieneContenido) continue;
+
+            // Si un producto no tiene código en el Excel, se deja en blanco (NO generar códigos artificiales)
+            const finalCodigoRaw = codigoRaw ? codigoRaw.trim() : '';
+            let finalDescripcion = descripcion ? descripcion.trim() : '';
+            if (!finalDescripcion) {
+                finalDescripcion = descripcionFactura || finalCodigoRaw || 'Sin descripción';
             }
 
-            // ESTRUCTURA EXACTA SEGÚN TU EXCEL:
-            // 0: CÓDIGO FEL
-            // 1: CÓDIGO (1 o varios códigos separados por espacios)
-            // 2: DESCRIPCIÓN INVENTARIO
-            // 3: DESCRIPCIÓN SEGÚN FACTURA
-            // 4: COSTO SIN IVA
-            // 5: COSTO CON IVA
-            // 6: PRECIO DE VENTA
-            // 7: TOTAL INVENTARIO
-            // 8: STOCK FINAL DEL MES ACTUAL (Columna 9 de tu Excel)
-            // 9: VENTAS DEL MES (Columna 10 de tu Excel)
-            // 10 a (10 + numProv - 1): PROVEEDORES (Compras del mes)
-            // (10 + numProv) o Última Columna: STOCK FINAL DEL MES PASADO
+            const costoSinIva = colCostoSinIva >= 0 ? this.parseNumero(celdas[colCostoSinIva]) : 0;
+            const costoConIva = colCostoConIva >= 0 ? this.parseNumero(celdas[colCostoConIva]) : 0;
+            const precioVenta = colPrecioVenta >= 0 ? this.parseNumero(celdas[colPrecioVenta]) : 0;
+            const stockFinalMes = colStockFinal >= 0 ? this.parseNumero(celdas[colStockFinal]) : 0;
+            const ventasMes = colVentas >= 0 ? this.parseNumero(celdas[colVentas]) : 0;
+            const stockMesPasado = colStockInicial >= 0 ? this.parseNumero(celdas[colStockInicial]) : 0;
 
-            const codigoFel = celdas[0] || '';
-            const codigoRaw = celdas[1] || '';
-            const descripcion = celdas[2] || '';
-            const descripcionFactura = celdas[3] || '';
-            
-            const costoSinIva = this.parseNumero(celdas[4]);
-            const costoConIva = this.parseNumero(celdas[5]);
-            const precioVenta = this.parseNumero(celdas[6]);
-            const totalInventario = this.parseNumero(celdas[7]);
-            
-            // Columna 9: Stock Final del mes actual
-            const stockFinalMes = this.parseNumero(celdas[8]);
-            
-            // Columna 10: Ventas del mes
-            const ventasMes = this.parseNumero(celdas[9]);
-
-            // Columnas de proveedores
+            // Extraer compras de proveedores según la columna mapeada
             const comprasProveedores = [];
             let totalCompras = 0;
-            for (let p = 0; p < numProv; p++) {
-                const idxProv = 10 + p;
-                const cant = this.parseNumero(celdas[idxProv]);
-                comprasProveedores.push(cant);
-                totalCompras += cant;
+            if (numProv > 0) {
+                for (let p = 0; p < numProv; p++) {
+                    const colIdx = this.columnasProveedores[p];
+                    const cant = (colIdx >= 0 && colIdx < celdas.length) ? this.parseNumero(celdas[colIdx]) : 0;
+                    comprasProveedores.push(cant);
+                    totalCompras += cant;
+                }
             }
-
-            // Última columna: Stock Final del Mes Pasado (con lo que inició este mes)
-            // Buscamos en el índice esperado (10 + numProv) o en la última celda de la fila
-            let stockMesPasado = 0;
-            const idxMesPasado = 10 + numProv;
-            if (celdas[idxMesPasado] !== undefined && celdas[idxMesPasado] !== '') {
-                stockMesPasado = this.parseNumero(celdas[idxMesPasado]);
-            } else if (celdas.length > idxMesPasado) {
-                stockMesPasado = this.parseNumero(celdas[celdas.length - 1]);
-            } else if (numProv === 0 && celdas[10] !== undefined) {
-                stockMesPasado = this.parseNumero(celdas[10]);
-            }
-
-            // Si no hay código ni descripción, ignorar fila vacía
-            if (!codigoFel && !codigoRaw && !descripcion) continue;
 
             // Extraer lista de códigos individuales si vienen varios en una celda
-            const codigosArray = codigoRaw ? codigoRaw.split(/\s+/).filter(c => c.length > 0) : [];
+            const codigosArray = finalCodigoRaw ? finalCodigoRaw.split(/\s+/).filter(c => c.length > 0) : [];
 
             // Verificación matemática interna en la misma fila:
-            // Stock Calculado = Stock Mes Pasado + Total Compras - Ventas
+            // Si en ese mes no se anotaba inventario inicial, no forzamos la fórmula para no generar falsos errores
+            const tieneFormulaCompleta = (colStockInicial >= 0 && colStockFinal >= 0);
             const stockCalculadoInterno = stockMesPasado + totalCompras - ventasMes;
-            const cuadraInterno = stockCalculadoInterno === stockFinalMes;
+            const cuadraInterno = tieneFormulaCompleta ? (stockCalculadoInterno === stockFinalMes) : true;
+            const totalInventario = costoConIva * stockFinalMes;
 
             filasProcesadas.push({
                 index: filasProcesadas.length + 1,
                 codigoFel: codigoFel,
-                codigoRaw: codigoRaw,
+                codigoRaw: finalCodigoRaw,
                 codigos: codigosArray,
-                descripcion: descripcion,
+                descripcion: finalDescripcion,
                 descripcionFactura: descripcionFactura,
                 costoSinIva: costoSinIva,
                 costoConIva: costoConIva,
                 precioVenta: precioVenta,
-                totalInventario: totalInventario > 0 ? totalInventario : (costoConIva * stockFinalMes),
+                totalInventario: totalInventario,
                 stockFinalMes: stockFinalMes,
-                stock: stockFinalMes, // Compatibilidad general
+                stock: stockFinalMes,
                 ventasMes: ventasMes,
                 comprasProveedores: comprasProveedores,
                 totalCompras: totalCompras,
@@ -503,130 +915,56 @@ const CargaInventarioApp = {
             .replace(/Ó/g, 'O').replace(/Ú/g, 'U');
     },
 
-    // AUDITORÍA / COMPARACIÓN DE STOCK ENTRE MESES CONSECUTIVOS
+    // AUDITORÍA / COMPROBACIÓN EXCLUSIVA DE LOS DATOS INGRESADOS EN EL MES
     auditarContraMesReferencia: function() {
-        if (!this.datosComparacion || this.datosComparacion.length === 0) {
-            this.datosPegados.forEach(p => {
-                if (!p.cuadraInterno) {
+        this.auditarDatosIngresados();
+    },
+
+    auditarDatosIngresados: function() {
+        const colStockIni = parseInt(document.getElementById('map-col-stock-inicial')?.value) ?? -1;
+        const colStockFin = parseInt(document.getElementById('map-col-stock-final')?.value) ?? 8;
+        const colVentas = parseInt(document.getElementById('map-col-ventas')?.value) ?? -1;
+
+        const tieneStockIni = colStockIni >= 0;
+        const tieneStockFin = colStockFin >= 0;
+
+        this.datosPegados.forEach(p => {
+            const inicio = p.stockMesPasado || 0;
+            const entradas = p.totalCompras || 0;
+            const disponible = inicio + entradas;
+            const ventas = p.ventasMes || 0;
+            const finalMes = p.stockFinalMes || 0;
+            const calculado = disponible - ventas;
+
+            // Si se tiene Inventario Inicial y Final configurados
+            if (tieneStockIni && tieneStockFin) {
+                if (calculado === finalMes) {
                     p.auditoria = {
-                        status: 'error',
-                        mensaje: `⚠️ Fila no cuadra: ${p.stockMesPasado} + ${p.totalCompras} - ${p.ventasMes} = ${p.stockCalculadoInterno} (Excel dice ${p.stockFinalMes})`,
-                        diferencia: p.stockFinalMes - p.stockCalculadoInterno
-                    };
-                } else {
-                    p.auditoria = {
-                        status: 'neutral',
-                        mensaje: `✓ Base inicial (${p.stockFinalMes} uds)`,
+                        status: 'ok',
+                        mensaje: `✓ Cuadra (${finalMes} uds)`,
                         diferencia: 0
                     };
+                } else {
+                    const diff = finalMes - calculado;
+                    const signo = diff > 0 ? `+${diff}` : `${diff}`;
+                    p.auditoria = {
+                        status: 'error',
+                        mensaje: `⚠️ Descuadre (${signo}): ${disponible} disp. - ${ventas} vtas = ${calculado} (Excel dice ${finalMes})`,
+                        diferencia: diff
+                    };
                 }
-            });
-            return;
-        }
-
-        // Crear mapas de búsqueda del mes de referencia
-        const mapPorCodigoFel = {};
-        const mapPorCodigo = {};
-        const mapPorDescripcion = {};
-
-        this.datosComparacion.forEach(item => {
-            if (item.codigoFel) {
-                mapPorCodigoFel[item.codigoFel.trim().toUpperCase()] = item;
-            }
-            if (item.codigoRaw) {
-                mapPorCodigo[item.codigoRaw.trim().toUpperCase()] = item;
-            }
-            if (Array.isArray(item.codigos)) {
-                item.codigos.forEach(c => {
-                    if (c) mapPorCodigo[c.trim().toUpperCase()] = item;
-                });
-            }
-            if (item.descripcion) {
-                mapPorDescripcion[this.normalizarTexto(item.descripcion)] = item;
-            }
-        });
-
-        const esMesSiguiente = this.tipoReferencia === 'siguiente';
-        const nombreRef = this.getNombreMes(this.mesReferencia);
-
-        this.datosPegados.forEach(prod => {
-            let match = null;
-
-            // 1. Por Código FEL
-            if (prod.codigoFel && mapPorCodigoFel[prod.codigoFel.trim().toUpperCase()]) {
-                match = mapPorCodigoFel[prod.codigoFel.trim().toUpperCase()];
-            }
-            // 2. Por Códigos
-            else if (prod.codigos && prod.codigos.length > 0) {
-                for (const c of prod.codigos) {
-                    if (mapPorCodigo[c.trim().toUpperCase()]) {
-                        match = mapPorCodigo[c.trim().toUpperCase()];
-                        break;
-                    }
-                }
-            }
-            // 3. Por Código Raw
-            else if (prod.codigoRaw && mapPorCodigo[prod.codigoRaw.trim().toUpperCase()]) {
-                match = mapPorCodigo[prod.codigoRaw.trim().toUpperCase()];
-            }
-            // 4. Por Descripción
-            if (!match && prod.descripcion) {
-                const descNorm = this.normalizarTexto(prod.descripcion);
-                if (mapPorDescripcion[descNorm]) {
-                    match = mapPorDescripcion[descNorm];
-                }
-            }
-
-            if (match) {
-                // CASO A: Estamos comparando contra el mes SIGUIENTE (ej. estamos en Agosto y comparamos con Septiembre)
-                // Tu Stock Final de Agosto debe coincidir con el Stock Inicial (stockMesPasado) con el que arrancó Septiembre!
-                if (esMesSiguiente) {
-                    const stockInicioSiguiente = parseFloat(match.stockMesPasado !== undefined ? match.stockMesPasado : (match.stockFinalMes || 0));
-                    const stockFinalActual = prod.stockFinalMes;
-                    const diff = stockFinalActual - stockInicioSiguiente;
-
-                    if (diff === 0) {
-                        prod.auditoria = {
-                            status: 'ok',
-                            mensaje: `✓ Cuadra exacto con ${nombreRef} (${stockFinalActual} uds)`,
-                            diferencia: 0
-                        };
-                    } else {
-                        const signo = diff > 0 ? `+${diff}` : `${diff}`;
-                        prod.auditoria = {
-                            status: 'error',
-                            mensaje: `⚠️ Descuadre con ${nombreRef}: ${stockFinalActual} vs inicio ${stockInicioSiguiente} (${signo})`,
-                            diferencia: diff
-                        };
-                    }
-                }
-                // CASO B: Estamos comparando contra el mes ANTERIOR (ej. estamos en Septiembre y comparamos con Agosto)
-                // Tu Stock del Mes Pasado (stockMesPasado) debe coincidir con el Stock Final de Agosto!
-                else {
-                    const stockFinalAnterior = parseFloat(match.stockFinalMes !== undefined ? match.stockFinalMes : (match.stock || 0));
-                    const stockInicioActual = prod.stockMesPasado;
-                    const diff = stockInicioActual - stockFinalAnterior;
-
-                    if (diff === 0) {
-                        prod.auditoria = {
-                            status: 'ok',
-                            mensaje: `✓ Cuadra con ${nombreRef} (${stockInicioActual} uds)`,
-                            diferencia: 0
-                        };
-                    } else {
-                        const signo = diff > 0 ? `+${diff}` : `${diff}`;
-                        prod.auditoria = {
-                            status: 'error',
-                            mensaje: `⚠️ Descuadre con ${nombreRef}: inició con ${stockInicioActual} pero cerró en ${stockFinalAnterior} (${signo})`,
-                            diferencia: diff
-                        };
-                    }
-                }
+            } else if (tieneStockFin) {
+                // Si en meses antiguos no se anotaba inventario inicial
+                p.auditoria = {
+                    status: 'ok',
+                    mensaje: `✓ Registrado (${finalMes} uds)`,
+                    diferencia: 0
+                };
             } else {
-                prod.auditoria = {
-                    status: 'error',
-                    mensaje: `⚠️ No existe en ${nombreRef}`,
-                    diferencia: prod.stockFinalMes
+                p.auditoria = {
+                    status: 'ok',
+                    mensaje: `✓ Registrado`,
+                    diferencia: 0
                 };
             }
         });
@@ -667,11 +1005,14 @@ const CargaInventarioApp = {
             else if (p.auditoria.status === 'ok') totalCuadran++;
         });
 
-        document.getElementById('stat-total-items').textContent = totalItems;
-        document.getElementById('stat-total-stock').textContent = totalStock;
-        document.getElementById('stat-total-valor').textContent = `$${totalValor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        document.getElementById('stat-total-discrepancias').textContent = totalDiscrepancias;
-        document.getElementById('stat-total-cuadran').textContent = totalCuadran;
+        const elItems = document.getElementById('stat-total-items');
+        if (elItems) elItems.textContent = totalItems;
+        const elValor = document.getElementById('stat-total-valor');
+        if (elValor) elValor.textContent = `$${totalValor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const elDisc = document.getElementById('stat-total-discrepancias');
+        if (elDisc) elDisc.textContent = totalDiscrepancias;
+        const elCuad = document.getElementById('stat-total-cuadran');
+        if (elCuad) elCuad.textContent = totalCuadran;
 
         document.getElementById('count-todos').textContent = totalItems;
         document.getElementById('count-discrepancias').textContent = totalDiscrepancias;
@@ -681,32 +1022,63 @@ const CargaInventarioApp = {
         this.renderizarTablaPreview();
     },
 
-    // Generar encabezados de la tabla dinámicamente según la cantidad de proveedores
+    // Generar encabezados de la tabla dinámicamente según la cantidad de proveedores y columnas seleccionadas
     renderizarHeadersTabla: function() {
         const trHeader = document.getElementById('preview-table-header-row');
         if (!trHeader) return;
 
-        let thHtml = `
-            <th style="width: 35px; text-align: center;">#</th>
-            <th style="width: 90px;">Cód. FEL</th>
-            <th style="width: 140px;">Códigos</th>
-            <th>Descripción Inventario</th>
-            <th>Desc. Factura</th>
-            <th style="text-align: right; width: 85px;">Costo s/IVA</th>
-            <th style="text-align: right; width: 85px;">Costo c/IVA</th>
-            <th style="text-align: right; width: 85px;">P. Venta</th>
-            <th style="text-align: right; width: 90px;">Total</th>
-            <th style="text-align: center; width: 85px; background: #fffbeb; color: #92400e;" title="Stock final del mes pasado (con lo que arrancó este mes)">Stock Mes Pasado</th>
-        `;
+        const colFel = parseInt(document.getElementById('map-col-codigo-fel')?.value) ?? -1;
+        const colDescFac = parseInt(document.getElementById('map-col-descripcion-factura')?.value) ?? -1;
+        const colCostoSiva = parseInt(document.getElementById('map-col-costo-sin-iva')?.value) ?? -1;
+        const colCostoCiva = parseInt(document.getElementById('map-col-costo-con-iva')?.value) ?? -1;
+        const colPrecio = parseInt(document.getElementById('map-col-precio-venta')?.value) ?? -1;
+        const colStockIni = parseInt(document.getElementById('map-col-stock-inicial')?.value) ?? -1;
+        const colVentas = parseInt(document.getElementById('map-col-ventas')?.value) ?? -1;
 
-        // Columnas dinámicas de proveedores
-        for (let p = 0; p < this.numProveedores; p++) {
-            const nom = this.nombresProveedores[p] || `Proveedor ${p + 1}`;
-            thHtml += `<th style="text-align: center; width: 85px; background: #ecfdf5; color: #065f46;" title="Compras de este proveedor">${nom}</th>`;
+        let thHtml = `<th style="width: 35px; text-align: center;">#</th>`;
+
+        if (colFel >= 0) {
+            thHtml += `<th style="width: 90px;">Cód. FEL</th>`;
+        }
+
+        thHtml += `<th style="width: 140px;">Códigos</th>`;
+        thHtml += `<th>Descripción Inventario</th>`;
+
+        if (colDescFac >= 0) {
+            thHtml += `<th>Desc. Factura</th>`;
+        }
+
+        if (colCostoSiva >= 0) {
+            thHtml += `<th style="text-align: right; width: 85px;">Costo s/IVA</th>`;
+        }
+
+        if (colCostoCiva >= 0) {
+            thHtml += `<th style="text-align: right; width: 85px;">Costo c/IVA</th>`;
+        }
+
+        if (colPrecio >= 0) {
+            thHtml += `<th style="text-align: right; width: 85px;">P. Venta</th>`;
+        }
+
+        if (colCostoCiva >= 0) {
+            thHtml += `<th style="text-align: right; width: 90px;">Total</th>`;
+        }
+
+        if (colStockIni >= 0) {
+            thHtml += `<th style="text-align: center; width: 85px; background: #fffbeb; color: #92400e;" title="Stock final del mes pasado (con lo que arrancó este mes)">Stock Mes Pasado</th>`;
+        }
+
+        // Columna única: ENTRADAS (Total de compras de todos los proveedores)
+        thHtml += `<th style="text-align: center; width: 85px; background: #d1fae5; color: #065f46; font-weight: 800;" title="Total de compras ingresadas (Entradas)">ENTRADAS</th>`;
+
+        // Columna: INICIO + ENTRADAS (Suma de inventario inicial + entradas)
+        thHtml += `<th style="text-align: center; width: 95px; background: #fef3c7; color: #92400e; font-weight: 800;" title="Inventario Inicial + Entradas (Total disponible)">INICIO + ENTRADAS</th>`;
+
+        if (colVentas >= 0) {
+            thHtml += `<th style="text-align: center; width: 80px; background: #fef2f2; color: #991b1b;" title="Ventas realizadas en este mes">Ventas</th>`;
         }
 
         thHtml += `
-            <th style="text-align: center; width: 80px; background: #fef2f2; color: #991b1b;" title="Ventas realizadas en este mes">Ventas</th>
             <th style="text-align: center; width: 90px; background: #eff6ff; color: #1e40af; font-weight: 800;" title="Stock final resultante al cierre del mes">Stock Final Mes</th>
             <th style="text-align: center; width: 175px;">Auditoría / Cuadratura</th>
         `;
@@ -722,7 +1094,16 @@ const CargaInventarioApp = {
         const inputBuscar = document.getElementById('input-buscar-preview');
         const query = inputBuscar ? inputBuscar.value.trim().toLowerCase() : '';
         const numProv = this.numProveedores;
-        const totalCols = 12 + numProv;
+        const trHeader = document.getElementById('preview-table-header-row');
+        const totalCols = (trHeader && trHeader.children.length) ? trHeader.children.length : 12;
+
+        const colFel = parseInt(document.getElementById('map-col-codigo-fel')?.value) ?? -1;
+        const colDescFac = parseInt(document.getElementById('map-col-descripcion-factura')?.value) ?? -1;
+        const colCostoSiva = parseInt(document.getElementById('map-col-costo-sin-iva')?.value) ?? -1;
+        const colCostoCiva = parseInt(document.getElementById('map-col-costo-con-iva')?.value) ?? -1;
+        const colPrecio = parseInt(document.getElementById('map-col-precio-venta')?.value) ?? -1;
+        const colStockIni = parseInt(document.getElementById('map-col-stock-inicial')?.value) ?? -1;
+        const colVentas = parseInt(document.getElementById('map-col-ventas')?.value) ?? -1;
 
         let filtrados = this.datosPegados.filter(p => {
             if (this.filtroActivo === 'discrepancias' && p.auditoria.status !== 'error') return false;
@@ -774,28 +1155,43 @@ const CargaInventarioApp = {
                 statusBadge = `<span class="status-badge status-neutral"><i class="fas fa-info-circle"></i> ${p.auditoria.mensaje}</span>`;
             }
 
-            // Columnas de proveedores para esta fila
-            let comprasHtml = '';
-            for (let i = 0; i < numProv; i++) {
-                const cantProv = p.comprasProveedores && p.comprasProveedores[i] !== undefined ? p.comprasProveedores[i] : 0;
-                const estiloProv = cantProv > 0 ? 'font-weight: 700; color: #047857;' : 'color: #94a3b8;';
-                comprasHtml += `<td style="text-align: center; ${estiloProv}">${cantProv}</td>`;
+            // Desglose de proveedores para el tooltip de la celda de Entradas
+            let desgloseProv = [];
+            if (numProv > 0 && p.comprasProveedores) {
+                for (let i = 0; i < numProv; i++) {
+                    const cant = p.comprasProveedores[i] || 0;
+                    if (cant > 0) {
+                        const nom = this.nombresProveedores[i] || `Proveedor ${i + 1}`;
+                        desgloseProv.push(`${nom}: ${cant}`);
+                    }
+                }
             }
+            const tooltipProv = desgloseProv.length > 0 ? `title="Desglose: ${desgloseProv.join(', ')}"` : 'title="Total de entradas ingresadas"';
+
+            // Columna única: ENTRADAS
+            const estiloEntradas = p.totalCompras > 0 ? 'font-weight: 800; color: #065f46; background: #d1fae5;' : 'font-weight: 600; color: #94a3b8; background: #f0fdf4;';
+            const entradasHtml = `<td style="text-align: center; ${estiloEntradas}" ${tooltipProv}>${p.totalCompras}</td>`;
+
+            // Columna: INICIO + ENTRADAS
+            const inicioMasEntradas = (p.stockMesPasado || 0) + (p.totalCompras || 0);
+            const estiloInicioEntradas = 'font-weight: 800; color: #92400e; background: #fef3c7;';
+            const inicioEntradasHtml = `<td style="text-align: center; ${estiloInicioEntradas}">${inicioMasEntradas}</td>`;
 
             html += `
                 <tr class="${rowClass}">
                     <td style="text-align:center; color:#94a3b8; font-size:0.8rem;">${p.index}</td>
-                    <td>${p.codigoFel ? `<span class="badge-fel">${p.codigoFel}</span>` : '<span style="color:#94a3b8;">-</span>'}</td>
+                    ${colFel >= 0 ? `<td>${p.codigoFel ? `<span class="badge-fel">${p.codigoFel}</span>` : '<span style="color:#94a3b8;">-</span>'}</td>` : ''}
                     <td>${codigosHtml}</td>
                     <td style="font-weight: 600; color: #0f172a;">${p.descripcion}</td>
-                    <td style="color:#64748b; font-size: 0.82rem;">${p.descripcionFactura || '-'}</td>
-                    <td style="text-align: right; font-family: monospace;">$${p.costoSinIva.toFixed(2)}</td>
-                    <td style="text-align: right; font-family: monospace;">$${p.costoConIva.toFixed(2)}</td>
-                    <td style="text-align: right; font-family: monospace; font-weight: 700; color: #2563eb;">$${p.precioVenta.toFixed(2)}</td>
-                    <td style="text-align: right; font-family: monospace; font-weight: 600;">$${p.totalInventario.toFixed(2)}</td>
-                    <td style="text-align: center; font-weight: 700; background: #fffbeb; color: #b45309;">${p.stockMesPasado}</td>
-                    ${comprasHtml}
-                    <td style="text-align: center; font-weight: 700; background: #fef2f2; color: #b91c1c;">${p.ventasMes}</td>
+                    ${colDescFac >= 0 ? `<td style="color:#64748b; font-size: 0.82rem;">${p.descripcionFactura || '-'}</td>` : ''}
+                    ${colCostoSiva >= 0 ? `<td style="text-align: right; font-family: monospace;">$${p.costoSinIva.toFixed(2)}</td>` : ''}
+                    ${colCostoCiva >= 0 ? `<td style="text-align: right; font-family: monospace;">$${p.costoConIva.toFixed(2)}</td>` : ''}
+                    ${colPrecio >= 0 ? `<td style="text-align: right; font-family: monospace; font-weight: 700; color: #2563eb;">$${p.precioVenta.toFixed(2)}</td>` : ''}
+                    ${colCostoCiva >= 0 ? `<td style="text-align: right; font-family: monospace; font-weight: 600;">$${p.totalInventario.toFixed(2)}</td>` : ''}
+                    ${colStockIni >= 0 ? `<td style="text-align: center; font-weight: 700; background: #fffbeb; color: #b45309;">${p.stockMesPasado}</td>` : ''}
+                    ${entradasHtml}
+                    ${inicioEntradasHtml}
+                    ${colVentas >= 0 ? `<td style="text-align: center; font-weight: 700; background: #fef2f2; color: #b91c1c;">${p.ventasMes}</td>` : ''}
                     <td style="text-align: center; font-weight: 800; font-size: 1rem; background: #eff6ff; color: #1e40af;">${p.stockFinalMes}</td>
                     <td style="text-align: center;">${statusBadge}</td>
                 </tr>
