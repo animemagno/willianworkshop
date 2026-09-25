@@ -39,5 +39,10 @@ Este archivo contiene el resumen de lo que ya está listo y lo que sigue, para m
     *   La fecha de facturación revisa la última fecha utilizada para seguir el correlativo de forma continua.
     *   Regla estricta contra Domingos: tanto al cargar, al avanzar el día con el botón `+1 Día`, al seleccionar la fecha manualmente o al guardar la factura, cualquier domingo se salta automáticamente al lunes.
 
+10. **Edición de Costo Unitario con Doble Clic en Paso 3 (salidas.html):**
+    *   Habilitado doble clic en la columna **Costo Unit. ($)** del Paso 3 para modificar libremente el costo de cualquier repuesto.
+    *   Cálculo en tiempo real: actualiza instantáneamente la ganancia de la fila, la ganancia global de productos y la ganancia neta de la factura al presionar Enter o perder foco.
+    *   Soporte completo para productos no registrados en inventario (`tieneItemsSinVincular: true`): el costo modificado se almacena en la factura (`INVENTARIO_SALIDAS`), en los registros consumidos y en la persistencia de precios (`PRECIOS_REGISTROS`).
+
 ## 📋 PRÓXIMOS PASOS (Por si deseas continuar)
 *   Seguir con cualquier mejora de diseño, reportes adicionales o nuevas funciones en las pantallas que necesites.

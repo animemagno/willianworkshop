@@ -2991,7 +2991,9 @@ const RegistrosApp = {
                 if (currentVinculoId && window.app && window.app.cache) {
                     const cachedProduct = window.app.cache.find(p => p.id === currentVinculoId);
                     if (cachedProduct) {
-                        item.costoUnitario = cachedProduct.costo || item.costoUnitario || 0;
+                        if (!item.costoUnitario || item.costoUnitario === 0) {
+                            item.costoUnitario = cachedProduct.costo || 0;
+                        }
                         loadedPrice = this.facturaTipo === 'repuestos' ? (cachedProduct.precioRepuestos || cachedProduct.precio || 0) : (cachedProduct.precio || 0);
                         precioEncontrado = true;
                     }
@@ -3003,14 +3005,21 @@ const RegistrosApp = {
                     if (doc.exists) {
                         const data = doc.data();
                         loadedPrice = this.facturaTipo === 'repuestos' ? (data.precioRepuestos || 0) : (data.precioNormal || 0);
+                        if (!item.costoUnitario || item.costoUnitario === 0) {
+                            if (data.costoUnitario !== undefined && data.costoUnitario !== null) {
+                                item.costoUnitario = parseFloat(data.costoUnitario) || 0;
+                            } else if (data.costo !== undefined && data.costo !== null) {
+                                item.costoUnitario = parseFloat(data.costo) || 0;
+                            }
+                        }
                         if (data.vinculoId) {
                             item.vinculoId = data.vinculoId;
                             if (window.app && window.app.cache) {
                                 const p = window.app.cache.find(c => c.id === data.vinculoId);
-                                if (p) item.costoUnitario = p.costo || item.costoUnitario || 0;
+                                if (p && (!item.costoUnitario || item.costoUnitario === 0)) item.costoUnitario = p.costo || 0;
                             } else {
                                 const invDoc = await this.db.collection('INVENTARIO').doc(data.vinculoId).get();
-                                if (invDoc.exists) item.costoUnitario = invDoc.data().costo || item.costoUnitario || 0;
+                                if (invDoc.exists && (!item.costoUnitario || item.costoUnitario === 0)) item.costoUnitario = invDoc.data().costo || 0;
                             }
                         }
                         precioEncontrado = true;
@@ -3022,7 +3031,9 @@ const RegistrosApp = {
                     const match = window.app.cache.find(p => p.descripcion && p.descripcion.toLowerCase().trim() === item.producto.toLowerCase().trim());
                     if (match) {
                         item.vinculoId = match.id;
-                        item.costoUnitario = match.costo || item.costoUnitario || 0;
+                        if (!item.costoUnitario || item.costoUnitario === 0) {
+                            item.costoUnitario = match.costo || 0;
+                        }
                         if (!precioEncontrado) {
                             loadedPrice = this.facturaTipo === 'repuestos' ? (match.precioRepuestos || match.precio || 0) : (match.precio || 0);
                             precioEncontrado = true;
@@ -3061,7 +3072,16 @@ const RegistrosApp = {
 
             const costoHTML = isService 
                 ? `<span style="color: #cbd5e0; font-size: 14px;">-</span>`
-                : `$${costoUnitario.toFixed(2)}`;
+                : `<div id="costo-display-${index}" ondblclick="RegistrosApp.enableEditCost(${index})" title="Doble clic para modificar costo unitario" style="cursor: pointer; padding: 4px 6px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px; transition: all 0.2s; user-select: none;" onmouseover="this.style.backgroundColor='#edf2f7'" onmouseout="this.style.backgroundColor='transparent'">
+                    <span id="costo-text-${index}" style="font-weight: 600; color: #2d3748;">$${costoUnitario.toFixed(2)}</span>
+                    <i class="fas fa-pencil-alt" style="font-size: 10px; color: #a0aec0;" title="Doble clic para editar"></i>
+                   </div>
+                   <div id="costo-input-container-${index}" style="display: none;">
+                    <input type="number" id="costo-input-${index}" step="0.01" min="0" value="${costoUnitario.toFixed(2)}"
+                           class="form-control" style="width: 85px; padding: 4px 6px; font-size: 13px; text-align: right; font-weight: bold;"
+                           onblur="RegistrosApp.saveEditedCost(${index}, this.value)"
+                           onkeydown="if(event.key === 'Enter'){ this.blur(); } else if(event.key === 'Escape'){ RegistrosApp.cancelEditCost(${index}); }">
+                   </div>`;
 
             const precioInputHTML = `<input type="number" class="form-control" step="0.01" min="0" value="${item.precioUnitario.toFixed(2)}"
                         onchange="RegistrosApp.updateItemPrice(${index}, this.value)" style="width: 90px; padding: 6px; font-size: 14px;">`;
@@ -3077,7 +3097,7 @@ const RegistrosApp = {
                 <td>
                     ${vinculoHTML}
                 </td>
-                <td style="font-size: 14px; color: #555;">${costoHTML}</td>
+                <td id="costo-td-${index}" style="font-size: 14px; text-align: right;" ondblclick="RegistrosApp.enableEditCost(${index})">${costoHTML}</td>
                 <td>
                     ${precioInputHTML}
                 </td>
@@ -3090,6 +3110,56 @@ const RegistrosApp = {
         });
 
         this.updateInvoiceGrandTotal();
+    },
+
+    enableEditCost(index) {
+        if (!this.facturaItems || !this.facturaItems[index]) return;
+        if (this.facturaItems[index].isManoDeObra) return;
+
+        const displayEl = document.getElementById(`costo-display-${index}`);
+        const containerEl = document.getElementById(`costo-input-container-${index}`);
+        const inputEl = document.getElementById(`costo-input-${index}`);
+
+        if (displayEl && containerEl && inputEl) {
+            displayEl.style.display = 'none';
+            containerEl.style.display = 'inline-block';
+            inputEl.value = (this.facturaItems[index].costoUnitario || 0).toFixed(2);
+            inputEl.focus();
+            inputEl.select();
+        }
+    },
+
+    saveEditedCost(index, newVal) {
+        if (!this.facturaItems || !this.facturaItems[index]) return;
+        const val = Math.max(0, parseFloat(newVal) || 0);
+        this.facturaItems[index].costoUnitario = val;
+
+        const displayEl = document.getElementById(`costo-display-${index}`);
+        const containerEl = document.getElementById(`costo-input-container-${index}`);
+        const textEl = document.getElementById(`costo-text-${index}`);
+
+        if (textEl) textEl.innerText = `$${val.toFixed(2)}`;
+        if (displayEl) displayEl.style.display = 'inline-flex';
+        if (containerEl) containerEl.style.display = 'none';
+
+        // Recalcular ganancia de esta fila
+        const item = this.facturaItems[index];
+        const gananciaEfectivo = (item.precioUnitario - val) * item.cantidadFacturar;
+        const gananciaEl = document.getElementById(`inv-ganancia-${index}`);
+        if (gananciaEl) {
+            gananciaEl.innerText = gananciaEfectivo.toFixed(2);
+            gananciaEl.parentElement.style.color = gananciaEfectivo >= 0 ? 'var(--success-color)' : 'var(--danger-color)';
+        }
+
+        // Recalcular totales generales de la factura
+        this.updateInvoiceGrandTotal();
+    },
+
+    cancelEditCost(index) {
+        const displayEl = document.getElementById(`costo-display-${index}`);
+        const containerEl = document.getElementById(`costo-input-container-${index}`);
+        if (displayEl) displayEl.style.display = 'inline-flex';
+        if (containerEl) containerEl.style.display = 'none';
     },
 
     updateItemPrice(index, newVal) {
@@ -3233,6 +3303,10 @@ const RegistrosApp = {
                 }
                 if (item.vinculoId) {
                     updateData.vinculoId = item.vinculoId;
+                }
+                if (item.costoUnitario !== undefined && item.costoUnitario !== null && item.costoUnitario > 0) {
+                    updateData.costoUnitario = item.costoUnitario;
+                    updateData.costo = item.costoUnitario;
                 }
 
                 // Agrupar actualización de precios

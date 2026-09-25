@@ -610,8 +610,13 @@
 
             <!-- Tarjeta para el Paso 3: Confirmación de Precios (Oculta por defecto) -->
             <div id="card-facturacion-precios" class="salidas-card" style="display: none; grid-column: 1 / span 3;">
-                <h2 style="font-size: 1.2rem; border-bottom: 1px solid #f1f1f1; padding-bottom: 12px; margin-bottom: 15px; color: #2c3e50; display: flex; align-items: center; gap: 8px; margin-top: 0;">
-                    <i class="fas fa-file-invoice" style="color: #27ae60;"></i> Paso 3: Confirmación de Precios y Ganancias
+                <h2 style="font-size: 1.2rem; border-bottom: 1px solid #f1f1f1; padding-bottom: 12px; margin-bottom: 15px; color: #2c3e50; display: flex; align-items: center; justify-content: space-between; margin-top: 0; flex-wrap: wrap; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-file-invoice" style="color: #27ae60;"></i> Paso 3: Confirmación de Precios y Ganancias
+                    </div>
+                    <span style="font-size: 0.8rem; color: #2b6cb0; font-weight: 500; background: #ebf8ff; padding: 4px 10px; border-radius: 20px; border: 1px solid #bee3f8;">
+                        <i class="fas fa-mouse-pointer" style="margin-right: 4px;"></i> Doble clic en <strong>Costo Unit.</strong> para modificarlo
+                    </span>
                 </h2>
 
                 <div id="invoice-prices-section" style="flex: 1; display: grid; grid-template-columns: 320px 1fr; grid-template-rows: minmax(0, 1fr); gap: 25px; align-items: stretch; min-height: 0; box-sizing: border-box;">
@@ -672,7 +677,9 @@
                                         <th style="width: 50px; text-align: center; border: 1px solid #ddd;">Cant.</th>
                                         <th style="border: 1px solid #ddd;">Producto / Servicio</th>
                                         <th style="width: 180px; border: 1px solid #ddd;">Vínculo Inventario</th>
-                                        <th style="width: 100px; text-align: right; border: 1px solid #ddd;">Costo Unit. ($)</th>
+                                        <th style="width: 110px; text-align: right; border: 1px solid #ddd;" title="Doble clic en el costo de cualquier fila para modificarlo">
+                                            Costo Unit. ($) <i class="fas fa-pencil-alt" style="font-size: 11px; color: #718096; margin-left: 2px;"></i>
+                                        </th>
                                         <th style="width: 110px; text-align: right; border: 1px solid #ddd;">Precio Unit. ($)</th>
                                         <th style="width: 110px; text-align: right; border: 1px solid #ddd;">Ganancia ($)</th>
                                         <th style="width: 110px; text-align: right; border: 1px solid #ddd;">Total ($)</th>
@@ -1230,7 +1237,7 @@
     <script src="js/salidas/SalidasController.js?v=2.2.0"></script>
 
     <!-- CARGAR SCRIPT DE REGISTROS -->
-    <script src="js/RegistrosApp.js?v=2.2.0"></script>
+    <script src="js/RegistrosApp.js?v=2.2.1"></script>
 
 </body>
 
