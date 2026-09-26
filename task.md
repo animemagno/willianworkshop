@@ -42,7 +42,12 @@ Este archivo contiene el resumen de lo que ya está listo y lo que sigue, para m
 10. **Edición de Costo Unitario con Doble Clic en Paso 3 (salidas.html):**
     *   Habilitado doble clic en la columna **Costo Unit. ($)** del Paso 3 para modificar libremente el costo de cualquier repuesto.
     *   Cálculo en tiempo real: actualiza instantáneamente la ganancia de la fila, la ganancia global de productos y la ganancia neta de la factura al presionar Enter o perder foco.
-    *   Soporte completo para productos no registrados en inventario (`tieneItemsSinVincular: true`): el costo modificado se almacena en la factura (`INVENTARIO_SALIDAS`), en los registros consumidos y en la persistencia de precios (`PRECIOS_REGISTROS`).
+11. **Página de Impresión de Facturas en Hoja Tamaño Carta (imprimir_factura.html):**
+    *   Formato optimizado para hoja tamaño carta (8.5 x 11 pulgadas / Letter) con vista previa fidedigna e impresión directa (`@media print`).
+    *   Tabla con las columnas requeridas: **Descripción**, **Cantidad**, **Precio Unitario** y **Total**.
+    *   Pie de factura con la **sumatoria total de todo en la factura seleccionada** y conversión automática a letras.
+    *   Barra interactiva superior con selector de todas las facturas de Firestore, buscador rápido, navegación anterior/siguiente y botón directo de impresión.
+    *   Acceso con un clic desde el modal de detalle de factura en `salidas.html` (botón "Hoja Carta").
 
 ## 📋 PRÓXIMOS PASOS (Por si deseas continuar)
 *   Seguir con cualquier mejora de diseño, reportes adicionales o nuevas funciones en las pantallas que necesites.

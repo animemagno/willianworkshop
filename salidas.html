@@ -939,6 +939,9 @@
                     <i class="fas fa-trash-alt"></i> Anular Factura
                 </button>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn" style="background: #2563eb; color: white; padding: 10px 18px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px;" onclick="window.open('imprimir_factura.html?id=' + RegistrosApp.currentViewedInvoiceId, '_blank')">
+                        <i class="fas fa-file-invoice"></i> Hoja Carta
+                    </button>
                     <button class="btn" style="background: #3182ce; color: white; padding: 10px 18px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px;" onclick="RegistrosApp.printInvoiceDetail()">
                         <i class="fas fa-print"></i> Imprimir
                     </button>
@@ -1059,6 +1062,10 @@
                 });
                 window.app.cache = products;
                 console.log("Caché de productos inicializada en salidas con existencias simuladas:", products.length, "ítems.");
+                if (window.RegistrosApp) {
+                    window.RegistrosApp._productSearchMemo = {};
+                    window.RegistrosApp.renderFacturacionData();
+                }
                 
                 // Ocultar pantalla de carga
                 document.getElementById('salidas-loading').style.display = 'none';

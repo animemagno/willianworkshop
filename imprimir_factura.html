@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Imprimir Factura - Tamaño Carta - Taller Willian</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --dark: #1e293b;
+            --gray-bg: #f1f5f9;
+            --border-color: #cbd5e1;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--gray-bg);
+            color: #1e293b;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        /* --- BARRA DE CONTROL SUPERIOR (NO SE IMPRIME) --- */
+        .toolbar-container {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            color: white;
+            padding: 12px 24px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            border-bottom: 2px solid #3b82f6;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .toolbar-left, .toolbar-center, .toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .toolbar-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #60a5fa;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+            box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+        }
+        .btn-primary:hover {
+            background: #1d4ed8;
+            transform: translateY(-1px);
+        }
+
+        .btn-outline {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+        }
+        .btn-outline:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .select-input, .search-input {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: #1e293b;
+            color: white;
+            font-size: 0.9rem;
+            font-family: inherit;
+            outline: none;
+        }
+        .select-input:focus, .search-input:focus {
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.3);
+        }
+
+        /* --- CONTENEDOR DE LA HOJA TAMAÑO CARTA --- */
+        .page-preview-wrapper {
+            padding: 30px 15px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: calc(100vh - 70px);
+        }
+
+        /* Dimensiones exactas de hoja Carta: 215.9mm x 279.4mm (8.5 x 11 pulgadas) */
+        .carta-sheet {
+            width: 215.9mm;
+            min-height: 279.4mm;
+            background: white;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+            border-radius: 4px;
+            padding: 16mm 18mm;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            box-sizing: border-box;
+            color: #0f172a;
+        }
+
+        /* Encabezado de la Factura */
+        .invoice-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid #0f172a;
+            padding-bottom: 14px;
+            margin-bottom: 16px;
+        }
+
+        .workshop-info h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.6rem;
+            font-weight: 800;
+            margin: 0 0 4px 0;
+            color: #0f172a;
+            letter-spacing: -0.5px;
+        }
+
+        .workshop-info p {
+            margin: 0;
+            font-size: 0.85rem;
+            color: #475569;
+            line-height: 1.35;
+        }
+
+        .invoice-badge-box {
+            text-align: right;
+            border: 2px solid #0f172a;
+            border-radius: 6px;
+            padding: 10px 16px;
+            background: #f8fafc;
+            min-width: 190px;
+        }
+
+        .invoice-badge-box .badge-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #64748b;
+            margin-bottom: 3px;
+        }
+
+        .invoice-badge-box .badge-number {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.45rem;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 4px;
+        }
+
+        .invoice-badge-box .badge-date {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #334155;
+        }
+
+        /* Datos de la Factura y Cliente */
+        .invoice-client-info {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 10px 14px;
+            margin-bottom: 16px;
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 10px;
+            font-size: 0.88rem;
+        }
+
+        .client-data-item strong {
+            color: #334155;
+            display: inline-block;
+            min-width: 70px;
+        }
+
+        /* --- TABLA DE ITEMS (COLUMNAS SOLICITADAS) --- */
+        .invoice-table-wrapper {
+            flex: 1;
+            margin-bottom: 18px;
+        }
+
+        .invoice-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .invoice-table thead tr {
+            background-color: #0f172a;
+            color: white;
+        }
+
+        .invoice-table th {
+            padding: 10px 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.5px;
+            border: 1px solid #0f172a;
+        }
+
+        .invoice-table td {
+            padding: 9px 12px;
+            border: 1px solid #cbd5e1;
+            vertical-align: middle;
+        }
+
+        .invoice-table tbody tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+
+        .col-cant {
+            width: 12%;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        .col-desc {
+            width: 58%;
+            text-align: left;
+        }
+
+        .col-precio {
+            width: 15%;
+            text-align: right;
+            font-family: 'Inter', monospace;
+        }
+
+        .col-total {
+            width: 15%;
+            text-align: right;
+            font-weight: 700;
+            font-family: 'Inter', monospace;
+        }
+
+        /* Fila de Servicio en la tabla */
+        .service-tag {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 700;
+            background: #e0f2fe;
+            color: #0369a1;
+            padding: 1px 6px;
+            border-radius: 3px;
+            margin-left: 6px;
+            text-transform: uppercase;
+        }
+
+        /* --- PIE DE PÁGINA Y SUMATORIA TOTAL --- */
+        .invoice-footer {
+            border-top: 2px solid #0f172a;
+            padding-top: 14px;
+            margin-top: auto;
+        }
+
+        .totals-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+        }
+
+        .amount-in-words-box {
+            flex: 1;
+            padding: 10px 14px;
+            background: #f8fafc;
+            border: 1px dashed #94a3b8;
+            border-radius: 6px;
+        }
+
+        .amount-in-words-box .words-title {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+
+        .amount-in-words-box .words-content {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: #1e293b;
+            text-transform: uppercase;
+        }
+
+        .grand-total-box {
+            min-width: 250px;
+            border: 2px solid #0f172a;
+            border-radius: 6px;
+            overflow: hidden;
+            background: white;
+        }
+
+        .grand-total-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 12px;
+            font-size: 0.88rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .grand-total-row.highlight {
+            background: #0f172a;
+            color: white;
+            padding: 10px 14px;
+            font-size: 1.15rem;
+            font-weight: 800;
+            border-bottom: none;
+        }
+
+        .signature-section {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 35px;
+            padding-top: 5px;
+        }
+
+        .signature-line {
+            width: 200px;
+            text-align: center;
+            border-top: 1px solid #64748b;
+            padding-top: 5px;
+            font-size: 0.8rem;
+            color: #475569;
+            font-weight: 600;
+        }
+
+        /* Spinner de carga */
+        .loading-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            color: #64748b;
+        }
+
+        /* --- ESTILOS EXCLUSIVOS PARA IMPRESIÓN --- */
+        @media print {
+            @page {
+                size: letter portrait;
+                margin: 12mm 15mm 12mm 15mm;
+            }
+
+            body {
+                background: white !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            .page-preview-wrapper {
+                padding: 0 !important;
+                margin: 0 !important;
+                min-height: auto !important;
+            }
+
+            .carta-sheet {
+                width: 100% !important;
+                min-height: 250mm !important;
+                box-shadow: none !important;
+                border-radius: 0 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+
+            .invoice-table th {
+                background-color: #0f172a !important;
+                color: white !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .grand-total-row.highlight {
+                background: #0f172a !important;
+                color: white !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- BARRA SUPERIOR DE HERRAMIENTAS (NO SE IMPRIME) -->
+    <div class="toolbar-container no-print">
+        <div class="toolbar-left">
+            <a href="salidas.html" class="btn btn-outline">
+                <i class="fas fa-arrow-left"></i> Volver a Salidas
+            </a>
+            <div class="toolbar-title">
+                <i class="fas fa-print"></i> Impresión Carta
+            </div>
+        </div>
+
+        <div class="toolbar-center">
+            <!-- Selector de Factura -->
+            <label style="font-size: 0.85rem; font-weight: 600; color: #cbd5e1;">Factura:</label>
+            <select id="invoice-selector" class="select-input" style="max-width: 300px;" onchange="onInvoiceSelected(this.value)">
+                <option value="">Cargando facturas...</option>
+            </select>
+
+            <!-- Buscador Rápido -->
+            <input type="text" id="quick-search" class="search-input" placeholder="Buscar N° o Cliente..." style="width: 180px;" oninput="filterInvoices(this.value)">
+
+            <button class="btn btn-outline" onclick="navigateInvoice(-1)" title="Factura anterior">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <button class="btn btn-outline" onclick="navigateInvoice(1)" title="Factura siguiente">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+
+        <div class="toolbar-right">
+            <button class="btn btn-primary" onclick="window.print()" style="font-size: 1rem; padding: 9px 20px;">
+                <i class="fas fa-print"></i> Imprimir en Hoja Carta
+            </button>
+        </div>
+    </div>
+
+    <!-- CONTENEDOR DE LA HOJA TAMAÑO CARTA -->
+    <div class="page-preview-wrapper">
+        <div id="printable-sheet" class="carta-sheet">
+            
+            <!-- Estado inicial mientras carga -->
+            <div id="sheet-loading" class="loading-state">
+                <i class="fas fa-spinner fa-spin fa-3x" style="color: #3b82f6; margin-bottom: 15px;"></i>
+                <h3 style="margin: 0; font-family: 'Outfit', sans-serif;">Cargando factura seleccionada...</h3>
+                <p style="margin: 6px 0 0 0; font-size: 0.9rem;">Obteniendo información desde la base de datos</p>
+            </div>
+
+            <!-- CONTENIDO DE LA FACTURA -->
+            <div id="sheet-content" style="display: none; flex-direction: column; height: 100%; justify-content: space-between;">
+                
+                <div>
+                    <!-- 1. ENCABEZADO -->
+                    <div class="invoice-header">
+                        <div class="workshop-info">
+                            <h1>TALLER WILLIAN</h1>
+                            <p><strong>Servicios Mecánicos y Venta de Repuestos Automotrices</strong></p>
+                            <p>Atención profesional y repuestos garantizados</p>
+                            <p id="factura-tipo-display" style="margin-top: 4px; font-weight: 600; color: #2563eb;"></p>
+                        </div>
+                        <div class="invoice-badge-box">
+                            <div class="badge-title">FACTURA</div>
+                            <div class="badge-number">N° <span id="factura-numero">000</span></div>
+                            <div class="badge-date">Fecha: <span id="factura-fecha">--/--/----</span></div>
+                        </div>
+                    </div>
+
+                    <!-- 2. DATOS DEL CLIENTE -->
+                    <div class="invoice-client-info">
+                        <div class="client-data-item">
+                            <strong>CLIENTE:</strong> <span id="factura-cliente" style="font-weight: 700; color: #0f172a;">Cliente General</span>
+                        </div>
+                        <div class="client-data-item" style="text-align: right;">
+                            <strong>CONDICIÓN:</strong> <span id="factura-condicion" style="font-weight: 600;">CONTADO</span>
+                        </div>
+                    </div>
+
+                    <!-- 3. TABLA DE PRODUCTOS Y SERVICIOS -->
+                    <div class="invoice-table-wrapper">
+                        <table class="invoice-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-desc">Descripción</th>
+                                    <th class="col-cant">Cantidad</th>
+                                    <th class="col-precio">Precio Unitario</th>
+                                    <th class="col-total">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="invoice-items-tbody">
+                                <!-- Las filas se generan dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 4. PIE DE PÁGINA Y SUMATORIA TOTAL -->
+                <div class="invoice-footer">
+                    <div class="totals-container">
+                        <!-- Total en Letras -->
+                        <div class="amount-in-words-box">
+                            <div class="words-title">Total en Letras:</div>
+                            <div id="factura-total-letras" class="words-content">CERO DÓLARES</div>
+                        </div>
+
+                        <!-- Resumen y Sumatoria Total -->
+                        <div class="grand-total-box">
+                            <div id="subtotal-productos-row" class="grand-total-row" style="display: none;">
+                                <span style="color: #64748b;">Subtotal Repuestos:</span>
+                                <strong id="factura-subtotal-prod">$0.00</strong>
+                            </div>
+                            <div id="subtotal-servicios-row" class="grand-total-row" style="display: none;">
+                                <span style="color: #64748b;">Mano de Obra / Servicios:</span>
+                                <strong id="factura-subtotal-serv">$0.00</strong>
+                            </div>
+                            <div class="grand-total-row highlight">
+                                <span>TOTAL FACTURA:</span>
+                                <span id="factura-grand-total">$0.00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Firmas de conformidad -->
+                    <div class="signature-section">
+                        <div class="signature-line">
+                            Entregado Conforme
+                        </div>
+                        <div class="signature-line">
+                            Recibido Conforme (Cliente)
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    <!-- SCRIPTS DE FIREBASE SDK (V8 COMPAT) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <script>
+        // Configuración oficial de Firebase del Taller Willian
+        const firebaseConfig = {
+            apiKey: "AIzaSyCaZdPPYddeMPTiNm5cCdFL6m9b9swX0-c",
+            authDomain: "williantaller-1426b.firebaseapp.com",
+            projectId: "williantaller-1426b",
+            storageBucket: "williantaller-1426b.firebasestorage.app",
+            messagingSenderId: "757966587061",
+            appId: "1:757966587061:web:6c700e862317119d64aafc"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let allInvoices = [];
+        let currentInvoiceIndex = -1;
+
+        // Función para convertir números a letras (en español)
+        function numeroALetras(num) {
+            const unidades = ['', 'UN', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE'];
+            const decenas = ['', 'DIEZ', 'VEINTE', 'TREINTA', 'CUARENTA', 'CINCUENTA', 'SESENTA', 'SETENTA', 'OCHENTA', 'NOVENTA'];
+            const especiales = {
+                11: 'ONCE', 12: 'DOCE', 13: 'TRECE', 14: 'CATORCE', 15: 'QUINCE',
+                16: 'DIECISEIS', 17: 'DIECISIETE', 18: 'DIECIOCHO', 19: 'DIECINUEVE',
+                21: 'VEINTIUNO', 22: 'VEINTIDOS', 23: 'VEINTITRES', 24: 'VEINTICUATRO',
+                25: 'VEINTICINCO', 26: 'VEINTISEIS', 27: 'VEINTISIETE', 28: 'VEINTIOCHO',
+                29: 'VEINTINUEVE'
+            };
+            const centenas = ['', 'CIENTO', 'DOSCIENTOS', 'TRESCIENTOS', 'CUATROCIENTOS', 'QUINIENTOS', 'SEISCIENTOS', 'SIETECIENTOS', 'OCHOCIENTOS', 'NOVECIENTOS'];
+
+            function convertirGrupo(n) {
+                let output = '';
+                if (n === 100) return 'CIEN';
+                const c = Math.floor(n / 100);
+                const d = Math.floor((n % 100) / 10);
+                const u = n % 10;
+
+                if (c > 0) output += centenas[c] + ' ';
+                const resto = n % 100;
+                if (resto > 0) {
+                    if (resto in especiales) {
+                        output += especiales[resto] + ' ';
+                    } else {
+                        if (d > 0) {
+                            output += decenas[d];
+                            if (u > 0) output += ' Y ' + unidades[u];
+                            output += ' ';
+                        } else if (u > 0) {
+                            output += unidades[u] + ' ';
+                        }
+                    }
+                }
+                return output.trim();
+            }
+
+            if (!num || isNaN(num) || num === 0) return 'SON: CERO 00/100 DÓLARES';
+
+            const parteEntera = Math.floor(num);
+            const centavos = Math.round((num - parteEntera) * 100);
+
+            let output = '';
+            const millones = Math.floor(parteEntera / 1000000);
+            const miles = Math.floor((parteEntera % 1000000) / 1000);
+            const unidadesCentenas = parteEntera % 1000;
+
+            if (millones > 0) {
+                if (millones === 1) output += 'UN MILLÓN ';
+                else output += convertirGrupo(millones) + ' MILLONES ';
+            }
+
+            if (miles > 0) {
+                if (miles === 1) output += 'MIL ';
+                else output += convertirGrupo(miles) + ' MIL ';
+            }
+
+            if (unidadesCentenas > 0) {
+                output += convertirGrupo(unidadesCentenas) + ' ';
+            }
+
+            output = output.trim();
+            if (output === 'UN') {
+                const centsText = String(centavos).padStart(2, '0');
+                return `SON: UN DÓLAR CON ${centsText}/100`;
+            }
+            if (output === '') output = 'CERO';
+
+            const centsText = String(centavos).padStart(2, '0');
+            return `SON: ${output} DÓLARES CON ${centsText}/100`;
+        }
+
+        // Formateo de fecha DD/MM/YYYY
+        function formatFecha(fechaVal) {
+            if (!fechaVal) return '--/--/----';
+            if (typeof fechaVal === 'object') {
+                if (typeof fechaVal.toDate === 'function') {
+                    const d = fechaVal.toDate();
+                    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                }
+                if (fechaVal.seconds) {
+                    const d = new Date(fechaVal.seconds * 1000);
+                    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                }
+            }
+            if (typeof fechaVal === 'string') {
+                const clean = fechaVal.trim();
+                if (clean.includes('-')) {
+                    const p = clean.split('-');
+                    if (p[0].length === 4) return `${p[2]}/${p[1]}/${p[0]}`;
+                    return clean;
+                }
+            }
+            return String(fechaVal);
+        }
+
+        // Inicialización y Carga de Facturas
+        async function loadInvoices() {
+            try {
+                const snapshot = await db.collection('INVENTARIO_SALIDAS').get();
+                allInvoices = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+
+                // Ordenar: de la más reciente a la más antigua
+                allInvoices.sort((a, b) => {
+                    const tA = (a.fecha || '');
+                    const tB = (b.fecha || '');
+                    const c = tB.localeCompare(tA);
+                    if (c !== 0) return c;
+                    const nA = parseInt(String(a.numeroFactura || '').replace(/\D/g, ''), 10) || 0;
+                    const nB = parseInt(String(b.numeroFactura || '').replace(/\D/g, ''), 10) || 0;
+                    return nB - nA;
+                });
+
+                populateSelector(allInvoices);
+
+                // Revisar si viene un id o num por parámetro URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const targetId = urlParams.get('id');
+                const targetNum = urlParams.get('num');
+
+                if (targetId) {
+                    const idx = allInvoices.findIndex(inv => inv.id === targetId);
+                    if (idx !== -1) {
+                        selectInvoiceByIndex(idx);
+                        return;
+                    }
+                }
+
+                if (targetNum) {
+                    const idx = allInvoices.findIndex(inv => String(inv.numeroFactura || '').trim() === String(targetNum).trim());
+                    if (idx !== -1) {
+                        selectInvoiceByIndex(idx);
+                        return;
+                    }
+                }
+
+                // Si no hay parámetro, cargar la primera factura disponible
+                if (allInvoices.length > 0) {
+                    selectInvoiceByIndex(0);
+                } else {
+                    document.getElementById('sheet-loading').innerHTML = `
+                        <i class="fas fa-exclamation-circle fa-3x" style="color: #f59e0b; margin-bottom: 12px;"></i>
+                        <h3>No hay facturas registradas</h3>
+                        <p>No se encontraron documentos en la colección de facturas.</p>
+                    `;
+                }
+
+            } catch (err) {
+                console.error("Error al cargar facturas de Firestore:", err);
+                document.getElementById('sheet-loading').innerHTML = `
+                    <i class="fas fa-times-circle fa-3x" style="color: #ef4444; margin-bottom: 12px;"></i>
+                    <h3>Error al cargar las facturas</h3>
+                    <p style="color: #64748b;">${err.message}</p>
+                `;
+            }
+        }
+
+        // Llenar el selector desplegable
+        function populateSelector(list) {
+            const selector = document.getElementById('invoice-selector');
+            selector.innerHTML = '';
+
+            if (list.length === 0) {
+                selector.innerHTML = '<option value="">No hay facturas coincidentes</option>';
+                return;
+            }
+
+            list.forEach(inv => {
+                const opt = document.createElement('option');
+                opt.value = inv.id;
+                const num = inv.numeroFactura || 'S/N';
+                const fecha = formatFecha(inv.fecha);
+                const cliente = inv.CLIENTE || inv.cliente || 'Cliente General';
+                const tot = (inv.total || 0).toFixed(2);
+                opt.textContent = `Fac #${num} - ${fecha} - ${cliente} ($${tot})`;
+                selector.appendChild(opt);
+            });
+        }
+
+        // Filtrado rápido por texto
+        function filterInvoices(text) {
+            const term = (text || '').toLowerCase().trim();
+            if (!term) {
+                populateSelector(allInvoices);
+                return;
+            }
+            const filtered = allInvoices.filter(inv => {
+                const num = String(inv.numeroFactura || '').toLowerCase();
+                const cli = String(inv.CLIENTE || inv.cliente || '').toLowerCase();
+                const fec = String(inv.fecha || '').toLowerCase();
+                return num.includes(term) || cli.includes(term) || fec.includes(term);
+            });
+            populateSelector(filtered);
+            if (filtered.length > 0) {
+                const idx = allInvoices.findIndex(i => i.id === filtered[0].id);
+                if (idx !== -1) selectInvoiceByIndex(idx);
+            }
+        }
+
+        // Evento cambio de selector
+        function onInvoiceSelected(invoiceId) {
+            if (!invoiceId) return;
+            const idx = allInvoices.findIndex(inv => inv.id === invoiceId);
+            if (idx !== -1) {
+                selectInvoiceByIndex(idx);
+            }
+        }
+
+        // Navegación anterior / siguiente
+        function navigateInvoice(direction) {
+            if (allInvoices.length === 0) return;
+            let newIndex = currentInvoiceIndex + direction;
+            if (newIndex < 0) newIndex = 0;
+            if (newIndex >= allInvoices.length) newIndex = allInvoices.length - 1;
+            selectInvoiceByIndex(newIndex);
+        }
+
+        // Renderizar la factura seleccionada en la hoja tamaño carta
+        function selectInvoiceByIndex(index) {
+            currentInvoiceIndex = index;
+            const inv = allInvoices[index];
+            if (!inv) return;
+
+            // Actualizar selector
+            const selector = document.getElementById('invoice-selector');
+            if (selector) selector.value = inv.id;
+
+            // Mostrar el contenido y ocultar el spinner
+            document.getElementById('sheet-loading').style.display = 'none';
+            const content = document.getElementById('sheet-content');
+            content.style.display = 'flex';
+
+            // Datos de cabecera
+            document.getElementById('factura-numero').innerText = inv.numeroFactura || 'S/N';
+            document.getElementById('factura-fecha').innerText = formatFecha(inv.fecha);
+            document.getElementById('factura-cliente').innerText = inv.CLIENTE || inv.cliente || 'Cliente General';
+            
+            const tipoDisplay = document.getElementById('factura-tipo-display');
+            if (tipoDisplay) {
+                tipoDisplay.innerText = inv.tipo === 'repuestos' ? 'Venta de Repuestos' : 'Factura de Servicios y Repuestos';
+            }
+
+            // Llenar tabla de ítems: Descripción, Cantidad, Precio unitario, Total
+            const tbody = document.getElementById('invoice-items-tbody');
+            tbody.innerHTML = '';
+
+            const items = inv.items || [];
+            let subtotalProd = 0;
+            let subtotalServ = 0;
+            let grandTotal = 0;
+
+            if (items.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 25px; color: #94a3b8;">
+                            Esta factura no contiene líneas de productos o servicios registrados.
+                        </td>
+                    </tr>
+                `;
+            } else {
+                items.forEach(item => {
+                    const desc = item.descripcionPapel || item.producto || item.descripcion || 'Repuesto';
+                    const cant = parseFloat(item.cantidad !== undefined ? item.cantidad : item.cant) || 1;
+                    const precioUnit = parseFloat(item.precioUnitario !== undefined ? item.precioUnitario : item.precio) || 0;
+                    const totalRow = item.total !== undefined ? parseFloat(item.total) : (cant * precioUnit);
+
+                    grandTotal += totalRow;
+                    if (item.isManoDeObra || item.productId === 'SERVICIO') {
+                        subtotalServ += totalRow;
+                    } else {
+                        subtotalProd += totalRow;
+                    }
+
+                    const isServ = item.isManoDeObra || item.productId === 'SERVICIO';
+                    const tagServ = isServ ? `<span class="service-tag">Servicio</span>` : '';
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="col-desc" style="font-weight: 500;">
+                            ${escapeHtml(desc)} ${tagServ}
+                        </td>
+                        <td class="col-cant">${cant}</td>
+                        <td class="col-precio">$${precioUnit.toFixed(2)}</td>
+                        <td class="col-total">$${totalRow.toFixed(2)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            // Usar el total guardado en la factura si existe, de lo contrario la suma calculada
+            const finalTotal = (inv.total !== undefined && inv.total !== null) ? parseFloat(inv.total) : grandTotal;
+
+            // Totales al pie de página
+            document.getElementById('factura-grand-total').innerText = `$${finalTotal.toFixed(2)}`;
+            document.getElementById('factura-total-letras').innerText = numeroALetras(finalTotal);
+
+            // Desglose de subpartes si existen
+            const rowProd = document.getElementById('subtotal-productos-row');
+            const rowServ = document.getElementById('subtotal-servicios-row');
+
+            if (subtotalServ > 0 && subtotalProd > 0) {
+                if (rowProd) {
+                    rowProd.style.display = 'flex';
+                    document.getElementById('factura-subtotal-prod').innerText = `$${subtotalProd.toFixed(2)}`;
+                }
+                if (rowServ) {
+                    rowServ.style.display = 'flex';
+                    document.getElementById('factura-subtotal-serv').innerText = `$${subtotalServ.toFixed(2)}`;
+                }
+            } else {
+                if (rowProd) rowProd.style.display = 'none';
+                if (rowServ) rowServ.style.display = 'none';
+            }
+
+            // Cambiar título de la ventana del navegador
+            document.title = `Factura #${inv.numeroFactura || 'S/N'} - Taller Willian`;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Ejecutar carga al abrir la página
+        window.addEventListener('DOMContentLoaded', loadInvoices);
+    </script>
+</body>
+
+</html>

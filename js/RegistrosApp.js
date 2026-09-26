@@ -213,7 +213,12 @@ const RegistrosApp = {
             if (draftStr) {
                 const draft = JSON.parse(draftStr);
                 if (draft.items && draft.items.length > 0) {
-                    this.facturaItems = draft.items;
+                    this.facturaItems = draft.items.map(item => {
+                        if (!item.groupingKey) {
+                            item.groupingKey = this.getGroupingKey(item.producto, item.vinculoId);
+                        }
+                        return item;
+                    });
                     setTimeout(() => {
                         if (draft.cliente && document.getElementById('factura-cliente')) {
                             document.getElementById('factura-cliente').value = draft.cliente;
@@ -331,7 +336,9 @@ const RegistrosApp = {
     },
 
     _findProductInCache(rawName, pId) {
-        if (!window.app || !window.app.cache) return null;
+        if (!window.app || !window.app.cache || !Array.isArray(window.app.cache) || window.app.cache.length === 0) {
+            return null;
+        }
         
         const cacheKey = pId ? `${pId}_${rawName}` : rawName;
         if (!this._productSearchMemo) this._productSearchMemo = {};
@@ -345,21 +352,43 @@ const RegistrosApp = {
         }
 
         if (!cachedProduct && rawName) {
-            const normRaw = this.normalizeVolumeInString(rawName);
+            const normRaw = this.normalizeVolumeInString(rawName).toLowerCase().trim();
+            const cleanCode = (str) => (str || '').toLowerCase().replace(/[\s\-_/.]/g, '').replace(/^0+/, '');
+            const rawClean = cleanCode(rawName);
+
             cachedProduct = window.app.cache.find(p => {
-                if (p._normDesc === undefined) p._normDesc = this.normalizeVolumeInString(p.descripcion);
-                if (p._normDesc === normRaw) return true;
-                if (p.aliases) {
+                if (p._normDesc === undefined) p._normDesc = this.normalizeVolumeInString(p.descripcion || '').toLowerCase().trim();
+                if (p._normDesc && p._normDesc === normRaw) return true;
+
+                // Comparar por código principal
+                if (p.codigo) {
+                    const mainCodes = p.codigo.split(/[\s,-]+/);
+                    if (mainCodes.some(c => cleanCode(c) === rawClean && rawClean !== '')) return true;
+                }
+
+                // Comparar por aliases
+                if (p.aliases && Array.isArray(p.aliases)) {
                     if (p._normAliases === undefined) {
-                        p._normAliases = p.aliases.map(a => this.normalizeVolumeInString(a));
+                        p._normAliases = p.aliases.map(a => this.normalizeVolumeInString(a || '').toLowerCase().trim());
                     }
                     if (p._normAliases.includes(normRaw)) return true;
+                    if (p.aliases.some(a => cleanCode(a) === rawClean && rawClean !== '')) return true;
                 }
+
+                // Comparar por códigos de proveedor
+                if (p.codigosProveedor && Array.isArray(p.codigosProveedor)) {
+                    if (p.codigosProveedor.some(c => cleanCode(c) === rawClean && rawClean !== '')) return true;
+                }
+
                 return false;
             });
         }
 
         this._productSearchMemo[cacheKey] = cachedProduct || null;
+        if (cachedProduct && rawName) {
+            this._productSearchMemo[rawName] = cachedProduct;
+            this._productSearchMemo[rawName.toLowerCase().trim()] = cachedProduct;
+        }
         return cachedProduct || null;
     },
 
@@ -383,12 +412,15 @@ const RegistrosApp = {
         const cachedProduct = this._findProductInCache(rawName, pId);
         if (cachedProduct) {
             if (cachedProduct.codigo && cachedProduct.codigo.trim()) {
-                return cachedProduct.codigo.toLowerCase().trim();
+                return cachedProduct.codigo.toLowerCase().trim().replace(/[-\s]/g, '');
+            }
+            if (cachedProduct.id) {
+                return cachedProduct.id.toLowerCase().trim();
             }
             const officialName = cachedProduct.descripcion || cachedProduct.descripcionTaller || rawName;
             return officialName.toLowerCase().trim();
         }
-        return rawName.toLowerCase().trim();
+        return String(rawName).toLowerCase().trim();
     },
 
     normalizeVolumeInString(str) {
@@ -1818,8 +1850,8 @@ const RegistrosApp = {
         let summaryInvoicedMap = {};
         this.facturaItems.forEach(fi => {
             if (fi.type === 'summary') {
-                const key = this.getGroupingKey(fi.producto, fi.vinculoId);
-                summaryInvoicedMap[key] = (summaryInvoicedMap[key] || 0) + fi.cantidadFacturar;
+                const key = fi.groupingKey || this.getGroupingKey(fi.producto, fi.vinculoId);
+                summaryInvoicedMap[key] = (summaryInvoicedMap[key] || 0) + (fi.cantidadFacturar || 0);
             }
         });
 
@@ -1843,9 +1875,10 @@ const RegistrosApp = {
                 totalBilledHist = (fifoBilled + explicitBilledClones);
             }
             
-            // Determinar cantidad ya cargada explicitamente (type single) en la factura actual
-            const factItem = this.facturaItems.find(fi => fi.type === 'single' && fi.originalId === reg.id);
-            let cantidadFacturadaExplicit = factItem ? factItem.cantidadFacturar : 0;
+            // Determinar cantidad ya cargada explícitamente (type single) en la factura actual
+            const cantidadFacturadaExplicit = this.facturaItems
+                .filter(fi => fi.type === 'single' && fi.originalId === reg.id)
+                .reduce((sum, fi) => sum + (fi.cantidadFacturar || 0), 0);
             
             let cantidadDisponible = reg.cantidad - totalBilledHist - cantidadFacturadaExplicit;
             if (cantidadDisponible < 0) cantidadDisponible = 0;
@@ -1857,11 +1890,13 @@ const RegistrosApp = {
 
             // Descontar items summary (factura actual) via FIFO después
             let cantidadDesdeSummary = 0;
-            if (summaryInvoicedMap[key] > 0) {
+            const rawKey = this.getGroupingKey(reg.producto);
+            const activeSummaryKey = summaryInvoicedMap[key] > 0 ? key : (summaryInvoicedMap[rawKey] > 0 ? rawKey : null);
+            if (activeSummaryKey && summaryInvoicedMap[activeSummaryKey] > 0) {
                 if (cantidadDisponible > 0) {
-                    const toTake = Math.min(cantidadDisponible, summaryInvoicedMap[key]);
+                    const toTake = Math.min(cantidadDisponible, summaryInvoicedMap[activeSummaryKey]);
                     cantidadDesdeSummary = toTake;
-                    summaryInvoicedMap[key] -= toTake;
+                    summaryInvoicedMap[activeSummaryKey] -= toTake;
                     cantidadDisponible -= toTake;
                 }
             }
@@ -2123,17 +2158,10 @@ const RegistrosApp = {
         let summaryInvoicedMap = {};
         this.facturaItems.forEach(fi => {
             if (fi.type === 'summary') {
-                const key = this.getGroupingKey(fi.producto, fi.vinculoId);
-                summaryInvoicedMap[key] = (summaryInvoicedMap[key] || 0) + fi.cantidadFacturar;
+                const key = fi.groupingKey || this.getGroupingKey(fi.producto, fi.vinculoId);
+                summaryInvoicedMap[key] = (summaryInvoicedMap[key] || 0) + (fi.cantidadFacturar || 0);
             }
         });
-
-        // Para type 'single', contar cuantas veces este registro específico ya está en la factura
-        let singleAlreadyInvoiced = 0;
-        if (type === 'single' && specificRegId) {
-            const singleItem = this.facturaItems.find(fi => fi.type === 'single' && fi.originalId === specificRegId);
-            singleAlreadyInvoiced = singleItem ? singleItem.cantidadFacturar : 0;
-        }
 
         let totalRestante = 0;
         let restanteParaRegistroEspecifico = 0;
@@ -2146,7 +2174,8 @@ const RegistrosApp = {
             if (!reg.producto) return;
             if (reg.fecha && this.getRecordMonthStr(reg.fecha) !== mesFacturaActual) return;
             const key = this.getGroupingKey(reg);
-            if (key !== productKey) return;
+            const rawKey = this.getGroupingKey(reg.producto);
+            if (key !== productKey && rawKey !== productKey) return;
 
             // Calcular facturado según el registro real en base de datos
             let totalBilledHist = 0;
@@ -2159,11 +2188,12 @@ const RegistrosApp = {
                 totalBilledHist = (fifoBilled + explicitBilledClones);
             }
 
-            // Descontar items single de la factura actual
-            const factItem = this.facturaItems.find(fi => fi.type === 'single' && fi.originalId === reg.id);
-            let cantidadFacturadaExplicit = factItem ? factItem.cantidadFacturar : 0;
+            // Descontar TODOS los items single asociados a este registro en la factura actual
+            const explicitFacturados = this.facturaItems
+                .filter(fi => fi.type === 'single' && fi.originalId === reg.id)
+                .reduce((sum, fi) => sum + (fi.cantidadFacturar || 0), 0);
 
-            let cantidadDisponible = reg.cantidad - totalBilledHist - cantidadFacturadaExplicit;
+            let cantidadDisponible = reg.cantidad - totalBilledHist - explicitFacturados;
             if (cantidadDisponible < 0) cantidadDisponible = 0;
 
             // Si el registro está archivado, su stock restante es fantasma
@@ -2173,11 +2203,12 @@ const RegistrosApp = {
 
             // Descontar items summary (factura actual) via FIFO después
             let cantidadDesdeSummary = 0;
-            if (summaryInvoicedMap[key] > 0) {
+            const activeSummaryKey = summaryInvoicedMap[key] > 0 ? key : (summaryInvoicedMap[rawKey] > 0 ? rawKey : (summaryInvoicedMap[productKey] > 0 ? productKey : null));
+            if (activeSummaryKey && summaryInvoicedMap[activeSummaryKey] > 0) {
                 if (cantidadDisponible > 0) {
-                    const toTake = Math.min(cantidadDisponible, summaryInvoicedMap[key]);
+                    const toTake = Math.min(cantidadDisponible, summaryInvoicedMap[activeSummaryKey]);
                     cantidadDesdeSummary = toTake;
-                    summaryInvoicedMap[key] -= toTake;
+                    summaryInvoicedMap[activeSummaryKey] -= toTake;
                     cantidadDisponible -= toTake;
                 }
             }
@@ -2203,8 +2234,9 @@ const RegistrosApp = {
             // Check if already in factura
             const incomingKey = this.getGroupingKey(data.producto, data.productId);
             let existingItem = this.facturaItems.find(item => {
-                const itemKey = this.getGroupingKey(item.producto, item.vinculoId);
-                return itemKey === incomingKey;
+                if (data.id && item.originalId === data.id) return true;
+                const itemKey = item.groupingKey || this.getGroupingKey(item.producto, item.vinculoId);
+                return incomingKey && itemKey === incomingKey;
             });
 
             if (existingItem) {
@@ -2223,6 +2255,7 @@ const RegistrosApp = {
                     }
                 } else {
                     alert('No puedes agregar más. Límite pendiente alcanzado.');
+                    return;
                 }
             } else {
                 // Para items nuevos, también calcular el restante real
@@ -2241,9 +2274,10 @@ const RegistrosApp = {
                 }
 
                 const newItem = {
-                    id: Date.now().toString(),
+                    id: Date.now().toString() + Math.random().toString(36).substr(2, 4),
                     type: data.type,
                     originalId: data.id || null,
+                    groupingKey: incomingKey,
                     producto: data.producto,
                     cuenta: data.cuenta || '',
                     cantidadFacturar: 1,
@@ -2461,12 +2495,17 @@ const RegistrosApp = {
                     item.costoUnitario = match.costo || 0;
                     item.precioUnitario = match.precio || 0;
                     precioEncontrado = true;
+                    if (this._productSearchMemo) {
+                        this._productSearchMemo[item.producto] = match;
+                        this._productSearchMemo[item.producto.toLowerCase().trim()] = match;
+                    }
                 }
             }
         } catch (e) {
             console.error("Error buscando precio para", item.producto, e);
         }
         this.renderFactura();
+        this.renderFacturacionData();
     },
 
     renderFactura() {
@@ -5227,26 +5266,28 @@ const RegistrosApp = {
                 text: 'Seleccione el formato de impresión para esta factura:',
                 icon: 'question',
                 showCancelButton: true,
-                confirmButtonColor: '#3498db',
+                confirmButtonColor: '#2563eb',
                 cancelButtonColor: '#7f8c8d',
                 denyButtonColor: '#27ae60',
                 showDenyButton: true,
-                confirmButtonText: '<i class="fas fa-ticket-alt"></i> Ticket de Caja',
-                denyButtonText: '<i class="fas fa-file-invoice"></i> Factura Física',
+                confirmButtonText: '<i class="fas fa-file-invoice"></i> Hoja Carta',
+                denyButtonText: '<i class="fas fa-ticket-alt"></i> Ticket de Caja',
                 cancelButtonText: 'Cancelar',
                 customClass: { popup: 'premium-popup' }
             });
 
             if (result.isConfirmed) {
-                this.printInvoiceAsTicket(inv);
+                window.open(`imprimir_factura.html?id=${encodeURIComponent(inv.id)}`, '_blank');
             } else if (result.isDenied) {
-                this.printInvoiceAsRealForm(inv);
+                this.printInvoiceAsTicket(inv);
             }
         } else {
-            const choice = prompt("Seleccione formato de impresión:\n1 - Ticket Térmico\n2 - Factura Física", "1");
+            const choice = prompt("Seleccione formato de impresión:\n1 - Hoja Tamaño Carta\n2 - Ticket Térmico\n3 - Factura Física", "1");
             if (choice === "1") {
-                this.printInvoiceAsTicket(inv);
+                window.open(`imprimir_factura.html?id=${encodeURIComponent(inv.id)}`, '_blank');
             } else if (choice === "2") {
+                this.printInvoiceAsTicket(inv);
+            } else if (choice === "3") {
                 this.printInvoiceAsRealForm(inv);
             }
         }
