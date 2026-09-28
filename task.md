@@ -48,6 +48,10 @@ Este archivo contiene el resumen de lo que ya está listo y lo que sigue, para m
     *   Pie de factura con la **sumatoria total de todo en la factura seleccionada** y conversión automática a letras.
     *   Barra interactiva superior con selector de todas las facturas de Firestore, buscador rápido, navegación anterior/siguiente y botón directo de impresión.
     *   Acceso con un clic desde el modal de detalle de factura en `salidas.html` (botón "Hoja Carta").
+12. **Corrección de Límite y Descuento en Vivo al Editar Facturas (salidas.html):**
+    *   Al editar una factura existente (`startEditingInvoice`), los ítems cargados ahora se identifican como `type: 'summary'` y portan su `groupingKey` correspondiente.
+    *   Al calcular existencias en tiempo real (`_calculateRealRemaining` y `renderFacturacionData`), se resta temporalmente lo consumido por la propia factura en edición (`consumedByThisInvoice`) de la base de datos para no duplicar el consumo y permitir que las cantidades en factura descuenten activamente las tarjetas de pendientes vía FIFO.
+    *   Si queda 1 solo artículo disponible y ya está cubierto o se agrega a la factura, se descuenta de inmediato a 0 en las tarjetas y cualquier clic adicional es bloqueado con alerta de límite alcanzado, impidiendo duplicaciones por clics repetidos.
 
 ## 📋 PRÓXIMOS PASOS (Por si deseas continuar)
 *   Seguir con cualquier mejora de diseño, reportes adicionales o nuevas funciones en las pantallas que necesites.

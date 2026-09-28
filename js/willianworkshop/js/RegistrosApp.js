@@ -217,6 +217,9 @@ const RegistrosApp = {
                         if (!item.groupingKey) {
                             item.groupingKey = this.getGroupingKey(item.producto, item.vinculoId);
                         }
+                        if (!item.type && !item.isManoDeObra) {
+                            item.type = 'summary';
+                        }
                         return item;
                     });
                     setTimeout(() => {
@@ -1849,10 +1852,10 @@ const RegistrosApp = {
         // Calcular cantidades de summary en la factura actual para distribuirlas por FIFO
         let summaryInvoicedMap = {};
         this.facturaItems.forEach(fi => {
-            if (fi.type === 'summary') {
-                const key = fi.groupingKey || this.getGroupingKey(fi.producto, fi.vinculoId);
-                summaryInvoicedMap[key] = (summaryInvoicedMap[key] || 0) + (fi.cantidadFacturar || 0);
-            }
+            if (fi.isManoDeObra) return;
+            if (fi.type === 'single' && fi.originalId) return;
+            const key = fi.groupingKey || this.getGroupingKey(fi.producto, fi.vinculoId);
+            summaryInvoicedMap[key] = (summaryInvoicedMap[key] || 0) + (fi.cantidadFacturar || 0);
         });
 
         // Calcular mapa facturado usando la lógica centralizada
@@ -1868,6 +1871,13 @@ const RegistrosApp = {
             let totalBilledHist = 0;
             if (reg.cantidadUsada !== undefined && reg.cantidadUsada !== null) {
                 totalBilledHist = reg.cantidadUsada;
+                // Si estamos editando una factura, restar de lo ya facturado lo que consumió ESTA factura
+                if (this.editingInvoiceId && reg.facturas && reg.facturas.length > 0) {
+                    const consumedByThisInvoice = reg.facturas
+                        .filter(f => f.facturaId === this.editingInvoiceId)
+                        .reduce((sum, f) => sum + (f.cantidad || 0), 0);
+                    totalBilledHist = Math.max(0, totalBilledHist - consumedByThisInvoice);
+                }
             } else {
                 const fifoBilled = computedBilledMap[reg.id] || 0;
                 const clones = this.allClonesMap[reg.id] || [];
@@ -2154,13 +2164,13 @@ const RegistrosApp = {
 
         const computedBilledMap = this.calculateComputedBilledMap(this.allRegistros);
 
-        // Reconstruir descuentos de la factura actual (items summary)
+        // Reconstruir descuentos de la factura actual (items summary y items sin tipo explícito single)
         let summaryInvoicedMap = {};
         this.facturaItems.forEach(fi => {
-            if (fi.type === 'summary') {
-                const key = fi.groupingKey || this.getGroupingKey(fi.producto, fi.vinculoId);
-                summaryInvoicedMap[key] = (summaryInvoicedMap[key] || 0) + (fi.cantidadFacturar || 0);
-            }
+            if (fi.isManoDeObra) return;
+            if (fi.type === 'single' && fi.originalId) return;
+            const key = fi.groupingKey || this.getGroupingKey(fi.producto, fi.vinculoId);
+            summaryInvoicedMap[key] = (summaryInvoicedMap[key] || 0) + (fi.cantidadFacturar || 0);
         });
 
         let totalRestante = 0;
@@ -2181,6 +2191,13 @@ const RegistrosApp = {
             let totalBilledHist = 0;
             if (reg.cantidadUsada !== undefined && reg.cantidadUsada !== null) {
                 totalBilledHist = reg.cantidadUsada;
+                // Si estamos editando una factura, restar de lo ya facturado lo que consumió ESTA factura
+                if (this.editingInvoiceId && reg.facturas && reg.facturas.length > 0) {
+                    const consumedByThisInvoice = reg.facturas
+                        .filter(f => f.facturaId === this.editingInvoiceId)
+                        .reduce((sum, f) => sum + (f.cantidad || 0), 0);
+                    totalBilledHist = Math.max(0, totalBilledHist - consumedByThisInvoice);
+                }
             } else {
                 const fifoBilled = computedBilledMap[reg.id] || 0;
                 const clones = this.allClonesMap[reg.id] || [];
@@ -2241,17 +2258,19 @@ const RegistrosApp = {
 
             if (existingItem) {
                 // Recalcular el restante REAL en tiempo real, sin depender de data.max (que puede ser obsoleto)
-                // Si el item en factura ya se convirtió en 'summary' (agrupado), verificamos el inventario global, no el específico de la tarjeta.
-                const typeToCheck = existingItem.type === 'summary' ? 'summary' : data.type;
+                // Si el item en factura ya se convirtió en 'summary', viene de edición o no tiene fila específica, verificamos inventario global
+                const typeToCheck = (existingItem.type === 'summary' || !existingItem.originalId || data.type === 'summary') ? 'summary' : data.type;
                 const realMax = this._calculateRealRemaining(incomingKey, typeToCheck, data.id);
                 
                 if (realMax > 0) {
                     existingItem.cantidadFacturar += 1;
-                    // Si viene un item diferente al que originó la fila, lo convertimos en 'summary'
-                    // para que el sistema FIFO distribuya el descuento entre todas las filas coincidentes.
-                    if (existingItem.type === 'single' && existingItem.originalId !== data.id) {
+                    // Si viene un item diferente al que originó la fila o si se agrega desde summary, consolidamos en 'summary'
+                    if (data.type === 'summary' || existingItem.type === 'summary' || (existingItem.originalId && existingItem.originalId !== data.id)) {
                         existingItem.type = 'summary';
                         existingItem.originalId = null;
+                    }
+                    if (!existingItem.groupingKey) {
+                        existingItem.groupingKey = incomingKey;
                     }
                 } else {
                     alert('No puedes agregar más. Límite pendiente alcanzado.');
@@ -5797,17 +5816,23 @@ const RegistrosApp = {
             this.editingInvoiceId = id;
 
             // Mapear los ítems de la factura de vuelta a la estructura de la aplicación
-            this.facturaItems = (inv.items || []).map(item => ({
-                id: Math.random().toString(36).substr(2, 9) + Date.now().toString(),
-                producto: item.descripcionPapel || item.producto,
-                cuenta: item.cuenta || '',
-                cantidadFacturar: item.cantidad,
-                max: 999, // Límite virtual alto para permitir ediciones libres
-                vinculoId: item.productId || null,
-                precioUnitario: item.precioUnitario || 0,
-                costoUnitario: item.costoUnitario || 0,
-                isManoDeObra: !!item.isManoDeObra
-            }));
+            this.facturaItems = (inv.items || []).map(item => {
+                const prodName = item.descripcionPapel || item.producto;
+                const pId = item.productId || null;
+                return {
+                    id: Math.random().toString(36).substr(2, 9) + Date.now().toString(),
+                    producto: prodName,
+                    cuenta: item.cuenta || '',
+                    cantidadFacturar: item.cantidad,
+                    max: 999, // Límite virtual alto para permitir ediciones libres
+                    vinculoId: pId,
+                    precioUnitario: item.precioUnitario || 0,
+                    costoUnitario: item.costoUnitario || 0,
+                    isManoDeObra: !!item.isManoDeObra,
+                    type: item.isManoDeObra ? 'service' : 'summary',
+                    groupingKey: item.isManoDeObra ? null : this.getGroupingKey(prodName, pId)
+                };
+            });
 
             // Rellenar campos del formulario
             const inputCliente = document.getElementById('factura-cliente');
@@ -5868,6 +5893,7 @@ const RegistrosApp = {
         this.facturaItems = [];
         this.saveFacturaDraft();
         this.renderFactura();
+        this.renderFacturacionData();
 
         const inputCliente = document.getElementById('factura-cliente');
         const inputNumero = document.getElementById('factura-numero');
