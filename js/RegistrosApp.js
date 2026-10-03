@@ -591,9 +591,11 @@ const RegistrosApp = {
 
             if (!window.app || !window.app.cache) return;
 
-            // Filtrar productos (buscar en codigo, descripcion y aliases)
+            // Filtrar productos (buscar en codigo, descripcion, aliases y proveedor)
             const results = window.app.cache.filter(p => {
-                const searchStr = `${p.codigo || ''} ${p.descripcion || ''} ${(p.aliases || []).join(' ')}`.toLowerCase();
+                const aliasStr = Array.isArray(p.aliases) ? p.aliases.join(' ') : (p.aliases || '');
+                const provStr = Array.isArray(p.codigosProveedor) ? p.codigosProveedor.join(' ') : (p.codigosProveedor || '');
+                const searchStr = `${p.codigo || ''} ${p.descripcion || ''} ${aliasStr} ${provStr}`.toLowerCase();
                 return searchStr.includes(val);
             }).slice(0, 15); // Mostrar máx 15 resultados
 
@@ -639,11 +641,15 @@ const RegistrosApp = {
                 addActive(items);
                 scrollToActive(items);
             } else if (e.key === 'Enter') {
-                e.preventDefault();
                 if (currentFocus > -1) {
+                    e.preventDefault();
                     if (items[currentFocus]) {
                         items[currentFocus].dispatchEvent(new MouseEvent('mousedown'));
                     }
+                } else {
+                    // Si no seleccionó sugerencia con las flechas, cerramos la lista
+                    // y permitimos que el submit del formulario proceda normalmente
+                    container.style.display = 'none';
                 }
             }
         });

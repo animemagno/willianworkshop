@@ -38,18 +38,22 @@ window.RegistroController = {
 
         const compareCodes = (code1, code2) => {
             if (!code1 || !code2) return false;
-            const c1 = code1.toLowerCase().replace(/^0+/, '');
-            const c2 = code2.toLowerCase().replace(/^0+/, '');
+            const c1 = String(code1).toLowerCase().replace(/^0+/, '');
+            const c2 = String(code2).toLowerCase().replace(/^0+/, '');
             return (c1 || "0") === (c2 || "0");
         };
 
         if (window.app && window.app.cache) {
             const match = window.app.cache.find(p => {
-                const mainCodes = p.codigo ? p.codigo.split(/[\s,-]+/) : [];
+                const mainCodes = p.codigo ? String(p.codigo).split(/[\s,-]+/) : [];
                 const matchMain = mainCodes.some(c => compareCodes(c, inputValue));
                 const matchDesc = p.descripcion && compareCodes(p.descripcion, inputValue);
-                const matchAlias = p.aliases && p.aliases.some(a => compareCodes(a, inputValue));
-                const matchProv = p.codigosProveedor && p.codigosProveedor.some(c => compareCodes(c, inputValue));
+                const matchAlias = Array.isArray(p.aliases)
+                    ? p.aliases.some(a => compareCodes(a, inputValue))
+                    : (typeof p.aliases === 'string' ? compareCodes(p.aliases, inputValue) : false);
+                const matchProv = Array.isArray(p.codigosProveedor)
+                    ? p.codigosProveedor.some(c => compareCodes(c, inputValue))
+                    : (typeof p.codigosProveedor === 'string' ? compareCodes(p.codigosProveedor, inputValue) : false);
                 return matchMain || matchDesc || matchAlias || matchProv;
             });
 
@@ -63,11 +67,17 @@ window.RegistroController = {
         }
 
         try {
-            const unifiedRef = app.db.collection('REGISTROS');
+            const db = (app && app.db) ? app.db : (window.db || (window.firebase && window.firebase.firestore()));
+            if (!db) {
+                console.error("No se encontró conexión a la base de datos.");
+                alert("Error de conexión a la base de datos.");
+                return;
+            }
+            const unifiedRef = db.collection('REGISTROS');
             const newDocId = unifiedRef.doc().id;
 
             const baseData = {
-                fecha: (fechaInput && fechaInput.value) ? fechaInput.value : app.getLocalISODate() || "",
+                fecha: (fechaInput && fechaInput.value) ? fechaInput.value : (app.getLocalISODate ? app.getLocalISODate() : new Date().toISOString().split('T')[0]),
                 producto: productoDesc || "",
                 productId: productId || null,
                 cantidad: cantidad || 1,

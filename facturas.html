@@ -1037,6 +1037,32 @@
         <!-- ==================== PESTAÑA 1: INGRESO DE FACTURAS ==================== -->
         <div id="tab-ingreso" class="tab-content active">
 
+            <!-- Banner de Navegación de Cola de Lote -->
+            <div id="banner-cola-facturas" style="display: none; background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 12px 18px; margin-bottom: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <span class="badge badge-info" style="font-size: 0.85rem; padding: 6px 12px;">
+                        <i class="fas fa-layer-group"></i> Lote en Revisión
+                    </span>
+                    <span id="texto-cola-progreso" style="font-weight: 700; color: #1e40af; font-size: 0.95rem;">
+                        Factura 1 de 1
+                    </span>
+                    <span id="texto-cola-detalle" style="font-size: 0.85rem; color: #475569;">
+                        -
+                    </span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="navegarColaFactura(-1)" id="btn-cola-prev" title="Ir a la factura anterior">
+                        <i class="fas fa-chevron-left"></i> Anterior
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="navegarColaFactura(1)" id="btn-cola-next" title="Ir a la siguiente factura">
+                        Siguiente <i class="fas fa-chevron-right"></i>
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="cancelarColaFacturas()" title="Salir de la cola de archivos" style="background: #94a3b8;">
+                        <i class="fas fa-xmark"></i> Salir del Lote
+                    </button>
+                </div>
+            </div>
+
             <!-- Barra de Pasos / Wizard Stepper -->
             <div class="wizard-steps-bar" id="wizard-steps-bar">
                 <div class="wizard-step-item active" id="step-nav-1" onclick="irAPaso(1)">
@@ -1073,27 +1099,27 @@
                         Paso 1: ¿Cómo deseas ingresar la factura?
                     </div>
                     <div class="welcome-invoice-sub">
-                        Selecciona si subirás el archivo digital oficial o ingresarás los datos manualmente:
+                        Selecciona si subirás archivos digitales oficiales o ingresarás los datos manualmente:
                     </div>
 
                     <div class="welcome-grid">
                         <!-- Opción A: Cargar Archivo DTE (JSON) -->
                         <div class="card-selector-option" id="card-drop-json" onclick="document.getElementById('file-json-input').click()">
-                            <input type="file" id="file-json-input" accept=".json" style="display:none;" onchange="handleFileSelect(event)">
+                            <input type="file" id="file-json-input" accept=".json" multiple style="display:none;" onchange="handleFileSelect(event)">
                             <div>
                                 <div class="option-icon-box" style="background: #eff6ff; color: #2563eb;">
                                     <i class="fas fa-cloud-arrow-up"></i>
                                 </div>
                                 <h3 style="font-size: 1.2rem; font-weight: 700; color: #1e293b; margin-bottom: 8px;">
-                                    Cargar Factura Electrónica (DTE)
+                                    Cargar Factura(s) Electrónica(s) (DTE)
                                 </h3>
                                 <p style="font-size: 0.88rem; color: #64748b; line-height: 1.45; margin-bottom: 20px;">
-                                    Sube el archivo <b>.json</b> oficial de tu proveedor. Autocompletará proveedor, fechas, subtotales, IVA y productos automáticamente.
+                                    Sube uno o varios archivos <b>.json</b> oficiales. Analizará los códigos DTE internos para evitar duplicados y podrás revisarlas una por una.
                                 </p>
                             </div>
                             <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #e2e8f0; padding-top: 14px;">
-                                <span style="font-size: 0.82rem; color: #3b82f6; font-weight: 600;">Arrastra o haz clic aquí</span>
-                                <span class="btn btn-primary btn-sm"><i class="fas fa-upload"></i> Subir Archivo JSON</span>
+                                <span style="font-size: 0.82rem; color: #3b82f6; font-weight: 600;">Arrastra 1 o varios archivos aquí</span>
+                                <span class="btn btn-primary btn-sm"><i class="fas fa-upload"></i> Subir Archivos JSON</span>
                             </div>
                         </div>
 
@@ -1975,6 +2001,130 @@
         </div>
     </div>
 
+    <!-- Modal 6: Alerta Factura Duplicada -->
+    <div class="modal-overlay" id="modal-factura-duplicada">
+        <div class="modal-box" style="max-width: 580px; border-top: 5px solid #ef4444;">
+            <div class="modal-header" style="border-bottom: none; margin-bottom: 10px; padding-bottom: 0;">
+                <div class="modal-title" style="color: #dc2626; font-size: 1.25rem;">
+                    <i class="fas fa-triangle-exclamation" style="color: #ef4444; font-size: 1.4rem;"></i>
+                    ¡Factura Ya Registrada!
+                </div>
+                <button class="btn-close-modal" onclick="cerrarModalFacturaDuplicada()">&times;</button>
+            </div>
+            
+            <p id="dup-modal-motivo" style="color: #475569; font-size: 0.92rem; margin-bottom: 16px; line-height: 1.45;">
+                Esta factura ya fue ingresada previamente en el sistema. Se detuvo la carga para no duplicar existencias de repuestos ni saldos con el proveedor.
+            </p>
+
+            <!-- Tarjeta con resumen de la factura existente -->
+            <div style="background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 0.88rem;">
+                    <div style="grid-column: 1 / -1;">
+                        <span style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: #991b1b; display: block; margin-bottom: 2px;">Proveedor</span>
+                        <b id="dup-modal-prov" style="color: #1e293b; font-size: 1rem;">-</b>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: #991b1b; display: block; margin-bottom: 2px;">N° Factura / Control</span>
+                        <span id="dup-modal-num" style="font-weight: 600; color: #1e293b;">-</span>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: #991b1b; display: block; margin-bottom: 2px;">Fecha</span>
+                        <span id="dup-modal-fecha" style="font-weight: 600; color: #1e293b;">-</span>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: #991b1b; display: block; margin-bottom: 2px;">Total de la Factura</span>
+                        <b id="dup-modal-monto" style="font-size: 1.1rem; color: #b91c1c;">$0.00</b>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: #991b1b; display: block; margin-bottom: 2px;">Estado en Sistema</span>
+                        <span id="dup-modal-estado" class="badge badge-info" style="font-size: 0.75rem;">REGISTRADA</span>
+                    </div>
+                    <div style="grid-column: 1 / -1; background: white; padding: 8px 12px; border-radius: 8px; border: 1px dashed #fca5a5;">
+                        <span style="font-size: 0.72rem; text-transform: uppercase; font-weight: 700; color: #991b1b; display: block; margin-bottom: 2px;">Código DTE (Hacienda)</span>
+                        <code id="dup-modal-dte" style="font-size: 0.8rem; color: #7f1d1d; word-break: break-all;">-</code>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn btn-secondary" onclick="cerrarModalFacturaDuplicada()">
+                    <i class="fas fa-xmark"></i> Entendido
+                </button>
+                <button type="button" class="btn btn-primary" id="btn-dup-ver-factura" style="background: #1e3c72;">
+                    <i class="fas fa-eye"></i> Ver Factura en Historial
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 7: Resumen Análisis de Lote de Facturas -->
+    <div class="modal-overlay" id="modal-analisis-lote">
+        <div class="modal-box" style="max-width: 780px;">
+            <div class="modal-header">
+                <div class="modal-title" style="color: #1e3c72; font-size: 1.25rem;">
+                    <i class="fas fa-layer-group" style="color: #2563eb;"></i>
+                    Resultado del Análisis de Facturas DTE
+                </div>
+                <button class="btn-close-modal" onclick="cerrarModalAnalisisLote()">&times;</button>
+            </div>
+
+            <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 16px;">
+                Se analizaron <b id="lote-total-archivos" style="color:#1e293b;">0</b> archivos basándose estrictamente en su <b>código DTE interno</b>:
+            </p>
+
+            <!-- Tarjetas de Resumen -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px;">
+                <!-- Nuevas -->
+                <div style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px; padding: 14px; text-align: center;">
+                    <div style="font-size: 1.7rem; font-weight: 800; color: #16a34a;" id="lote-cnt-nuevas">0</div>
+                    <div style="font-size: 0.82rem; font-weight: 700; color: #15803d; text-transform: uppercase;">Nuevas para Ingresar</div>
+                    <div style="font-size: 0.75rem; color: #64748b; margin-top: 2px;">DTE único sin registrar</div>
+                </div>
+
+                <!-- En BD -->
+                <div style="background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 12px; padding: 14px; text-align: center;">
+                    <div style="font-size: 1.7rem; font-weight: 800; color: #d97706;" id="lote-cnt-en-bd">0</div>
+                    <div style="font-size: 0.82rem; font-weight: 700; color: #b45309; text-transform: uppercase;">Ya en el Sistema</div>
+                    <div style="font-size: 0.75rem; color: #64748b; margin-top: 2px;">Omitidas (protección)</div>
+                </div>
+
+                <!-- Repetidas en el mismo lote -->
+                <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 14px; text-align: center;">
+                    <div style="font-size: 1.7rem; font-weight: 800; color: #2563eb;" id="lote-cnt-dups-lote">0</div>
+                    <div style="font-size: 0.82rem; font-weight: 700; color: #1d4ed8; text-transform: uppercase;">Mismo DTE Repetido</div>
+                    <div style="font-size: 0.75rem; color: #64748b; margin-top: 2px;">Se toma solo 1 copia</div>
+                </div>
+            </div>
+
+            <!-- Tabla Detallada -->
+            <div style="max-height: 260px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 20px;">
+                <table class="custom-table" style="font-size: 0.82rem; margin: 0;">
+                    <thead style="position: sticky; top: 0; background: #f8fafc; z-index: 1;">
+                        <tr>
+                            <th>Archivo</th>
+                            <th>Proveedor</th>
+                            <th>N° Factura / Control</th>
+                            <th style="text-align: right;">Total</th>
+                            <th style="text-align: center;">Resultado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-lote-analisis">
+                        <!-- Filas dinámicas -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <button type="button" class="btn btn-secondary" onclick="cerrarModalAnalisisLote()">
+                    <i class="fas fa-times"></i> Cerrar
+                </button>
+                <button type="button" class="btn btn-primary" id="btn-iniciar-revision-lote" onclick="iniciarRevisionCola()" style="background: #1e3c72; padding: 10px 20px; font-size: 0.95rem;">
+                    <i class="fas fa-play"></i> Comenzar Revisión de Facturas (0)
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast -->
     <div id="toast"><i class="fas fa-info-circle"></i> <span id="toast-text">Mensaje</span></div>
 
@@ -2001,6 +2151,10 @@
         let itemsFacturaActual = [];   // Ítems de la factura en proceso
         let facturasRegistradas = [];  // Historial de compras/gastos
         let saldosProveedores = {};    // Resumen de saldos agrupado
+        let dteCodigoGeneracionActual = ''; // Código de Generación único DTE
+        let dteNumeroControlActual = '';    // Número de Control oficial DTE
+        let colaFacturasLote = [];          // Facturas nuevas en cola de revisión
+        let indiceColaActual = 0;           // Índice de la factura en revisión
 
         document.getElementById('inv-fecha').value = new Date().toISOString().split('T')[0];
 
@@ -2019,6 +2173,409 @@
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
             });
+        }
+
+        // ==================== CONTROL DE FACTURAS DUPLICADAS ====================
+        function buscarFacturaExistente({ codigoGeneracion = '', numeroControl = '', numeroFactura = '', proveedor = '' }) {
+            if (!Array.isArray(facturasRegistradas) || facturasRegistradas.length === 0) return null;
+
+            const codGenBuscado = String(codigoGeneracion || '').trim().toUpperCase();
+            const numCtrlBuscado = String(numeroControl || '').trim().toUpperCase();
+            const numFacBuscado = String(numeroFactura || '').trim().toUpperCase();
+            const provBuscado = String(proveedor || '').trim().toUpperCase();
+
+            for (const fac of facturasRegistradas) {
+                const facCodGen = String(fac.codigoGeneracion || '').trim().toUpperCase();
+                const facNumCtrl = String(fac.numeroControl || '').trim().toUpperCase();
+                const facNum = String(fac.numeroFactura || '').trim().toUpperCase();
+                const facProv = String(fac.proveedor || '').trim().toUpperCase();
+
+                // 1. Coincidencia por Código de Generación DTE (UUID único)
+                if (codGenBuscado && (facCodGen === codGenBuscado || facNum === codGenBuscado)) {
+                    return fac;
+                }
+
+                // 2. Coincidencia por Número de Control del DTE
+                if (numCtrlBuscado && (facNumCtrl === numCtrlBuscado || facNum === numCtrlBuscado)) {
+                    return fac;
+                }
+
+                // 3. Coincidencia por Número de Factura y Proveedor (para facturas manuales o físicas)
+                if (numFacBuscado && numFacBuscado !== 'S/N' && facNum === numFacBuscado) {
+                    if (provBuscado && facProv && (facProv === provBuscado || facProv.includes(provBuscado) || provBuscado.includes(facProv))) {
+                        return fac;
+                    }
+                }
+            }
+            return null;
+        }
+
+        async function verificarFacturaDuplicada({ codigoGeneracion = '', numeroControl = '', numeroFactura = '', proveedor = '' }) {
+            // 1. Buscar primero en memoria si ya tenemos cargado el historial
+            let existente = buscarFacturaExistente({ codigoGeneracion, numeroControl, numeroFactura, proveedor });
+            if (existente) return existente;
+
+            // 2. Si la lista en memoria estaba vacía, intentar cargarla
+            if (!facturasRegistradas || facturasRegistradas.length === 0) {
+                try {
+                    await recargarHistorialFacturas();
+                    existente = buscarFacturaExistente({ codigoGeneracion, numeroControl, numeroFactura, proveedor });
+                    if (existente) return existente;
+                } catch (e) {
+                    console.warn("No se pudo recargar historial para verificación:", e);
+                }
+            }
+
+            // 3. Consulta de seguridad directa en Firestore si hay código DTE
+            const codGenBuscado = String(codigoGeneracion || '').trim().toUpperCase();
+            if (codGenBuscado) {
+                try {
+                    const snapGen = await db.collection('COMPRAS_PROVEEDORES').where('codigoGeneracion', '==', codGenBuscado).limit(1).get();
+                    if (!snapGen.empty) {
+                        return { id: snapGen.docs[0].id, ...snapGen.docs[0].data() };
+                    }
+                    const snapNum = await db.collection('COMPRAS_PROVEEDORES').where('numeroFactura', '==', codGenBuscado).limit(1).get();
+                    if (!snapNum.empty) {
+                        return { id: snapNum.docs[0].id, ...snapNum.docs[0].data() };
+                    }
+                } catch (e) {
+                    console.warn("Consulta Firestore por codigoGeneracion:", e);
+                }
+            }
+
+            const numCtrlBuscado = String(numeroControl || '').trim().toUpperCase();
+            if (numCtrlBuscado) {
+                try {
+                    const snapCtrl = await db.collection('COMPRAS_PROVEEDORES').where('numeroControl', '==', numCtrlBuscado).limit(1).get();
+                    if (!snapCtrl.empty) {
+                        return { id: snapCtrl.docs[0].id, ...snapCtrl.docs[0].data() };
+                    }
+                    const snapFac = await db.collection('COMPRAS_PROVEEDORES').where('numeroFactura', '==', numCtrlBuscado).limit(1).get();
+                    if (!snapFac.empty) {
+                        return { id: snapFac.docs[0].id, ...snapFac.docs[0].data() };
+                    }
+                } catch (e) {
+                    console.warn("Consulta Firestore por numeroControl:", e);
+                }
+            }
+
+            return null;
+        }
+
+        function mostrarModalFacturaDuplicada(factura, mensajeMotivo = '') {
+            const modal = document.getElementById('modal-factura-duplicada');
+            if (!modal) {
+                alert("¡Atención! Esta factura ya se encuentra registrada en el sistema.");
+                return;
+            }
+
+            if (mensajeMotivo) {
+                const elMotivo = document.getElementById('dup-modal-motivo');
+                if (elMotivo) elMotivo.innerText = mensajeMotivo;
+            }
+
+            document.getElementById('dup-modal-prov').innerText = factura.proveedor || 'Sin proveedor';
+            document.getElementById('dup-modal-num').innerText = factura.numeroFactura || factura.numeroControl || factura.codigoGeneracion || 'S/N';
+            document.getElementById('dup-modal-fecha').innerText = factura.fecha || 'Sin fecha';
+            document.getElementById('dup-modal-monto').innerText = formatMoney(factura.total || 0);
+
+            const elEstado = document.getElementById('dup-modal-estado');
+            if (elEstado) {
+                const estadoTxt = factura.estado || (factura.saldoPendiente > 0 ? 'PENDIENTE' : 'PAGADA');
+                elEstado.innerText = estadoTxt;
+                elEstado.className = `badge ${estadoTxt === 'PAGADA' ? 'badge-success' : 'badge-warning'}`;
+            }
+
+            const dteElem = document.getElementById('dup-modal-dte');
+            const codDte = factura.codigoGeneracion || (factura.numeroFactura && factura.numeroFactura.includes('-') && factura.numeroFactura.length > 25 ? factura.numeroFactura : '');
+            if (dteElem) {
+                if (codDte) {
+                    dteElem.parentElement.style.display = 'block';
+                    dteElem.innerText = codDte;
+                } else {
+                    dteElem.parentElement.style.display = 'none';
+                }
+            }
+
+            const btnVer = document.getElementById('btn-dup-ver-factura');
+            if (btnVer) {
+                if (factura.id) {
+                    btnVer.style.display = 'inline-flex';
+                    btnVer.onclick = () => {
+                        cerrarModalFacturaDuplicada();
+                        verDetalleFactura(factura.id);
+                    };
+                } else {
+                    btnVer.style.display = 'none';
+                }
+            }
+
+            modal.classList.add('active');
+        }
+
+        function cerrarModalFacturaDuplicada() {
+            const modal = document.getElementById('modal-factura-duplicada');
+            if (modal) modal.classList.remove('active');
+        }
+
+        // ==================== 3.1 CARGA Y ANÁLISIS MASIVO DE FACTURAS (DTE) ====================
+        function leerArchivoComoTexto(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => resolve(e.target.result || '');
+                reader.onerror = e => reject(e);
+                reader.readAsText(file, "UTF-8");
+            });
+        }
+
+        async function procesarArchivosMultiples(fileList) {
+            if (!fileList || fileList.length === 0) return;
+
+            const archivosArray = Array.from(fileList).filter(f => f && f.name.toLowerCase().endsWith('.json'));
+            if (archivosArray.length === 0) {
+                alert("Por favor selecciona archivos con extensión .json");
+                return;
+            }
+
+            // Si es 1 solo archivo, procesar por el flujo directo
+            if (archivosArray.length === 1) {
+                procesarArchivoJson(archivosArray[0]);
+                return;
+            }
+
+            showToast(`Analizando ${archivosArray.length} archivos por código DTE interno...`, 4000);
+
+            // Asegurarse de que el historial en memoria esté disponible
+            if (!facturasRegistradas || facturasRegistradas.length === 0) {
+                try {
+                    await recargarHistorialFacturas();
+                } catch (e) {
+                    console.warn("Error cargando historial para análisis masivo:", e);
+                }
+            }
+
+            const resultadosAnalisis = [];
+            const codigosDteEnLote = new Map(); // claveDte -> nombreArchivo original
+            const facturasNuevas = [];
+
+            for (const file of archivosArray) {
+                try {
+                    const raw = await leerArchivoComoTexto(file);
+                    const clean = String(raw || '').trim().replace(/^\uFEFF/, '');
+                    const json = JSON.parse(clean);
+
+                    let dte = json;
+                    if (json.dteJson && typeof json.dteJson === 'object') dte = json.dteJson;
+                    else if (json.documento && typeof json.documento === 'object') dte = json.documento;
+
+                    const ident = dte.identificacion || {};
+                    const emisor = dte.emisor || {};
+                    const resumen = dte.resumen || {};
+
+                    const codGen = String(ident.codigoGeneracion || '').trim().toUpperCase();
+                    const numCtrl = String(ident.numeroControl || '').trim().toUpperCase();
+                    const prov = String(emisor.nombreComercial || emisor.nombre || '').trim();
+                    const numFac = String(ident.numeroControl || ident.codigoGeneracion || '').trim();
+
+                    let subTotal = Number(resumen.subTotal || resumen.totalGravada || 0);
+                    let ivaMonto = 0;
+                    if (resumen.tributos && Array.isArray(resumen.tributos)) {
+                        const tributoIva = resumen.tributos.find(t => t && (t.codigo === '20' || String(t.descripcion || '').toUpperCase().includes('IVA')));
+                        if (tributoIva) ivaMonto = Number(tributoIva.valor) || 0;
+                    }
+                    if (!ivaMonto && resumen.ivaPerci1) ivaMonto = Number(resumen.ivaPerci1) || 0;
+                    const total = Number(resumen.totalPagar || resumen.montoTotalOperacion || (subTotal + ivaMonto));
+
+                    if (!codGen && !numCtrl) {
+                        resultadosAnalisis.push({
+                            nombreArchivo: file.name,
+                            proveedor: prov || 'Desconocido',
+                            numeroFactura: numFac || 'Sin número',
+                            total: total,
+                            estado: 'INVALIDO',
+                            motivo: 'No contiene estructura DTE válida'
+                        });
+                        continue;
+                    }
+
+                    // 1. Revisar si este DTE ya existe en la base de datos
+                    const existeEnBD = buscarFacturaExistente({
+                        codigoGeneracion: codGen,
+                        numeroControl: numCtrl,
+                        numeroFactura: numFac,
+                        proveedor: prov
+                    });
+
+                    if (existeEnBD) {
+                        resultadosAnalisis.push({
+                            nombreArchivo: file.name,
+                            proveedor: prov || existeEnBD.proveedor || 'Proveedor',
+                            numeroFactura: numFac,
+                            codigoGeneracion: codGen,
+                            total: total,
+                            estado: 'YA_EN_SISTEMA',
+                            motivo: `Ya registrada (${existeEnBD.fecha || 'previamente'})`
+                        });
+                        continue;
+                    }
+
+                    // 2. Revisar si dentro del mismo paquete de archivos ya vino otro con ese mismo DTE interno
+                    const claveDte = codGen || numCtrl;
+                    if (codigosDteEnLote.has(claveDte)) {
+                        resultadosAnalisis.push({
+                            nombreArchivo: file.name,
+                            proveedor: prov,
+                            numeroFactura: numFac,
+                            codigoGeneracion: codGen,
+                            total: total,
+                            estado: 'REPETIDO_EN_LOTE',
+                            motivo: `Mismo DTE que: ${codigosDteEnLote.get(claveDte)}`
+                        });
+                        continue;
+                    }
+
+                    // Factura válida y nueva con DTE único
+                    codigosDteEnLote.set(claveDte, file.name);
+                    const facItem = {
+                        nombreArchivo: file.name,
+                        proveedor: prov,
+                        numeroFactura: numFac,
+                        codigoGeneracion: codGen,
+                        numeroControl: numCtrl,
+                        total: total,
+                        jsonContent: json,
+                        estado: 'NUEVA'
+                    };
+
+                    resultadosAnalisis.push(facItem);
+                    facturasNuevas.push(facItem);
+
+                } catch (e) {
+                    resultadosAnalisis.push({
+                        nombreArchivo: file.name,
+                        proveedor: 'Error',
+                        numeroFactura: '-',
+                        total: 0,
+                        estado: 'ERROR',
+                        motivo: 'Archivo no legible o JSON dañado'
+                    });
+                }
+            }
+
+            mostrarModalAnalisisLote(resultadosAnalisis, facturasNuevas);
+        }
+
+        function mostrarModalAnalisisLote(resultados, nuevas) {
+            const modal = document.getElementById('modal-analisis-lote');
+            if (!modal) return;
+
+            document.getElementById('lote-total-archivos').innerText = resultados.length;
+
+            const cntNuevas = nuevas.length;
+            const cntEnBd = resultados.filter(r => r.estado === 'YA_EN_SISTEMA').length;
+            const cntDups = resultados.filter(r => r.estado === 'REPETIDO_EN_LOTE').length;
+
+            document.getElementById('lote-cnt-nuevas').innerText = cntNuevas;
+            document.getElementById('lote-cnt-en-bd').innerText = cntEnBd;
+            document.getElementById('lote-cnt-dups-lote').innerText = cntDups;
+
+            const tbody = document.getElementById('tbody-lote-analisis');
+            tbody.innerHTML = '';
+
+            resultados.forEach(item => {
+                const tr = document.createElement('tr');
+                let badgeHtml = '';
+                if (item.estado === 'NUEVA') {
+                    badgeHtml = '<span class="badge badge-success"><i class="fas fa-check"></i> Nueva</span>';
+                } else if (item.estado === 'YA_EN_SISTEMA') {
+                    badgeHtml = '<span class="badge badge-warning" title="' + (item.motivo || '') + '"><i class="fas fa-database"></i> Ya en Sistema</span>';
+                } else if (item.estado === 'REPETIDO_EN_LOTE') {
+                    badgeHtml = '<span class="badge badge-info" title="' + (item.motivo || '') + '"><i class="fas fa-clone"></i> Mismo DTE</span>';
+                } else {
+                    badgeHtml = '<span class="badge badge-danger" title="' + (item.motivo || '') + '"><i class="fas fa-times"></i> Inválido</span>';
+                }
+
+                tr.innerHTML = `
+                    <td style="max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${item.nombreArchivo}">${item.nombreArchivo}</td>
+                    <td style="font-weight: 600;">${item.proveedor || '-'}</td>
+                    <td><span style="font-family: monospace; font-size: 0.8rem;">${item.numeroFactura || '-'}</span></td>
+                    <td style="text-align: right; font-weight: 700;">${formatMoney(item.total || 0)}</td>
+                    <td style="text-align: center;">${badgeHtml}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            const btnIniciar = document.getElementById('btn-iniciar-revision-lote');
+            if (btnIniciar) {
+                if (cntNuevas > 0) {
+                    btnIniciar.style.display = 'inline-flex';
+                    btnIniciar.innerHTML = `<i class="fas fa-play"></i> Comenzar Revisión (${cntNuevas} Facturas)`;
+                    btnIniciar.onclick = () => {
+                        colaFacturasLote = nuevas;
+                        iniciarRevisionCola();
+                    };
+                } else {
+                    btnIniciar.style.display = 'none';
+                }
+            }
+
+            modal.classList.add('active');
+        }
+
+        function cerrarModalAnalisisLote() {
+            const modal = document.getElementById('modal-analisis-lote');
+            if (modal) modal.classList.remove('active');
+        }
+
+        function iniciarRevisionCola() {
+            if (!colaFacturasLote || colaFacturasLote.length === 0) return;
+            cerrarModalAnalisisLote();
+            indiceColaActual = 0;
+            actualizarBannerCola();
+            cargarFacturaDeCola(0);
+        }
+
+        async function cargarFacturaDeCola(indice) {
+            if (indice < 0 || indice >= colaFacturasLote.length) return;
+            indiceColaActual = indice;
+            const item = colaFacturasLote[indiceColaActual];
+            actualizarBannerCola();
+            await interpretarJsonFactura(item.jsonContent, true);
+        }
+
+        function actualizarBannerCola() {
+            const banner = document.getElementById('banner-cola-facturas');
+            if (!banner) return;
+            if (!colaFacturasLote || colaFacturasLote.length === 0) {
+                banner.style.display = 'none';
+                return;
+            }
+            banner.style.display = 'flex';
+            document.getElementById('texto-cola-progreso').innerText = `Factura ${indiceColaActual + 1} de ${colaFacturasLote.length}`;
+            const item = colaFacturasLote[indiceColaActual];
+            if (item) {
+                document.getElementById('texto-cola-detalle').innerText = `(${item.proveedor || 'Sin proveedor'} • ${formatMoney(item.total || 0)})`;
+            }
+            const btnPrev = document.getElementById('btn-cola-prev');
+            const btnNext = document.getElementById('btn-cola-next');
+            if (btnPrev) btnPrev.disabled = (indiceColaActual <= 0);
+            if (btnNext) btnNext.disabled = (indiceColaActual >= colaFacturasLote.length - 1);
+        }
+
+        function navegarColaFactura(delta) {
+            const nuevo = indiceColaActual + delta;
+            if (nuevo >= 0 && nuevo < colaFacturasLote.length) {
+                cargarFacturaDeCola(nuevo);
+            }
+        }
+
+        function cancelarColaFacturas() {
+            if (colaFacturasLote.length > 0 && !confirm("¿Deseas salir del lote de facturas en revisión?")) return;
+            colaFacturasLote = [];
+            indiceColaActual = 0;
+            actualizarBannerCola();
+            limpiarFormularioFactura(true);
+            showToast("Revisión de lote finalizada.");
         }
 
         function switchTab(tabId) {
@@ -2383,6 +2940,22 @@
             const inputStep5Abono = document.getElementById('abono-inicial-step5');
             const abonoInicial = (condicion === 'CREDITO') ? (Number(inputStep5Abono ? inputStep5Abono.value : 0) || 0) : 0;
 
+            // Verificación previa de factura duplicada
+            const facDup = await verificarFacturaDuplicada({
+                codigoGeneracion: dteCodigoGeneracionActual,
+                numeroControl: dteNumeroControlActual,
+                numeroFactura: numeroFactura,
+                proveedor: proveedor
+            });
+
+            if (facDup) {
+                mostrarModalFacturaDuplicada(
+                    facDup,
+                    "No se puede guardar esta factura porque ya existe registrada en el sistema."
+                );
+                return;
+            }
+
             facturaAProcesarTemporal = {
                 proveedor,
                 fecha,
@@ -2451,7 +3024,7 @@
             document.getElementById('modal-datos-manual').classList.remove('active');
         }
 
-        function confirmarDatosFacturaManual() {
+        async function confirmarDatosFacturaManual() {
             const prov = document.getElementById('manual-init-proveedor').value.trim();
             const fecha = document.getElementById('manual-init-fecha').value;
             const num = document.getElementById('manual-init-numero').value.trim();
@@ -2464,6 +3037,21 @@
             if (!fecha) {
                 alert("Por favor ingresa la fecha de la factura.");
                 return;
+            }
+
+            // Verificación si ya existe factura con ese número y proveedor
+            if (num && num !== 'S/N') {
+                const facDup = await verificarFacturaDuplicada({
+                    numeroFactura: num,
+                    proveedor: prov
+                });
+                if (facDup) {
+                    mostrarModalFacturaDuplicada(
+                        facDup,
+                        "Ya existe una factura registrada con ese mismo número y proveedor en el sistema."
+                    );
+                    return;
+                }
             }
 
             limpiarFormularioFactura(true);
@@ -2625,12 +3213,15 @@
                 }, false);
             });
             dropzoneEl.addEventListener('drop', (e) => {
-                if (e.dataTransfer.files.length > 0) procesarArchivoJson(e.dataTransfer.files[0]);
+                if (e.dataTransfer.files.length > 0) procesarArchivosMultiples(e.dataTransfer.files);
             });
         }
 
         function handleFileSelect(event) {
-            if (event.target.files.length > 0) procesarArchivoJson(event.target.files[0]);
+            if (event.target.files.length > 0) {
+                procesarArchivosMultiples(event.target.files);
+                event.target.value = '';
+            }
         }
 
         function procesarArchivoJson(file) {
@@ -2653,7 +3244,7 @@
                 }
 
                 try {
-                    await interpretarJsonFactura(data);
+                    await interpretarJsonFactura(data, false);
                 } catch (errLogica) {
                     console.error("Error al procesar contenido de la factura:", errLogica);
                     alert("Error al leer los datos de la factura:\n" + errLogica.message);
@@ -2665,7 +3256,7 @@
             reader.readAsText(file, "UTF-8");
         }
 
-        async function interpretarJsonFactura(json) {
+        async function interpretarJsonFactura(json, esDesdeCola = false) {
             if (!json || typeof json !== 'object') {
                 throw new Error("El archivo JSON está vacío o no contiene un objeto válido.");
             }
@@ -2681,10 +3272,33 @@
             const cuerpo = Array.isArray(dte.cuerpoDocumento) ? dte.cuerpoDocumento : [];
 
             // 1. Proveedor y Datos Generales
+            const codigoGeneracion = String(ident.codigoGeneracion || '').trim().toUpperCase();
+            const numeroControl = String(ident.numeroControl || '').trim().toUpperCase();
             const proveedorNombre = String(emisor.nombreComercial || emisor.nombre || '').trim();
             const fechaFactura = String(ident.fecEmi || new Date().toISOString().split('T')[0]);
             const numFactura = String(ident.numeroControl || ident.codigoGeneracion || '').trim();
             const condicionDTE = (resumen.condicionOperacion === 2) ? 'CREDITO' : 'CONTADO';
+
+            // Verificación de duplicados por DTE (si no viene de la cola previa analizada)
+            if (!esDesdeCola) {
+                const facturaDuplicada = await verificarFacturaDuplicada({
+                    codigoGeneracion,
+                    numeroControl,
+                    numeroFactura: numFactura,
+                    proveedor: proveedorNombre
+                });
+
+                if (facturaDuplicada) {
+                    mostrarModalFacturaDuplicada(
+                        facturaDuplicada, 
+                        "Esta factura DTE ya fue cargada y procesada anteriormente en el sistema. Se detuvo la carga para evitar duplicar existencias de repuestos y saldos con el proveedor."
+                    );
+                    return;
+                }
+            }
+
+            dteCodigoGeneracionActual = codigoGeneracion;
+            dteNumeroControlActual = numeroControl;
 
             // 2. Extraer Valores Fiscales (Subtotal, IVA, Total)
             let ivaMonto = 0;
@@ -2785,7 +3399,9 @@
 
             // Avanzar al Paso 2 para que el usuario confirme si fue Crédito o Contado
             irAPaso(2);
-            if (esMesPasado) {
+            if (esDesdeCola && colaFacturasLote && colaFacturasLote.length > 0) {
+                showToast(`Factura ${indiceColaActual + 1} de ${colaFacturasLote.length} lista. Paso 2: confirma Crédito o Contado.`);
+            } else if (esMesPasado) {
                 showToast(`Factura de fecha anterior detectada (${fechaFactura}): Se activó 'Registro Histórico' para proteger tu stock actual.`);
             } else {
                 showToast(`Factura cargada (${itemsFacturaActual.length} ítems). Paso 2: confirma si es Crédito o Contado.`);
@@ -3291,6 +3907,9 @@
         function limpiarFormularioFactura(silencioso = false) {
             if (!silencioso && itemsFacturaActual.length > 0 && !confirm("¿Deseas limpiar todos los campos?")) return;
 
+            dteCodigoGeneracionActual = '';
+            dteNumeroControlActual = '';
+
             const elProv = document.getElementById('inv-proveedor');
             const elFecha = document.getElementById('inv-fecha');
             const elNum = document.getElementById('inv-numero');
@@ -3324,7 +3943,7 @@
         // ==================== 9. CONFIRMACIÓN Y GUARDADO DE FACTURA ====================
         let facturaAProcesarTemporal = null;
 
-        function solicitarGuardadoFactura() {
+        async function solicitarGuardadoFactura() {
             const proveedor = document.getElementById('inv-proveedor').value.trim();
             const fecha = document.getElementById('inv-fecha').value;
             const numeroFactura = document.getElementById('inv-numero').value.trim();
@@ -3348,6 +3967,22 @@
             }
             if (total <= 0) {
                 alert("El total de la factura no puede ser $0.00");
+                return;
+            }
+
+            // Verificación previa de factura duplicada
+            const facDup = await verificarFacturaDuplicada({
+                codigoGeneracion: dteCodigoGeneracionActual,
+                numeroControl: dteNumeroControlActual,
+                numeroFactura: numeroFactura,
+                proveedor: proveedor
+            });
+
+            if (facDup) {
+                mostrarModalFacturaDuplicada(
+                    facDup,
+                    "No se puede continuar: esta factura ya se encuentra registrada en el sistema."
+                );
                 return;
             }
 
@@ -3413,6 +4048,22 @@
 
             cerrarModalConfirmarPago();
 
+            // Doble verificación final de seguridad antes de escribir en Firestore
+            const facDupDef = await verificarFacturaDuplicada({
+                codigoGeneracion: dteCodigoGeneracionActual,
+                numeroControl: dteNumeroControlActual,
+                numeroFactura: numeroFactura,
+                proveedor: proveedor
+            });
+
+            if (facDupDef) {
+                mostrarModalFacturaDuplicada(
+                    facDupDef,
+                    "No se puede guardar esta factura porque ya existe en el sistema."
+                );
+                return;
+            }
+
             try {
                 showToast("Guardando factura y memorizando códigos...", 5000);
 
@@ -3436,6 +4087,8 @@
                     proveedor: proveedor,
                     fecha: fecha,
                     numeroFactura: numeroFactura,
+                    codigoGeneracion: dteCodigoGeneracionActual || '',
+                    numeroControl: dteNumeroControlActual || '',
                     tipoFactura: tipoFactura,
                     condicion: cond,
                     registroHistorico: esRegistroHistorico,
@@ -3573,6 +4226,30 @@
                 }
 
                 await batch.commit();
+
+                // Si se está trabajando con un lote de facturas en cola
+                if (colaFacturasLote && colaFacturasLote.length > 0) {
+                    colaFacturasLote.splice(indiceColaActual, 1);
+                    await cargarDatosIniciales();
+
+                    if (colaFacturasLote.length > 0) {
+                        if (indiceColaActual >= colaFacturasLote.length) {
+                            indiceColaActual = colaFacturasLote.length - 1;
+                        }
+                        showToast(`¡Factura guardada! Cargando siguiente en cola (${indiceColaActual + 1} de ${colaFacturasLote.length})...`, 4000);
+                        actualizarBannerCola();
+                        await cargarFacturaDeCola(indiceColaActual);
+                        return;
+                    } else {
+                        showToast("¡Excelente! Has revisado y guardado todas las facturas del lote.", 5000);
+                        colaFacturasLote = [];
+                        indiceColaActual = 0;
+                        actualizarBannerCola();
+                        limpiarFormularioFactura(true);
+                        switchTab('tab-historial');
+                        return;
+                    }
+                }
 
                 showToast(`¡Factura guardada con éxito!`);
 
@@ -4033,6 +4710,12 @@
                 </div>
             ` : '<div style="margin-top:15px; font-size:0.85rem; color:var(--text-muted);">No tiene abonos parciales registrados.</div>';
 
+            const codDteHtml = fac.codigoGeneracion ? `
+                <div style="grid-column: 1 / -1; background: #eff6ff; border: 1px dashed #bfdbfe; border-radius: 8px; padding: 8px 12px; font-size: 0.84rem;">
+                    <b>Código DTE (Hacienda):</b> <code style="color: #1e40af; word-break: break-all;">${fac.codigoGeneracion}</code>
+                </div>
+            ` : '';
+
             cont.innerHTML = `
                 <div style="background:#f8fafc; border-radius:10px; padding:15px; margin-bottom:15px; display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
                     <div><b>Proveedor:</b><br>${fac.proveedor}</div>
@@ -4043,6 +4726,7 @@
                     <div><b>IVA (13%):</b><br><span style="font-weight:700; color:#d97706;">${formatMoney(fac.iva || 0)}</span></div>
                     <div><b>Total Factura:</b><br><span style="font-size:1.15rem; font-weight:700; color:#1e3c72;">${formatMoney(fac.total)}</span></div>
                     <div><b>Saldo Pendiente:</b><br><span style="font-size:1.1rem; font-weight:700; color:${fac.saldoPendiente > 0 ? '#dc2626' : '#10b981'};">${formatMoney(fac.saldoPendiente)}</span></div>
+                    ${codDteHtml}
                 </div>
 
                 <h4 style="margin-bottom:8px; color:var(--secondary);"><i class="fas fa-boxes"></i> Productos / Ítems:</h4>

@@ -8,6 +8,7 @@
     <!-- CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="css/inventario.css">
 
     <style>
@@ -483,7 +484,7 @@
                     style="font-weight: 600; font-size: 0.9rem; color: #ecf0f1; display: flex; align-items: center; gap: 6px; cursor: pointer;">
                     <i class="far fa-calendar-alt"></i> Fecha:
                 </label>
-                <input type="date" id="fast-fecha" form="fast-entry-form" required
+                <input type="date" id="fast-fecha"
                     style="padding: 6px 10px; font-size: 0.95rem; border-radius: 5px; border: 1px solid #ccd1d9; background: white; color: #2c3e50; font-weight: 600; outline: none; cursor: pointer;">
             </div>
             <button onclick="toggleFullScreen()" class="btn-back"
@@ -821,12 +822,26 @@
                     const addedQty = entradasMap[doc.id] || 0;
                     const stockSimulado = (data.existencia || 0) + addedQty - soldQty;
 
+                    let aliases = [];
+                    if (Array.isArray(data.busqueda)) {
+                        aliases = data.busqueda;
+                    } else if (typeof data.busqueda === 'string') {
+                        aliases = data.busqueda.split(',').map(s => s.trim()).filter(Boolean);
+                    }
+
+                    let codigosProveedor = [];
+                    if (Array.isArray(data.codigosProveedor)) {
+                        codigosProveedor = data.codigosProveedor;
+                    } else if (typeof data.codigosProveedor === 'string') {
+                        codigosProveedor = data.codigosProveedor.split(',').map(s => s.trim()).filter(Boolean);
+                    }
+
                     products.push({
                         id: doc.id,
-                        codigo: data.codigo || "",
-                        descripcion: data.descripcion || "",
-                        aliases: data.busqueda || [], // aliases mapeado a busqueda
-                        codigosProveedor: data.codigosProveedor || [],
+                        codigo: data.codigo ? String(data.codigo) : "",
+                        descripcion: data.descripcion ? String(data.descripcion) : "",
+                        aliases: aliases,
+                        codigosProveedor: codigosProveedor,
                         costo: data.costo || 0,
                         precio: data.precio || 0,
                         existencia: stockSimulado
