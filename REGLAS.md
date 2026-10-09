@@ -10,13 +10,20 @@ Este archivo contiene las normas obligatorias que debe seguir el Agente (IA) dur
 ## 1.1 Contexto Global (Lectura Obligatoria)
 Para entender el estado real del proyecto, **SIEMPRE** debes leer estos archivos al iniciar:
 1.  `task.md`: Hoja de ruta global (qué falta, qué sigue).
-2.  `project_status.md`: (NUEVO) Resumen técnico detallado de implementaciones, bugs conocidos y deuda técnica.
-3.  `REGLAS.md`: Estas normas.
+2.  `INDICE_SISTEMA.md`: (NUEVO) Mapa maestro con el propósito, flujo, campos y archivos de cada página para no alterar la lógica compartida.
+3.  `REGLAS.md`: Estas normas obligatorias.
+
 
 ## 2. Flujo de Desarrollo
 *   **Consulta Previa:** Siempre preguntar o comentar "cómo se puede mejorar algo" ANTES de aplicar cambios. No asumir ni actuar por cuenta propia fuera de lo solicitado.
+*   **Registro de Modificaciones (Fecha, Cambio y Razón):** Cada vez que se realice una modificación a una página o archivo, se debe dejar registrado obligatoriamente el detalle con la **fecha**, **qué se modificó** exactamente y la **razón o motivo** del cambio (en el archivo `task.md` y en la explicación al usuario).
 *   **Pruebas a Cargo del Usuario:** Las pruebas las realiza exclusivamente el usuario una vez modificado el código. El Agente NO debe abrir el navegador ni realizar pruebas automatizadas por su cuenta.
-*   **Commit Controlado:** NUNCA hacer un commit sin preguntar antes. El usuario debe autorizar explícitamente cada guardado en el historial.
+*   **Commit Controlado y Solicitud de Guardado:** NUNCA hacer un commit ni subir a GitHub sin preguntar antes. Al momento de solicitar autorización para guardar en GitHub, el Agente debe presentar obligatoriamente el resumen detallado:
+    *   **Fecha:** Día de la modificación.
+    *   **Página o Archivo:** Dónde se aplicó el cambio.
+    *   **Qué se modificó:** Explicación sencilla de lo que se cambió.
+    *   **Razón:** Motivo o necesidad de la modificación.
+    *   *Solo tras recibir el permiso explícito del usuario se ejecuta el guardado.*
 *   **Guardado Completo:** Al proceder con un guardado (commit), siempre se deben incluir **todos** los archivos modificados del proyecto en el repositorio.
 *   **⚠️ IMPORTANTE - Guardado en GitHub:** 
     *   Cuando el usuario dice "guardar", se refiere a **guardar en GitHub** (commit + push), NO solo guardar localmente.

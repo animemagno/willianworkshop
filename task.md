@@ -52,6 +52,14 @@ Este archivo contiene el resumen de lo que ya está listo y lo que sigue, para m
     *   Al editar una factura existente (`startEditingInvoice`), los ítems cargados ahora se identifican como `type: 'summary'` y portan su `groupingKey` correspondiente.
     *   Al calcular existencias en tiempo real (`_calculateRealRemaining` y `renderFacturacionData`), se resta temporalmente lo consumido por la propia factura en edición (`consumedByThisInvoice`) de la base de datos para no duplicar el consumo y permitir que las cantidades en factura descuenten activamente las tarjetas de pendientes vía FIFO.
     *   Si queda 1 solo artículo disponible y ya está cubierto o se agrega a la factura, se descuenta de inmediato a 0 en las tarjetas y cualquier clic adicional es bloqueado con alerta de límite alcanzado, impidiendo duplicaciones por clics repetidos.
+13. **Filtro por Mes en Historial de Facturas (salidas.html):**
+    *   Selector desplegable que detecta automáticamente todos los meses existentes en las facturas guardadas.
+    *   Filtra la lista de facturas al instante y funciona en conjunto con el buscador de texto.
+    *   Actualiza las tarjetas de resumen superior (Total Facturado, Ganancia Productos y Mano de Obra) reflejando las cifras del mes seleccionado.
+14. **Índice Maestro y Guía de Flujo del Sistema (INDICE_SISTEMA.md):**
+    *   Documento con el mapa completo del taller: propósito, flujo de uso, pestañas, campos de datos (Fecha, Cantidad, Producto, Cuenta, Precio Especial, etc.) y archivos vinculados para cada página.
+    *   Integrado en `REGLAS.md` como lectura obligatoria al iniciar sesión para evitar búsquedas repetitivas y proteger la lógica compartida.
 
 ## 📋 PRÓXIMOS PASOS (Por si deseas continuar)
 *   Seguir con cualquier mejora de diseño, reportes adicionales o nuevas funciones en las pantallas que necesites.
+

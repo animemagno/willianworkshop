@@ -4242,7 +4242,7 @@ const RegistrosApp = {
                 alert('✅ Vinculación completada. (Sin descuento por ser mes anterior).');
             }
 
-            this.renderInvoicesHistory(this.allHistoricalInvoices);
+            this.filterInvoicesHistory();
             this.viewInvoiceDetail(facturaId);
         } catch (err) {
             console.error('Error vinculando ítem de factura:', err);
@@ -4381,7 +4381,8 @@ const RegistrosApp = {
             });
 
             if (tbody) {
-                this.renderInvoicesHistory(this.allHistoricalInvoices);
+                this.populateHistoryMonthFilter();
+                this.filterInvoicesHistory();
             }
             this.historyLoaded = true;
 
@@ -4505,21 +4506,149 @@ const RegistrosApp = {
         }, 500);
     },
 
-    filterInvoicesHistory() {
-        const query = document.getElementById('historial-search').value.toLowerCase().trim();
-        if (!query) {
-            this.renderInvoicesHistory(this.allHistoricalInvoices);
-            return;
+    getInvoiceYearMonthKey(dateStr) {
+        if (!dateStr) return null;
+        const str = String(dateStr).trim();
+        let y, m;
+        if (str.includes('-')) {
+            const parts = str.split('-');
+            if (parts[0].length === 4) {
+                y = parseInt(parts[0], 10);
+                m = parseInt(parts[1], 10);
+            } else if (parts[2] && parts[2].length === 4) {
+                y = parseInt(parts[2], 10);
+                m = parseInt(parts[1], 10);
+            }
+        } else if (str.includes('/')) {
+            const parts = str.split('/');
+            if (parts[0].length === 4) {
+                y = parseInt(parts[0], 10);
+                m = parseInt(parts[1], 10);
+            } else if (parts[2]) {
+                y = parseInt(parts[2], 10);
+                if (y < 100) y += 2000;
+                m = parseInt(parts[1], 10);
+            }
+        } else {
+            const d = new Date(str);
+            if (!isNaN(d.getTime())) {
+                y = d.getFullYear();
+                m = d.getMonth() + 1;
+            }
         }
+        if (y && m && !isNaN(y) && !isNaN(m) && m >= 1 && m <= 12) {
+            return `${y}-${String(m).padStart(2, '0')}`;
+        }
+        return null;
+    },
 
-        const filtered = this.allHistoricalInvoices.filter(inv => {
-            const matchCliente = (inv.CLIENTE || '').toLowerCase().includes(query);
-            const matchNumero = (inv.numeroFactura || '').toLowerCase().includes(query);
-            const matchFecha = (inv.fecha || '').toLowerCase().includes(query);
-            return matchCliente || matchNumero || matchFecha;
+    populateHistoryMonthFilter() {
+        const select = document.getElementById('historial-month-filter');
+        if (!select) return;
+
+        const previousValue = select.value;
+        const monthSet = new Set();
+
+        (this.allHistoricalInvoices || []).forEach(inv => {
+            const ym = this.getInvoiceYearMonthKey(inv.fecha);
+            if (ym) monthSet.add(ym);
         });
 
+        // Ordenar cronológicamente descendente (los más recientes primero)
+        const sortedMonths = Array.from(monthSet).sort().reverse();
+
+        const monthNames = [
+            'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+            'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+        ];
+
+        let html = '<option value="">Todos los meses</option>';
+        sortedMonths.forEach(ym => {
+            const [y, mStr] = ym.split('-');
+            const mIndex = parseInt(mStr, 10) - 1;
+            const name = (monthNames[mIndex] || ym) + ' ' + y;
+            html += `<option value="${ym}">${name}</option>`;
+        });
+
+        select.innerHTML = html;
+
+        if (previousValue && sortedMonths.includes(previousValue)) {
+            select.value = previousValue;
+        }
+    },
+
+    updateHistorySummaryCards(invoices) {
+        const list = invoices || [];
+        let totalFacturado = 0;
+        let manoObra = 0;
+        let gananciaProductos = 0;
+
+        list.forEach(data => {
+            const invTotal = typeof data.total === 'number' ? data.total : 0;
+            totalFacturado += invTotal;
+
+            if (typeof data.totalManoObra === 'number' && typeof data.gananciaProductos === 'number') {
+                manoObra += data.totalManoObra;
+                gananciaProductos += data.gananciaProductos;
+            } else {
+                const items = data.items || [];
+                let rowManoObra = 0;
+                let rowCostoTotal = 0;
+                items.forEach(it => {
+                    const isServ = it.isManoDeObra || it.productId === 'SERVICIO' || (it.descripcionPapel && (it.descripcionPapel.toLowerCase().includes('mano de obra') || it.descripcionPapel.toLowerCase().includes('servicio')));
+                    const qty = it.cantidad || 0;
+                    const price = it.precioUnitario || 0;
+                    const cost = it.costoUnitario || 0;
+                    const itTotal = qty * price;
+
+                    if (isServ) {
+                        rowManoObra += itTotal;
+                    } else {
+                        rowCostoTotal += (qty * cost);
+                    }
+                });
+
+                manoObra += rowManoObra;
+                const rowProdTotal = invTotal - rowManoObra;
+                gananciaProductos += (rowProdTotal - rowCostoTotal);
+            }
+        });
+
+        const hTotalFact = document.getElementById('historial-total-facturado');
+        const hGananciaProd = document.getElementById('historial-ganancia-productos');
+        const hManoObra = document.getElementById('historial-mano-obra');
+
+        if (hTotalFact) hTotalFact.innerText = totalFacturado.toFixed(2);
+        if (hGananciaProd) hGananciaProd.innerText = gananciaProductos.toFixed(2);
+        if (hManoObra) hManoObra.innerText = manoObra.toFixed(2);
+    },
+
+    filterInvoicesHistory() {
+        const searchInput = document.getElementById('historial-search');
+        const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        const monthSelect = document.getElementById('historial-month-filter');
+        const monthFilter = monthSelect ? monthSelect.value : '';
+
+        let filtered = this.allHistoricalInvoices || [];
+
+        if (monthFilter) {
+            filtered = filtered.filter(inv => {
+                const ym = this.getInvoiceYearMonthKey(inv.fecha);
+                return ym === monthFilter;
+            });
+        }
+
+        if (query) {
+            filtered = filtered.filter(inv => {
+                const matchCliente = (inv.CLIENTE || '').toLowerCase().includes(query);
+                const matchNumero = (inv.numeroFactura || '').toLowerCase().includes(query);
+                const matchFecha = (inv.fecha || '').toLowerCase().includes(query);
+                return matchCliente || matchNumero || matchFecha;
+            });
+        }
+
         this.renderInvoicesHistory(filtered);
+        this.updateHistorySummaryCards(filtered);
     },
 
     currentViewedInvoiceId: null,
@@ -5110,7 +5239,7 @@ const RegistrosApp = {
         localStorage.setItem(`invoiceChecked_${id}`, next ? 'true' : 'false');
 
         this.updateHaciendaButtonState(id);
-        this.renderInvoicesHistory(this.allHistoricalInvoices);
+        this.filterInvoicesHistory();
     },
 
     updateHaciendaButtonState(id) {
