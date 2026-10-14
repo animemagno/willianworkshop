@@ -59,6 +59,10 @@ Este archivo contiene el resumen de lo que ya está listo y lo que sigue, para m
 14. **Índice Maestro y Guía de Flujo del Sistema (INDICE_SISTEMA.md):**
     *   Documento con el mapa completo del taller: propósito, flujo de uso, pestañas, campos de datos (Fecha, Cantidad, Producto, Cuenta, Precio Especial, etc.) y archivos vinculados para cada página.
     *   Integrado en `REGLAS.md` como lectura obligatoria al iniciar sesión para evitar búsquedas repetitivas y proteger la lógica compartida.
+15. **Carga Completa y Directa de Repuestos por Cuenta (salidas.html / RegistrosApp.js):**
+    *   **Fecha:** 14 de Octubre de 2026.
+    *   **Qué se modificó:** Se implementó `addAccountToFactura` con mapeo exacto de registros (`consumedRegs`). Al pulsar 'Todos', los ítems de la cuenta se vinculan directamente a sus registros de origen y se descuentan explícitamente en la vista previa y en el guardado (`finalizeInvoice`), evitando que el FIFO general consuma registros de otras fechas o deje registros de la misma cuenta pendientes (eliminando el desfase de 10 ➔ 4 ➔ 1 ➔ 0).
+    *   **Razón:** Al agrupar repuestos en la factura, el sistema los convertía a genéricos y el cálculo automático de inventario descontaba registros del inicio de mes en lugar de los registros específicos de la cuenta, provocando que la cuenta no se vaciara en el primer clic.
 
 ## 📋 PRÓXIMOS PASOS (Por si deseas continuar)
 *   Seguir con cualquier mejora de diseño, reportes adicionales o nuevas funciones en las pantallas que necesites.

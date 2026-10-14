@@ -1859,9 +1859,17 @@ const RegistrosApp = {
         let summaryInvoicedMap = {};
         this.facturaItems.forEach(fi => {
             if (fi.isManoDeObra) return;
-            if (fi.type === 'single' && fi.originalId) return;
-            const key = fi.groupingKey || this.getGroupingKey(fi.producto, fi.vinculoId);
-            summaryInvoicedMap[key] = (summaryInvoicedMap[key] || 0) + (fi.cantidadFacturar || 0);
+            let explicitTotal = 0;
+            if (fi.consumedRegs) {
+                explicitTotal = Object.values(fi.consumedRegs).reduce((a, b) => a + b, 0);
+            } else if (fi.type === 'single' && fi.originalId) {
+                explicitTotal = fi.cantidadFacturar || 0;
+            }
+            const unassigned = Math.max(0, (fi.cantidadFacturar || 0) - explicitTotal);
+            if (unassigned > 0) {
+                const key = fi.groupingKey || this.getGroupingKey(fi.producto, fi.vinculoId);
+                summaryInvoicedMap[key] = (summaryInvoicedMap[key] || 0) + unassigned;
+            }
         });
 
         // Calcular mapa facturado usando la lógica centralizada
@@ -1891,10 +1899,16 @@ const RegistrosApp = {
                 totalBilledHist = (fifoBilled + explicitBilledClones);
             }
             
-            // Determinar cantidad ya cargada explícitamente (type single) en la factura actual
-            const cantidadFacturadaExplicit = this.facturaItems
-                .filter(fi => fi.type === 'single' && fi.originalId === reg.id)
-                .reduce((sum, fi) => sum + (fi.cantidadFacturar || 0), 0);
+            // Determinar cantidad ya cargada explícitamente en la factura actual
+            const cantidadFacturadaExplicit = this.facturaItems.reduce((sum, fi) => {
+                if (fi.consumedRegs && fi.consumedRegs[reg.id]) {
+                    return sum + fi.consumedRegs[reg.id];
+                }
+                if (fi.type === 'single' && fi.originalId === reg.id) {
+                    return sum + (fi.cantidadFacturar || 0);
+                }
+                return sum;
+            }, 0);
             
             let cantidadDisponible = reg.cantidad - totalBilledHist - cantidadFacturadaExplicit;
             if (cantidadDisponible < 0) cantidadDisponible = 0;
@@ -1945,7 +1959,7 @@ const RegistrosApp = {
                 }
             }
 
-            const data = { type: 'single', id: reg.id, producto: officialName, max: cantidadDisponible, productId: reg.productId || null, cuenta: reg.cuenta || '', codigoOficial: reg.codigoOficial || '', precioVentaOficial: reg.precioVentaOficial || 0, costoUnitarioOficial: currentCosto, precioEspecial: reg.precioEspecial !== undefined ? reg.precioEspecial : null };
+            const data = { type: 'single', id: reg.id, groupingKey: key, producto: officialName, max: cantidadDisponible, productId: reg.productId || null, cuenta: reg.cuenta || '', codigoOficial: reg.codigoOficial || '', precioVentaOficial: reg.precioVentaOficial || 0, costoUnitarioOficial: currentCosto, precioEspecial: reg.precioEspecial !== undefined ? reg.precioEspecial : null };
 
             tr.ondragstart = (e) => {
                 e.dataTransfer.setData('text/plain', JSON.stringify(data));
@@ -2038,13 +2052,7 @@ const RegistrosApp = {
                     const btnAddAll = tr.querySelector('.btn-add-all');
                     btnAddAll.onclick = (e) => {
                         e.stopPropagation();
-                        cuentaData.items.forEach(item => this.addItemToFactura(item));
-                        const dropzone = document.getElementById('factura-dropzone');
-                        if (dropzone) {
-                            dropzone.scrollIntoView({ behavior: 'smooth' });
-                            dropzone.classList.add('drag-over');
-                            setTimeout(() => dropzone.classList.remove('drag-over'), 300);
-                        }
+                        this.addAccountToFactura(c, cuentaData);
                     };
 
                     cuentasFragment.appendChild(tr);
@@ -2170,13 +2178,21 @@ const RegistrosApp = {
 
         const computedBilledMap = this.calculateComputedBilledMap(this.allRegistros);
 
-        // Reconstruir descuentos de la factura actual (items summary y items sin tipo explícito single)
+        // Reconstruir descuentos de la factura actual
         let summaryInvoicedMap = {};
         this.facturaItems.forEach(fi => {
             if (fi.isManoDeObra) return;
-            if (fi.type === 'single' && fi.originalId) return;
-            const key = fi.groupingKey || this.getGroupingKey(fi.producto, fi.vinculoId);
-            summaryInvoicedMap[key] = (summaryInvoicedMap[key] || 0) + (fi.cantidadFacturar || 0);
+            let explicitTotal = 0;
+            if (fi.consumedRegs) {
+                explicitTotal = Object.values(fi.consumedRegs).reduce((a, b) => a + b, 0);
+            } else if (fi.type === 'single' && fi.originalId) {
+                explicitTotal = fi.cantidadFacturar || 0;
+            }
+            const unassigned = Math.max(0, (fi.cantidadFacturar || 0) - explicitTotal);
+            if (unassigned > 0) {
+                const key = fi.groupingKey || this.getGroupingKey(fi.producto, fi.vinculoId);
+                summaryInvoicedMap[key] = (summaryInvoicedMap[key] || 0) + unassigned;
+            }
         });
 
         let totalRestante = 0;
@@ -2211,10 +2227,16 @@ const RegistrosApp = {
                 totalBilledHist = (fifoBilled + explicitBilledClones);
             }
 
-            // Descontar TODOS los items single asociados a este registro en la factura actual
-            const explicitFacturados = this.facturaItems
-                .filter(fi => fi.type === 'single' && fi.originalId === reg.id)
-                .reduce((sum, fi) => sum + (fi.cantidadFacturar || 0), 0);
+            // Descontar TODOS los items explícitos asociados a este registro en la factura actual
+            const explicitFacturados = this.facturaItems.reduce((sum, fi) => {
+                if (fi.consumedRegs && fi.consumedRegs[reg.id]) {
+                    return sum + fi.consumedRegs[reg.id];
+                }
+                if (fi.type === 'single' && fi.originalId === reg.id) {
+                    return sum + (fi.cantidadFacturar || 0);
+                }
+                return sum;
+            }, 0);
 
             let cantidadDisponible = reg.cantidad - totalBilledHist - explicitFacturados;
             if (cantidadDisponible < 0) cantidadDisponible = 0;
@@ -2252,10 +2274,103 @@ const RegistrosApp = {
         return type === 'single' ? restanteParaRegistroEspecifico : totalRestante;
     },
 
-    addItemToFactura(data) {
+    addAccountToFactura(accountName, cuentaData) {
+        try {
+            if (!cuentaData || !cuentaData.items || cuentaData.items.length === 0) return;
+
+            // 1. Asignar automáticamente el nombre de la cuenta si el campo cliente está vacío
+            const clienteInput = document.getElementById('factura-cliente');
+            if (clienteInput && !clienteInput.value.trim()) {
+                clienteInput.value = accountName;
+            }
+
+            // 2. Trasladar la totalidad de unidades disponibles de todos los repuestos de esta cuenta
+            cuentaData.items.forEach(data => {
+                const qtyToAdd = data.max;
+                if (!qtyToAdd || qtyToAdd <= 0) return;
+
+                const incomingKey = data.groupingKey || this.getGroupingKey(data.producto, data.productId);
+
+                let initialPrice = data.precioVentaOficial || 0;
+                let isPrecioAsignado = false;
+                if (data.precioEspecial !== null && data.precioEspecial !== undefined && data.precioEspecial !== "") {
+                    initialPrice = parseFloat(data.precioEspecial);
+                    if (isNaN(initialPrice)) initialPrice = 0;
+                    isPrecioAsignado = true;
+                }
+
+                // Buscar si ya existe una fila en la factura para este repuesto
+                let existingItem = this.facturaItems.find(item => {
+                    if (data.id && item.originalId === data.id) return true;
+                    const itemKey = item.groupingKey || this.getGroupingKey(item.producto, item.vinculoId);
+                    return incomingKey && itemKey === incomingKey;
+                });
+
+                if (existingItem) {
+                    existingItem.cantidadFacturar += qtyToAdd;
+                    existingItem.max = (existingItem.max || 0) + qtyToAdd;
+                    existingItem.consumedRegs = existingItem.consumedRegs || {};
+                    if (existingItem.originalId && !existingItem.consumedRegs[existingItem.originalId]) {
+                        existingItem.consumedRegs[existingItem.originalId] = existingItem.cantidadFacturar - qtyToAdd;
+                    }
+                    if (data.id) {
+                        existingItem.consumedRegs[data.id] = (existingItem.consumedRegs[data.id] || 0) + qtyToAdd;
+                    }
+                    if (!existingItem.groupingKey) {
+                        existingItem.groupingKey = incomingKey;
+                    }
+                    if (isPrecioAsignado && (!existingItem.precioAsignado || existingItem.precioUnitario === 0)) {
+                        existingItem.precioUnitario = initialPrice;
+                        existingItem.precioAsignado = true;
+                    }
+                } else {
+                    const consumedRegsMap = {};
+                    if (data.id) consumedRegsMap[data.id] = qtyToAdd;
+
+                    const newItem = {
+                        id: Date.now().toString() + Math.random().toString(36).substr(2, 4),
+                        type: 'single',
+                        originalId: data.id || null,
+                        consumedRegs: consumedRegsMap,
+                        groupingKey: incomingKey,
+                        producto: data.producto,
+                        cuenta: data.cuenta || accountName || '',
+                        cantidadFacturar: qtyToAdd,
+                        max: qtyToAdd,
+                        vinculoId: data.productId || null,
+                        codigoOficial: data.codigoOficial || '',
+                        precioUnitario: initialPrice,
+                        costoUnitario: data.costoUnitarioOficial || 0,
+                        precioAsignado: isPrecioAsignado
+                    };
+                    this.facturaItems.push(newItem);
+
+                    if (!isPrecioAsignado) {
+                        this.loadItemPrices(newItem);
+                    }
+                }
+            });
+
+            // 3. Renderizar una sola vez la factura y actualizar las existencias en pantalla
+            this.renderFactura();
+            this.renderFacturacionData();
+
+            // 4. Efecto visual de desplazamiento hacia la factura
+            const dropzone = document.getElementById('factura-dropzone');
+            if (dropzone) {
+                dropzone.scrollIntoView({ behavior: 'smooth' });
+                dropzone.classList.add('drag-over');
+                setTimeout(() => dropzone.classList.remove('drag-over'), 300);
+            }
+        } catch (err) {
+            console.error("Error al agregar cuenta a la factura:", err);
+        }
+    },
+
+    addItemToFactura(data, quantityToAdd = 1, skipRender = false) {
         try {
             // Check if already in factura
-            const incomingKey = this.getGroupingKey(data.producto, data.productId);
+            const incomingKey = data.groupingKey || this.getGroupingKey(data.producto, data.productId);
             let existingItem = this.facturaItems.find(item => {
                 if (data.id && item.originalId === data.id) return true;
                 const itemKey = item.groupingKey || this.getGroupingKey(item.producto, item.vinculoId);
@@ -2265,11 +2380,17 @@ const RegistrosApp = {
             if (existingItem) {
                 // Recalcular el restante REAL en tiempo real, sin depender de data.max (que puede ser obsoleto)
                 // Si el item en factura ya se convirtió en 'summary', viene de edición o no tiene fila específica, verificamos inventario global
-                const typeToCheck = (existingItem.type === 'summary' || !existingItem.originalId || data.type === 'summary') ? 'summary' : data.type;
+                // NOTA: Si data viene de un registro específico (single con id) y pedimos 'all', debemos respetar el restante del registro específico
+                let typeToCheck = (existingItem.type === 'summary' || !existingItem.originalId || data.type === 'summary') ? 'summary' : data.type;
+                if (data.type === 'single' && data.id && quantityToAdd === 'all') {
+                    typeToCheck = 'single';
+                }
                 const realMax = this._calculateRealRemaining(incomingKey, typeToCheck, data.id);
                 
                 if (realMax > 0) {
-                    existingItem.cantidadFacturar += 1;
+                    const toAdd = quantityToAdd === 'all' ? realMax : Math.min(Number(quantityToAdd) || 1, realMax);
+                    if (toAdd <= 0) return;
+                    existingItem.cantidadFacturar += toAdd;
                     // Si viene un item diferente al que originó la fila o si se agrega desde summary, consolidamos en 'summary'
                     if (data.type === 'summary' || existingItem.type === 'summary' || (existingItem.originalId && existingItem.originalId !== data.id)) {
                         existingItem.type = 'summary';
@@ -2279,16 +2400,18 @@ const RegistrosApp = {
                         existingItem.groupingKey = incomingKey;
                     }
                 } else {
-                    alert('No puedes agregar más. Límite pendiente alcanzado.');
+                    if (!skipRender) alert('No puedes agregar más. Límite pendiente alcanzado.');
                     return;
                 }
             } else {
                 // Para items nuevos, también calcular el restante real
                 const realMax = this._calculateRealRemaining(incomingKey, data.type, data.id);
                 if (realMax <= 0) {
-                    alert('No puedes agregar más. Límite pendiente alcanzado.');
+                    if (!skipRender) alert('No puedes agregar más. Límite pendiente alcanzado.');
                     return;
                 }
+                const toAdd = quantityToAdd === 'all' ? realMax : Math.min(Number(quantityToAdd) || 1, realMax);
+                if (toAdd <= 0) return;
                 let initialPrice = data.precioVentaOficial || 0;
                 let isPrecioAsignado = false;
                 
@@ -2305,7 +2428,7 @@ const RegistrosApp = {
                     groupingKey: incomingKey,
                     producto: data.producto,
                     cuenta: data.cuenta || '',
-                    cantidadFacturar: 1,
+                    cantidadFacturar: toAdd,
                     max: realMax,
                     vinculoId: data.productId || null,
                     codigoOficial: data.codigoOficial || '',
@@ -2321,8 +2444,10 @@ const RegistrosApp = {
                 }
             }
 
-            this.renderFactura();
-            this.renderFacturacionData();
+            if (!skipRender) {
+                this.renderFactura();
+                this.renderFacturacionData();
+            }
         } catch (err) {
             console.error("Error al agregar a la factura:", err);
         }
@@ -3458,7 +3583,7 @@ const RegistrosApp = {
                 const itemCuenta = (item.cuenta || '').toLowerCase().trim();
                 const clienteLower = (cliente || '').toLowerCase().trim();
 
-                const tryConsume = (reg) => {
+                const tryConsume = (reg, maxAllowed = null) => {
                     if (cantidadFaltante <= 0) return;
                     const regKey = this.getGroupingKey(reg);
                     const safeRegName = this.getOfficialProductName(reg).toLowerCase().trim();
@@ -3472,7 +3597,9 @@ const RegistrosApp = {
                     if (cantDisponibleReal <= 0) return;
 
                     let regRef = this.registrosRef.doc(reg.id);
-                    let qtyToConsume = Math.min(cantDisponibleReal, cantidadFaltante);
+                    let limit = (maxAllowed !== null && maxAllowed !== undefined) ? Math.min(cantDisponibleReal, maxAllowed) : cantDisponibleReal;
+                    let qtyToConsume = Math.min(limit, cantidadFaltante);
+                    if (qtyToConsume <= 0) return;
                     
                     // Agrupar actualización de registros pendientes
                     if (!registrosUpdates.has(reg.id)) {
@@ -3506,8 +3633,16 @@ const RegistrosApp = {
                     reg.cantidadUsada = (reg.cantidadUsada || 0) + qtyToConsume; // En memoria para el siguiente loop
                 };
 
-                // Prioridad 1: Registro específico de origen (si fue arrastrado/agregado desde una fila concreta)
-                if (item.originalId) {
+                // Prioridad 1: Registros específicos asignados explícitamente (consumedRegs o originalId)
+                if (item.consumedRegs) {
+                    for (const regId in item.consumedRegs) {
+                        if (cantidadFaltante <= 0) break;
+                        const exactReg = pendientesParaFacturar.find(r => r.id === regId);
+                        if (exactReg) {
+                            tryConsume(exactReg, item.consumedRegs[regId]);
+                        }
+                    }
+                } else if (item.originalId) {
                     const exactReg = pendientesParaFacturar.find(r => r.id === item.originalId);
                     if (exactReg) {
                         tryConsume(exactReg);
