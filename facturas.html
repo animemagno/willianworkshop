@@ -1000,6 +1000,64 @@
                 transform: translateY(0);
             }
         }
+
+        /* ==================== ESTILOS PARA CARGA MANUAL DIRECTA ==================== */
+        .pill-btn {
+            border: none;
+            background: transparent;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .pill-btn:hover {
+            color: #1e293b;
+        }
+        .pill-btn.selected {
+            background: white;
+            color: #1e40af;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            font-weight: 700;
+        }
+
+        .manual-comparador-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin-top: 15px;
+        }
+
+        .comparador-col {
+            background: #f8fafc;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.25s ease;
+        }
+
+        .comparador-col.cuadrado {
+            background: #ecfdf5;
+            border-color: #6ee7b7;
+        }
+
+        .comparador-col.descuadrado {
+            background: #fffbeb;
+            border-color: #fde68a;
+        }
+
+        .comparador-col.descuadrado-rojo {
+            background: #fef2f2;
+            border-color: #fca5a5;
+        }
     </style>
 </head>
 
@@ -1142,6 +1200,205 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- ==================== PANTALLA UNIFICADA: CARGA MANUAL DIRECTA ==================== -->
+            <div id="pane-carga-manual-directa" class="wizard-pane" style="display:none;">
+                <div style="max-width: 1200px; margin: 15px auto;">
+                    
+                    <!-- Barra Superior de Navegación del Modo Manual -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 18px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="volverASeleccionOrigen()" style="display: flex; align-items: center; gap: 6px;">
+                                <i class="fas fa-arrow-left"></i> Cambiar / Cargar DTE
+                            </button>
+                            <h2 style="font-size: 1.25rem; font-weight: 800; color: #1e3c72; margin: 0; display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-pen-to-square" style="color: #10b981;"></i> Carga Manual de Factura
+                            </h2>
+                        </div>
+                        <div>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="limpiarCargaManual(false)">
+                                <i class="fas fa-eraser"></i> Limpiar Campos
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 1. TARJETA CABECERA: DATOS GENERALES Y CONDICIONES -->
+                    <div class="card" style="margin-bottom: 20px; border-left: 4px solid #10b981; box-shadow: var(--shadow-sm);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid #edf2f7; padding-bottom: 8px;">
+                            <span style="font-weight: 700; color: #1e293b; font-size: 0.95rem; display: flex; align-items: center; gap: 6px;">
+                                <i class="fas fa-file-invoice" style="color: #10b981;"></i> 1. Encabezado de la Factura
+                            </span>
+                            <span class="badge badge-success" style="font-size: 0.72rem;">Ingreso Directo</span>
+                        </div>
+
+                        <!-- Fila 1: Proveedor, Fecha, Código DTE/N°, Saldo Total -->
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 16px;">
+                            <!-- Proveedor -->
+                            <div class="form-group">
+                                <label style="font-weight: 700;">Nombre del Proveedor *</label>
+                                <div style="display: flex; gap: 6px;">
+                                    <input type="text" id="manual-dir-proveedor" list="lista-proveedores-datalist" class="form-control" placeholder="Escribe o selecciona..." style="flex: 1;" required>
+                                    <button type="button" class="btn btn-primary btn-sm" onclick="abrirModalNuevoProveedor()" title="Crear nuevo perfil de proveedor" style="padding: 0 12px;">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Fecha de Emisión -->
+                            <div class="form-group">
+                                <label style="font-weight: 700;">Fecha de Emisión *</label>
+                                <input type="date" id="manual-dir-fecha" class="form-control" required>
+                            </div>
+
+                            <!-- Código DTE / N° Factura -->
+                            <div class="form-group">
+                                <label style="font-weight: 700;">Código DTE / N° Factura *</label>
+                                <input type="text" id="manual-dir-numero" class="form-control" placeholder="Ej: DTE-03-M001P001... o 01425" required>
+                            </div>
+
+                            <!-- Saldo Total Factura -->
+                            <div class="form-group">
+                                <label style="font-weight: 700; color: #1e3c72;">Saldo Total de la Factura ($) *</label>
+                                <div style="position: relative;">
+                                    <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-weight: 800; color: #10b981; font-size: 1.1rem;">$</span>
+                                    <input type="number" id="manual-dir-monto-total" class="form-control" step="0.01" min="0" placeholder="0.00" value="0.00" style="padding-left: 28px; font-size: 1.15rem; font-weight: 800; color: #1e3c72; border-color: #93c5fd;" oninput="recalcularTotalesManuales()">
+                                </div>
+                                <span style="font-size: 0.72rem; color: #64748b;">Monto total final (con IVA) indicado en la factura física.</span>
+                            </div>
+                        </div>
+
+                        <!-- Fila 2: Condición de Pago y Tipo de Factura -->
+                        <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap; background: #f8fafc; padding: 12px 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                            <!-- Condición: Crédito / Contado -->
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 0.85rem; font-weight: 700; color: #475569;">Condición:</span>
+                                <div style="display: flex; background: #e2e8f0; padding: 3px; border-radius: 8px;">
+                                    <button type="button" id="btn-manual-credito" class="pill-btn selected" onclick="seleccionarCondicionManual('CREDITO')">
+                                        <i class="fas fa-clock"></i> Al Crédito
+                                    </button>
+                                    <button type="button" id="btn-manual-contado" class="pill-btn" onclick="seleccionarCondicionManual('CONTADO')">
+                                        <i class="fas fa-money-bill-wave"></i> De Contado
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div style="width: 1px; height: 28px; background: #cbd5e1;"></div>
+
+                            <!-- Tipo: Compra / Gasto -->
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 0.85rem; font-weight: 700; color: #475569;">Tipo:</span>
+                                <div style="display: flex; background: #e2e8f0; padding: 3px; border-radius: 8px;">
+                                    <button type="button" id="btn-manual-compra" class="pill-btn selected" onclick="seleccionarTipoManual('COMPRA')">
+                                        <i class="fas fa-boxes"></i> Compra (Inventario)
+                                    </button>
+                                    <button type="button" id="btn-manual-gasto" class="pill-btn" onclick="seleccionarTipoManual('GASTO')">
+                                        <i class="fas fa-gas-pump"></i> Gasto Operativo
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+                                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 600; color: #78350f; background: #fef3c7; padding: 6px 12px; border-radius: 6px; border: 1px solid #fde68a; cursor: pointer;">
+                                    <input type="checkbox" id="manual-dir-check-historico">
+                                    <i class="fas fa-history"></i> Registro Histórico (Sin sumar existencias)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. TARJETA DETALLE: PRODUCTOS Y PRECIOS BIDIRECCIONALES -->
+                    <div class="card" style="margin-bottom: 20px; box-shadow: var(--shadow-sm);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #edf2f7; flex-wrap: wrap; gap: 10px;">
+                            <div>
+                                <span style="font-weight: 700; color: #1e293b; font-size: 1rem; display: flex; align-items: center; gap: 8px;">
+                                    <i class="fas fa-boxes-stacked" style="color: #2563eb;"></i> 2. Repuestos y Productos de la Factura
+                                </span>
+                                <div style="font-size: 0.8rem; color: #64748b; margin-top: 2px;">
+                                    Ingresa el precio <b>sin IVA (4 decimales)</b> o <b>con IVA (2 decimales)</b>; la otra casilla se calculará automáticamente.
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-primary" onclick="agregarFilaManualDirecta()" style="display: flex; align-items: center; gap: 6px; font-weight: 700;">
+                                <i class="fas fa-plus"></i> Agregar Producto / Fila
+                            </button>
+                        </div>
+
+                        <div class="table-responsive" style="overflow-x: auto; max-height: 480px;">
+                            <table class="custom-table" style="width: 100%; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="background: #f1f5f9; position: sticky; top: 0; z-index: 2;">
+                                        <th style="width: 35px; text-align: center;">#</th>
+                                        <th style="width: 160px;">Cód. Taller</th>
+                                        <th>Descripción del Repuesto / Producto</th>
+                                        <th style="width: 80px; text-align: center;">Cant.</th>
+                                        <th style="width: 145px; text-align: right; background: #f0fdf4;">P. Unit. SIN IVA ($)<br><span style="font-size:0.7rem; font-weight:400; color:#15803d;">(4 decimales $0.0000)</span></th>
+                                        <th style="width: 135px; text-align: right; background: #eff6ff;">P. Unit. CON IVA ($)<br><span style="font-size:0.7rem; font-weight:400; color:#1d4ed8;">(2 decimales $0.00)</span></th>
+                                        <th style="width: 120px; text-align: right;">Subtotal ($)</th>
+                                        <th style="width: 110px; text-align: center;">Estado</th>
+                                        <th style="width: 45px; text-align: center;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-manual-productos">
+                                    <!-- Filas generadas dinámicamente -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 3. TARJETA INFERIOR: COMPARACIÓN DE TOTALES Y BOTÓN DE GUARDADO -->
+                    <div class="card" style="box-shadow: var(--shadow-sm); border-top: 3px solid #2563eb;">
+                        <div style="font-weight: 700; color: #1e293b; font-size: 0.95rem; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                            <i class="fas fa-scale-balanced" style="color: #2563eb;"></i> 3. Comparación y Cuadre de Factura
+                        </div>
+
+                        <div class="manual-comparador-grid">
+                            <!-- Columna 1: Total Factura Ingresado -->
+                            <div class="comparador-col">
+                                <span style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">
+                                    Total Factura Ingresado
+                                </span>
+                                <div style="margin: 8px 0;">
+                                    <span id="resumen-manual-saldo-ingresado" style="font-size: 1.6rem; font-weight: 800; color: #1e3c72; font-family: monospace;">$0.00</span>
+                                </div>
+                                <span style="font-size: 0.78rem; color: #64748b;">Saldo registrado en el encabezado.</span>
+                            </div>
+
+                            <!-- Columna 2: Total Calculado de Productos -->
+                            <div class="comparador-col">
+                                <span style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">
+                                    Total Productos (Con IVA)
+                                </span>
+                                <div style="margin: 8px 0;">
+                                    <span id="resumen-manual-total-productos" style="font-size: 1.6rem; font-weight: 800; color: #2563eb; font-family: monospace;">$0.00</span>
+                                </div>
+                                <span id="resumen-manual-desglose-iva" style="font-size: 0.75rem; color: #64748b;">Subtotal Sin IVA: $0.0000 | IVA (13%): $0.00</span>
+                            </div>
+
+                            <!-- Columna 3: Estado de Cuadre / Diferencia -->
+                            <div class="comparador-col" id="box-manual-estado-cuadre">
+                                <span style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">
+                                    Validación de Cuadre
+                                </span>
+                                <div id="resumen-manual-estado-cuadre" style="margin: 8px 0;">
+                                    <div style="font-weight: 700; color: #64748b; font-size: 1rem;"><i class="fas fa-calculator"></i> Pendiente</div>
+                                    <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 4px;">Ingresa el saldo de la factura y los productos para comparar.</div>
+                                </div>
+                                <span style="font-size: 0.75rem; color: #64748b;">Comprueba que no falte ni sobre ningún centavo.</span>
+                            </div>
+                        </div>
+
+                        <!-- Botón de Guardado -->
+                        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 15px; margin-top: 20px; border-top: 1px solid #edf2f7; padding-top: 16px;">
+                            <button type="button" class="btn btn-secondary" onclick="volverASeleccionOrigen()">
+                                Cancelar
+                            </button>
+                            <button type="button" id="btn-guardar-manual-directo" class="btn btn-success" style="font-size: 1.05rem; padding: 12px 28px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 6px rgba(16, 185, 129, 0.25);" onclick="guardarFacturaManualDirecta()">
+                                <i class="fas fa-check-circle"></i> Guardar Factura en el Sistema
+                            </button>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
@@ -2704,6 +2961,12 @@
         function irAPaso(pasoNum) {
             if (pasoNum < 1 || pasoNum > 5) return;
 
+            // Ocultar panel de carga manual directa si estuviera visible
+            const paneManual = document.getElementById('pane-carga-manual-directa');
+            if (paneManual) paneManual.style.display = 'none';
+            const stepper = document.getElementById('wizard-steps-bar');
+            if (stepper) stepper.style.display = 'flex';
+
             // Validación al querer avanzar a pasos finales sin nada cargado
             if (pasoNum >= 4 && itemsFacturaActual.length === 0 && !document.getElementById('inv-proveedor').value.trim()) {
                 showToast("Por favor carga un archivo JSON o usa carga manual primero.");
@@ -3008,42 +3271,491 @@
             actualizarBannerResumen();
         }
 
+        // ==================== 7. MODO MANUAL DIRECTO Y UNIFICADO ====================
+        let itemsFacturaManual = [];
+        let manualCondicionActual = 'CREDITO';
+        let manualTipoActual = 'COMPRA';
+        let modoVincularManual = false;
+
         function iniciarCargaManual() {
-            document.getElementById('manual-init-proveedor').value = '';
-            document.getElementById('manual-init-fecha').value = new Date().toISOString().split('T')[0];
-            document.getElementById('manual-init-numero').value = '';
-            document.getElementById('manual-init-monto').value = '0.00';
-            document.getElementById('modal-datos-manual').classList.add('active');
+            iniciarCargaManualDirecta();
+        }
+
+        function iniciarCargaManualDirecta() {
+            const stepper = document.getElementById('wizard-steps-bar');
+            if (stepper) stepper.style.display = 'none';
+
+            for (let i = 1; i <= 5; i++) {
+                const pane = document.getElementById(`step-pane-${i}`);
+                if (pane) pane.style.display = 'none';
+            }
+
+            const paneManual = document.getElementById('pane-carga-manual-directa');
+            if (paneManual) paneManual.style.display = 'block';
+
+            document.getElementById('manual-dir-proveedor').value = '';
+            document.getElementById('manual-dir-fecha').value = new Date().toISOString().split('T')[0];
+            document.getElementById('manual-dir-numero').value = '';
+            document.getElementById('manual-dir-monto-total').value = '0.00';
+            seleccionarCondicionManual('CREDITO');
+            seleccionarTipoManual('COMPRA');
+            document.getElementById('manual-dir-check-historico').checked = false;
+
+            itemsFacturaManual = [];
+            agregarFilaManualDirecta();
+
             setTimeout(() => {
-                const inp = document.getElementById('manual-init-proveedor');
+                const inp = document.getElementById('manual-dir-proveedor');
                 if (inp) inp.focus();
             }, 100);
         }
 
-        function cerrarModalDatosManual() {
-            document.getElementById('modal-datos-manual').classList.remove('active');
+        function volverASeleccionOrigen() {
+            if (itemsFacturaManual.some(i => (i.descripcion && i.descripcion.trim() !== '') || i.precioSinIva > 0)) {
+                if (!confirm("¿Deseas salir del modo manual? Los datos no guardados se perderán.")) {
+                    return;
+                }
+            }
+
+            const paneManual = document.getElementById('pane-carga-manual-directa');
+            if (paneManual) paneManual.style.display = 'none';
+
+            const stepper = document.getElementById('wizard-steps-bar');
+            if (stepper) stepper.style.display = 'flex';
+
+            irAPaso(1);
         }
 
-        async function confirmarDatosFacturaManual() {
-            const prov = document.getElementById('manual-init-proveedor').value.trim();
-            const fecha = document.getElementById('manual-init-fecha').value;
-            const num = document.getElementById('manual-init-numero').value.trim();
-            const monto = Number(document.getElementById('manual-init-monto').value) || 0;
+        function limpiarCargaManual(silencioso = false) {
+            if (!silencioso && itemsFacturaManual.some(i => (i.descripcion && i.descripcion.trim() !== '') || i.precioSinIva > 0)) {
+                if (!confirm("¿Deseas limpiar todos los campos y productos?")) return;
+            }
 
-            if (!prov) {
-                alert("Por favor ingresa o selecciona el nombre del proveedor.");
+            document.getElementById('manual-dir-proveedor').value = '';
+            document.getElementById('manual-dir-fecha').value = new Date().toISOString().split('T')[0];
+            document.getElementById('manual-dir-numero').value = '';
+            document.getElementById('manual-dir-monto-total').value = '0.00';
+            seleccionarCondicionManual('CREDITO');
+            seleccionarTipoManual('COMPRA');
+            document.getElementById('manual-dir-check-historico').checked = false;
+
+            itemsFacturaManual = [];
+            agregarFilaManualDirecta();
+
+            if (!silencioso) showToast("Formulario manual limpiado.");
+        }
+
+        function seleccionarCondicionManual(cond) {
+            manualCondicionActual = cond;
+            const btnCred = document.getElementById('btn-manual-credito');
+            const btnCont = document.getElementById('btn-manual-contado');
+            if (btnCred && btnCont) {
+                if (cond === 'CREDITO') {
+                    btnCred.classList.add('selected');
+                    btnCont.classList.remove('selected');
+                } else {
+                    btnCont.classList.add('selected');
+                    btnCred.classList.remove('selected');
+                }
+            }
+        }
+
+        function seleccionarTipoManual(tipo) {
+            manualTipoActual = tipo;
+            const btnComp = document.getElementById('btn-manual-compra');
+            const btnGast = document.getElementById('btn-manual-gasto');
+            if (btnComp && btnGast) {
+                if (tipo === 'COMPRA') {
+                    btnComp.classList.add('selected');
+                    btnGast.classList.remove('selected');
+                } else {
+                    btnGast.classList.add('selected');
+                    btnComp.classList.remove('selected');
+                }
+            }
+            itemsFacturaManual.forEach(it => {
+                it.tipo = tipo;
+            });
+            renderizarTablaManualDirecta();
+        }
+
+        function agregarFilaManualDirecta() {
+            itemsFacturaManual.push({
+                idTemp: 'man_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+                codigoInventario: '',
+                codigoProveedor: '',
+                descripcion: '',
+                cantidad: 1,
+                precioSinIva: 0,
+                precioConIva: 0,
+                subtotal: 0,
+                tipo: manualTipoActual,
+                matchProducto: null
+            });
+            renderizarTablaManualDirecta();
+        }
+
+        function eliminarFilaManualDirecta(index) {
+            itemsFacturaManual.splice(index, 1);
+            renderizarTablaManualDirecta();
+        }
+
+        function renderizarTablaManualDirecta() {
+            const tbody = document.getElementById('tbody-manual-productos');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            if (itemsFacturaManual.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9" style="text-align:center; padding: 25px 20px; color: var(--text-muted);">
+                            <i class="fas fa-boxes-stacked" style="font-size: 1.8rem; color: #cbd5e1; margin-bottom: 8px;"></i>
+                            <div style="font-weight: 600; font-size: 0.95rem; color: #475569;">No hay productos en la lista</div>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="agregarFilaManualDirecta()" style="margin-top: 10px;">
+                                <i class="fas fa-plus"></i> Agregar Primer Producto
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                recalcularTotalesManuales();
+                return;
+            }
+
+            itemsFacturaManual.forEach((item, index) => {
+                const row = document.createElement('tr');
+                row.id = `fila-manual-${index}`;
+
+                const subtotalConIva = item.cantidad * item.precioConIva;
+                item.subtotal = item.cantidad * item.precioSinIva;
+
+                let badgeEstado = '';
+                if (manualTipoActual === 'GASTO') {
+                    badgeEstado = `<span class="badge badge-purple" style="font-size:0.7rem;"><i class="fas fa-gas-pump"></i> Gasto</span>`;
+                } else if (item.matchProducto) {
+                    badgeEstado = `
+                        <div style="display:flex; align-items:center; gap:4px; justify-content:center;">
+                            <span class="badge badge-success" style="font-size:0.7rem;"><i class="fas fa-check"></i> Enlazado</span>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="abrirModalVincularItemManual(${index})" style="padding: 1px 5px; font-size: 0.68rem;" title="Cambiar producto vinculado">
+                                <i class="fas fa-exchange-alt"></i>
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    badgeEstado = `
+                        <div style="display:flex; align-items:center; gap:4px; justify-content:center;">
+                            <span class="badge badge-warning" style="font-size:0.7rem;"><i class="fas fa-sparkles"></i> Nuevo</span>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="abrirModalVincularItemManual(${index})" style="padding: 1px 6px; font-size: 0.68rem; background: #2563eb;" title="Vincular a inventario existente">
+                                <i class="fas fa-link"></i>
+                            </button>
+                        </div>
+                    `;
+                }
+
+                row.innerHTML = `
+                    <td style="text-align: center; color: #64748b; font-weight: 600; font-size: 0.85rem;">
+                        ${index + 1}
+                    </td>
+                    <td>
+                        <input type="text" class="clean-table-input code-input" list="lista-codigos-inventario" 
+                            value="${item.codigoInventario || ''}" placeholder="Cód. Taller..." 
+                            onchange="actualizarCodigoItemManual(${index}, this.value)" title="Código interno de inventario">
+                    </td>
+                    <td>
+                        <input type="text" class="clean-table-input desc-input" 
+                            value="${item.descripcion || ''}" placeholder="Descripción del repuesto..." 
+                            oninput="actualizarDescItemManual(${index}, this.value)">
+                    </td>
+                    <td>
+                        <input type="number" class="clean-table-input num-input" style="text-align:center;" 
+                            step="1" min="1" value="${item.cantidad}" 
+                            oninput="actualizarCantidadItemManual(${index}, this.value)">
+                    </td>
+                    <td>
+                        <input type="number" id="inp-sin-iva-${index}" class="clean-table-input num-input" style="text-align:right; font-family: monospace; font-weight: 700; color: #1e3c72; background: #f0fdf4;" 
+                            step="0.0001" min="0" placeholder="0.0000" 
+                            value="${item.precioSinIva > 0 ? item.precioSinIva.toFixed(4) : ''}" 
+                            oninput="actualizarPrecioSinIvaManual(${index}, this.value)">
+                    </td>
+                    <td>
+                        <input type="number" id="inp-con-iva-${index}" class="clean-table-input num-input" style="text-align:right; font-family: monospace; font-weight: 700; color: #1d4ed8; background: #eff6ff;" 
+                            step="0.01" min="0" placeholder="0.00" 
+                            value="${item.precioConIva > 0 ? item.precioConIva.toFixed(2) : ''}" 
+                            oninput="actualizarPrecioConIvaManual(${index}, this.value)">
+                    </td>
+                    <td id="td-subtotal-${index}" style="font-weight:700; color:#1e3c72; text-align:right; white-space:nowrap; padding-right:12px; font-family: monospace;">
+                        $${subtotalConIva.toFixed(2)}
+                    </td>
+                    <td style="text-align: center;">
+                        ${badgeEstado}
+                    </td>
+                    <td style="text-align:center;">
+                        <button type="button" class="btn btn-danger btn-sm" onclick="eliminarFilaManualDirecta(${index})" style="padding: 4px 8px; border-radius: 6px;" title="Eliminar fila">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            recalcularTotalesManuales();
+        }
+
+        function actualizarCodigoItemManual(index, valor) {
+            const item = itemsFacturaManual[index];
+            if (!item) return;
+            const valClean = String(valor || '').trim();
+            item.codigoInventario = valClean;
+
+            if (valClean) {
+                const match = buscarCoincidenciaEnInventario([valClean], item.descripcion);
+                if (match) {
+                    item.matchProducto = match;
+                    item.codigoInventario = match.codigo || valClean;
+                    if (!item.descripcion || item.descripcion === 'Nuevo Repuesto') {
+                        item.descripcion = match.descripcion || '';
+                    }
+                    if (item.precioSinIva === 0 && match.costo) {
+                        const costoBase = Number(match.costo) || 0;
+                        actualizarPrecioSinIvaManual(index, costoBase);
+                    }
+                } else {
+                    item.matchProducto = null;
+                }
+            } else {
+                item.matchProducto = null;
+            }
+            renderizarTablaManualDirecta();
+        }
+
+        function actualizarDescItemManual(index, valor) {
+            const item = itemsFacturaManual[index];
+            if (item) item.descripcion = valor;
+        }
+
+        function actualizarCantidadItemManual(index, valor) {
+            const item = itemsFacturaManual[index];
+            if (!item) return;
+            item.cantidad = Math.max(1, parseInt(valor, 10) || 1);
+
+            const tdSub = document.getElementById(`td-subtotal-${index}`);
+            const subtotalFila = item.cantidad * item.precioConIva;
+            if (tdSub) tdSub.innerText = `$${subtotalFila.toFixed(2)}`;
+
+            recalcularTotalesManuales();
+        }
+
+        function actualizarPrecioSinIvaManual(index, valor) {
+            const item = itemsFacturaManual[index];
+            if (!item) return;
+
+            const valNum = Math.max(0, parseFloat(valor) || 0);
+            item.precioSinIva = valNum;
+            item.precioUnitario = valNum;
+
+            // Calcular precio CON IVA con 2 decimales
+            item.precioConIva = Math.round(valNum * 1.13 * 100) / 100;
+
+            const inpConIva = document.getElementById(`inp-con-iva-${index}`);
+            if (inpConIva) {
+                inpConIva.value = item.precioConIva > 0 ? item.precioConIva.toFixed(2) : '';
+            }
+
+            const tdSub = document.getElementById(`td-subtotal-${index}`);
+            const subtotalFila = item.cantidad * item.precioConIva;
+            if (tdSub) tdSub.innerText = `$${subtotalFila.toFixed(2)}`;
+
+            recalcularTotalesManuales();
+        }
+
+        function actualizarPrecioConIvaManual(index, valor) {
+            const item = itemsFacturaManual[index];
+            if (!item) return;
+
+            const valNum = Math.max(0, parseFloat(valor) || 0);
+            item.precioConIva = valNum;
+
+            // Calcular precio SIN IVA con 4 decimales
+            item.precioSinIva = Math.round((valNum / 1.13) * 10000) / 10000;
+            item.precioUnitario = item.precioSinIva;
+
+            const inpSinIva = document.getElementById(`inp-sin-iva-${index}`);
+            if (inpSinIva) {
+                inpSinIva.value = item.precioSinIva > 0 ? item.precioSinIva.toFixed(4) : '';
+            }
+
+            const tdSub = document.getElementById(`td-subtotal-${index}`);
+            const subtotalFila = item.cantidad * item.precioConIva;
+            if (tdSub) tdSub.innerText = `$${subtotalFila.toFixed(2)}`;
+
+            recalcularTotalesManuales();
+        }
+
+        function recalcularTotalesManuales() {
+            let totalSinIva = 0;
+            let totalConIva = 0;
+
+            itemsFacturaManual.forEach(it => {
+                totalSinIva += (it.cantidad * it.precioSinIva);
+                totalConIva += (it.cantidad * it.precioConIva);
+            });
+
+            const ivaCalculado = Math.round(totalSinIva * 0.13 * 100) / 100;
+            const totalEstimado = Math.round(totalConIva * 100) / 100;
+
+            const inputSaldo = document.getElementById('manual-dir-monto-total');
+            const saldoIngresado = parseFloat(inputSaldo ? inputSaldo.value : 0) || 0;
+
+            const elSaldoIngresado = document.getElementById('resumen-manual-saldo-ingresado');
+            const elTotalProductos = document.getElementById('resumen-manual-total-productos');
+            const elDesgloseIva = document.getElementById('resumen-manual-desglose-iva');
+            const elEstadoCuadre = document.getElementById('resumen-manual-estado-cuadre');
+            const boxCuadre = document.getElementById('box-manual-estado-cuadre');
+
+            if (elSaldoIngresado) elSaldoIngresado.innerText = `$${saldoIngresado.toFixed(2)}`;
+            if (elTotalProductos) elTotalProductos.innerText = `$${totalEstimado.toFixed(2)}`;
+            if (elDesgloseIva) {
+                elDesgloseIva.innerText = `Subtotal Sin IVA: $${totalSinIva.toFixed(4)} | IVA (13%): $${ivaCalculado.toFixed(2)}`;
+            }
+
+            const dif = Math.round((totalEstimado - saldoIngresado) * 100) / 100;
+
+            if (!boxCuadre || !elEstadoCuadre) return;
+
+            if (saldoIngresado <= 0 && totalEstimado <= 0) {
+                boxCuadre.className = 'comparador-col';
+                elEstadoCuadre.innerHTML = `
+                    <div style="font-weight: 700; color: #64748b; font-size: 1rem;"><i class="fas fa-calculator"></i> Pendiente</div>
+                    <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 4px;">Ingresa el saldo de la factura y los productos para comparar.</div>
+                `;
+            } else if (saldoIngresado <= 0) {
+                boxCuadre.className = 'comparador-col descuadrado';
+                elEstadoCuadre.innerHTML = `
+                    <div style="font-weight: 700; color: #b45309; font-size: 1rem;"><i class="fas fa-info-circle"></i> Falta Saldo Total</div>
+                    <div style="font-size: 0.8rem; color: #92400e; margin-top: 4px;">Ingresa el saldo de la factura arriba para validar el cuadre.</div>
+                `;
+            } else if (Math.abs(dif) <= 0.01) {
+                boxCuadre.className = 'comparador-col cuadrado';
+                elEstadoCuadre.innerHTML = `
+                    <div style="font-weight: 800; color: #059669; font-size: 1.1rem; display: flex; align-items: center; gap: 6px;">
+                        <i class="fas fa-circle-check" style="font-size: 1.3rem;"></i> ¡FACTURA CUADRADA!
+                    </div>
+                    <div style="font-size: 0.85rem; color: #047857; font-weight: 600; margin-top: 4px;">
+                        Los productos coinciden exactamente con el total de la factura ($${saldoIngresado.toFixed(2)}).
+                    </div>
+                `;
+            } else if (dif > 0) {
+                boxCuadre.className = 'comparador-col descuadrado-rojo';
+                elEstadoCuadre.innerHTML = `
+                    <div style="font-weight: 800; color: #dc2626; font-size: 1rem; display: flex; align-items: center; gap: 6px;">
+                        <i class="fas fa-triangle-exclamation"></i> SOBRAN $${Math.abs(dif).toFixed(2)}
+                    </div>
+                    <div style="font-size: 0.82rem; color: #991b1b; margin-top: 4px;">
+                        La suma de productos supera el saldo de la factura por <b>$${Math.abs(dif).toFixed(2)}</b>.
+                    </div>
+                `;
+            } else {
+                boxCuadre.className = 'comparador-col descuadrado';
+                elEstadoCuadre.innerHTML = `
+                    <div style="font-weight: 800; color: #d97706; font-size: 1rem; display: flex; align-items: center; gap: 6px;">
+                        <i class="fas fa-triangle-exclamation"></i> FALTAN $${Math.abs(dif).toFixed(2)}
+                    </div>
+                    <div style="font-size: 0.82rem; color: #92400e; margin-top: 4px;">
+                        Faltan <b>$${Math.abs(dif).toFixed(2)}</b> en productos para alcanzar el total de la factura ($${saldoIngresado.toFixed(2)}).
+                    </div>
+                `;
+            }
+        }
+
+        function abrirModalVincularItemManual(index) {
+            modoVincularManual = true;
+            itemIndexAVincular = index;
+            const item = itemsFacturaManual[index];
+            if (!item) return;
+
+            document.getElementById('vincular-item-desc').innerText = item.descripcion || '(Sin descripción)';
+            document.getElementById('vincular-item-cod').innerText = item.codigoProveedor || item.codigoInventario || 'Sin código';
+            document.getElementById('vincular-item-cant').innerText = item.cantidad;
+            document.getElementById('vincular-item-precio').innerText = formatMoney(item.precioSinIva);
+
+            const inputBuscar = document.getElementById('vincular-buscar-input');
+            const textoSugerido = item.codigoProveedor || (item.descripcion ? item.descripcion.split(/\s+/).slice(0, 2).join(' ') : '');
+            inputBuscar.value = textoSugerido;
+            filtrarProductosParaVincular(textoSugerido);
+
+            document.getElementById('modal-vincular-producto').classList.add('active');
+            inputBuscar.focus();
+        }
+
+        async function guardarFacturaManualDirecta() {
+            const proveedor = (document.getElementById('manual-dir-proveedor').value || '').trim();
+            const fecha = document.getElementById('manual-dir-fecha').value;
+            const numeroFactura = (document.getElementById('manual-dir-numero').value || '').trim();
+            const inputSaldo = document.getElementById('manual-dir-monto-total');
+            let saldoIngresado = parseFloat(inputSaldo ? inputSaldo.value : 0) || 0;
+            const condicion = manualCondicionActual || 'CREDITO';
+            const tipoFactura = manualTipoActual || 'COMPRA';
+            const esRegistroHistorico = document.getElementById('manual-dir-check-historico').checked;
+
+            if (!proveedor) {
+                alert("Por favor ingresa o selecciona el nombre del Proveedor.");
+                document.getElementById('manual-dir-proveedor').focus();
                 return;
             }
             if (!fecha) {
                 alert("Por favor ingresa la fecha de la factura.");
+                document.getElementById('manual-dir-fecha').focus();
+                return;
+            }
+            if (!numeroFactura) {
+                alert("Por favor ingresa el número de factura o código DTE.");
+                document.getElementById('manual-dir-numero').focus();
+                return;
+            }
+            if (itemsFacturaManual.length === 0) {
+                alert("Debes agregar al menos un producto a la factura.");
                 return;
             }
 
-            // Verificación si ya existe factura con ese número y proveedor
-            if (num && num !== 'S/N') {
+            for (let i = 0; i < itemsFacturaManual.length; i++) {
+                const it = itemsFacturaManual[i];
+                if (!it.descripcion || !it.descripcion.trim()) {
+                    alert(`El producto en la fila #${i + 1} no tiene descripción.`);
+                    return;
+                }
+                if (it.precioSinIva <= 0 && it.precioConIva <= 0) {
+                    alert(`El producto "${it.descripcion}" (fila #${i + 1}) debe tener un precio mayor a 0.`);
+                    return;
+                }
+            }
+
+            let totalSinIva = 0;
+            let totalConIva = 0;
+            itemsFacturaManual.forEach(it => {
+                totalSinIva += (it.cantidad * it.precioSinIva);
+                totalConIva += (it.cantidad * it.precioConIva);
+            });
+            totalSinIva = Math.round(totalSinIva * 10000) / 10000;
+            const totalEstimado = Math.round(totalConIva * 100) / 100;
+
+            if (saldoIngresado <= 0) {
+                saldoIngresado = totalEstimado;
+                if (inputSaldo) inputSaldo.value = saldoIngresado.toFixed(2);
+            }
+
+            const dif = Math.round((totalEstimado - saldoIngresado) * 100) / 100;
+            if (Math.abs(dif) > 0.05) {
+                const confirmarDif = confirm(
+                    `⚠️ ATENCIÓN: El total ingresado de la factura ($${saldoIngresado.toFixed(2)}) no coincide con la suma de los productos ($${totalEstimado.toFixed(2)}).\n` +
+                    `Existe una diferencia de $${Math.abs(dif).toFixed(2)}.\n\n` +
+                    `¿Deseas guardar la factura de todas formas?`
+                );
+                if (!confirmarDif) return;
+            }
+
+            if (numeroFactura && numeroFactura !== 'S/N') {
                 const facDup = await verificarFacturaDuplicada({
-                    numeroFactura: num,
-                    proveedor: prov
+                    numeroFactura: numeroFactura,
+                    proveedor: proveedor
                 });
                 if (facDup) {
                     mostrarModalFacturaDuplicada(
@@ -3054,30 +3766,147 @@
                 }
             }
 
-            limpiarFormularioFactura(true);
+            const totalFinal = saldoIngresado;
+            const subtotalFinal = Math.round((totalFinal / 1.13) * 100) / 100;
+            const ivaFinal = Math.round((totalFinal - subtotalFinal) * 100) / 100;
+            const saldoPendiente = (condicion === 'CONTADO') ? 0 : totalFinal;
+            const totalAbonado = (condicion === 'CONTADO') ? totalFinal : 0;
 
-            document.getElementById('inv-proveedor').value = prov;
-            document.getElementById('inv-fecha').value = fecha;
-            document.getElementById('inv-numero').value = num || 'S/N';
-            document.getElementById('inv-total-fiscal').value = monto.toFixed(2);
+            try {
+                showToast("Guardando factura e ingresando a inventario...", 5000);
 
-            const sub = Math.round((monto / 1.13) * 100) / 100;
-            const iva = Math.round((monto - sub) * 100) / 100;
-            document.getElementById('inv-subtotal').value = sub.toFixed(2);
-            document.getElementById('inv-iva').value = iva.toFixed(2);
+                const batch = db.batch();
 
-            alCambiarFechaFactura();
-            actualizarDisplaysFiscales();
-            actualizarBannerResumen();
-            actualizarVistaPreviaPasos();
+                // 1. Guardar en COMPRAS_PROVEEDORES
+                const facturaRef = db.collection('COMPRAS_PROVEEDORES').doc();
+                const facturaData = {
+                    proveedor: proveedor,
+                    fecha: fecha,
+                    numeroFactura: numeroFactura,
+                    codigoGeneracion: '',
+                    numeroControl: '',
+                    tipoFactura: tipoFactura,
+                    condicion: condicion,
+                    registroHistorico: esRegistroHistorico,
+                    afectoInventario: (tipoFactura === 'COMPRA' && !esRegistroHistorico),
+                    subtotal: subtotalFinal,
+                    iva: ivaFinal,
+                    total: totalFinal,
+                    saldoPendiente: saldoPendiente,
+                    totalAbonado: totalAbonado,
+                    estado: saldoPendiente <= 0 ? 'PAGADA' : 'PENDIENTE',
+                    abonos: [],
+                    items: itemsFacturaManual.map(i => ({
+                        tipo: i.tipo || tipoFactura,
+                        codigoInventario: i.codigoInventario || '',
+                        codigoProveedor: i.codigoProveedor || '',
+                        descripcion: i.descripcion,
+                        cantidad: i.cantidad,
+                        precioUnitario: i.precioSinIva,
+                        precioConIva: i.precioConIva,
+                        subtotal: i.cantidad * i.precioSinIva
+                    })),
+                    fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
+                };
 
-            if (itemsFacturaActual.length === 0) {
-                agregarFilaVacia();
+                batch.set(facturaRef, facturaData);
+
+                // 2. Perfil de Proveedor en PROVEEDORES
+                const provExistente = catalogoProveedores.find(p => p && String(p.nombre || '').trim().toLowerCase() === proveedor.toLowerCase());
+                if (provExistente) {
+                    const provRef = db.collection('PROVEEDORES').doc(provExistente.id);
+                    batch.update(provRef, {
+                        saldo: firebase.firestore.FieldValue.increment(saldoPendiente),
+                        totalFacturado: firebase.firestore.FieldValue.increment(totalFinal),
+                        totalAbonado: firebase.firestore.FieldValue.increment(totalAbonado),
+                        ultimaFactura: fecha
+                    });
+                } else {
+                    const nuevoProvRef = db.collection('PROVEEDORES').doc();
+                    batch.set(nuevoProvRef, {
+                        nombre: proveedor,
+                        alias: '',
+                        telefono: '',
+                        contacto: '',
+                        diasCredito: 30,
+                        saldo: saldoPendiente,
+                        totalFacturado: totalFinal,
+                        totalAbonado: totalAbonado,
+                        ultimaFactura: fecha,
+                        fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+
+                // 3. Si es COMPRA, actualizar existencias y costos en INVENTARIO
+                if (tipoFactura === 'COMPRA') {
+                    for (const item of itemsFacturaManual) {
+                        if (item.tipo === 'GASTO') continue;
+
+                        let targetProd = item.matchProducto;
+                        if (!targetProd && item.codigoInventario) {
+                            targetProd = catalogoInventario.find(p => p && String(p.codigo || '').trim().toLowerCase() === item.codigoInventario.toLowerCase());
+                        }
+
+                        if (targetProd) {
+                            const prodRef = db.collection('INVENTARIO').doc(targetProd.id);
+                            const stockActual = Number(targetProd.existencia) || 0;
+                            const costoActual = Number(targetProd.costo) || 0;
+                            const cantNueva = item.cantidad;
+                            const nuevoStock = stockActual + cantNueva;
+
+                            let nuevoCostoPromedio = item.precioSinIva;
+                            if (stockActual > 0) {
+                                nuevoCostoPromedio = ((stockActual * costoActual) + (cantNueva * item.precioSinIva)) / nuevoStock;
+                            }
+                            nuevoCostoPromedio = Math.round(nuevoCostoPromedio * 10000) / 10000;
+
+                            const updateData = {
+                                costo: nuevoCostoPromedio,
+                                precio: Math.round(nuevoCostoPromedio * 1.30 * 100) / 100,
+                                ultimaActualizacion: fecha
+                            };
+
+                            if (!esRegistroHistorico) {
+                                updateData.existencia = firebase.firestore.FieldValue.increment(cantNueva);
+                            }
+
+                            batch.update(prodRef, updateData);
+                        } else if (item.codigoInventario || item.descripcion) {
+                            const nuevoProdRef = db.collection('INVENTARIO').doc();
+                            const nuevoCodigo = item.codigoInventario || ('REP-' + Date.now().toString().slice(-6));
+                            const nuevoItemInventario = {
+                                codigo: nuevoCodigo,
+                                descripcion: item.descripcion,
+                                categoria: 'General',
+                                existencia: esRegistroHistorico ? 0 : item.cantidad,
+                                costo: item.precioSinIva,
+                                precio: Math.round(item.precioSinIva * 1.30 * 100) / 100,
+                                proveedor: proveedor,
+                                ultimaActualizacion: fecha,
+                                fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
+                            };
+                            batch.set(nuevoProdRef, nuevoItemInventario);
+                        }
+                    }
+                }
+
+                await batch.commit();
+
+                showToast("¡Factura guardada con éxito!");
+
+                await cargarDatosIniciales();
+                limpiarCargaManual(true);
+
+                const verHistorial = confirm("✅ Factura registrada correctamente.\n\n¿Deseas verla en el Historial de Facturas?");
+                if (verHistorial) {
+                    volverASeleccionOrigen();
+                    switchTab('tab-historial');
+                }
+
+            } catch (err) {
+                console.error("Error al guardar factura manual:", err);
+                alert("Ocurrió un error al guardar la factura: " + err.message);
             }
-
-            cerrarModalDatosManual();
-            irAPaso(2);
-            showToast("Vista previa generada. Paso 2: confirma si es Crédito o Contado.");
         }
 
         function actualizarVistaPreviaPasos() {
@@ -3838,6 +4667,7 @@
         function cerrarModalVincular() {
             document.getElementById('modal-vincular-producto').classList.remove('active');
             itemIndexAVincular = null;
+            modoVincularManual = false;
         }
 
         function filtrarProductosParaVincular(query) {
@@ -3893,6 +4723,26 @@
             if (itemIndexAVincular === null) return;
             const prod = catalogoInventario.find(p => p && p.id === prodId);
             if (!prod) return;
+
+            if (modoVincularManual) {
+                const item = itemsFacturaManual[itemIndexAVincular];
+                if (item) {
+                    item.matchProducto = prod;
+                    item.codigoInventario = prod.codigo || '';
+                    if (!item.descripcion || item.descripcion.trim() === '') {
+                        item.descripcion = prod.descripcion || '';
+                    }
+                    if (item.precioSinIva === 0 && Number(prod.costo) > 0) {
+                        item.precioSinIva = Number(prod.costo);
+                        item.precioConIva = Math.round(Number(prod.costo) * 1.13 * 100) / 100;
+                    }
+                }
+                cerrarModalVincular();
+                renderizarTablaManualDirecta();
+                recalcularTotalesManuales();
+                showToast(`Ítem vinculado con éxito a: ${prod.codigo} - ${prod.descripcion}`);
+                return;
+            }
 
             const item = itemsFacturaActual[itemIndexAVincular];
             item.matchProducto = prod;

@@ -71,6 +71,17 @@ Este archivo contiene el resumen de lo que ya está listo y lo que sigue, para m
     *   **Fecha:** 14 de Octubre de 2026.
     *   **Qué se modificó:** Se actualizó el criterio de ordenamiento en `openAutoRenumberModal` y `previewAutoRenumber` dentro de `RegistrosApp.js` para que tome como prioridad el número actual de factura (`numA - numB`), resolviendo duplicados por fecha y hora de creación.
     *   **Razón:** Anteriormente se ordenaban las facturas por la hora de creación, provocando que facturas repetidas aparecieran dispersas o después de números más altos. Con este ajuste, las facturas se listan en orden estrictamente ascendente, las facturas con números duplicados se agrupan juntas y la segunda repetida recibe la corrección correlativa de forma consecutiva.
+18. **Carga Manual Directa y Unificada de Facturas de Proveedores (facturas.html):**
+    *   **Fecha:** 14 de Octubre de 2026.
+    *   **Qué se modificó:**
+        - Se implementó una nueva pantalla directa y unificada para la carga manual de facturas (`#pane-carga-manual-directa`) que elimina el asistente fragmentado por pasos para el modo manual.
+        - Cabecera directa con Proveedor (con autocompletado y catálogo dinámico), Fecha de emisión, Código DTE / N° Factura y Saldo Total Esperado.
+        - Selectores tipo píldora en la misma cabecera para Condición (Crédito / Contado) y Tipo (Compra / Gasto).
+        - Detalle de productos con autocompletado bidireccional en vivo: Precio Unitario Sin IVA a 4 decimales (`$0.0000`) y Con IVA a 2 decimales (`$0.00`). Al escribir en cualquiera de las dos casillas, la otra se calcula automáticamente sin perder el foco.
+        - Búsqueda y vinculación directa con el catálogo de inventario (por código o modal interactivo), autollenando descripción y costo.
+        - Comparador visual de cuadre en tiempo real que confronta el Saldo Total inicial contra el Total generado por los productos cargados, indicando en verde si cuadra o la diferencia en centavos.
+        - Guardado directo en Firestore (`COMPRAS_PROVEEDORES`, `PROVEEDORES` e `INVENTARIO` con costo promedio ponderado y control de registro histórico).
+    *   **Razón:** El asistente manual anterior era engorroso, obligaba a pasar por múltiples pantallas innecesarias, no ofrecía conversión bidireccional a 4 decimales para el IVA, ni permitía verificar si la sumatoria de los productos cuadraba con el total de la factura antes de guardar.
 
 ## 📋 PRÓXIMOS PASOS (Por si deseas continuar)
 *   Seguir con cualquier mejora de diseño, reportes adicionales o nuevas funciones en las pantallas que necesites.
