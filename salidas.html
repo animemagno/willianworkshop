@@ -745,7 +745,7 @@
                     
                     <div style="display: flex; align-items: center; gap: 8px; background: white; padding: 4px 10px; border: 1px solid #cbd5e0; border-radius: 6px;">
                         <i class="fas fa-calendar-alt" style="color: #3498db; font-size: 0.95rem;"></i>
-                        <select id="historial-month-filter" style="border: none; outline: none; background: transparent; font-size: 0.95rem; font-weight: 600; color: #2d3748; cursor: pointer; padding: 6px 4px;" onchange="RegistrosApp.filterInvoicesHistory()">
+                        <select id="historial-month-filter" style="border: none; outline: none; background: transparent; font-size: 0.95rem; font-weight: 600; color: #2d3748; cursor: pointer; padding: 6px 4px;" onchange="RegistrosApp.filterInvoicesHistory(true)">
                             <option value="">Todos los meses</option>
                         </select>
                     </div>
@@ -1201,7 +1201,7 @@
             
             <div style="background: #ebf8ff; color: #2b6cb0; padding: 12px 16px; border-radius: 8px; border-left: 4px solid #3182ce; margin-bottom: 15px; font-size: 0.9rem;">
                 <p style="margin: 0; line-height: 1.4;">
-                    Esta herramienta toma las facturas en orden cronológico a partir del número que elijas y reasigna los números de forma consecutiva (1 a 1), corrigiendo duplicados y saltos automáticamente.
+                    Esta herramienta toma las facturas ordenadas por su número actual a partir del número que elijas y reasigna los números de forma consecutiva (1 a 1), corrigiendo duplicados y saltos automáticamente.
                 </p>
             </div>
 
@@ -1252,7 +1252,7 @@
     <script src="js/salidas/SalidasController.js?v=2.2.0"></script>
 
     <!-- CARGAR SCRIPT DE REGISTROS -->
-    <script src="js/RegistrosApp.js?v=2.2.4"></script>
+    <script src="js/RegistrosApp.js?v=2.2.6"></script>
 
 </body>
 

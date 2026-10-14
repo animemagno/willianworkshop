@@ -63,6 +63,14 @@ Este archivo contiene el resumen de lo que ya está listo y lo que sigue, para m
     *   **Fecha:** 14 de Octubre de 2026.
     *   **Qué se modificó:** Se implementó `addAccountToFactura` con mapeo exacto de registros (`consumedRegs`). Al pulsar 'Todos', los ítems de la cuenta se vinculan directamente a sus registros de origen y se descuentan explícitamente en la vista previa y en el guardado (`finalizeInvoice`), evitando que el FIFO general consuma registros de otras fechas o deje registros de la misma cuenta pendientes (eliminando el desfase de 10 ➔ 4 ➔ 1 ➔ 0).
     *   **Razón:** Al agrupar repuestos en la factura, el sistema los convertía a genéricos y el cálculo automático de inventario descontaba registros del inicio de mes en lugar de los registros específicos de la cuenta, provocando que la cuenta no se vaciara en el primer clic.
+16. **Filtro Predeterminado por Mes en Historial de Facturas (salidas.html / RegistrosApp.js):**
+    *   **Fecha:** 14 de Octubre de 2026.
+    *   **Qué se modificó:** Se ajustó `populateHistoryMonthFilter` y `filterInvoicesHistory` en `RegistrosApp.js` para que al ingresar al historial seleccione por defecto el mes activo de trabajo (o el mes más reciente con facturas), filtrando inmediatamente la tabla y actualizando las tarjetas de totales para ese mes. Se mantuvo la opción "Todos los meses" en el menú desplegable y se conserva cualquier selección manual realizada por el usuario durante la sesión.
+    *   **Razón:** Anteriormente el selector se abría en "Todos los meses", mezclando todas las facturas históricas en lugar de mostrar de entrada las facturas correspondientes al mes de trabajo.
+17. **Ordenamiento por Número Actual en Corrección de Secuencia (salidas.html / RegistrosApp.js):**
+    *   **Fecha:** 14 de Octubre de 2026.
+    *   **Qué se modificó:** Se actualizó el criterio de ordenamiento en `openAutoRenumberModal` y `previewAutoRenumber` dentro de `RegistrosApp.js` para que tome como prioridad el número actual de factura (`numA - numB`), resolviendo duplicados por fecha y hora de creación.
+    *   **Razón:** Anteriormente se ordenaban las facturas por la hora de creación, provocando que facturas repetidas aparecieran dispersas o después de números más altos. Con este ajuste, las facturas se listan en orden estrictamente ascendente, las facturas con números duplicados se agrupan juntas y la segunda repetida recibe la corrección correlativa de forma consecutiva.
 
 ## 📋 PRÓXIMOS PASOS (Por si deseas continuar)
 *   Seguir con cualquier mejora de diseño, reportes adicionales o nuevas funciones en las pantallas que necesites.

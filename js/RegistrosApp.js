@@ -32,6 +32,7 @@ const RegistrosApp = {
     currentLinkInvoiceItemIndex: null,
     editingInvoiceId: null,
     expandedAccounts: new Set(),
+    _historyMonthManuallyChanged: false,
 
     async confirmDialog(message) {
         if (typeof Swal === 'undefined') return confirm(message);
@@ -4707,8 +4708,20 @@ const RegistrosApp = {
 
         select.innerHTML = html;
 
-        if (previousValue && sortedMonths.includes(previousValue)) {
+        if (this._historyMonthManuallyChanged && (previousValue === "" || sortedMonths.includes(previousValue))) {
             select.value = previousValue;
+        } else {
+            // Predeterminar al mes activo en trabajo o al mes más reciente disponible
+            const fechaInput = document.getElementById('factura-fecha');
+            const activeMonth = this.mesFacturable || (fechaInput && fechaInput.value ? fechaInput.value.substring(0, 7) : '') || this.getLocalISODate().substring(0, 7);
+
+            if (sortedMonths.includes(activeMonth)) {
+                select.value = activeMonth;
+            } else if (sortedMonths.length > 0) {
+                select.value = sortedMonths[0];
+            } else {
+                select.value = "";
+            }
         }
     },
 
@@ -4758,7 +4771,11 @@ const RegistrosApp = {
         if (hManoObra) hManoObra.innerText = manoObra.toFixed(2);
     },
 
-    filterInvoicesHistory() {
+    filterInvoicesHistory(fromUserChange = false) {
+        if (fromUserChange) {
+            this._historyMonthManuallyChanged = true;
+        }
+
         const searchInput = document.getElementById('historial-search');
         const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
         const monthSelect = document.getElementById('historial-month-filter');
@@ -4963,14 +4980,14 @@ const RegistrosApp = {
             // Contar frecuencias para encontrar automáticamente el primer número repetido
             const counts = {};
             const chronSorted = [...this.allHistoricalInvoices].sort((a, b) => {
+                const numA = parseInt(String(a.numeroFactura || '').replace(/\D/g, ''), 10) || 0;
+                const numB = parseInt(String(b.numeroFactura || '').replace(/\D/g, ''), 10) || 0;
+                if (numA !== numB) return numA - numB;
                 const dateComp = (a.fecha || '').localeCompare(b.fecha || '');
                 if (dateComp !== 0) return dateComp;
                 const timeA = a.timestamp ? (a.timestamp.toMillis ? a.timestamp.toMillis() : (a.timestamp.seconds || 0) * 1000) : 0;
                 const timeB = b.timestamp ? (b.timestamp.toMillis ? b.timestamp.toMillis() : (b.timestamp.seconds || 0) * 1000) : 0;
-                if (timeA !== timeB) return timeA - timeB;
-                const numA = parseInt(String(a.numeroFactura || '').replace(/\D/g, ''), 10) || 0;
-                const numB = parseInt(String(b.numeroFactura || '').replace(/\D/g, ''), 10) || 0;
-                return numA - numB;
+                return timeA - timeB;
             });
 
             for (let inv of chronSorted) {
@@ -4986,7 +5003,10 @@ const RegistrosApp = {
 
         const input = document.getElementById('renumber-start-num');
         if (input) {
-            input.value = detectedStart || 960;
+            const firstNum = this.allHistoricalInvoices && this.allHistoricalInvoices.length > 0
+                ? (parseInt(String(this.allHistoricalInvoices[0].numeroFactura || '').replace(/\D/g, ''), 10) || 1)
+                : 1;
+            input.value = detectedStart || firstNum;
         }
 
         modal.style.display = 'flex';
@@ -5008,16 +5028,16 @@ const RegistrosApp = {
             return;
         }
 
-        // Ordenar cronológicamente (más antiguo a más reciente)
+        // Ordenar basándose en el número actual de factura
         const chronSorted = [...this.allHistoricalInvoices].sort((a, b) => {
+            const numA = parseInt(String(a.numeroFactura || '').replace(/\D/g, ''), 10) || 0;
+            const numB = parseInt(String(b.numeroFactura || '').replace(/\D/g, ''), 10) || 0;
+            if (numA !== numB) return numA - numB;
             const dateComp = (a.fecha || '').localeCompare(b.fecha || '');
             if (dateComp !== 0) return dateComp;
             const timeA = a.timestamp ? (a.timestamp.toMillis ? a.timestamp.toMillis() : (a.timestamp.seconds || 0) * 1000) : 0;
             const timeB = b.timestamp ? (b.timestamp.toMillis ? b.timestamp.toMillis() : (b.timestamp.seconds || 0) * 1000) : 0;
-            if (timeA !== timeB) return timeA - timeB;
-            const numA = parseInt(String(a.numeroFactura || '').replace(/\D/g, ''), 10) || 0;
-            const numB = parseInt(String(b.numeroFactura || '').replace(/\D/g, ''), 10) || 0;
-            return numA - numB;
+            return timeA - timeB;
         });
 
         // Encontrar el primer índice donde coincida o comience el número seleccionado
